@@ -91,14 +91,18 @@ export default function UploadJob() {
           
           // Determine phase from code or description
           let phase = '';
-          if (code.includes('Masonry') || description.toLowerCase().includes('masonry') || description.toLowerCase().includes('brick')) {
+          if (code.startsWith('MS') || description.toLowerCase().includes('masonry') || description.toLowerCase().includes('brick')) {
             phase = 'Masonry Shell';
-          } else if (code.includes('Foundation') || description.toLowerCase().includes('foundation') || description.toLowerCase().includes('footing')) {
+          } else if (code.startsWith('FD') || description.toLowerCase().includes('foundation') || description.toLowerCase().includes('footing')) {
             phase = 'Foundations';
-          } else if (code.includes('Roof') || description.toLowerCase().includes('roof')) {
+          } else if (code.startsWith('RF') || description.toLowerCase().includes('roof')) {
             phase = 'Roof Structure';
-          } else if (code.includes('Floor') || description.toLowerCase().includes('floor')) {
+          } else if (code.startsWith('GF') || description.toLowerCase().includes('ground floor') || description.toLowerCase().includes('floor')) {
             phase = 'Ground Floor';
+          } else if (description.toLowerCase().includes('electrical')) {
+            phase = 'Electrical';
+          } else if (description.toLowerCase().includes('plumbing')) {
+            phase = 'Plumbing';
           } else {
             phase = 'General Works';
           }
@@ -135,7 +139,7 @@ export default function UploadJob() {
 
       toast({
         title: "CSV Processed & Job Created",
-        description: `${hbxlFile.name} processed with ${Object.keys(phaseData).length} phases. Ready for HBXL assignment.`,
+        description: `${hbxlFile.name} processed with ${Object.keys(phaseData).length} phases detected: ${Object.keys(phaseData).join(', ')}. Ready for HBXL assignment.`,
       });
     };
     

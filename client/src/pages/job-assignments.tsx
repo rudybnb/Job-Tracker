@@ -21,27 +21,12 @@ const hbxlJobs = [
   {
     id: "flat12bedroom-fitout-sg1-1eh",
     name: "Flat12Bedroom - Fitout (SG1 1EH)",
-    phases: ["Footings", "Foundations", "Groundwork", "Oversite and Slabbing", "Masonry Shell", "Roof Structure", "Roof Tiling", "External Decoration"]
+    phases: ["Foundations", "Ground Floor", "Masonry Shell", "Roof Structure", "Electrical", "Plumbing", "General Works"]
   },
   {
     id: "flat21bedroom-fitout-sg1-1eh", 
     name: "Flat21Bedroom - Fitout (SG1 1EH)",
-    phases: ["Footings", "Foundations", "Groundwork", "Oversite and Slabbing", "Masonry Shell", "Roof Structure", "Roof Tiling", "External Decoration"]
-  },
-  {
-    id: "kitchen-installation-unit-12a",
-    name: "Kitchen Installation - Unit 12A",
-    phases: ["Plumbing First Fix", "Electrical First Fix", "Kitchen Units", "Worktop Installation", "Tiling", "Final Connections"]
-  },
-  {
-    id: "bathroom-renovation-unit-5b",
-    name: "Bathroom Renovation - Unit 5B", 
-    phases: ["Strip Out", "Plumbing First Fix", "Electrical First Fix", "Waterproofing", "Tiling", "Sanitaryware", "Final Connections"]
-  },
-  {
-    id: "electrical-rewiring-unit-8c",
-    name: "Electrical Rewiring - Unit 8C",
-    phases: ["Strip Out", "First Fix Wiring", "Consumer Unit", "Second Fix", "Testing", "Certification"]
+    phases: ["Foundations", "Ground Floor", "Masonry Shell", "Roof Structure", "Electrical", "Plumbing", "General Works"]
   }
 ];
 
