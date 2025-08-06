@@ -52,8 +52,41 @@ export default function UploadJob() {
       const csvContent = e.target?.result as string;
       const lines = csvContent.split('\n').filter(line => line.trim());
       
+      // Extract client info from CSV header area (first few rows)
+      let clientInfo = {
+        projectName: '',
+        client: '',
+        location: '',
+        reference: '',
+        contractValue: ''
+      };
+
+      let dataStartRow = 0;
+      
+      // Look for client info in first 10 rows before the data starts
+      for (let i = 0; i < Math.min(10, lines.length); i++) {
+        const row = lines[i];
+        const parts = row.split(',').map(p => p.trim().replace(/"/g, ''));
+        
+        if (parts[0].toLowerCase().includes('project')) {
+          clientInfo.projectName = parts[1] || '';
+        } else if (parts[0].toLowerCase().includes('client')) {
+          clientInfo.client = parts[1] || '';
+        } else if (parts[0].toLowerCase().includes('location')) {
+          clientInfo.location = parts[1] || '';
+        } else if (parts[0].toLowerCase().includes('reference')) {
+          clientInfo.reference = parts[1] || '';
+        } else if (parts[0].toLowerCase().includes('contract') || parts[0].toLowerCase().includes('value')) {
+          clientInfo.contractValue = parts[1] || '';
+        } else if (parts[0].toLowerCase().includes('code')) {
+          // Found the data header row
+          dataStartRow = i;
+          break;
+        }
+      }
+      
       // Parse header to find column indices
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const headers = lines[dataStartRow].split(',').map(h => h.trim().replace(/"/g, ''));
       const codeIndex = headers.findIndex(h => h.toLowerCase().includes('code'));
       const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('item'));
       const unitIndex = headers.findIndex(h => h.toLowerCase().includes('unit'));
@@ -62,7 +95,7 @@ export default function UploadJob() {
       // Extract phase data from CSV based on the structure from your image
       const phaseData: Record<string, Array<{task: string, quantity: number, description: string, unit: string, code: string}>> = {};
       
-      for (let i = 1; i < lines.length; i++) {
+      for (let i = dataStartRow + 1; i < lines.length; i++) {
         const row = lines[i].split(',').map(cell => cell.trim().replace(/"/g, ''));
         if (row.length >= 4) {
           const code = row[codeIndex] || '';
@@ -109,6 +142,7 @@ export default function UploadJob() {
         id: Date.now().toString(),
         fileName: hbxlFile.name,
         phaseData: phaseData,
+        clientInfo: clientInfo,
         uploadedAt: new Date().toLocaleDateString('en-GB'),
         status: "processed" as const
       };
@@ -362,30 +396,74 @@ export default function UploadJob() {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
                 const jobName = formData.get('jobName') as string;
+                const client = formData.get('client') as string;
                 const location = formData.get('location') as string;
-                handleCreateJob(showCreateJobForm, jobName, location);
+                const reference = formData.get('reference') as string;
+                const contractValue = formData.get('contractValue') as string;
+                handleCreateJob(showCreateJobForm, jobName, `${client} • ${location}`);
               }}>
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-yellow-400 text-sm font-medium mb-2">Job Name *</label>
-                    <input
-                      name="jobName"
-                      type="text"
-                      placeholder="Flat 12 Bedroom Fitout"
-                      required
-                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-yellow-400 text-sm font-medium mb-2">Location *</label>
-                    <input
-                      name="location"
-                      type="text"
-                      placeholder="Fitout • SG1 1EH • £0"
-                      required
-                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
-                    />
-                  </div>
+                  {(() => {
+                    const csv = processedCSVs.find(c => c.id === showCreateJobForm);
+                    const clientInfo = csv?.clientInfo || {};
+                    return (
+                      <>
+                        <div>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Job Name *</label>
+                          <input
+                            name="jobName"
+                            type="text"
+                            defaultValue={clientInfo.projectName || ''}
+                            placeholder="Flat 12 Bedroom Fitout"
+                            required
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Client *</label>
+                          <input
+                            name="client"
+                            type="text"
+                            defaultValue={clientInfo.client || ''}
+                            placeholder="HBXL Construction Ltd"
+                            required
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Location *</label>
+                          <input
+                            name="location"
+                            type="text"
+                            defaultValue={clientInfo.location || ''}
+                            placeholder="Stevenage • SG1 1EH"
+                            required
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Reference</label>
+                          <input
+                            name="reference"
+                            type="text"
+                            defaultValue={clientInfo.reference || ''}
+                            placeholder="HB-2025-001"
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Contract Value</label>
+                          <input
+                            name="contractValue"
+                            type="text"
+                            defaultValue={clientInfo.contractValue || ''}
+                            placeholder="£15000"
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                          />
+                        </div>
+                      </>
+                    );
+                  })()}
                   <div className="flex space-x-2">
                     <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
                       Create Job
