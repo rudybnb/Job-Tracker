@@ -70,3 +70,12 @@
 .primary-700 {
   background-color: hsl(218, 85%, 53%);
 }
+
+/* GPS Tracker Dark Theme */
+.gps-dark {
+  --background: hsl(215, 28%, 17%);
+  --foreground: hsl(0, 0%, 100%);
+  --card: hsl(215, 25%, 15%);
+  --card-foreground: hsl(0, 0%, 100%);
+  --border: hsl(215, 20%, 25%);
+}
