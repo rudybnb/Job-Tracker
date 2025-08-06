@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 interface GPSPosition {
   latitude: number;
@@ -15,6 +16,8 @@ export default function GPSDashboard() {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [gpsPosition, setGpsPosition] = useState<GPSPosition | null>(null);
   const [gpsStatus, setGpsStatus] = useState<"Good" | "Poor" | "Unavailable">("Unavailable");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const { toast } = useToast();
 
   // Simulate GPS data for demo
   useEffect(() => {
@@ -61,6 +64,14 @@ export default function GPSDashboard() {
     }
   };
 
+  const handleMenuAction = (action: string) => {
+    setShowDropdown(false);
+    toast({
+      title: action,
+      description: `Opening ${action} interface...`,
+    });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Good': return 'bg-yellow-500 text-black';
@@ -85,8 +96,180 @@ export default function GPSDashboard() {
         <div className="flex items-center space-x-2">
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
           <span className="text-sm text-green-500">Online</span>
-          <div className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4">
-            <span className="text-white font-bold text-sm">RD</span>
+          <div className="relative">
+            <button 
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4 hover:bg-yellow-700 transition-colors"
+            >
+              <span className="text-white font-bold text-sm">RD</span>
+            </button>
+            
+            {showDropdown && (
+              <div className="absolute right-0 top-10 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                {/* User Info Header */}
+                <div className="px-4 py-3 border-b border-slate-600">
+                  <div className="text-yellow-400 font-semibold">Rudy Diedericks</div>
+                  <div className="text-slate-400 text-sm">rudy@erbuildanddesign.co.uk</div>
+                  <div className="flex items-center mt-2">
+                    <i className="fas fa-shield-alt text-blue-400 mr-2"></i>
+                    <span className="text-blue-400 text-sm">Admin Access</span>
+                  </div>
+                </div>
+                
+                {/* Menu Items */}
+                <div className="py-2">
+                  <button 
+                    onClick={() => handleMenuAction("Switch Account")}
+                    className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-user-circle mr-3 text-slate-400"></i>
+                    Switch Account
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Contractor Onboarding")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-user-plus mr-3 text-yellow-400"></i>
+                    Contractor Onboarding
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Assignment Management")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-clipboard-list mr-3 text-yellow-400"></i>
+                    Assignment Management
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("HBXL Labour Assignments")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-hard-hat mr-3 text-yellow-400"></i>
+                    HBXL Labour Assignments
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Contractor Onboarding")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-user-plus mr-3 text-yellow-400"></i>
+                    Contractor Onboarding
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("HBXL vs Daily Cost Analysis")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-chart-bar mr-3 text-yellow-400"></i>
+                    HBXL vs Daily Cost Analysis
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Hybrid Planning System")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-project-diagram mr-3 text-yellow-400"></i>
+                    Hybrid Planning System
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("HBXL Job Upload & Approval")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-upload mr-3 text-yellow-400"></i>
+                    HBXL Job Upload & Approval
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Export & Archive")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-download mr-3 text-yellow-400"></i>
+                    Export & Archive
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Create Contractor (James)")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-user-plus mr-3 text-yellow-400"></i>
+                    Create Contractor (James)
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Preview James's Interface")}
+                    className="w-full px-4 py-2 text-left text-slate-300 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-eye mr-3 text-slate-400"></i>
+                    Preview James's Interface
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Telegram Notifications")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fab fa-telegram-plane mr-3 text-yellow-400"></i>
+                    Telegram Notifications
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("AI Agent Management")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-robot mr-3 text-yellow-400"></i>
+                    AI Agent Management
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Project Estimation & Materials")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-calculator mr-3 text-yellow-400"></i>
+                    Project Estimation & Materials
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Supplier Price Comparison")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-dollar-sign mr-3 text-yellow-400"></i>
+                    Supplier Price Comparison
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Work Inspection & Quality Control")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-search mr-3 text-yellow-400"></i>
+                    Work Inspection & Quality Control
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("CIS Payroll")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-money-check-alt mr-3 text-yellow-400"></i>
+                    CIS Payroll
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleMenuAction("Accounting Exports")}
+                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-file-invoice mr-3 text-yellow-400"></i>
+                    Accounting Exports
+                  </button>
+                </div>
+                
+                {/* Footer Sections */}
+                <div className="border-t border-slate-600 py-2">
+                  <div className="px-4 py-1 text-slate-400 text-sm font-medium">Documents</div>
+                  <div className="px-4 py-1 text-slate-400 text-sm font-medium">Help & Support</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -242,6 +425,14 @@ export default function GPSDashboard() {
       
       {/* Add bottom padding to account for fixed navigation */}
       <div className="h-20"></div>
+      
+      {/* Overlay to close dropdown when clicking outside */}
+      {showDropdown && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setShowDropdown(false)}
+        />
+      )}
     </div>
   );
 }
