@@ -11,11 +11,13 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import ContractorOnboarding from "@/pages/contractor-onboarding";
 import ContractorForm from "@/pages/contractor-form";
 import JobAssignments from "@/pages/job-assignments";
+import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
+      <Route path="/login" component={Login} />
       <Route path="/" component={GPSDashboard} />
       <Route path="/jobs" component={Jobs} />
       <Route path="/upload" component={UploadJob} />
