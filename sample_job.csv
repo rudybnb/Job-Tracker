@@ -1,8 +1,7 @@
-Project Name,Flat 12 Bedroom Refurbishment
-Client,HBXL Construction Ltd
-Location,Stevenage • SG1 1EH
-Reference,HB-2025-001
-Contract Value,£15000
+Name,HBXL Construction Ltd
+Address,Manor Court Business Centre
+Post Code,SG1 1EH
+Project Type,Flat 12 Bedroom Refurbishment
 
 Code,Item Description,Unit,Quantity,Unit Rate,Total
 MS001,Masonry Shell - Bricklaying Foundation,No,50,25.00,1250.00

@@ -54,11 +54,10 @@ export default function UploadJob() {
       
       // Extract client info from CSV header area (first few rows)
       let clientInfo = {
-        projectName: '',
-        client: '',
-        location: '',
-        reference: '',
-        contractValue: ''
+        name: '',
+        address: '',
+        postCode: '',
+        projectType: ''
       };
 
       let dataStartRow = 0;
@@ -68,16 +67,14 @@ export default function UploadJob() {
         const row = lines[i];
         const parts = row.split(',').map(p => p.trim().replace(/"/g, ''));
         
-        if (parts[0].toLowerCase().includes('project')) {
-          clientInfo.projectName = parts[1] || '';
-        } else if (parts[0].toLowerCase().includes('client')) {
-          clientInfo.client = parts[1] || '';
-        } else if (parts[0].toLowerCase().includes('location')) {
-          clientInfo.location = parts[1] || '';
-        } else if (parts[0].toLowerCase().includes('reference')) {
-          clientInfo.reference = parts[1] || '';
-        } else if (parts[0].toLowerCase().includes('contract') || parts[0].toLowerCase().includes('value')) {
-          clientInfo.contractValue = parts[1] || '';
+        if (parts[0].toLowerCase().includes('name')) {
+          clientInfo.name = parts[1] || '';
+        } else if (parts[0].toLowerCase().includes('address')) {
+          clientInfo.address = parts[1] || '';
+        } else if (parts[0].toLowerCase().includes('post code') || parts[0].toLowerCase().includes('postcode')) {
+          clientInfo.postCode = parts[1] || '';
+        } else if (parts[0].toLowerCase().includes('project type') || parts[0].toLowerCase().includes('projecttype')) {
+          clientInfo.projectType = parts[1] || '';
         } else if (parts[0].toLowerCase().includes('code')) {
           // Found the data header row
           dataStartRow = i;
@@ -395,12 +392,11 @@ export default function UploadJob() {
               <form onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
-                const jobName = formData.get('jobName') as string;
-                const client = formData.get('client') as string;
-                const location = formData.get('location') as string;
-                const reference = formData.get('reference') as string;
-                const contractValue = formData.get('contractValue') as string;
-                handleCreateJob(showCreateJobForm, jobName, `${client} • ${location}`);
+                const projectType = formData.get('projectType') as string;
+                const clientName = formData.get('clientName') as string;
+                const address = formData.get('address') as string;
+                const postCode = formData.get('postCode') as string;
+                handleCreateJob(showCreateJobForm, projectType, `${clientName} • ${address} • ${postCode}`);
               }}>
                 <div className="space-y-4">
                   {(() => {
@@ -409,55 +405,46 @@ export default function UploadJob() {
                     return (
                       <>
                         <div>
-                          <label className="block text-yellow-400 text-sm font-medium mb-2">Job Name *</label>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Project Type *</label>
                           <input
-                            name="jobName"
+                            name="projectType"
                             type="text"
-                            defaultValue={clientInfo.projectName || ''}
-                            placeholder="Flat 12 Bedroom Fitout"
+                            defaultValue={clientInfo.projectType || ''}
+                            placeholder="Flat 12 Bedroom Refurbishment"
                             required
                             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
                           />
                         </div>
                         <div>
-                          <label className="block text-yellow-400 text-sm font-medium mb-2">Client *</label>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Client Name *</label>
                           <input
-                            name="client"
+                            name="clientName"
                             type="text"
-                            defaultValue={clientInfo.client || ''}
+                            defaultValue={clientInfo.name || ''}
                             placeholder="HBXL Construction Ltd"
                             required
                             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
                           />
                         </div>
                         <div>
-                          <label className="block text-yellow-400 text-sm font-medium mb-2">Location *</label>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Address *</label>
                           <input
-                            name="location"
+                            name="address"
                             type="text"
-                            defaultValue={clientInfo.location || ''}
-                            placeholder="Stevenage • SG1 1EH"
+                            defaultValue={clientInfo.address || ''}
+                            placeholder="Manor Court Business Centre"
                             required
                             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
                           />
                         </div>
                         <div>
-                          <label className="block text-yellow-400 text-sm font-medium mb-2">Reference</label>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Post Code *</label>
                           <input
-                            name="reference"
+                            name="postCode"
                             type="text"
-                            defaultValue={clientInfo.reference || ''}
-                            placeholder="HB-2025-001"
-                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-yellow-400 text-sm font-medium mb-2">Contract Value</label>
-                          <input
-                            name="contractValue"
-                            type="text"
-                            defaultValue={clientInfo.contractValue || ''}
-                            placeholder="£15000"
+                            defaultValue={clientInfo.postCode || ''}
+                            placeholder="SG1 1EH"
+                            required
                             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
                           />
                         </div>
