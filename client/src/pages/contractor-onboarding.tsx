@@ -162,6 +162,19 @@ export default function ContractorOnboarding() {
                 <i className="fab fa-telegram-plane mr-2"></i>
                 Send Form via Telegram
               </Button>
+              
+              {/* Demo Link to Form */}
+              <div className="mt-4 pt-4 border-t border-slate-600">
+                <p className="text-slate-400 text-sm mb-2">Preview contractor form:</p>
+                <Button
+                  onClick={() => window.location.href = '/contractor-form'}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  variant="outline"
+                >
+                  <i className="fas fa-eye mr-2"></i>
+                  Preview Form
+                </Button>
+              </div>
             </div>
           </div>
         )}

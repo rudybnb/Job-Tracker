@@ -9,6 +9,7 @@ import Jobs from "@/pages/jobs";
 import UploadJob from "@/pages/upload-job";
 import AdminDashboard from "@/pages/admin-dashboard";
 import ContractorOnboarding from "@/pages/contractor-onboarding";
+import ContractorForm from "@/pages/contractor-form";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/upload" component={UploadJob} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/contractor-onboarding" component={ContractorOnboarding} />
+      <Route path="/contractor-form" component={ContractorForm} />
       <Route component={NotFound} />
     </Switch>
   );
