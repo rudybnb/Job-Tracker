@@ -24,15 +24,29 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
 ✓ Built 6-step contractor application form covering personal info, right to work, CIS details, banking, emergency contacts, and trade information
 ✓ Enhanced job assignments with phase selection system for HBXL projects (Footings, Foundations, Groundwork, etc.)
 ✓ Created login page with blue gradient background, yellow-bordered username field, and orange Sign In button
+✓ Built complete CSV → Job → HBXL → Phase → Subtask workflow system
+✓ Created contractor task progress interface with detailed progress tracking and +/- controls
+✓ Implemented Direct Job Assignments page showing available jobs for contractors
+✓ Added Admin Task Monitor for real-time contractor progress and time tracking oversight
 ✓ All pages recreated exactly according to user-provided screenshots
 
 ## Application Structure
 
-Four main pages based on user visual specifications:
-1. **GPS Dashboard (/)** - Time tracking with GPS verification
-2. **Jobs (/jobs)** - Job assignments sent to contractors via Telegram
-3. **Admin (/admin)** - Management interface with statistics and quick actions  
-4. **Upload Job (/upload)** - File upload for HBXL work scheduler and phase tracking documents
+Complete workflow system with role-based interfaces:
+
+### Admin Interface:
+1. **Upload Job (/upload)** - CSV/PDF upload creates jobs automatically
+2. **Job Assignments (/job-assignments)** - Assign HBXL job types and select phases
+3. **Admin Task Monitor (/admin-task-monitor)** - Monitor contractor progress and time tracking
+4. **Admin Dashboard (/admin)** - Management interface with statistics and quick actions
+
+### Contractor Interface:
+1. **GPS Dashboard (/)** - Time tracking with GPS verification (James Carpenter perspective)
+2. **Direct Job Assignments (/jobs)** - View available job assignments
+3. **Task Progress (/task-progress)** - Work on assigned subtasks with progress tracking
+
+### Complete Workflow:
+CSV Upload → Job Creation → HBXL Assignment → Phase Selection → Subtask Breakdown → Contractor Assignment → Progress Monitoring
 
 ## User Interface Theme
 

@@ -12,6 +12,9 @@ import ContractorOnboarding from "@/pages/contractor-onboarding";
 import ContractorForm from "@/pages/contractor-form";
 import JobAssignments from "@/pages/job-assignments";
 import Login from "@/pages/login";
+import TaskProgress from "@/pages/task-progress";
+import DirectJobAssignments from "@/pages/direct-job-assignments";
+import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -19,9 +22,11 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/" component={GPSDashboard} />
-      <Route path="/jobs" component={Jobs} />
+      <Route path="/jobs" component={DirectJobAssignments} />
+      <Route path="/task-progress" component={TaskProgress} />
       <Route path="/upload" component={UploadJob} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin-task-monitor" component={AdminTaskMonitor} />
       <Route path="/contractor-onboarding" component={ContractorOnboarding} />
       <Route path="/contractor-form" component={ContractorForm} />
       <Route path="/job-assignments" component={JobAssignments} />

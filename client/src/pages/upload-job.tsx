@@ -65,10 +65,22 @@ export default function UploadJob() {
       return;
     }
 
-    // Simulate upload
+    // Create new job from CSV upload
+    const newJob: UploadedJob = {
+      id: Date.now().toString(),
+      name: hbxlFile.name.replace('.csv', '').replace('.pdf', ''),
+      location: "Fitout • SG1 1EH • £0",
+      price: "£0",
+      status: "approved",
+      dataType: hbxlFile.type.includes('csv') ? "CSV Data" : "PDF Data",
+      uploadedAt: new Date().toLocaleDateString('en-GB')
+    };
+
+    setUploadedJobs(prev => [...prev, newJob]);
+
     toast({
-      title: "File uploaded successfully",
-      description: `${hbxlFile.name} has been processed`,
+      title: "Job Created from CSV Upload",
+      description: `${hbxlFile.name} processed and job created. Ready for HBXL assignment and phase selection.`,
     });
     setHbxlFile(null);
   };
