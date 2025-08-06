@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import GPSDashboard from "@/pages/gps-dashboard";
 import UploadJob from "@/pages/upload-job";
+import AdminDashboard from "@/pages/admin-dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -14,6 +15,7 @@ function Router() {
       <Route path="/" component={GPSDashboard} />
       <Route path="/jobs" component={Dashboard} />
       <Route path="/upload" component={UploadJob} />
+      <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
