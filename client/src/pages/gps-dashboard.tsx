@@ -127,7 +127,7 @@ export default function GPSDashboard() {
                   </button>
                   
                   <button 
-                    onClick={() => handleMenuAction("Contractor Onboarding")}
+                    onClick={() => window.location.href = '/contractor-onboarding'}
                     className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
                   >
                     <i className="fas fa-user-plus mr-3 text-yellow-400"></i>
@@ -148,14 +148,6 @@ export default function GPSDashboard() {
                   >
                     <i className="fas fa-hard-hat mr-3 text-yellow-400"></i>
                     HBXL Labour Assignments
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Contractor Onboarding")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-user-plus mr-3 text-yellow-400"></i>
-                    Contractor Onboarding
                   </button>
                   
                   <button 

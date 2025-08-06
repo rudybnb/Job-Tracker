@@ -8,6 +8,7 @@ import GPSDashboard from "@/pages/gps-dashboard";
 import Jobs from "@/pages/jobs";
 import UploadJob from "@/pages/upload-job";
 import AdminDashboard from "@/pages/admin-dashboard";
+import ContractorOnboarding from "@/pages/contractor-onboarding";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/jobs" component={Jobs} />
       <Route path="/upload" component={UploadJob} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/contractor-onboarding" component={ContractorOnboarding} />
       <Route component={NotFound} />
     </Switch>
   );
