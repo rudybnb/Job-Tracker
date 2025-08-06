@@ -59,29 +59,61 @@ export default function UploadJob() {
     if (!hbxlFile) {
       toast({
         title: "No file selected",
-        description: "Please select an HBXL file to upload",
+        description: "Please select an HBXL CSV file to upload",
         variant: "destructive"
       });
       return;
     }
 
-    // Create new job from CSV upload
-    const newJob: UploadedJob = {
-      id: Date.now().toString(),
-      name: hbxlFile.name.replace('.csv', '').replace('.pdf', ''),
-      location: "Fitout • SG1 1EH • £0",
-      price: "£0",
-      status: "approved",
-      dataType: hbxlFile.type.includes('csv') ? "CSV Data" : "PDF Data",
-      uploadedAt: new Date().toLocaleDateString('en-GB')
+    // Parse CSV file to extract phase data and quantities
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const csvContent = e.target?.result as string;
+      const lines = csvContent.split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+      
+      // Extract phase data from CSV
+      const phaseData: Record<string, Array<{task: string, quantity: number, description: string}>> = {};
+      
+      for (let i = 1; i < lines.length; i++) {
+        const row = lines[i].split(',').map(cell => cell.trim());
+        if (row.length >= 4) {
+          const phase = row[0];
+          const task = row[1];
+          const quantity = parseInt(row[2]) || 0;
+          const description = row[3] || '';
+          
+          // Only include tasks with quantity > 0
+          if (quantity > 0) {
+            if (!phaseData[phase]) {
+              phaseData[phase] = [];
+            }
+            phaseData[phase].push({ task, quantity, description });
+          }
+        }
+      }
+
+      // Create new job from CSV upload with phase data
+      const newJob: UploadedJob & { phaseData?: any } = {
+        id: Date.now().toString(),
+        name: hbxlFile.name.replace('.csv', '').replace('.pdf', ''),
+        location: "Fitout • SG1 1EH • £0",
+        price: "£0",
+        status: "approved",
+        dataType: "CSV Data",
+        uploadedAt: new Date().toLocaleDateString('en-GB'),
+        phaseData: phaseData
+      };
+
+      setUploadedJobs(prev => [...prev, newJob]);
+
+      toast({
+        title: "CSV Processed & Job Created",
+        description: `${hbxlFile.name} processed with ${Object.keys(phaseData).length} phases. Ready for HBXL assignment.`,
+      });
     };
-
-    setUploadedJobs(prev => [...prev, newJob]);
-
-    toast({
-      title: "Job Created from CSV Upload",
-      description: `${hbxlFile.name} processed and job created. Ready for HBXL assignment and phase selection.`,
-    });
+    
+    reader.readAsText(hbxlFile);
     setHbxlFile(null);
   };
 

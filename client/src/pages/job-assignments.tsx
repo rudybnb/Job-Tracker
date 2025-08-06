@@ -103,9 +103,16 @@ export default function JobAssignments() {
       return;
     }
 
-    const newAssignment: JobAssignment = {
+    // Generate subtasks based on selected phases and CSV data
+    const selectedJob = hbxlJobs.find(job => job.id === formData.hbxlJob);
+    const subtasks = formData.selectedPhases.map(phase => {
+      return getSubtasksForPhase(phase, selectedJob?.phaseData);
+    }).flat().filter(task => task.totalItems > 0); // Only include tasks with quantity > 0
+
+    const newAssignment: JobAssignment & { subtasks?: any[] } = {
       id: Date.now().toString(),
       ...formData,
+      subtasks: subtasks,
       status: "pending",
       createdAt: new Date().toISOString()
     };
@@ -125,9 +132,50 @@ export default function JobAssignments() {
     });
 
     toast({
-      title: "Assignment Created",
-      description: `Telegram notification sent to ${formData.contractorName}`,
+      title: "Assignment Created with Phase Subtasks",
+      description: `${subtasks.length} subtasks assigned to ${formData.contractorName}. Telegram notification sent.`,
     });
+  };
+
+  const getSubtasksForPhase = (phase: string, csvPhaseData?: any) => {
+    // If we have CSV data, use it; otherwise use default subtasks
+    if (csvPhaseData && csvPhaseData[phase]) {
+      return csvPhaseData[phase].map((item: any) => ({
+        title: `${phase} - ${item.task}`,
+        description: item.description,
+        area: phase,
+        totalItems: item.quantity,
+        completedItems: 0,
+        status: "not started" as const
+      }));
+    }
+
+    // Default fallback subtasks for common phases
+    const defaultSubtasks: Record<string, Array<{title: string, description: string, area: string, totalItems: number}>> = {
+      "Masonry Shell": [
+        { title: "Masonry Shell - Bricklaying Foundation", description: "Lay foundation bricks and mortar joints", area: "Foundation Area", totalItems: 50 },
+        { title: "Masonry Shell - Block Work", description: "Install concrete blocks for walls", area: "Main Structure", totalItems: 120 },
+        { title: "Masonry Shell - Mortar Joints", description: "Complete mortar joint work", area: "Main Structure", totalItems: 75 }
+      ],
+      "Footings": [
+        { title: "Footings - Excavation", description: "Dig foundation trenches to specification", area: "Foundation Area", totalItems: 25 },
+        { title: "Footings - Concrete Pour", description: "Pour concrete foundations", area: "Foundation Area", totalItems: 15 }
+      ],
+      "Foundations": [
+        { title: "Foundation - Reinforcement", description: "Install rebar and reinforcement", area: "Foundation Area", totalItems: 30 },
+        { title: "Foundation - Formwork", description: "Set up concrete forms", area: "Foundation Area", totalItems: 20 }
+      ],
+      "Roof Structure": [
+        { title: "Roof Structure - Timber Frame", description: "Install roof timber framework", area: "Roof Area", totalItems: 40 },
+        { title: "Roof Structure - Insulation", description: "Install roof insulation", area: "Roof Area", totalItems: 30 }
+      ]
+    };
+    
+    return (defaultSubtasks[phase] || []).map(task => ({
+      ...task,
+      completedItems: 0,
+      status: "not started" as const
+    }));
   };
 
   const filteredAssignments = assignments.filter(assignment =>
