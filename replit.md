@@ -1,14 +1,41 @@
-# JobFlow - Job Management System
+# JobFlow - GPS Time Tracking & Job Management System
 
 ## Overview
 
-JobFlow is a full-stack job management system built for assigning and tracking jobs for contractors. The application provides a dashboard interface for managing jobs, contractors, and CSV uploads with real-time statistics and an intuitive user interface.
+JobFlow is a GPS-based time tracking and job management application for contractors. The system includes GPS-verified time tracking, file upload capabilities for job creation, admin dashboards, and direct job assignment workflows with Telegram notifications.
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
 
 App Recreation Method: User prefers to provide visual references (screenshots/pictures) showing color schemes, layouts, and functionality rather than detailed written descriptions. Visual specifications are more effective for accurate app recreation.
+
+## Recent Changes (August 6, 2025)
+
+✓ Transformed application into GPS-based time tracking and job management system based on user screenshots
+✓ Created GPS Dashboard (/) - GPS coordinates, real-time timer, "Start Work" functionality  
+✓ Built Upload Job page (/upload) - HBXL CSV/PDF file uploads with approval workflow
+✓ Implemented Admin Dashboard (/admin) - Statistics overview and quick action buttons
+✓ Added Jobs page (/jobs) - Direct job assignments with Telegram notification integration
+✓ Applied consistent dark navy theme with yellow headers across all pages
+✓ Integrated bottom navigation system connecting Dashboard, Jobs, Admin, Upload Job
+✓ All pages recreated exactly according to user-provided screenshots
+
+## Application Structure
+
+Four main pages based on user visual specifications:
+1. **GPS Dashboard (/)** - Time tracking with GPS verification
+2. **Jobs (/jobs)** - Job assignments sent to contractors via Telegram
+3. **Admin (/admin)** - Management interface with statistics and quick actions  
+4. **Upload Job (/upload)** - File upload for HBXL work scheduler and phase tracking documents
+
+## User Interface Theme
+
+Dark navy background (#1e293b) with:
+- Yellow/orange headers and action buttons (#eab308, #ea580c)
+- Rounded cards with slate borders (#374151)
+- Consistent bottom navigation with active state highlighting
+- GPS coordinates and timer displays matching provided screenshots exactly
 
 ## System Architecture
 

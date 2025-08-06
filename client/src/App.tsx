@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import GPSDashboard from "@/pages/gps-dashboard";
+import Jobs from "@/pages/jobs";
 import UploadJob from "@/pages/upload-job";
 import AdminDashboard from "@/pages/admin-dashboard";
 import NotFound from "@/pages/not-found";
@@ -13,7 +14,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={GPSDashboard} />
-      <Route path="/jobs" component={Dashboard} />
+      <Route path="/jobs" component={Jobs} />
       <Route path="/upload" component={UploadJob} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
