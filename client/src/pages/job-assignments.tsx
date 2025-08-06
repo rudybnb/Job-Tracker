@@ -9,6 +9,7 @@ interface JobAssignment {
   phone: string;
   workLocation: string;
   hbxlJob: string;
+  selectedPhases: string[];
   startDate: string;
   endDate: string;
   specialInstructions: string;
@@ -17,14 +18,31 @@ interface JobAssignment {
 }
 
 const hbxlJobs = [
-  "Kitchen Installation - Unit 12A",
-  "Bathroom Renovation - Unit 5B", 
-  "Electrical Rewiring - Unit 8C",
-  "Plumbing Repair - Unit 3A",
-  "Flooring Installation - Unit 15D",
-  "Painting & Decorating - Unit 7B",
-  "Carpentry Work - Unit 11C",
-  "Tiling Project - Unit 9A"
+  {
+    id: "flat12bedroom-fitout-sg1-1eh",
+    name: "Flat12Bedroom - Fitout (SG1 1EH)",
+    phases: ["Footings", "Foundations", "Groundwork", "Oversite and Slabbing", "Masonry Shell", "Roof Structure", "Roof Tiling", "External Decoration"]
+  },
+  {
+    id: "flat21bedroom-fitout-sg1-1eh", 
+    name: "Flat21Bedroom - Fitout (SG1 1EH)",
+    phases: ["Footings", "Foundations", "Groundwork", "Oversite and Slabbing", "Masonry Shell", "Roof Structure", "Roof Tiling", "External Decoration"]
+  },
+  {
+    id: "kitchen-installation-unit-12a",
+    name: "Kitchen Installation - Unit 12A",
+    phases: ["Plumbing First Fix", "Electrical First Fix", "Kitchen Units", "Worktop Installation", "Tiling", "Final Connections"]
+  },
+  {
+    id: "bathroom-renovation-unit-5b",
+    name: "Bathroom Renovation - Unit 5B", 
+    phases: ["Strip Out", "Plumbing First Fix", "Electrical First Fix", "Waterproofing", "Tiling", "Sanitaryware", "Final Connections"]
+  },
+  {
+    id: "electrical-rewiring-unit-8c",
+    name: "Electrical Rewiring - Unit 8C",
+    phases: ["Strip Out", "First Fix Wiring", "Consumer Unit", "Second Fix", "Testing", "Certification"]
+  }
 ];
 
 export default function JobAssignments() {
@@ -38,6 +56,7 @@ export default function JobAssignments() {
     phone: "",
     workLocation: "",
     hbxlJob: "",
+    selectedPhases: [] as string[],
     startDate: "",
     endDate: "",
     specialInstructions: ""
@@ -45,15 +64,40 @@ export default function JobAssignments() {
 
   const { toast } = useToast();
 
-  const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const updateFormData = (field: string, value: string | string[]) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      [field]: value,
+      // Reset selected phases when job changes
+      ...(field === 'hbxlJob' ? { selectedPhases: [] } : {})
+    }));
+  };
+
+  const togglePhase = (phase: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedPhases: prev.selectedPhases.includes(phase)
+        ? prev.selectedPhases.filter(p => p !== phase)
+        : [...prev.selectedPhases, phase]
+    }));
+  };
+
+  const selectAllPhases = () => {
+    const selectedJob = hbxlJobs.find(job => job.id === formData.hbxlJob);
+    if (selectedJob) {
+      setFormData(prev => ({ ...prev, selectedPhases: [...selectedJob.phases] }));
+    }
+  };
+
+  const clearAllPhases = () => {
+    setFormData(prev => ({ ...prev, selectedPhases: [] }));
   };
 
   const handleCreateAssignment = () => {
-    if (!formData.contractorName || !formData.email || !formData.workLocation || !formData.hbxlJob || !formData.startDate || !formData.endDate) {
+    if (!formData.contractorName || !formData.email || !formData.workLocation || !formData.hbxlJob || !formData.startDate || !formData.endDate || formData.selectedPhases.length === 0) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields and select at least one phase",
         variant: "destructive"
       });
       return;
@@ -74,6 +118,7 @@ export default function JobAssignments() {
       phone: "",
       workLocation: "",
       hbxlJob: "",
+      selectedPhases: [],
       startDate: "",
       endDate: "",
       specialInstructions: ""
@@ -166,10 +211,70 @@ export default function JobAssignments() {
                   >
                     <option value="">Select HBXL job</option>
                     {hbxlJobs.map(job => (
-                      <option key={job} value={job}>{job}</option>
+                      <option key={job.id} value={job.id}>{job.name}</option>
                     ))}
                   </select>
                 </div>
+
+                {/* Phase Selection */}
+                {formData.hbxlJob && (
+                  <div>
+                    <label className="block text-yellow-400 text-sm font-medium mb-3">
+                      Select Phases *
+                    </label>
+                    
+                    {/* Job Selection Display */}
+                    <div className="mb-3 p-3 bg-yellow-600 text-black rounded-lg flex items-center">
+                      <i className="fas fa-check mr-2"></i>
+                      <span className="font-medium">
+                        {hbxlJobs.find(job => job.id === formData.hbxlJob)?.name}
+                      </span>
+                    </div>
+
+                    {/* Phase Checkboxes Grid */}
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {hbxlJobs.find(job => job.id === formData.hbxlJob)?.phases.map(phase => (
+                        <label 
+                          key={phase}
+                          className="flex items-center space-x-2 p-2 bg-slate-700 rounded-lg border border-slate-600 hover:bg-slate-600 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.selectedPhases.includes(phase)}
+                            onChange={() => togglePhase(phase)}
+                            className="w-4 h-4 text-yellow-600 rounded focus:ring-yellow-500"
+                          />
+                          <span className="text-white text-sm">{phase}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    {/* Selection Status */}
+                    <div className="text-slate-400 text-sm mb-3">
+                      Selected: {formData.selectedPhases.length} phases from {hbxlJobs.find(job => job.id === formData.hbxlJob)?.name}
+                    </div>
+
+                    {/* Select/Clear All Buttons */}
+                    <div className="flex space-x-2">
+                      <Button 
+                        type="button"
+                        onClick={selectAllPhases}
+                        className="bg-yellow-600 hover:bg-yellow-700 text-black text-sm px-3 py-1"
+                        size="sm"
+                      >
+                        Select All
+                      </Button>
+                      <Button 
+                        type="button"
+                        onClick={clearAllPhases}
+                        className="bg-slate-600 hover:bg-slate-700 text-white text-sm px-3 py-1"
+                        size="sm"
+                      >
+                        Clear All
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-yellow-400 text-sm font-medium mb-2">Start Date</label>
@@ -247,7 +352,9 @@ export default function JobAssignments() {
               {filteredAssignments.map((assignment) => (
                 <div key={assignment.id} className="bg-slate-700 rounded-lg p-4 border border-slate-600">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-lg font-semibold text-white">{assignment.hbxlJob}</h4>
+                    <h4 className="text-lg font-semibold text-white">
+                      {hbxlJobs.find(job => job.id === assignment.hbxlJob)?.name || assignment.hbxlJob}
+                    </h4>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       assignment.status === 'pending' ? 'bg-yellow-600 text-black' :
                       assignment.status === 'accepted' ? 'bg-blue-600 text-white' :
@@ -276,6 +383,21 @@ export default function JobAssignments() {
                       <div className="text-white font-medium">{assignment.endDate}</div>
                     </div>
                   </div>
+
+                  {/* Selected Phases */}
+                  {assignment.selectedPhases.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-slate-600">
+                      <span className="text-slate-400 text-sm">Assigned Phases:</span>
+                      <div className="grid grid-cols-2 gap-1 mt-2">
+                        {assignment.selectedPhases.map(phase => (
+                          <div key={phase} className="bg-slate-600 rounded px-2 py-1 text-xs text-white">
+                            <i className="fas fa-check text-green-400 mr-1"></i>
+                            {phase}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {assignment.specialInstructions && (
                     <div className="mt-3 pt-3 border-t border-slate-600">
