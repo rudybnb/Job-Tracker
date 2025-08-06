@@ -8,6 +8,8 @@ JobFlow is a full-stack job management system built for assigning and tracking j
 
 Preferred communication style: Simple, everyday language.
 
+App Recreation Method: User prefers to provide visual references (screenshots/pictures) showing color schemes, layouts, and functionality rather than detailed written descriptions. Visual specifications are more effective for accurate app recreation.
+
 ## System Architecture
 
 ### Frontend Architecture
