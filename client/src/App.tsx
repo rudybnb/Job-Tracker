@@ -16,22 +16,26 @@ import TaskProgress from "@/pages/task-progress";
 import DirectJobAssignments from "@/pages/direct-job-assignments";
 import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import NotFound from "@/pages/not-found";
+import AccountSwitcher from "@/components/AccountSwitcher";
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/login" component={Login} />
-      <Route path="/" component={GPSDashboard} />
-      <Route path="/jobs" component={DirectJobAssignments} />
-      <Route path="/task-progress" component={TaskProgress} />
-      <Route path="/upload" component={UploadJob} />
-      <Route path="/admin" component={AdminDashboard} />
-      <Route path="/admin-task-monitor" component={AdminTaskMonitor} />
-      <Route path="/contractor-onboarding" component={ContractorOnboarding} />
-      <Route path="/contractor-form" component={ContractorForm} />
-      <Route path="/job-assignments" component={JobAssignments} />
-      <Route component={NotFound} />
-    </Switch>
+    <div className="relative">
+      <AccountSwitcher />
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route path="/" component={GPSDashboard} />
+        <Route path="/jobs" component={DirectJobAssignments} />
+        <Route path="/task-progress" component={TaskProgress} />
+        <Route path="/upload" component={UploadJob} />
+        <Route path="/admin" component={AdminDashboard} />
+        <Route path="/admin-task-monitor" component={AdminTaskMonitor} />
+        <Route path="/contractor-onboarding" component={ContractorOnboarding} />
+        <Route path="/contractor-form" component={ContractorForm} />
+        <Route path="/job-assignments" component={JobAssignments} />
+        <Route component={NotFound} />
+      </Switch>
+    </div>
   );
 }
 
