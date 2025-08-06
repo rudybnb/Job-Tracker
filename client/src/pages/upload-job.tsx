@@ -62,21 +62,25 @@ export default function UploadJob() {
 
       let dataStartRow = 0;
       
-      // Look for client info in first 10 rows before the data starts
+      // Extract client info from Column B rows 1-4 (where Column A has reference labels)
       for (let i = 0; i < Math.min(10, lines.length); i++) {
         const row = lines[i];
         const parts = row.split(',').map(p => p.trim().replace(/"/g, ''));
         
-        if (parts[0].toLowerCase().includes('name')) {
-          clientInfo.name = parts[1] || '';
-        } else if (parts[0].toLowerCase().includes('address')) {
-          clientInfo.address = parts[1] || '';
-        } else if (parts[0].toLowerCase().includes('post code') || parts[0].toLowerCase().includes('postcode')) {
-          clientInfo.postCode = parts[1] || '';
-        } else if (parts[0].toLowerCase().includes('project type') || parts[0].toLowerCase().includes('projecttype')) {
-          clientInfo.projectType = parts[1] || '';
-        } else if (parts[0].toLowerCase().includes('code')) {
-          // Found the data header row
+        // Column A is reference, Column B is the value we want
+        const reference = parts[0]?.toLowerCase() || '';
+        const value = parts[1] || '';
+        
+        if (reference.includes('name')) {
+          clientInfo.name = value;
+        } else if (reference.includes('address')) {
+          clientInfo.address = value;
+        } else if (reference.includes('post code') || reference.includes('postcode')) {
+          clientInfo.postCode = value;
+        } else if (reference.includes('project type') || reference.includes('projecttype')) {
+          clientInfo.projectType = value;
+        } else if (reference.includes('code') && value.includes('item')) {
+          // Found the data header row (Code, Item Description, etc.)
           dataStartRow = i;
           break;
         }
