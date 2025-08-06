@@ -34,8 +34,20 @@ export default function JobAssignments() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [assignments, setAssignments] = useState<JobAssignment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [uploadedJobs, setUploadedJobs] = useState<any[]>([]);
+  const [contractors] = useState([
+    { id: "1", name: "James Carpenter", email: "james@example.com", phone: "+44 7700 900123", specialty: "Masonry" },
+    { id: "2", name: "Mike Builder", email: "mike@example.com", phone: "+44 7700 900124", specialty: "Foundations" },
+    { id: "3", name: "Sarah Roofer", email: "sarah@example.com", phone: "+44 7700 900125", specialty: "Roofing" },
+    { id: "4", name: "Tony Plumber", email: "tony@example.com", phone: "+44 7700 900126", specialty: "Plumbing" },
+    { id: "5", name: "Lisa Electrician", email: "lisa@example.com", phone: "+44 7700 900127", specialty: "Electrical" },
+    { id: "6", name: "David Groundwork", email: "david@example.com", phone: "+44 7700 900128", specialty: "Groundwork" },
+    { id: "7", name: "Emma Mason", email: "emma@example.com", phone: "+44 7700 900129", specialty: "Masonry" },
+    { id: "8", name: "Chris Concrete", email: "chris@example.com", phone: "+44 7700 900130", specialty: "Foundations" }
+  ]);
   
   const [formData, setFormData] = useState({
+    contractorId: "",
     contractorName: "",
     email: "",
     phone: "",
@@ -47,6 +59,14 @@ export default function JobAssignments() {
     specialInstructions: ""
   });
 
+  // Load uploaded jobs from localStorage (in real app, this would come from API)
+  useState(() => {
+    const savedJobs = localStorage.getItem('uploadedJobs');
+    if (savedJobs) {
+      setUploadedJobs(JSON.parse(savedJobs));
+    }
+  });
+
   const { toast } = useToast();
 
   const updateFormData = (field: string, value: string | string[]) => {
@@ -54,7 +74,16 @@ export default function JobAssignments() {
       ...prev, 
       [field]: value,
       // Reset selected phases when job changes
-      ...(field === 'hbxlJob' ? { selectedPhases: [] } : {})
+      ...(field === 'hbxlJob' ? { selectedPhases: [] } : {}),
+      // Auto-fill contractor details when contractor selected
+      ...(field === 'contractorId' ? (() => {
+        const contractor = contractors.find(c => c.id === value);
+        return contractor ? {
+          contractorName: contractor.name,
+          email: contractor.email,
+          phone: contractor.phone
+        } : {};
+      })() : {})
     }));
   };
 
@@ -68,9 +97,15 @@ export default function JobAssignments() {
   };
 
   const selectAllPhases = () => {
-    const selectedJob = hbxlJobs.find(job => job.id === formData.hbxlJob);
-    if (selectedJob) {
-      setFormData(prev => ({ ...prev, selectedPhases: [...selectedJob.phases] }));
+    const selectedJob = uploadedJobs.find(job => job.id === formData.hbxlJob);
+    if (selectedJob && selectedJob.phaseData) {
+      const availablePhases = Object.keys(selectedJob.phaseData);
+      setFormData(prev => ({ ...prev, selectedPhases: [...availablePhases] }));
+    } else {
+      const selectedHbxlJob = hbxlJobs.find(job => job.id === formData.hbxlJob);
+      if (selectedHbxlJob) {
+        setFormData(prev => ({ ...prev, selectedPhases: [...selectedHbxlJob.phases] }));
+      }
     }
   };
 
@@ -79,19 +114,19 @@ export default function JobAssignments() {
   };
 
   const handleCreateAssignment = () => {
-    if (!formData.contractorName || !formData.email || !formData.workLocation || !formData.hbxlJob || !formData.startDate || !formData.endDate || formData.selectedPhases.length === 0) {
+    if (!formData.contractorId || !formData.workLocation || !formData.hbxlJob || !formData.startDate || !formData.endDate || formData.selectedPhases.length === 0) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields and select at least one phase",
+        title: "Missing Information", 
+        description: "Please select contractor, job, location, dates and at least one phase",
         variant: "destructive"
       });
       return;
     }
 
     // Generate subtasks based on selected phases and CSV data
-    const selectedJob = hbxlJobs.find(job => job.id === formData.hbxlJob);
+    const selectedJob = uploadedJobs.find(job => job.id === formData.hbxlJob);
     const subtasks = formData.selectedPhases.map(phase => {
-      return getSubtasksForPhase(phase, (selectedJob as any)?.phaseData);
+      return getSubtasksForPhase(phase, selectedJob?.phaseData);
     }).flat().filter(task => task.totalItems > 0); // Only include tasks with quantity > 0
 
     const newAssignment: JobAssignment & { subtasks?: any[] } = {
@@ -105,6 +140,7 @@ export default function JobAssignments() {
     setAssignments(prev => [newAssignment, ...prev]);
     setShowCreateForm(false);
     setFormData({
+      contractorId: "",
       contractorName: "",
       email: "",
       phone: "",
@@ -117,8 +153,8 @@ export default function JobAssignments() {
     });
 
     toast({
-      title: "Assignment Created with Phase Subtasks",
-      description: `${subtasks.length} subtasks assigned to ${formData.contractorName}. Telegram notification sent.`,
+      title: "Assignment Created Successfully",
+      description: `${subtasks.length} subtasks from CSV data assigned to ${formData.contractorName}. Telegram notification sent.`,
     });
   };
 
@@ -194,37 +230,40 @@ export default function JobAssignments() {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Contractor Name *</label>
-                  <input
-                    type="text"
-                    placeholder="James"
-                    value={formData.contractorName}
-                    onChange={(e) => updateFormData("contractorName", e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
-                  />
+                  <label className="block text-yellow-400 text-sm font-medium mb-2">Select Contractor *</label>
+                  <select
+                    value={formData.contractorId}
+                    onChange={(e) => updateFormData("contractorId", e.target.value)}
+                    className="w-full bg-slate-700 border border-yellow-600 rounded-lg px-3 py-2 text-white"
+                  >
+                    <option value="">Choose contractor from list (8 available)</option>
+                    {contractors.map((contractor) => (
+                      <option key={contractor.id} value={contractor.id}>
+                        {contractor.name} - {contractor.specialty}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Email *</label>
-                  <input
-                    type="email"
-                    placeholder="james@gmail.com"
-                    value={formData.email}
-                    onChange={(e) => updateFormData("email", e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Phone</label>
-                  <input
-                    type="tel"
-                    placeholder="07534251548"
-                    value={formData.phone}
-                    onChange={(e) => updateFormData("phone", e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
+                {formData.contractorId && (
+                  <div className="bg-slate-700 rounded-lg p-3 border border-slate-600">
+                    <h4 className="text-sm font-medium text-yellow-400 mb-2">Selected Contractor Details</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-slate-400">Name:</span> <span className="text-white">{formData.contractorName}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Email:</span> <span className="text-white">{formData.email}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Phone:</span> <span className="text-white">{formData.phone}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Specialty:</span> <span className="text-white">{contractors.find(c => c.id === formData.contractorId)?.specialty}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-yellow-400 text-sm font-medium mb-2">Work Location (Postcode) *</label>
@@ -244,7 +283,10 @@ export default function JobAssignments() {
                     onChange={(e) => updateFormData("hbxlJob", e.target.value)}
                     className="w-full bg-slate-700 border border-yellow-600 rounded-lg px-3 py-2 text-white"
                   >
-                    <option value="">Select HBXL job</option>
+                    <option value="">Select uploaded job (2 available)</option>
+                    {uploadedJobs.map(job => (
+                      <option key={job.id} value={job.id}>{job.name}</option>
+                    ))}
                     {hbxlJobs.map(job => (
                       <option key={job.id} value={job.id}>{job.name}</option>
                     ))}
