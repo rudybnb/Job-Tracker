@@ -20,28 +20,9 @@ export default function UploadJob() {
   const [jobReference, setJobReference] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Mock uploaded jobs data
-  const [uploadedJobs, setUploadedJobs] = useState<UploadedJob[]>([
-    {
-      id: "1",
-      name: "Flat12Bedroom",
-      location: "Fitout • SG1 1EH • £0",
-      price: "£0",
-      status: "approved",
-      dataType: "CSV Data",
-      uploadedAt: "06/08/2025"
-    },
-    {
-      id: "2", 
-      name: "Flat21Bedroom",
-      location: "Fitout • SG1 1EH • £0",
-      price: "£0",
-      status: "approved",
-      dataType: "CSV Data",
-      uploadedAt: "06/08/2025"
-    }
-  ]);
+  const [uploadedJobs, setUploadedJobs] = useState<UploadedJob[]>([]);
+  const [processedCSVs, setProcessedCSVs] = useState<any[]>([]);
+  const [showCreateJobForm, setShowCreateJobForm] = useState<string | null>(null);
 
   const handleHbxlFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -123,28 +104,54 @@ export default function UploadJob() {
         }
       }
 
-      // Create new job from CSV upload with phase data
-      const newJob: UploadedJob & { phaseData?: any } = {
+      // Store processed CSV data for job creation
+      const processedCSV = {
         id: Date.now().toString(),
-        name: hbxlFile.name.replace('.csv', '').replace('.pdf', ''),
-        location: "Fitout • SG1 1EH • £0",
-        price: "£0",
-        status: "approved",
-        dataType: "CSV Data",
+        fileName: hbxlFile.name,
+        phaseData: phaseData,
         uploadedAt: new Date().toLocaleDateString('en-GB'),
-        phaseData: phaseData
+        status: "processed" as const
       };
 
-      setUploadedJobs(prev => [...prev, newJob]);
+      setProcessedCSVs((prev: any[]) => [...prev, processedCSV]);
 
       toast({
-        title: "CSV Processed & Job Created",
-        description: `${hbxlFile.name} processed with ${Object.keys(phaseData).length} phases detected: ${Object.keys(phaseData).join(', ')}. Ready for HBXL assignment.`,
+        title: "CSV Processed Successfully", 
+        description: `${hbxlFile.name} analyzed with ${Object.keys(phaseData).length} phases detected: ${Object.keys(phaseData).join(', ')}. Click 'Create Job' to make it available for assignment.`,
       });
     };
     
     reader.readAsText(hbxlFile);
     setHbxlFile(null);
+  };
+
+  const handleCreateJob = (csvId: string, jobName: string, location: string) => {
+    const csvData = processedCSVs.find(csv => csv.id === csvId);
+    if (!csvData) return;
+
+    const newJob: UploadedJob & { phaseData?: any } = {
+      id: Date.now().toString(),
+      name: jobName,
+      location: location,
+      price: "£0",
+      status: "approved",
+      dataType: "CSV Data", 
+      uploadedAt: new Date().toLocaleDateString('en-GB'),
+      phaseData: csvData.phaseData
+    };
+
+    setUploadedJobs(prev => [...prev, newJob]);
+    // Store in localStorage for job assignments page
+    localStorage.setItem('uploadedJobs', JSON.stringify([...uploadedJobs, newJob]));
+    
+    // Remove from processed CSVs
+    setProcessedCSVs(prev => prev.filter(csv => csv.id !== csvId));
+    setShowCreateJobForm(null);
+
+    toast({
+      title: "Job Created Successfully",
+      description: `${jobName} created and ready for contractor assignment`,
+    });
   };
 
   const handleApproveJob = (jobId: string) => {
@@ -313,13 +320,97 @@ export default function UploadJob() {
           </div>
         </div>
 
-        {/* Uploaded Jobs Section */}
+        {/* Processed CSVs - Ready for Job Creation */}
+        {processedCSVs.length > 0 && (
+          <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 mb-4">
+            <h3 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
+              <i className="fas fa-cog mr-2"></i>
+              Processed CSVs - Create Jobs
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {processedCSVs.map((csv) => (
+                <div key={csv.id} className="bg-slate-700 p-4 rounded-lg border border-slate-600">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium text-white">{csv.fileName}</h4>
+                    <Badge className="bg-yellow-600 text-black">Processed</Badge>
+                  </div>
+                  <p className="text-slate-400 text-sm mb-2">
+                    {Object.keys(csv.phaseData).length} phases detected
+                  </p>
+                  <p className="text-slate-400 text-sm mb-3">
+                    Phases: {Object.keys(csv.phaseData).slice(0, 3).join(', ')}{Object.keys(csv.phaseData).length > 3 ? '...' : ''}
+                  </p>
+                  <Button
+                    onClick={() => setShowCreateJobForm(csv.id)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <i className="fas fa-plus mr-2"></i>
+                    Create Job
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Create Job Modal */}
+        {showCreateJobForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-xl font-bold text-yellow-400 mb-4">Create New Job</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const jobName = formData.get('jobName') as string;
+                const location = formData.get('location') as string;
+                handleCreateJob(showCreateJobForm, jobName, location);
+              }}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-yellow-400 text-sm font-medium mb-2">Job Name *</label>
+                    <input
+                      name="jobName"
+                      type="text"
+                      placeholder="Flat 12 Bedroom Fitout"
+                      required
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-yellow-400 text-sm font-medium mb-2">Location *</label>
+                    <input
+                      name="location"
+                      type="text"
+                      placeholder="Fitout • SG1 1EH • £0"
+                      required
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
+                      Create Job
+                    </Button>
+                    <Button 
+                      type="button"
+                      onClick={() => setShowCreateJobForm(null)}
+                      className="flex-1 bg-slate-600 hover:bg-slate-700"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Created Jobs Section */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-yellow-400">Uploaded Jobs</h3>
+            <h3 className="text-lg font-semibold text-yellow-400">Created Jobs - Ready for Assignment</h3>
           </div>
           <p className="text-slate-400 text-sm mb-4">
-            Review and approve jobs to make them available for assignment creation
+            Jobs created from CSV data, ready for contractor assignment
           </p>
 
           <div className="space-y-3">
