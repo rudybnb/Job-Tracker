@@ -106,7 +106,7 @@ export default function JobAssignments() {
     // Generate subtasks based on selected phases and CSV data
     const selectedJob = hbxlJobs.find(job => job.id === formData.hbxlJob);
     const subtasks = formData.selectedPhases.map(phase => {
-      return getSubtasksForPhase(phase, selectedJob?.phaseData);
+      return getSubtasksForPhase(phase, (selectedJob as any)?.phaseData);
     }).flat().filter(task => task.totalItems > 0); // Only include tasks with quantity > 0
 
     const newAssignment: JobAssignment & { subtasks?: any[] } = {
@@ -140,26 +140,25 @@ export default function JobAssignments() {
   const getSubtasksForPhase = (phase: string, csvPhaseData?: any) => {
     // If we have CSV data, use it; otherwise use default subtasks
     if (csvPhaseData && csvPhaseData[phase]) {
-      return csvPhaseData[phase].map((item: any) => ({
-        title: `${phase} - ${item.task}`,
-        description: item.description,
-        area: phase,
-        totalItems: item.quantity,
-        completedItems: 0,
-        status: "not started" as const
-      }));
+      return csvPhaseData[phase]
+        .filter((item: any) => item.quantity > 0) // Only include items with quantity > 0
+        .map((item: any) => ({
+          title: item.task,
+          description: item.description,
+          area: phase,
+          totalItems: item.quantity,
+          completedItems: 0,
+          status: "not started" as const,
+          code: item.code,
+          unit: item.unit
+        }));
     }
 
-    // Default fallback subtasks for common phases
+    // Default fallback subtasks for common phases (only used if no CSV data)
     const defaultSubtasks: Record<string, Array<{title: string, description: string, area: string, totalItems: number}>> = {
       "Masonry Shell": [
         { title: "Masonry Shell - Bricklaying Foundation", description: "Lay foundation bricks and mortar joints", area: "Foundation Area", totalItems: 50 },
-        { title: "Masonry Shell - Block Work", description: "Install concrete blocks for walls", area: "Main Structure", totalItems: 120 },
-        { title: "Masonry Shell - Mortar Joints", description: "Complete mortar joint work", area: "Main Structure", totalItems: 75 }
-      ],
-      "Footings": [
-        { title: "Footings - Excavation", description: "Dig foundation trenches to specification", area: "Foundation Area", totalItems: 25 },
-        { title: "Footings - Concrete Pour", description: "Pour concrete foundations", area: "Foundation Area", totalItems: 15 }
+        { title: "Masonry Shell - Block Work", description: "Install concrete blocks for walls", area: "Main Structure", totalItems: 120 }
       ],
       "Foundations": [
         { title: "Foundation - Reinforcement", description: "Install rebar and reinforcement", area: "Foundation Area", totalItems: 30 },
@@ -168,6 +167,9 @@ export default function JobAssignments() {
       "Roof Structure": [
         { title: "Roof Structure - Timber Frame", description: "Install roof timber framework", area: "Roof Area", totalItems: 40 },
         { title: "Roof Structure - Insulation", description: "Install roof insulation", area: "Roof Area", totalItems: 30 }
+      ],
+      "General Works": [
+        { title: "General - Site Preparation", description: "Prepare site for construction work", area: "Site", totalItems: 10 }
       ]
     };
     

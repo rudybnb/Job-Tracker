@@ -15,26 +15,27 @@ interface ProgressTask {
 
 export default function TaskProgress() {
   const [currentProject] = useState("Unknown, SG1 1EH");
+  // Get tasks from assigned phases (would come from CSV data in real implementation)
   const [tasks] = useState<ProgressTask[]>([
     {
       id: "1",
       title: "Masonry Shell - Bricklaying Foundation",
-      description: "Lay foundation bricks and mortar joints",
+      description: "Lay foundation bricks and mortar joints (50 No)",
       area: "Foundation Area",
       totalItems: 50,
       completedItems: 0,
-      status: "not started"
+      status: "not started" as const
     },
     {
       id: "2", 
       title: "Masonry Shell - Block Work",
-      description: "Install concrete blocks for walls",
-      area: "Main Structure",
+      description: "Install concrete blocks for walls (120 No)",
+      area: "Main Structure", 
       totalItems: 120,
       completedItems: 0,
-      status: "not started"
+      status: "not started" as const
     }
-  ]);
+  ].filter(task => task.totalItems > 0)); // Only show tasks with quantity > 0
   
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
   const { toast } = useToast();

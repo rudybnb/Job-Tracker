@@ -69,26 +69,52 @@ export default function UploadJob() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const csvContent = e.target?.result as string;
-      const lines = csvContent.split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
+      const lines = csvContent.split('\n').filter(line => line.trim());
       
-      // Extract phase data from CSV
-      const phaseData: Record<string, Array<{task: string, quantity: number, description: string}>> = {};
+      // Parse header to find column indices
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const codeIndex = headers.findIndex(h => h.toLowerCase().includes('code'));
+      const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('item'));
+      const unitIndex = headers.findIndex(h => h.toLowerCase().includes('unit'));
+      const quantityIndex = headers.findIndex(h => h.toLowerCase().includes('quantity'));
+      
+      // Extract phase data from CSV based on the structure from your image
+      const phaseData: Record<string, Array<{task: string, quantity: number, description: string, unit: string, code: string}>> = {};
       
       for (let i = 1; i < lines.length; i++) {
-        const row = lines[i].split(',').map(cell => cell.trim());
+        const row = lines[i].split(',').map(cell => cell.trim().replace(/"/g, ''));
         if (row.length >= 4) {
-          const phase = row[0];
-          const task = row[1];
-          const quantity = parseInt(row[2]) || 0;
-          const description = row[3] || '';
+          const code = row[codeIndex] || '';
+          const description = row[descIndex] || '';
+          const unit = row[unitIndex] || '';
+          const quantity = parseFloat(row[quantityIndex]) || 0;
+          
+          // Determine phase from code or description
+          let phase = '';
+          if (code.includes('Masonry') || description.toLowerCase().includes('masonry') || description.toLowerCase().includes('brick')) {
+            phase = 'Masonry Shell';
+          } else if (code.includes('Foundation') || description.toLowerCase().includes('foundation') || description.toLowerCase().includes('footing')) {
+            phase = 'Foundations';
+          } else if (code.includes('Roof') || description.toLowerCase().includes('roof')) {
+            phase = 'Roof Structure';
+          } else if (code.includes('Floor') || description.toLowerCase().includes('floor')) {
+            phase = 'Ground Floor';
+          } else {
+            phase = 'General Works';
+          }
           
           // Only include tasks with quantity > 0
-          if (quantity > 0) {
+          if (quantity > 0 && description) {
             if (!phaseData[phase]) {
               phaseData[phase] = [];
             }
-            phaseData[phase].push({ task, quantity, description });
+            phaseData[phase].push({ 
+              task: description, 
+              quantity: Math.ceil(quantity), // Round up for task counting
+              description: `${description} (${quantity} ${unit})`,
+              unit: unit,
+              code: code
+            });
           }
         }
       }
