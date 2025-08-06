@@ -28,6 +28,12 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
 ✓ Created contractor task progress interface with detailed progress tracking and +/- controls
 ✓ Implemented Direct Job Assignments page showing available jobs for contractors
 ✓ Added Admin Task Monitor for real-time contractor progress and time tracking oversight
+✓ Implemented admin-controlled job creation workflow (manual approval required)
+✓ Added client information extraction from CSV header (Column A = reference, Column B = values)
+✓ Created contractor dropdown with 8 pre-loaded contractors and auto-fill functionality
+✓ Added floating account switcher for seamless admin/contractor interface switching
+✓ Enhanced CSV parsing to extract specific client data (Name, Address, Post Code, Project Type)
+✓ Created comprehensive changelog documenting all features and implementation details
 ✓ All pages recreated exactly according to user-provided screenshots
 
 ## Application Structure
