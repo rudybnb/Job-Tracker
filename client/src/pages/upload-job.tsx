@@ -414,7 +414,7 @@ export default function UploadJob() {
                             name="projectType"
                             type="text"
                             defaultValue={clientInfo.projectType || ''}
-                            placeholder="Flat 12 Bedroom Refurbishment"
+                            placeholder="Fitout"
                             required
                             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
                           />
@@ -425,7 +425,7 @@ export default function UploadJob() {
                             name="clientName"
                             type="text"
                             defaultValue={clientInfo.name || ''}
-                            placeholder="HBXL Construction Ltd"
+                            placeholder="Flat 2"
                             required
                             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
                           />
@@ -436,7 +436,7 @@ export default function UploadJob() {
                             name="address"
                             type="text"
                             defaultValue={clientInfo.address || ''}
-                            placeholder="Manor Court Business Centre"
+                            placeholder="Stevenage"
                             required
                             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
                           />
