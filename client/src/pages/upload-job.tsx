@@ -216,11 +216,11 @@ export default function UploadJob() {
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 mb-4">
           <div className="flex items-center mb-4">
             <i className="fas fa-upload text-yellow-400 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-400">Upload HBXL Work Scheduler</h3>
+            <h3 className="text-lg font-semibold text-yellow-400">Upload HBXL Work Scheduler & Create Job</h3>
           </div>
           
           <p className="text-slate-400 text-sm mb-4">
-            Upload HBXL CSV or Excel files to automatically detect job information
+            Upload HBXL CSV files to automatically create jobs with phase detection. Try the sample_job.csv file!
           </p>
 
           <div className="mb-4">
@@ -237,12 +237,13 @@ export default function UploadJob() {
               />
               <label 
                 htmlFor="hbxl-upload"
-                className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg cursor-pointer border border-slate-600"
+                className="bg-yellow-600 hover:bg-yellow-700 text-black px-4 py-2 rounded-lg cursor-pointer border border-yellow-500 font-semibold"
               >
-                Choose file
+                <i className="fas fa-file-upload mr-2"></i>
+                Choose CSV File
               </label>
               <span className="text-slate-400">
-                {hbxlFile ? hbxlFile.name : "No file chosen"}
+                {hbxlFile ? hbxlFile.name : "Select sample_job.csv or your own CSV file"}
               </span>
             </div>
             <p className="text-slate-500 text-xs mt-2">
@@ -253,9 +254,10 @@ export default function UploadJob() {
           {hbxlFile && (
             <Button 
               onClick={handleUploadHbxl}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white w-full"
             >
-              Upload and Process
+              <i className="fas fa-upload mr-2"></i>
+              Upload and Create Job
             </Button>
           )}
         </div>
