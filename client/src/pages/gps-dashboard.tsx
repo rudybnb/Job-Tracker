@@ -216,7 +216,10 @@ export default function GPSDashboard() {
             <i className="fas fa-home block mb-1"></i>
             <span className="text-xs">Dashboard</span>
           </button>
-          <button className="py-3 px-4 text-slate-400 hover:text-white">
+          <button 
+            onClick={() => window.location.href = '/jobs'}
+            className="py-3 px-4 text-slate-400 hover:text-white"
+          >
             <i className="fas fa-briefcase block mb-1"></i>
             <span className="text-xs">Jobs</span>
           </button>
@@ -224,7 +227,10 @@ export default function GPSDashboard() {
             <i className="fas fa-user-cog block mb-1"></i>
             <span className="text-xs">Admin</span>
           </button>
-          <button className="py-3 px-4 text-slate-400 hover:text-white">
+          <button 
+            onClick={() => window.location.href = '/upload'}
+            className="py-3 px-4 text-slate-400 hover:text-white"
+          >
             <i className="fas fa-upload block mb-1"></i>
             <span className="text-xs">Upload Job</span>
           </button>
