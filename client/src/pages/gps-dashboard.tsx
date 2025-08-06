@@ -17,6 +17,7 @@ export default function GPSDashboard() {
   const [gpsPosition, setGpsPosition] = useState<GPSPosition | null>(null);
   const [gpsStatus, setGpsStatus] = useState<"Good" | "Poor" | "Unavailable">("Unavailable");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
   const { toast } = useToast();
 
   // Simulate GPS data for demo
@@ -65,7 +66,7 @@ export default function GPSDashboard() {
   };
 
   const handleMenuAction = (action: string) => {
-    setShowDropdown(false);
+    setContractorDropdownOpen(false);
     toast({
       title: action,
       description: `Opening ${action} interface...`,
@@ -96,27 +97,28 @@ export default function GPSDashboard() {
         <div className="flex items-center space-x-2">
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
           <span className="text-sm text-green-500">Online</span>
+          <i className="fas fa-sun text-yellow-400 ml-2"></i>
           <div className="relative">
             <button 
-              onClick={() => setShowDropdown(!showDropdown)}
+              onClick={() => setContractorDropdownOpen(!contractorDropdownOpen)}
               className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4 hover:bg-yellow-700 transition-colors"
             >
-              <span className="text-white font-bold text-sm">RD</span>
+              <span className="text-white font-bold text-sm">JC</span>
             </button>
             
-            {showDropdown && (
-              <div className="absolute right-0 top-10 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
-                {/* User Info Header */}
+            {contractorDropdownOpen && (
+              <div className="absolute right-0 top-10 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50">
+                {/* Contractor Info Header */}
                 <div className="px-4 py-3 border-b border-slate-600">
-                  <div className="text-yellow-400 font-semibold">Rudy Diedericks</div>
-                  <div className="text-slate-400 text-sm">rudy@erbuildanddesign.co.uk</div>
+                  <div className="text-yellow-400 font-semibold">James Carpenter</div>
+                  <div className="text-slate-400 text-sm">james@contractor.com</div>
                   <div className="flex items-center mt-2">
-                    <i className="fas fa-shield-alt text-blue-400 mr-2"></i>
-                    <span className="text-blue-400 text-sm">Admin Access</span>
+                    <i className="fas fa-hard-hat text-yellow-400 mr-2"></i>
+                    <span className="text-yellow-400 text-sm">Contractor</span>
                   </div>
                 </div>
                 
-                {/* Menu Items */}
+                {/* Contractor Menu Items */}
                 <div className="py-2">
                   <button 
                     onClick={() => handleMenuAction("Switch Account")}
@@ -127,52 +129,38 @@ export default function GPSDashboard() {
                   </button>
                   
                   <button 
-                    onClick={() => window.location.href = '/contractor-onboarding'}
+                    onClick={() => handleMenuAction("Report Issue")}
                     className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
                   >
-                    <i className="fas fa-user-plus mr-3 text-yellow-400"></i>
-                    Contractor Onboarding
+                    <i className="fas fa-exclamation-triangle mr-3 text-yellow-400"></i>
+                    Report Issue
                   </button>
                   
                   <button 
-                    onClick={() => handleMenuAction("Assignment Management")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                    onClick={() => handleMenuAction("Documents")}
+                    className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 flex items-center"
                   >
-                    <i className="fas fa-clipboard-list mr-3 text-yellow-400"></i>
-                    Assignment Management
+                    <i className="fas fa-file-alt mr-3 text-slate-400"></i>
+                    Documents
                   </button>
                   
                   <button 
-                    onClick={() => handleMenuAction("HBXL Labour Assignments")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
+                    onClick={() => handleMenuAction("Help & Support")}
+                    className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 flex items-center"
                   >
-                    <i className="fas fa-hard-hat mr-3 text-yellow-400"></i>
-                    HBXL Labour Assignments
+                    <i className="fas fa-question-circle mr-3 text-slate-400"></i>
+                    Help & Support
                   </button>
                   
-                  <button 
-                    onClick={() => handleMenuAction("HBXL vs Daily Cost Analysis")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-chart-bar mr-3 text-yellow-400"></i>
-                    HBXL vs Daily Cost Analysis
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Hybrid Planning System")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-project-diagram mr-3 text-yellow-400"></i>
-                    Hybrid Planning System
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("HBXL Job Upload & Approval")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-upload mr-3 text-yellow-400"></i>
-                    HBXL Job Upload & Approval
-                  </button>
+                  <div className="border-t border-slate-600 mt-2 pt-2">
+                    <button 
+                      onClick={() => window.location.href = '/login'}
+                      className="w-full px-4 py-2 text-left text-red-400 hover:bg-slate-700 flex items-center"
+                    >
+                      <i className="fas fa-sign-out-alt mr-3 text-red-400"></i>
+                      Sign Out & Switch Account
+                    </button>
+                  </div>
                   
                   <button 
                     onClick={() => handleMenuAction("Export & Archive")}
