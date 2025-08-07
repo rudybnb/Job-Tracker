@@ -89,9 +89,10 @@ export class SystemCleanup {
     
     console.log('✅ System cleanup completed');
     
-    // Optional: Reload page to ensure clean state
+    // Force reload with cache busting for mobile apps
     setTimeout(() => {
-      window.location.reload();
+      const cacheBustUrl = window.location.origin + window.location.pathname + '?cache_bust=' + Date.now();
+      window.location.replace(cacheBustUrl);
     }, 1000);
   }
 

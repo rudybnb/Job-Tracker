@@ -77,6 +77,12 @@ export default function SystemCleanupPage() {
     });
   };
 
+  const handleForceRefresh = () => {
+    // Force reload with cache busting - perfect for mobile app updates
+    const cacheBustUrl = window.location.origin + window.location.pathname + '?v=' + Date.now() + '&cache_bust=1';
+    window.location.replace(cacheBustUrl);
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       <LogoutButton />
@@ -116,6 +122,16 @@ export default function SystemCleanupPage() {
           </div>
           
           <div className="space-y-4">
+            <div className="flex space-x-4 mb-3">
+              <Button 
+                onClick={handleForceRefresh}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2"
+              >
+                <i className="fas fa-mobile-alt mr-2"></i>
+                Force Mobile Update
+              </Button>
+            </div>
+            
             <div className="flex space-x-4">
               <Button 
                 onClick={handleFullCleanup}
@@ -145,6 +161,7 @@ export default function SystemCleanupPage() {
             </div>
             
             <div className="text-sm text-slate-400">
+              <p><strong>Force Mobile Update:</strong> Reloads the app with cache busting to get the latest changes on mobile devices.</p>
               <p><strong>Full System Cleanup:</strong> Clears all localStorage, sessionStorage, browser cache, and reloads the page for a completely fresh start.</p>
               <p><strong>Quick Storage Clear:</strong> Clears only localStorage and sessionStorage without page reload.</p>
             </div>
