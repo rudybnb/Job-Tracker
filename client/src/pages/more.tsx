@@ -34,76 +34,15 @@ export default function More() {
 
   // Contractor details (would come from database)
   const contractorInfo = {
-    name: "James Carpenter",
-    email: "james@contractor.com",
-    cisRegistered: true,
-    hourlyRate: 25.00,
-    cisRate: 20 // 20% for CIS registered, 30% for non-registered
+    name: "Contractor",
+    email: "",
+    cisRegistered: false,
+    hourlyRate: 0,
+    cisRate: 30 // Default to 30% for non-registered
   };
 
-  // Sample work sessions (would come from GPS time tracking data)
-  const [workSessions] = useState<WorkSession[]>([
-    {
-      id: "1",
-      jobName: "Residential Extension - Smith Property",
-      location: "123 High Street, London SW1A 1AA",
-      date: "2025-02-03",
-      startTime: "08:00",
-      endTime: "17:00",
-      hoursWorked: 8.5,
-      hourlyRate: 25.00,
-      grossEarnings: 212.50,
-      gpsVerified: true
-    },
-    {
-      id: "2", 
-      jobName: "Office Refurbishment - Central London",
-      location: "456 Business Park, London EC1A 1BB",
-      date: "2025-02-04",
-      startTime: "08:00",
-      endTime: "16:30",
-      hoursWorked: 8.0,
-      hourlyRate: 25.00,
-      grossEarnings: 200.00,
-      gpsVerified: true
-    },
-    {
-      id: "3",
-      jobName: "Kitchen Installation - Jones Residence", 
-      location: "789 Elm Avenue, London W1A 1CC",
-      date: "2025-02-05",
-      startTime: "08:30",
-      endTime: "17:30",
-      hoursWorked: 8.5,
-      hourlyRate: 25.00,
-      grossEarnings: 212.50,
-      gpsVerified: true
-    },
-    {
-      id: "4",
-      jobName: "Bathroom Renovation - Wilson Property",
-      location: "321 Oak Road, London N1A 1DD", 
-      date: "2025-02-06",
-      startTime: "08:00",
-      endTime: "16:00",
-      hoursWorked: 7.5,
-      hourlyRate: 25.00,
-      grossEarnings: 187.50,
-      gpsVerified: true
-    },
-    {
-      id: "5",
-      jobName: "Garden Landscaping - Brown Estate",
-      location: "654 Garden Close, London SE1A 1EE",
-      date: "2025-02-07",
-      startTime: "08:00", 
-      endTime: "17:00",
-      hoursWorked: 8.5,
-      hourlyRate: 25.00,
-      grossEarnings: 212.50,
-      gpsVerified: true
-    }
-  ]);
+  // Empty work sessions - will be populated with real GPS tracking data
+  const [workSessions] = useState<WorkSession[]>([]);
 
   const calculateWeeklyEarnings = (): WeeklyEarnings => {
     const weekSessions = workSessions.filter(session => {
