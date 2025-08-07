@@ -40,6 +40,16 @@ export default function JobAssignments() {
     }
   }, []);
 
+  const handleDeleteAssignment = (index: number) => {
+    const updatedAssignments = assignments.filter((_, i) => i !== index);
+    setAssignments(updatedAssignments);
+    localStorage.setItem('jobAssignments', JSON.stringify(updatedAssignments));
+    toast({
+      title: "Assignment Deleted",
+      description: "Job assignment has been removed successfully.",
+    });
+  };
+
   // Filter assignments based on search term
   const filteredAssignments = assignments.filter(assignment =>
     assignment?.contractorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -128,9 +138,18 @@ export default function JobAssignments() {
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm text-slate-400">Status</div>
-                        <div className="text-green-400 font-medium">Assigned</div>
+                      <div className="text-right flex items-center space-x-2">
+                        <div>
+                          <div className="text-sm text-slate-400">Status</div>
+                          <div className="text-green-400 font-medium">Assigned</div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteAssignment(index)}
+                          className="p-2 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-colors"
+                          title="Delete Assignment"
+                        >
+                          <i className="fas fa-trash text-sm"></i>
+                        </button>
                       </div>
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-4">

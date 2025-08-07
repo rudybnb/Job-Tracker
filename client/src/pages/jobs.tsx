@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,25 @@ export default function Jobs() {
   
   // Load real job assignments from localStorage (created from CSV uploads)
   const [assignments, setAssignments] = useState<JobAssignment[]>([]);
+
+  // Load job assignments on component mount
+  useEffect(() => {
+    const savedAssignments = localStorage.getItem('jobAssignments');
+    if (savedAssignments) {
+      const assignmentData = JSON.parse(savedAssignments);
+      setAssignments(assignmentData);
+    }
+  }, []);
+
+  const handleDeleteAssignment = (id: string) => {
+    const updatedAssignments = assignments.filter(assignment => assignment.id !== id);
+    setAssignments(updatedAssignments);
+    localStorage.setItem('jobAssignments', JSON.stringify(updatedAssignments));
+    toast({
+      title: "Assignment Deleted", 
+      description: "Job assignment has been removed successfully.",
+    });
+  };
 
   const handleCreateJob = () => {
     toast({
@@ -123,9 +142,13 @@ export default function Jobs() {
                         Sent
                       </Badge>
                     )}
-                    <Button size="sm" variant="outline" className="text-slate-300 border-slate-600">
-                      <i className="fas fa-edit mr-1"></i>
-                      Edit
+                    <Button 
+                      size="sm" 
+                      className="bg-red-600 hover:bg-red-700 text-white p-2"
+                      onClick={() => handleDeleteAssignment(assignment.id)}
+                      title="Delete Assignment"
+                    >
+                      <i className="fas fa-trash"></i>
                     </Button>
                   </div>
                 </div>
@@ -154,9 +177,13 @@ export default function Jobs() {
                       <i className="fas fa-check mr-1"></i>
                       Approve
                     </Button>
-                    <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white">
-                      <i className="fas fa-times mr-1"></i>
-                      Cancel
+                    <Button 
+                      size="sm" 
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                      onClick={() => handleDeleteAssignment(assignment.id)}
+                    >
+                      <i className="fas fa-trash mr-1"></i>
+                      Delete
                     </Button>
                   </div>
                 </div>
