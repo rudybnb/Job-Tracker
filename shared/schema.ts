@@ -25,9 +25,13 @@ export const jobs = pgTable("jobs", {
   location: text("location").notNull(),
   status: jobStatusEnum("status").notNull().default("pending"),
   contractorId: varchar("contractor_id").references(() => contractors.id),
+  contractorName: text("contractor_name"),
   dueDate: text("due_date").notNull(),
+  startDate: text("start_date"),
   notes: text("notes"),
   uploadId: varchar("upload_id").references(() => csvUploads.id),
+  phases: text("phases"), // JSON string of selected phases
+  telegramNotified: text("telegram_notified").default("false"),
 });
 
 export const csvUploads = pgTable("csv_uploads", {

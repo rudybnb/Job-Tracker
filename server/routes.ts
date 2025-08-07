@@ -222,6 +222,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contractor's active assignments
+  app.get("/api/contractor-assignments/:contractorName", async (req, res) => {
+    try {
+      const { contractorName } = req.params;
+      console.log("🔍 Fetching assignments for contractor:", contractorName);
+      
+      const assignments = await storage.getContractorAssignments(contractorName);
+      console.log("📋 Found assignments:", assignments.length);
+      
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching contractor assignments:", error);
+      res.status(500).json({ error: "Failed to fetch assignments" });
+    }
+  });
+
+  // Create job assignment from admin interface
+  app.post("/api/job-assignments", async (req, res) => {
+    try {
+      console.log("📋 Creating job assignment:", req.body);
+      
+      const assignment = await storage.createJobAssignment(req.body);
+      
+      // Send Telegram notification if requested
+      if (req.body.sendTelegramNotification) {
+        try {
+          const telegramService = new TelegramService();
+          await telegramService.sendJobAssignment({
+            contractorName: req.body.contractorName,
+            phone: req.body.phone,
+            hbxlJob: req.body.hbxlJob,
+            buildPhases: req.body.buildPhases,
+            workLocation: req.body.workLocation,
+            startDate: req.body.startDate
+          });
+          console.log('📱 Telegram notification sent for assignment');
+        } catch (telegramError) {
+          console.error("⚠️ Failed to send Telegram notification:", telegramError);
+        }
+      }
+      
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error creating job assignment:", error);
+      res.status(500).json({ error: "Failed to create job assignment" });
+    }
+  });
+
   // Telegram notification endpoint - real implementation
   app.post("/api/send-telegram-notification", async (req, res) => {
     try {

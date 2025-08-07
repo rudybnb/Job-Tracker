@@ -196,4 +196,35 @@ export class DatabaseStorage implements IStorage {
       activeContractors: contractorsData.filter(contractor => contractor.status === "available" || contractor.status === "busy").length
     };
   }
+
+  // Job Assignments for Contractors
+  async getContractorAssignments(contractorName: string): Promise<Job[]> {
+    console.log("🔍 DatabaseStorage: Getting assignments for", contractorName);
+    
+    const result = await db.select().from(jobs).where(eq(jobs.contractorName, contractorName));
+    
+    console.log("📋 DatabaseStorage: Found", result.length, "assignments");
+    return result;
+  }
+
+  async createJobAssignment(assignmentData: any): Promise<Job> {
+    console.log("📋 DatabaseStorage: Creating job assignment", assignmentData);
+    
+    const jobData = {
+      title: assignmentData.hbxlJob || "Job Assignment",
+      description: assignmentData.specialInstructions || "",
+      location: assignmentData.workLocation || "",
+      contractorName: assignmentData.contractorName,
+      startDate: assignmentData.startDate,
+      dueDate: assignmentData.endDate,
+      status: "assigned" as const,
+      phases: assignmentData.buildPhases ? JSON.stringify(assignmentData.buildPhases) : null,
+      telegramNotified: assignmentData.sendTelegramNotification ? "true" : "false",
+    };
+
+    const result = await db.insert(jobs).values(jobData).returning();
+    console.log("✅ DatabaseStorage: Job assignment created with ID", result[0].id);
+    
+    return result[0];
+  }
 }

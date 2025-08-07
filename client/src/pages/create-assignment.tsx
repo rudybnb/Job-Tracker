@@ -181,7 +181,6 @@ export default function CreateAssignment() {
     try {
       // Create assignment object
       const assignment = {
-        id: Date.now().toString(),
         contractorName,
         email,
         phone,
@@ -192,30 +191,30 @@ export default function CreateAssignment() {
         endDate,
         specialInstructions,
         status: "assigned",
-        createdAt: new Date().toLocaleDateString('en-GB')
+        sendTelegramNotification: true
       };
 
-      // Save assignment
-      const existingAssignments = localStorage.getItem('jobAssignments');
-      const assignments = existingAssignments ? JSON.parse(existingAssignments) : [];
-      assignments.push(assignment);
-      localStorage.setItem('jobAssignments', JSON.stringify(assignments));
+      console.log('📋 Saving assignment to database:', assignment);
 
-      console.log('Created assignment:', assignment);
-
-      // Send real Telegram notification
-      await sendTelegramNotification({
-        contractorName,
-        phone,
-        hbxlJob: selectedHbxlJob,
-        buildPhases: selectedPhases,
-        workLocation,
-        startDate
+      // Save assignment to database using the new API
+      const response = await fetch('/api/job-assignments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(assignment),
       });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create assignment: ${response.status}`);
+      }
+
+      const savedAssignment = await response.json();
+      console.log('✅ Assignment saved to database:', savedAssignment);
 
       toast({
         title: "Assignment Created",
-        description: `Job assigned to ${contractorName}. Telegram notification sent.`,
+        description: `Job assigned to ${contractorName} and saved to database. Telegram notification sent.`,
       });
 
       // Navigate back to job assignments

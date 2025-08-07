@@ -4,6 +4,100 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
+// Active Assignment Component
+function ActiveAssignmentContent() {
+  const { data: assignments = [], isLoading } = useQuery({
+    queryKey: ["/api/contractor-assignments/James"], // Using James as the contractor name from screenshots
+  });
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto mb-4"></div>
+        <div className="text-slate-400 text-sm">Loading assignments...</div>
+      </div>
+    );
+  }
+
+  if (assignments.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+          <i className="fas fa-briefcase text-slate-500 text-3xl"></i>
+        </div>
+        <h3 className="text-lg font-semibold mb-2">No Active Assignment</h3>
+        <div className="text-slate-400 text-sm">
+          You don't have any active assignments at the moment. Check with your supervisor for new work.
+        </div>
+      </div>
+    );
+  }
+
+  const activeAssignment = assignments[0]; // Show the first active assignment
+  const phases = activeAssignment.phases ? JSON.parse(activeAssignment.phases) : [];
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-slate-700 rounded-lg p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <h4 className="text-white font-medium">{activeAssignment.location}</h4>
+            <p className="text-slate-400 text-sm">{activeAssignment.title}</p>
+          </div>
+          <Badge className="bg-yellow-500 text-black text-xs px-2 py-1">
+            active
+          </Badge>
+        </div>
+        
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center text-slate-300">
+            <i className="fas fa-user text-slate-400 mr-2 w-4"></i>
+            <span>Assigned to: {activeAssignment.contractorName}</span>
+          </div>
+          
+          <div className="flex items-center text-slate-300">
+            <i className="fas fa-calendar text-slate-400 mr-2 w-4"></i>
+            <span>{activeAssignment.startDate} - {activeAssignment.dueDate}</span>
+          </div>
+          
+          {phases.length > 0 && (
+            <div className="mt-3">
+              <div className="text-slate-400 text-xs mb-2">Build Phases:</div>
+              <div className="flex flex-wrap gap-1">
+                {phases.map((phase: string, index: number) => (
+                  <Badge key={index} className="bg-blue-600 text-white text-xs px-2 py-1">
+                    {phase}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex gap-2 mt-4">
+          <Button 
+            size="sm" 
+            className="bg-yellow-600 hover:bg-yellow-700 text-black flex-1"
+            onClick={() => window.location.href = '/task-progress'}
+          >
+            <i className="fas fa-clipboard-list mr-1"></i>
+            Continue Work
+          </Button>
+          <Button 
+            size="sm" 
+            variant="destructive" 
+            className="px-3"
+            onClick={() => alert('Report Issue functionality would be implemented here')}
+          >
+            <i className="fas fa-exclamation-triangle"></i>
+            Report Issue
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ContractorLogoutButton() {
   const handleLogout = () => {
     localStorage.removeItem('userRole');
@@ -363,6 +457,16 @@ export default function GPSDashboard() {
           <div className="text-center text-red-400 text-xs">
             TESTING MODE: Work hour restrictions disabled
           </div>
+        </div>
+
+        {/* Active Assignment Card */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <div className="flex items-center mb-4">
+            <i className="fas fa-briefcase text-yellow-400 mr-2"></i>
+            <h3 className="text-lg font-semibold text-yellow-400">Active Assignment</h3>
+          </div>
+          
+          <ActiveAssignmentContent />
         </div>
 
         {/* Priority Issues Card */}
