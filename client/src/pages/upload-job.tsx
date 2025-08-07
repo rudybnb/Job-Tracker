@@ -453,12 +453,19 @@ export default function UploadJob() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-yellow-400 mb-2">HBXL Job Upload & Approval</h1>
           <p className="text-slate-400">Upload HBXL work scheduler files, detect project details, and approve jobs to go live</p>
-          <Button 
-            onClick={clearAllJobs}
-            className="mt-2 bg-red-600 hover:bg-red-700 text-white text-sm"
-          >
-            Clear All Jobs
-          </Button>
+          
+          <div className="mt-3 bg-blue-900/20 border border-blue-600/30 rounded-lg p-3">
+            <h4 className="text-blue-400 font-medium mb-1">Enhanced CSV Processing Available!</h4>
+            <p className="text-sm text-slate-300 mb-2">
+              If you see "0 phases" on existing jobs, clear all data and re-upload your CSV files to use the new enhanced phase detection system.
+            </p>
+            <Button 
+              onClick={clearAllJobs}
+              className="bg-red-600 hover:bg-red-700 text-white text-sm"
+            >
+              Clear All & Start Fresh
+            </Button>
+          </div>
         </div>
 
         {/* Upload HBXL Work Scheduler Card */}
