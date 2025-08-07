@@ -21,7 +21,7 @@ export interface IStorage {
   updateCsvUpload(id: string, upload: Partial<CsvUpload>): Promise<CsvUpload | undefined>;
   
   // Job Assignment
-  assignJob(assignment: JobAssignment): Promise<Job | undefined>;
+  assignJob(assignment: JobAssignment): Promise<JobWithContractor | undefined>;
   
   // Stats
   getStats(): Promise<{
@@ -67,6 +67,8 @@ export class MemStorage implements IStorage {
     const contractor: Contractor = { 
       ...insertContractor, 
       id,
+      specialization: insertContractor.specialization || insertContractor.specialty || "General Construction",
+      telegramId: insertContractor.telegramId || null,
       status: insertContractor.status || "available",
       rating: insertContractor.rating || "0",
       activeJobs: insertContractor.activeJobs || "0",
@@ -166,7 +168,7 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async assignJob(assignment: JobAssignment): Promise<Job | undefined> {
+  async assignJob(assignment: JobAssignment): Promise<JobWithContractor | undefined> {
     const job = this.jobs.get(assignment.jobId);
     const contractor = this.contractors.get(assignment.contractorId);
     
@@ -179,6 +181,8 @@ export class MemStorage implements IStorage {
       notes: assignment.notes
     });
     
+    if (!updatedJob) return undefined;
+    
     // Update contractor's active jobs count
     const currentActiveJobs = parseInt(contractor.activeJobs) + 1;
     await this.updateContractor(assignment.contractorId, {
@@ -186,7 +190,11 @@ export class MemStorage implements IStorage {
       status: currentActiveJobs >= 3 ? "busy" : "available"
     });
     
-    return updatedJob;
+    // Return job with contractor info
+    return {
+      ...updatedJob,
+      contractor: contractor
+    };
   }
 
   async getStats(): Promise<{

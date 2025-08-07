@@ -12,6 +12,8 @@ export const contractors = pgTable("contractors", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   specialty: text("specialty").notNull(),
+  specialization: text("specialization").notNull().default("General Construction"),
+  telegramId: text("telegram_id"),
   status: contractorStatusEnum("status").notNull().default("available"),
   rating: text("rating").notNull().default("0"),
   activeJobs: text("active_jobs").notNull().default("0"),
@@ -56,6 +58,7 @@ export const jobAssignmentSchema = z.object({
   contractorId: z.string(),
   dueDate: z.string(),
   notes: z.string().optional(),
+  selectedPhases: z.array(z.string()).optional(),
 });
 
 export type InsertContractor = z.infer<typeof insertContractorSchema>;
