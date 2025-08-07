@@ -597,6 +597,8 @@ export default function UploadJob() {
                 return;
               }
               console.log('Processing file:', hbxlFile.name);
+              console.log('File size:', hbxlFile.size);
+              console.log('File type:', hbxlFile.type);
               handleUploadHbxl();
             }}
             className="bg-green-600 hover:bg-green-700 text-white w-full mb-3"
@@ -605,6 +607,25 @@ export default function UploadJob() {
             <i className="fas fa-upload mr-2"></i>
             {hbxlFile ? `Process ${hbxlFile.name}` : 'Select CSV file first'}
           </Button>
+          
+          {/* Test button to verify the CSV content */}
+          {hbxlFile && (
+            <Button 
+              onClick={() => {
+                console.log('=== TESTING CSV READ ===');
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  const content = e.target?.result as string;
+                  console.log('CSV Content Preview:', content.substring(0, 500));
+                  console.log('CSV Lines:', content.split('\n').length);
+                };
+                reader.readAsText(hbxlFile);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white w-full mb-3"
+            >
+              Test Read CSV
+            </Button>
+          )}
         </div>
 
         {/* Phase Tracking Documents Card */}
