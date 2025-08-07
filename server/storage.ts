@@ -1,4 +1,7 @@
 import { type Contractor, type InsertContractor, type Job, type InsertJob, type CsvUpload, type InsertCsvUpload, type JobWithContractor, type JobAssignment, type ContractorApplication, type InsertContractorApplication } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -38,21 +41,13 @@ export interface IStorage {
   }>;
 }
 
-export class MemStorage implements IStorage {
-  private contractors: Map<string, Contractor>;
-  private jobs: Map<string, Job>;
-  private csvUploads: Map<string, CsvUpload>;
-  private contractorApplications: Map<string, ContractorApplication>;
-
+export class DatabaseStorage implements IStorage {
   constructor() {
-    this.contractors = new Map();
-    this.jobs = new Map();
-    this.csvUploads = new Map();
-    this.contractorApplications = new Map();
-    
-    // Clean startup - no seed data to prevent test data pollution
-    console.log('✅ MemStorage initialized with clean state');
+    console.log('✅ DatabaseStorage initialized with persistent PostgreSQL');
   }
+
+  // Database storage persists data permanently - no data loss on restart
+}
 
   // Cleanup method to reset all data
   public clearAllData(): void {

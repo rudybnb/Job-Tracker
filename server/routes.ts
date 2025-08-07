@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { DatabaseStorage } from "./database-storage";
+
+const storage = new DatabaseStorage();
 import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema } from "@shared/schema";
 import { TelegramService } from "./telegram";
 import multer from "multer";
