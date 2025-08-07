@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertJobSchema, insertContractorSchema, jobAssignmentSchema } from "@shared/schema";
+import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema } from "@shared/schema";
 import { TelegramService } from "./telegram";
 import multer from "multer";
 import type { Request as ExpressRequest } from "express";
@@ -340,6 +340,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: 'Failed to get messages',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // Contractor Application endpoints
+  app.get("/api/contractor-applications", async (req, res) => {
+    try {
+      const applications = await storage.getContractorApplications();
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching contractor applications:", error);
+      res.status(500).json({ error: "Failed to fetch contractor applications" });
+    }
+  });
+
+  app.get("/api/contractor-applications/:id", async (req, res) => {
+    try {
+      const application = await storage.getContractorApplication(req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+      res.json(application);
+    } catch (error) {
+      console.error("Error fetching contractor application:", error);
+      res.status(500).json({ error: "Failed to fetch contractor application" });
+    }
+  });
+
+  app.post("/api/contractor-applications", async (req, res) => {
+    try {
+      console.log("📋 Received contractor application submission:", req.body);
+      
+      // Convert boolean values from strings if needed
+      const processedData = {
+        ...req.body,
+        hasRightToWork: req.body.hasRightToWork?.toString() || "false",
+        passportPhotoUploaded: req.body.passportPhotoUploaded?.toString() || "false",
+        hasPublicLiability: req.body.hasPublicLiability?.toString() || "false",
+        isCisRegistered: req.body.isCisRegistered?.toString() || "false",
+        hasValidCscs: req.body.hasValidCscs?.toString() || "false",
+        hasOwnTools: req.body.hasOwnTools?.toString() || "false"
+      };
+      
+      const validation = insertContractorApplicationSchema.safeParse(processedData);
+      if (!validation.success) {
+        console.error("❌ Validation failed:", validation.error.errors);
+        return res.status(400).json({ 
+          error: "Invalid application data", 
+          details: validation.error.errors 
+        });
+      }
+      
+      const application = await storage.createContractorApplication(validation.data);
+      
+      console.log("✅ Contractor application created successfully:", application.id);
+      
+      // Send notification to admin (your Telegram)
+      try {
+        const telegramService = new TelegramService();
+        const message = `🔥 **NEW CONTRACTOR APPLICATION**\n\n` +
+          `👤 **${application.firstName} ${application.lastName}**\n` +
+          `📧 ${application.email}\n` +
+          `📱 ${application.phone}\n` +
+          `🏗️ **Trade:** ${application.primaryTrade}\n` +
+          `⭐ **Experience:** ${application.yearsExperience}\n` +
+          `📍 ${application.city}, ${application.postcode}\n\n` +
+          `🔗 **View Application:** http://localhost:5000/admin/applications/${application.id}\n\n` +
+          `⏰ Submitted: ${new Date().toLocaleString()}`;
+        
+        await telegramService.sendCustomMessage("7617462316", message);
+        console.log("📱 Admin notification sent successfully");
+      } catch (telegramError) {
+        console.error("⚠️ Failed to send admin notification:", telegramError);
+      }
+      
+      res.status(201).json(application);
+    } catch (error) {
+      console.error("Error creating contractor application:", error);
+      res.status(500).json({ error: "Failed to create contractor application" });
+    }
+  });
+
+  app.patch("/api/contractor-applications/:id", async (req, res) => {
+    try {
+      const application = await storage.updateContractorApplication(req.params.id, req.body);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+      res.json(application);
+    } catch (error) {
+      console.error("Error updating contractor application:", error);
+      res.status(500).json({ error: "Failed to update contractor application" });
     }
   });
 

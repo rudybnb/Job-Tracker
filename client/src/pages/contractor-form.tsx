@@ -191,21 +191,38 @@ export default function ContractorForm() {
     }
 
     try {
-      // Submit the application
+      // Submit the application to the API
+      const response = await fetch('/api/contractor-applications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit application');
+      }
+
+      const result = await response.json();
+      console.log('Application submitted successfully:', result);
+
       toast({
         title: "Application Submitted Successfully!",
         description: "Your contractor application has been submitted for review. You'll hear back from us within 24 hours.",
       });
 
-      // Could redirect to a success page or reset form
+      // Redirect to success page
       setTimeout(() => {
         window.location.href = "/contractor-success";
       }, 2000);
 
     } catch (error) {
+      console.error('Submission error:', error);
       toast({
         title: "Submission Error",
-        description: "There was an error submitting your application. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error submitting your application. Please try again.",
         variant: "destructive",
       });
     }

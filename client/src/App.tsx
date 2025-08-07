@@ -11,6 +11,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import ContractorOnboarding from "@/pages/contractor-onboarding-clean";
 import ContractorForm from "@/pages/contractor-form";
 import ContractorSuccess from "@/pages/contractor-success";
+import AdminApplications from "@/pages/admin-applications";
 import JobAssignments from "@/pages/job-assignments";
 import Login from "@/pages/login";
 import TaskProgress from "@/pages/task-progress";
@@ -50,6 +51,11 @@ function Router() {
         <Route path="/contractor-onboarding" component={() => (
           <ProtectedRoute requiredRole="admin">
             <ContractorOnboarding />
+          </ProtectedRoute>
+        )} />
+        <Route path="/admin-applications" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminApplications />
           </ProtectedRoute>
         )} />
         <Route path="/contractor-form" component={ContractorForm} />

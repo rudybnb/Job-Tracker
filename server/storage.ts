@@ -1,4 +1,4 @@
-import { type Contractor, type InsertContractor, type Job, type InsertJob, type CsvUpload, type InsertCsvUpload, type JobWithContractor, type JobAssignment } from "@shared/schema";
+import { type Contractor, type InsertContractor, type Job, type InsertJob, type CsvUpload, type InsertCsvUpload, type JobWithContractor, type JobAssignment, type ContractorApplication, type InsertContractorApplication } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -23,6 +23,12 @@ export interface IStorage {
   // Job Assignment
   assignJob(assignment: JobAssignment): Promise<Job | undefined>;
   
+  // Contractor Applications
+  getContractorApplications(): Promise<ContractorApplication[]>;
+  getContractorApplication(id: string): Promise<ContractorApplication | undefined>;
+  createContractorApplication(application: InsertContractorApplication): Promise<ContractorApplication>;
+  updateContractorApplication(id: string, application: Partial<ContractorApplication>): Promise<ContractorApplication | undefined>;
+  
   // Stats
   getStats(): Promise<{
     totalJobs: number;
@@ -36,11 +42,13 @@ export class MemStorage implements IStorage {
   private contractors: Map<string, Contractor>;
   private jobs: Map<string, Job>;
   private csvUploads: Map<string, CsvUpload>;
+  private contractorApplications: Map<string, ContractorApplication>;
 
   constructor() {
     this.contractors = new Map();
     this.jobs = new Map();
     this.csvUploads = new Map();
+    this.contractorApplications = new Map();
     
     // Clean startup - no seed data to prevent test data pollution
     console.log('✅ MemStorage initialized with clean state');
@@ -51,6 +59,7 @@ export class MemStorage implements IStorage {
     this.contractors.clear();
     this.jobs.clear();
     this.csvUploads.clear();
+    this.contractorApplications.clear();
     console.log('✅ All in-memory data cleared');
   }
 
@@ -187,6 +196,36 @@ export class MemStorage implements IStorage {
     });
     
     return updatedJob;
+  }
+
+  // Contractor Applications
+  async getContractorApplications(): Promise<ContractorApplication[]> {
+    return Array.from(this.contractorApplications.values());
+  }
+
+  async getContractorApplication(id: string): Promise<ContractorApplication | undefined> {
+    return this.contractorApplications.get(id);
+  }
+
+  async createContractorApplication(insertApplication: InsertContractorApplication): Promise<ContractorApplication> {
+    const id = randomUUID();
+    const application: ContractorApplication = {
+      ...insertApplication,
+      id,
+      status: "pending",
+      submittedAt: new Date()
+    };
+    this.contractorApplications.set(id, application);
+    return application;
+  }
+
+  async updateContractorApplication(id: string, updates: Partial<ContractorApplication>): Promise<ContractorApplication | undefined> {
+    const application = this.contractorApplications.get(id);
+    if (!application) return undefined;
+    
+    const updated: ContractorApplication = { ...application, ...updates };
+    this.contractorApplications.set(id, updated);
+    return updated;
   }
 
   async getStats(): Promise<{
