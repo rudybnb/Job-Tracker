@@ -82,6 +82,52 @@ export default function TelegramTest() {
     }
   };
 
+  const sendCustomMessage = async () => {
+    if (!chatId) {
+      toast({
+        title: 'Chat ID Required',
+        description: 'Please enter your Chat ID first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/telegram/send-custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId: chatId,
+          message: testMessage
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast({
+          title: 'Message Sent Successfully!',
+          description: 'Check your Telegram for the message',
+        });
+      } else {
+        toast({
+          title: 'Message Failed',
+          description: result.error || 'Failed to send message',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to send custom message',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -187,6 +233,7 @@ export default function TelegramTest() {
               </div>
               
               <Button 
+                onClick={sendCustomMessage}
                 disabled={!chatId || isLoading}
                 className="w-full bg-green-600 hover:bg-green-700 text-white"
               >

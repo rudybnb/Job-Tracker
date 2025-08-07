@@ -150,6 +150,45 @@ Good luck with the project! 💪
     `.trim();
   }
 
+  // Send custom message to specific chat ID
+  async sendCustomMessage(chatId: string, message: string) {
+    try {
+      console.log('📱 Sending custom Telegram message...');
+      
+      if (!this.botToken) {
+        console.log('⚠️ No bot token - simulating message');
+        return { success: true, simulated: true };
+      }
+
+      const response = await fetch(`${this.baseUrl}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Telegram custom message error:', response.status, errorData);
+        return { success: false, error: `Telegram API error: ${response.status}` };
+      }
+
+      const result = await response.json();
+      console.log('✅ Custom message sent successfully:', result);
+      
+      return { success: true, messageId: result.message_id };
+      
+    } catch (error) {
+      console.error('❌ Custom message error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
   // Test bot connection
   async testConnection() {
     try {

@@ -298,6 +298,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send custom Telegram message
+  app.post("/api/telegram/send-custom", async (req, res) => {
+    try {
+      const { chatId, message } = req.body;
+      
+      if (!chatId || !message) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'chatId and message are required' 
+        });
+      }
+
+      const telegramService = new TelegramService();
+      const result = await telegramService.sendCustomMessage(chatId, message);
+      
+      res.json(result);
+      
+    } catch (error) {
+      console.error('❌ Custom message error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to send custom message',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
