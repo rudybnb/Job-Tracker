@@ -114,11 +114,14 @@ export default function UploadJob() {
       const totalIndex = headers.findIndex(h => h.toLowerCase().includes('total') || h.toLowerCase().includes('amount'));
       
       console.log('=== CSV PROCESSING DEBUG ===');
+      console.log('Raw CSV content (first 300 chars):', csvContent.substring(0, 300));
       console.log('File lines:', lines.length);
+      console.log('All lines:');
+      lines.forEach((line, i) => console.log(`  Line ${i}: "${line}"`));
       console.log('Client info extracted:', clientInfo);
       console.log('Data starts at row:', dataStartRow);
       console.log('Headers found:', headers);
-      console.log('Column indices - Code:', codeIndex, 'Description:', descIndex);
+      console.log('Column indices - Code:', codeIndex, 'Description:', descIndex, 'Unit:', unitIndex, 'Quantity:', quantityIndex, 'Rate:', rateIndex, 'Total:', totalIndex);
 
       // Create structured data format that's easy to read and use
       const structuredData = {
@@ -173,8 +176,12 @@ export default function UploadJob() {
       };
       
       // Process each data row with enhanced phase detection
+      console.log('=== PROCESSING DATA ROWS ===');
       for (let i = dataStartRow + 1; i < lines.length; i++) {
         const row = lines[i].split(',').map(cell => cell.trim().replace(/"/g, ''));
+        console.log(`Row ${i}: "${lines[i]}" -> Parsed:`, row);
+        console.log(`  Row length: ${row.length}, has code: ${!!row[codeIndex]}, has desc: ${!!row[descIndex]}`);
+        
         if (row.length >= 2 && row[codeIndex] && row[descIndex]) {
           const code = row[codeIndex] || '';
           const description = row[descIndex] || '';
@@ -183,6 +190,7 @@ export default function UploadJob() {
           const rate = parseFloat(row[rateIndex]) || 0;
           const total = parseFloat(row[totalIndex]) || 0;
           
+          console.log(`  ✓ Processing: Code="${code}", Desc="${description}"`);
           structuredData.metadata.dataRows++;
           
           // Enhanced phase detection - more comprehensive and accurate
