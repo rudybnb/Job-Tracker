@@ -28,46 +28,19 @@ function LogoutButton() {
 export default function JobAssignments() {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [uploadedJobs, setUploadedJobs] = useState<any[]>([]);
   const { toast } = useToast();
 
-  // Load uploaded jobs from localStorage on component mount
+  // Load actual job assignments (jobs assigned to contractors) from localStorage
   useEffect(() => {
-    const savedJobs = localStorage.getItem('uploadedJobs');
-    if (savedJobs) {
-      const jobs = JSON.parse(savedJobs);
-      setUploadedJobs(jobs);
-      console.log('Loaded uploaded jobs:', jobs);
+    const savedAssignments = localStorage.getItem('jobAssignments');
+    if (savedAssignments) {
+      const assignmentData = JSON.parse(savedAssignments);
+      setAssignments(assignmentData);
+      console.log('Loaded job assignments:', assignmentData);
     }
   }, []);
 
-  const handleCreateAssignment = () => {
-    // Check if there are uploaded jobs available
-    const savedJobs = localStorage.getItem('uploadedJobs');
-    const processedCSVs = localStorage.getItem('processedCSVs');
-    
-    if (savedJobs && JSON.parse(savedJobs).length > 0) {
-      // Navigate to a job assignment creation page or show modal
-      toast({
-        title: "Create Assignment",
-        description: `${JSON.parse(savedJobs).length} uploaded jobs available for assignment`,
-      });
-      // Could navigate to a specific assignment creation page here
-    } else if (processedCSVs && JSON.parse(processedCSVs).length > 0) {
-      toast({
-        title: "Jobs Need Creation",
-        description: "Upload data found. Please create jobs first in Upload page",
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "No Data Available",
-        description: "Please upload CSV files and create jobs first",
-        variant: "destructive"
-      });
-    }
-  };
-
+  // Filter assignments based on search term
   const filteredAssignments = assignments.filter(assignment =>
     assignment?.contractorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     assignment?.hbxlJob?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -130,37 +103,52 @@ export default function JobAssignments() {
               />
             </div>
 
-            {/* Show available jobs for assignment or empty state */}
-            {uploadedJobs.length > 0 ? (
+            {/* Assignment Cards - Show only actual assignments to contractors */}
+            {filteredAssignments && filteredAssignments.length > 0 ? (
               <div className="space-y-4">
-                <div className="text-sm text-green-400 mb-4">
-                  {uploadedJobs.length} uploaded job(s) available for assignment
-                </div>
-                
-                {uploadedJobs.map((job) => (
-                  <div key={job.id} className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                {filteredAssignments.map((assignment: any, index: number) => (
+                  <div 
+                    key={index}
+                    className="bg-slate-700 rounded-lg p-4 border border-slate-600"
+                  >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-white font-medium">{job.name}</h4>
-                        <p className="text-slate-400 text-sm">{job.location}</p>
-                        <p className="text-slate-500 text-xs">Uploaded: {job.uploadedAt}</p>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                          <i className="fas fa-briefcase text-white text-lg"></i>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-white">
+                            {assignment.hbxlJob || 'Job Assignment'}
+                          </h3>
+                          <p className="text-sm text-slate-400">
+                            Assigned to: {assignment.contractorName || 'Unknown'}
+                          </p>
+                          <p className="text-sm text-slate-400">
+                            Location: {assignment.workLocation || 'No location specified'}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          job.status === 'approved' ? 'bg-green-900 text-green-300' : 
-                          'bg-yellow-900 text-yellow-300'
-                        }`}>
-                          {job.status}
-                        </span>
-                        <button 
-                          onClick={() => toast({ 
-                            title: "Assign Job", 
-                            description: `Assigning ${job.name} to contractor` 
-                          })}
-                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
-                        >
-                          Assign
-                        </button>
+                      <div className="text-right">
+                        <div className="text-sm text-slate-400">Status</div>
+                        <div className="text-green-400 font-medium">Assigned</div>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs text-slate-400">Start Date</div>
+                        <div className="text-white">{assignment.startDate || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400">End Date</div>
+                        <div className="text-white">{assignment.endDate || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400">Build Phases</div>
+                        <div className="text-white">{assignment.selectedPhases?.length || 0} phases</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400">Contact</div>
+                        <div className="text-white">{assignment.contractorEmail || 'N/A'}</div>
                       </div>
                     </div>
                   </div>
@@ -169,10 +157,10 @@ export default function JobAssignments() {
             ) : (
               <div className="text-center py-12">
                 <div className="text-slate-400 text-lg mb-2">
-                  No jobs available for assignment.
+                  No job assignments found.
                 </div>
                 <div className="text-slate-500 text-sm">
-                  Upload CSV files and create jobs first.
+                  Use "Create Assignment" to assign jobs to contractors.
                 </div>
               </div>
             )}
