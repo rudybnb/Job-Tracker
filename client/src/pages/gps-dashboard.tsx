@@ -399,7 +399,10 @@ export default function GPSDashboard() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
         <div className="grid grid-cols-4 text-center">
-          <button className="py-3 px-4 text-yellow-400">
+          <button 
+            onClick={() => window.location.href = '/'}
+            className="py-3 px-4 text-yellow-400"
+          >
             <i className="fas fa-home block mb-1"></i>
             <span className="text-xs">Dashboard</span>
           </button>
