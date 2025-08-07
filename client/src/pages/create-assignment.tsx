@@ -174,11 +174,66 @@ export default function CreateAssignment() {
 
     console.log('Created assignment:', assignment);
 
-    // Simulate Telegram notification
-    toast({
-      title: "Assignment Created",
-      description: `Job assigned to ${contractorName}. Telegram notification sent.`,
-    });
+    // Send real Telegram notification if phone matches known contractor
+    const sendTelegramNotification = async () => {
+      try {
+        if (phone === '07534251548') {
+          const telegramResponse = await fetch(`https://api.telegram.org/bot8382710567:AAFshEGUHA-3P-Jf_PuLIQjskb-1_fY6iEA/sendMessage`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              chat_id: '7617462316',
+              text: `🔨 <b>NEW JOB ASSIGNMENT</b>
+
+📋 <b>Job:</b> ${selectedHbxlJob}
+📍 <b>Location:</b> ${workLocation}
+📅 <b>Start Date:</b> ${startDate}
+📅 <b>End Date:</b> ${endDate}
+👤 <b>Contractor:</b> ${contractorName}
+
+<b>Build Phases:</b>
+${selectedPhases.map(phase => `• ${phase}`).join('\n')}
+
+${specialInstructions ? `<b>Special Instructions:</b>\n${specialInstructions}\n\n` : ''}Please confirm receipt and start GPS tracking when you begin work.`,
+              parse_mode: 'HTML'
+            })
+          });
+          
+          const telegramResult = await telegramResponse.json();
+          console.log('Telegram notification result:', telegramResult);
+          
+          if (telegramResult.ok) {
+            console.log('✅ Telegram notification sent successfully');
+            toast({
+              title: "Assignment Created",
+              description: `Job assigned to ${contractorName}. Telegram notification sent successfully!`,
+            });
+          } else {
+            console.log('⚠️ Telegram notification failed:', telegramResult.description);
+            toast({
+              title: "Assignment Created",
+              description: `Job assigned to ${contractorName}. Note: Telegram notification failed.`,
+            });
+          }
+        } else {
+          toast({
+            title: "Assignment Created",
+            description: `Job assigned to ${contractorName}. (No Telegram notification - phone not registered)`,
+          });
+        }
+      } catch (error) {
+        console.error('Telegram notification error:', error);
+        toast({
+          title: "Assignment Created", 
+          description: `Job assigned to ${contractorName}. Note: Could not send Telegram notification.`,
+        });
+      }
+    };
+
+    // Send notification
+    sendTelegramNotification();
 
     // Navigate back to job assignments
     setTimeout(() => {
