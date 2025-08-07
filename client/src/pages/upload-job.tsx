@@ -98,51 +98,194 @@ export default function UploadJob() {
       const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('item'));
       const unitIndex = headers.findIndex(h => h.toLowerCase().includes('unit'));
       const quantityIndex = headers.findIndex(h => h.toLowerCase().includes('quantity'));
+      const rateIndex = headers.findIndex(h => h.toLowerCase().includes('rate') || h.toLowerCase().includes('price'));
+      const totalIndex = headers.findIndex(h => h.toLowerCase().includes('total') || h.toLowerCase().includes('amount'));
       
-      // Extract phase data from CSV based on the structure from your image
-      const phaseData: Record<string, Array<{task: string, quantity: number, description: string, unit: string, code: string}>> = {};
+      // Create structured data format that's easy to read and use
+      const structuredData = {
+        metadata: {
+          fileName: hbxlFile.name,
+          processedDate: new Date().toISOString(),
+          totalRows: lines.length,
+          dataRows: 0,
+          phasesDetected: 0
+        },
+        clientInfo: clientInfo,
+        phases: {} as Record<string, {
+          tasks: Array<{
+            id: string;
+            code: string;
+            description: string;
+            unit: string;
+            quantity: number;
+            rate: number;
+            total: number;
+            originalRow: number;
+          }>;
+          summary: {
+            taskCount: number;
+            totalQuantity: number;
+            totalValue: number;
+          }
+        }>,
+        originalData: lines
+      };
       
+      // Process each data row with enhanced phase detection
       for (let i = dataStartRow + 1; i < lines.length; i++) {
         const row = lines[i].split(',').map(cell => cell.trim().replace(/"/g, ''));
-        if (row.length >= 4) {
+        if (row.length >= 2 && row[codeIndex] && row[descIndex]) {
           const code = row[codeIndex] || '';
           const description = row[descIndex] || '';
-          const unit = row[unitIndex] || '';
+          const unit = row[unitIndex] || 'Nr';
           const quantity = parseFloat(row[quantityIndex]) || 0;
+          const rate = parseFloat(row[rateIndex]) || 0;
+          const total = parseFloat(row[totalIndex]) || 0;
           
-          // Determine phase from code or description
-          let phase = '';
-          if (code.startsWith('MS') || description.toLowerCase().includes('masonry') || description.toLowerCase().includes('brick')) {
+          structuredData.metadata.dataRows++;
+          
+          // Enhanced phase detection - more comprehensive and accurate
+          let phase = 'General Construction';
+          
+          // Use both code prefixes and description keywords for better accuracy
+          const codeUpper = code.toUpperCase();
+          const descLower = description.toLowerCase();
+          
+          // Kitchen/Catering (most specific first)
+          if (codeUpper.includes('KIT') || codeUpper.includes('KITCHEN') ||
+              descLower.includes('kitchen') || descLower.includes('catering') || 
+              descLower.includes('cooker') || descLower.includes('sink') || 
+              descLower.includes('cupboard') || descLower.includes('worktop') ||
+              descLower.includes('appliance') || descLower.includes('extractor')) {
+            phase = 'Kitchen Fitout';
+          }
+          // Bathroom/Sanitary
+          else if (codeUpper.includes('BATH') || codeUpper.includes('WC') ||
+                   descLower.includes('bathroom') || descLower.includes('toilet') || 
+                   descLower.includes('shower') || descLower.includes('basin') || 
+                   descLower.includes('wc') || descLower.includes('sanitary') ||
+                   descLower.includes('bath') || descLower.includes('cistern')) {
+            phase = 'Bathroom Installation';
+          }
+          // Electrical
+          else if (codeUpper.includes('ELEC') || codeUpper.includes('EL') ||
+                   descLower.includes('electrical') || descLower.includes('socket') || 
+                   descLower.includes('light') || descLower.includes('switch') || 
+                   descLower.includes('wire') || descLower.includes('cable') ||
+                   descLower.includes('circuit') || descLower.includes('consumer unit')) {
+            phase = 'Electrical Installation';
+          }
+          // Plumbing/Heating
+          else if (codeUpper.includes('PLUMB') || codeUpper.includes('PL') ||
+                   descLower.includes('plumbing') || descLower.includes('pipe') || 
+                   descLower.includes('water') || descLower.includes('heating') || 
+                   descLower.includes('boiler') || descLower.includes('radiator') ||
+                   descLower.includes('valve') || descLower.includes('tap')) {
+            phase = 'Plumbing Installation';
+          }
+          // Masonry/Brickwork
+          else if (codeUpper.includes('MS') || codeUpper.includes('MASON') ||
+                   descLower.includes('masonry') || descLower.includes('brick') || 
+                   descLower.includes('blockwork') || descLower.includes('mortar') ||
+                   descLower.includes('pointing') || descLower.includes('cavity')) {
             phase = 'Masonry Shell';
-          } else if (code.startsWith('FD') || description.toLowerCase().includes('foundation') || description.toLowerCase().includes('footing')) {
-            phase = 'Foundations';
-          } else if (code.startsWith('RF') || description.toLowerCase().includes('roof')) {
+          }
+          // Foundation/Groundwork
+          else if (codeUpper.includes('FD') || codeUpper.includes('FOUND') ||
+                   descLower.includes('foundation') || descLower.includes('footing') || 
+                   descLower.includes('concrete') || descLower.includes('excavat') ||
+                   descLower.includes('groundwork') || descLower.includes('trench')) {
+            phase = 'Foundation Work';
+          }
+          // Roofing
+          else if (codeUpper.includes('RF') || codeUpper.includes('ROOF') ||
+                   descLower.includes('roof') || descLower.includes('tile') || 
+                   descLower.includes('slate') || descLower.includes('gutter') ||
+                   descLower.includes('fascia') || descLower.includes('ridge')) {
             phase = 'Roof Structure';
-          } else if (code.startsWith('GF') || description.toLowerCase().includes('ground floor') || description.toLowerCase().includes('floor')) {
-            phase = 'Ground Floor';
-          } else if (description.toLowerCase().includes('electrical')) {
-            phase = 'Electrical';
-          } else if (description.toLowerCase().includes('plumbing')) {
-            phase = 'Plumbing';
-          } else {
-            phase = 'General Works';
+          }
+          // Flooring
+          else if (codeUpper.includes('FL') || codeUpper.includes('FLOOR') ||
+                   descLower.includes('floor') || descLower.includes('carpet') || 
+                   descLower.includes('tile') || descLower.includes('laminate') ||
+                   descLower.includes('vinyl') || descLower.includes('screed') ||
+                   descLower.includes('subfloor')) {
+            phase = 'Flooring Installation';
+          }
+          // Painting & Decorating
+          else if (codeUpper.includes('PT') || codeUpper.includes('PAINT') ||
+                   descLower.includes('paint') || descLower.includes('decor') || 
+                   descLower.includes('wallpaper') || descLower.includes('emulsion') ||
+                   descLower.includes('gloss') || descLower.includes('primer')) {
+            phase = 'Painting & Decorating';
+          }
+          // Structural/Carpentry
+          else if (codeUpper.includes('ST') || codeUpper.includes('STRUC') ||
+                   descLower.includes('timber') || descLower.includes('joist') || 
+                   descLower.includes('stud') || descLower.includes('frame') ||
+                   descLower.includes('beam') || descLower.includes('rafter')) {
+            phase = 'Structural Work';
+          }
+          // Doors & Windows
+          else if (descLower.includes('door') || descLower.includes('window') || 
+                   descLower.includes('frame') || descLower.includes('glazing') ||
+                   descLower.includes('sill') || descLower.includes('lintel')) {
+            phase = 'Doors & Windows';
           }
           
-          // Include ALL tasks (even quantity 0) for phase detection
-          if (description) {
-            if (!phaseData[phase]) {
-              phaseData[phase] = [];
-            }
-            phaseData[phase].push({ 
-              task: description, 
-              quantity: Math.ceil(quantity), // Round up for task counting
-              description: `${description} (${quantity} ${unit})`,
-              unit: unit,
-              code: code
-            });
+          // Initialize phase if not exists
+          if (!structuredData.phases[phase]) {
+            structuredData.phases[phase] = {
+              tasks: [],
+              summary: { taskCount: 0, totalQuantity: 0, totalValue: 0 }
+            };
           }
+          
+          // Create standardized task object
+          const task = {
+            id: `${code}_${i}`,
+            code: code,
+            description: description,
+            unit: unit,
+            quantity: quantity,
+            rate: rate,
+            total: total,
+            originalRow: i
+          };
+          
+          // Add to phase
+          structuredData.phases[phase].tasks.push(task);
+          structuredData.phases[phase].summary.taskCount++;
+          structuredData.phases[phase].summary.totalQuantity += quantity;
+          structuredData.phases[phase].summary.totalValue += total;
         }
       }
+      
+      // Update metadata
+      structuredData.metadata.phasesDetected = Object.keys(structuredData.phases).length;
+      
+      // Convert to old format for compatibility
+      const phaseData: Record<string, Array<{task: string, quantity: number, description: string, unit: string, code: string}>> = {};
+      
+      Object.entries(structuredData.phases).forEach(([phaseName, phaseInfo]) => {
+        phaseData[phaseName] = phaseInfo.tasks.map(task => ({
+          task: task.description,
+          quantity: task.quantity,
+          description: `${task.description} (${task.quantity} ${task.unit})`,
+          unit: task.unit,
+          code: task.code
+        }));
+      });
+      
+      console.log('✓ Enhanced CSV Processing Complete:', {
+        phases: Object.keys(structuredData.phases),
+        totalTasks: structuredData.metadata.dataRows,
+        phaseSummary: Object.entries(structuredData.phases).map(([name, info]) => ({
+          phase: name,
+          taskCount: info.summary.taskCount,
+          totalValue: info.summary.totalValue
+        }))
+      });
 
       console.log('Parsed CSV data:', { clientInfo, phaseData });
       console.log('Phase count:', Object.keys(phaseData).length);
