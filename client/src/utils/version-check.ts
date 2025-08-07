@@ -1,6 +1,6 @@
 // Version checking and cache busting utilities for mobile apps
 export class VersionChecker {
-  private static readonly CURRENT_VERSION = '2.0.8-error-boundary';
+  private static readonly CURRENT_VERSION = '2.0.9-telegram-removed';
   private static readonly VERSION_KEY = 'app_version';
   
   /**

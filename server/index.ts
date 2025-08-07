@@ -13,7 +13,7 @@ app.use((req, res, next) => {
     'Expires': '0',
     'Last-Modified': new Date().toUTCString(),
     'ETag': `"${timestamp}"`,
-    'X-App-Version': '2.0.8-error-boundary',
+    'X-App-Version': '2.0.9-telegram-removed',
     'X-Timestamp': timestamp.toString(),
     'X-Cache-Bust': Math.random().toString(36),
     'Vary': 'User-Agent, Accept-Encoding'

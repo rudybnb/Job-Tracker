@@ -22,8 +22,7 @@ import ExtremeRefreshPage from "@/pages/extreme-refresh";
 import MobileUpdatePage from "@/pages/mobile-update";
 import EmergencyFixPage from "@/pages/emergency-fix";
 import CreateAssignment from "@/pages/create-assignment";
-import TelegramTest from "@/pages/telegram-test";
-import TelegramDebug from "@/pages/telegram-debug";
+// Telegram imports temporarily removed to fix React hook errors
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -73,16 +72,7 @@ function Router() {
             <SystemCleanupPage />
           </ProtectedRoute>
         )} />
-        <Route path="/telegram-test" component={() => (
-          <ProtectedRoute requiredRole="admin">
-            <TelegramTest />
-          </ProtectedRoute>
-        )} />
-        <Route path="/telegram-debug" component={() => (
-          <ProtectedRoute requiredRole="admin">
-            <TelegramDebug />
-          </ProtectedRoute>
-        )} />
+        {/* Telegram routes temporarily disabled to fix React hook errors */}
         <Route path="/create-assignment" component={() => (
           <ProtectedRoute requiredRole="admin">
             <CreateAssignment />
