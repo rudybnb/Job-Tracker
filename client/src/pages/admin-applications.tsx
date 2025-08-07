@@ -309,6 +309,12 @@ export default function AdminApplications() {
         <div className="max-w-6xl mx-auto">
           <h1 className="text-2xl font-bold">Contractor Applications</h1>
           <p className="text-sm opacity-75">Review and manage contractor applications</p>
+          <div className="mt-2">
+            <span className="text-xs text-slate-400">Contractor Form Link: </span>
+            <a href="/contractor-form" className="text-xs text-blue-400 hover:text-blue-300 underline">
+              http://localhost:5000/contractor-form
+            </a>
+          </div>
         </div>
       </div>
 
