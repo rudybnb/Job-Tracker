@@ -17,6 +17,7 @@ import DirectJobAssignments from "@/pages/direct-job-assignments";
 import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import SystemCleanupPage from "@/pages/system-cleanup";
 import MobileTestPage from "@/pages/mobile-test";
+import NuclearRefreshPage from "@/pages/nuclear-refresh";
 import CreateAssignment from "@/pages/create-assignment";
 import TelegramTest from "@/pages/telegram-test";
 import TelegramDebug from "@/pages/telegram-debug";
@@ -88,6 +89,7 @@ function Router() {
             <MobileTestPage />
           </ProtectedRoute>
         )} />
+        <Route path="/nuclear-refresh" component={NuclearRefreshPage} />
         <Route component={NotFound} />
       </Switch>
     </div>

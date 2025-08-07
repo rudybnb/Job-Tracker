@@ -1,6 +1,6 @@
 // Version checking and cache busting utilities for mobile apps
 export class VersionChecker {
-  private static readonly CURRENT_VERSION = '2.0.1-mobile-force-refresh';
+  private static readonly CURRENT_VERSION = '2.0.2-nuclear-refresh';
   private static readonly VERSION_KEY = 'app_version';
   
   /**

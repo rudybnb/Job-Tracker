@@ -4,14 +4,19 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Aggressive cache-busting middleware for mobile browsers
+// Nuclear cache-busting middleware for stubborn mobile browsers
 app.use((req, res, next) => {
+  const timestamp = Date.now();
   res.set({
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0, proxy-revalidate',
     'Pragma': 'no-cache', 
     'Expires': '0',
     'Last-Modified': new Date().toUTCString(),
-    'ETag': Date.now().toString()
+    'ETag': `"${timestamp}"`,
+    'X-App-Version': '2.0.2-nuclear-refresh',
+    'X-Timestamp': timestamp.toString(),
+    'X-Cache-Bust': Math.random().toString(36),
+    'Vary': 'User-Agent, Accept-Encoding'
   });
   next();
 });
