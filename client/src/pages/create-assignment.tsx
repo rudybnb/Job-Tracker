@@ -225,9 +225,12 @@ ${specialInstructions ? `<b>Special Instructions:</b>\n${specialInstructions}\n\
         }
       } catch (error) {
         console.error('Telegram notification error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+        console.error('Error details:', errorMessage, errorStack);
         toast({
           title: "Assignment Created", 
-          description: `Job assigned to ${contractorName}. Note: Could not send Telegram notification.`,
+          description: `Job assigned to ${contractorName}. Note: Could not send Telegram notification: ${errorMessage}`,
         });
       }
     };

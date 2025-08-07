@@ -18,6 +18,7 @@ import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import SystemCleanupPage from "@/pages/system-cleanup";
 import CreateAssignment from "@/pages/create-assignment";
 import TelegramTest from "@/pages/telegram-test";
+import TelegramDebug from "@/pages/telegram-debug";
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -69,6 +70,11 @@ function Router() {
         <Route path="/telegram-test" component={() => (
           <ProtectedRoute requiredRole="admin">
             <TelegramTest />
+          </ProtectedRoute>
+        )} />
+        <Route path="/telegram-debug" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <TelegramDebug />
           </ProtectedRoute>
         )} />
         <Route path="/create-assignment" component={() => (
