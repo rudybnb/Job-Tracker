@@ -296,6 +296,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Telegram notification endpoint for frontend job assignments
+  app.post("/api/send-telegram-notification", async (req, res) => {
+    try {
+      const { contractorName, phone, hbxlJob, workLocation, buildPhases, startDate, endDate } = req.body;
+      
+      console.log("📱 Telegram notification request received:", { contractorName, phone, hbxlJob });
+      
+      // Only send if phone matches James's number
+      if (phone === '07534251548') {
+        const telegramService = new TelegramService();
+        const message = `🔨 <b>NEW JOB ASSIGNMENT</b>
+
+📋 <b>Job:</b> ${hbxlJob}
+📍 <b>Location:</b> ${workLocation}
+📅 <b>Start Date:</b> ${startDate}
+📅 <b>End Date:</b> ${endDate}
+👤 <b>Contractor:</b> ${contractorName}
+
+<b>Build Phases:</b>
+${buildPhases.map(phase => `• ${phase}`).join('\n')}
+
+Please confirm receipt and start GPS tracking when you begin work.`;
+
+        console.log("📤 Sending message:", message);
+        const result = await telegramService.sendMessage('7617462316', message);
+        console.log("✅ Telegram result:", result);
+        
+        res.json({ success: true, messageId: result.message_id });
+      } else {
+        console.log("⚠️ Phone number does not match, skipping notification");
+        res.json({ success: false, reason: "Phone number not configured for notifications" });
+      }
+    } catch (error) {
+      console.error("❌ Telegram notification error:", error);
+      res.status(500).json({ error: "Failed to send Telegram notification" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
