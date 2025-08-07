@@ -218,6 +218,7 @@ function ApplicationCard({ application, onStatusUpdate, onAdminUpdate }: Applica
 
 export default function AdminApplications() {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("pending");
 
   const { data: applications = [], isLoading } = useQuery<ContractorApplication[]>({
     queryKey: ["/api/contractor-applications"],
@@ -348,7 +349,7 @@ export default function AdminApplications() {
           </Card>
         </div>
 
-        <Tabs defaultValue="pending" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-slate-700">
             <TabsTrigger value="pending" className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black">
               Pending ({pendingApplications.length})
