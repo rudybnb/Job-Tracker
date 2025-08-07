@@ -61,6 +61,40 @@ export default function CreateAssignment() {
       const jobs = JSON.parse(savedJobs);
       setUploadedJobs(jobs);
       console.log('Loaded jobs for assignment:', jobs);
+    } else {
+      // Create a sample job with proper phase data for testing
+      const sampleJob = {
+        id: 'sample-1',
+        name: 'Kitchen Fitout Project',
+        location: 'DA17 5DB', 
+        price: '£15,000',
+        status: 'approved',
+        dataType: 'CSV Data',
+        uploadedAt: new Date().toLocaleDateString('en-GB'),
+        phaseData: {
+          'Masonry Shell': [
+            { task: 'Wall construction', quantity: 25, description: 'Build walls (25 m²)', unit: 'm²', code: 'MS001' },
+            { task: 'Mortar preparation', quantity: 10, description: 'Prepare mortar (10 bags)', unit: 'bags', code: 'MS002' }
+          ],
+          'Foundation': [
+            { task: 'Excavation', quantity: 50, description: 'Site excavation (50 m³)', unit: 'm³', code: 'FD001' },
+            { task: 'Concrete pouring', quantity: 30, description: 'Pour concrete (30 m³)', unit: 'm³', code: 'FD002' }
+          ],
+          'Kitchen Fitout': [
+            { task: 'Cabinet installation', quantity: 12, description: 'Install kitchen cabinets (12 units)', unit: 'units', code: 'KF001' },
+            { task: 'Worktop fitting', quantity: 8, description: 'Fit worktops (8 m)', unit: 'm', code: 'KF002' },
+            { task: 'Appliance connections', quantity: 5, description: 'Connect appliances (5 units)', unit: 'units', code: 'KF003' }
+          ],
+          'Electrical': [
+            { task: 'Wiring installation', quantity: 15, description: 'Install electrical wiring (15 points)', unit: 'points', code: 'EL001' },
+            { task: 'Socket fitting', quantity: 20, description: 'Fit electrical sockets (20 sockets)', unit: 'sockets', code: 'EL002' }
+          ]
+        }
+      };
+      
+      setUploadedJobs([sampleJob]);
+      localStorage.setItem('uploadedJobs', JSON.stringify([sampleJob]));
+      console.log('Created sample job with phase data:', sampleJob);
     }
   }, []);
 
@@ -331,8 +365,11 @@ export default function CreateAssignment() {
                       </div>
                     ))
                   ) : (
-                    <div className="col-span-2 text-slate-400 text-sm text-center py-4">
-                      Loading phases from CSV data...
+                    <div className="col-span-2 text-slate-400 text-sm text-center py-4 border border-slate-600 rounded-lg bg-slate-800">
+                      {selectedHbxlJob ? 
+                        `No phases found for "${selectedHbxlJob}". Upload a CSV file first to get real phase data.` : 
+                        'Select an HBXL job to see available phases'
+                      }
                     </div>
                   )}
                 </div>
