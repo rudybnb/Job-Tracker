@@ -108,7 +108,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center">
             <span className="text-black font-bold text-sm">Pro</span>
           </div>
           <div>
