@@ -75,6 +75,16 @@ function Router() {
         )} />
         <Route path="/contractor-form" component={ContractorForm} />
         <Route path="/contractor-success" component={ContractorSuccess} />
+        <Route path="/jobs" component={() => (
+          <ProtectedRoute requiredRole="contractor">
+            <Jobs />
+          </ProtectedRoute>
+        )} />
+        <Route path="/task-progress" component={() => (
+          <ProtectedRoute requiredRole="contractor">
+            <TaskProgress />
+          </ProtectedRoute>
+        )} />
         <Route path="/job-assignments" component={() => (
           <ProtectedRoute requiredRole="admin">
             <JobAssignments />
