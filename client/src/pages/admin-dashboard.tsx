@@ -212,6 +212,46 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Priority Issues Card */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <div className="flex items-center mb-4">
+            <i className="fas fa-exclamation-triangle text-yellow-400 mr-2"></i>
+            <h3 className="text-lg font-semibold text-yellow-400">Priority Issues</h3>
+          </div>
+          
+          <div className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 flex items-center justify-center">
+                <i className="fas fa-exclamation-triangle text-green-400 text-4xl"></i>
+              </div>
+            </div>
+            
+            <div className="text-slate-400 text-sm">
+              No urgent issues reported. All systems running smoothly.
+            </div>
+          </div>
+        </div>
+
+        {/* Overdue Projects Card */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <div className="flex items-center mb-4">
+            <i className="fas fa-calendar-times text-yellow-400 mr-2"></i>
+            <h3 className="text-lg font-semibold text-yellow-400">Overdue Projects</h3>
+          </div>
+          
+          <div className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 flex items-center justify-center">
+                <i className="fas fa-calendar-times text-green-400 text-4xl"></i>
+              </div>
+            </div>
+            
+            <div className="text-slate-400 text-sm">
+              No overdue projects at this time.
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Bottom Navigation */}
