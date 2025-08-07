@@ -54,19 +54,6 @@ function ActiveAssignmentContent() {
             <i className="fas fa-calendar text-slate-400 mr-2 w-4"></i>
             <span>{activeAssignment.startDate} - {activeAssignment.dueDate}</span>
           </div>
-          
-          {phases.length > 0 && (
-            <div className="mt-3">
-              <div className="text-slate-400 text-xs mb-2">Build Phases:</div>
-              <div className="flex flex-wrap gap-1">
-                {phases.map((phase: string, index: number) => (
-                  <Badge key={index} className="bg-blue-600 text-white text-xs px-2 py-1">
-                    {phase}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
