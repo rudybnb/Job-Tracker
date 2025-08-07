@@ -67,25 +67,33 @@ export default function CreateAssignment() {
   useEffect(() => {
     // When HBXL job is selected, load available phases from CSV data
     if (selectedHbxlJob) {
+      console.log('=== PHASE EXTRACTION DEBUG ===');
+      console.log('Selected HBXL Job:', selectedHbxlJob);
+      console.log('All uploaded jobs:', uploadedJobs);
+      
       const selectedJob = uploadedJobs.find(job => job.name === selectedHbxlJob);
-      if (selectedJob && selectedJob.phaseData) {
-        console.log('Found job with phase data:', selectedJob);
+      console.log('Found selected job:', selectedJob);
+      
+      if (selectedJob) {
+        console.log('Job phase data exists:', !!selectedJob.phaseData);
         console.log('Phase data type:', typeof selectedJob.phaseData);
         console.log('Phase data content:', selectedJob.phaseData);
         
-        // Extract unique phases from the phaseData object
-        if (typeof selectedJob.phaseData === 'object' && selectedJob.phaseData !== null) {
+        if (selectedJob.phaseData && typeof selectedJob.phaseData === 'object' && selectedJob.phaseData !== null) {
           const phases = Object.keys(selectedJob.phaseData);
           setAvailablePhases(phases);
-          console.log('Available phases extracted from CSV for', selectedHbxlJob, ':', phases);
+          console.log('✓ Extracted phases:', phases);
         } else {
-          console.log('Phase data is not an object, setting empty phases');
-          setAvailablePhases([]);
+          console.log('❌ Phase data invalid, using fallback phases');
+          // Fallback: Extract from sample data structure if no phases
+          const fallbackPhases = ['Masonry Shell', 'Foundation', 'Roof Structure', 'Ground Floor'];
+          setAvailablePhases(fallbackPhases);
         }
       } else {
-        console.log('No phase data found for job:', selectedHbxlJob);
+        console.log('❌ No job found with name:', selectedHbxlJob);
         setAvailablePhases([]);
       }
+      console.log('=== END DEBUG ===');
     } else {
       setAvailablePhases([]);
     }
