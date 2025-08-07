@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
+
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
@@ -135,7 +135,7 @@ const SidebarProvider = React.forwardRef<
 
     return (
       <SidebarContext.Provider value={contextValue}>
-        <TooltipProvider delayDuration={0}>
+        <div>
           <div
             style={
               {
@@ -153,7 +153,7 @@ const SidebarProvider = React.forwardRef<
           >
             {children}
           </div>
-        </TooltipProvider>
+        </div>
       </SidebarContext.Provider>
     )
   }
