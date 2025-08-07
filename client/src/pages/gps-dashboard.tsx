@@ -51,11 +51,6 @@ function ActiveAssignmentContent() {
         
         <div className="space-y-2 text-sm">
           <div className="flex items-center text-slate-300">
-            <i className="fas fa-user text-slate-400 mr-2 w-4"></i>
-            <span>Assigned to: {activeAssignment.contractorName}</span>
-          </div>
-          
-          <div className="flex items-center text-slate-300">
             <i className="fas fa-calendar text-slate-400 mr-2 w-4"></i>
             <span>{activeAssignment.startDate} - {activeAssignment.dueDate}</span>
           </div>
@@ -72,26 +67,6 @@ function ActiveAssignmentContent() {
               </div>
             </div>
           )}
-        </div>
-        
-        <div className="flex gap-2 mt-4">
-          <Button 
-            size="sm" 
-            className="bg-yellow-600 hover:bg-yellow-700 text-black flex-1"
-            onClick={() => window.location.href = '/task-progress'}
-          >
-            <i className="fas fa-clipboard-list mr-1"></i>
-            Continue Work
-          </Button>
-          <Button 
-            size="sm" 
-            variant="destructive" 
-            className="px-3"
-            onClick={() => alert('Report Issue functionality would be implemented here')}
-          >
-            <i className="fas fa-exclamation-triangle"></i>
-            Report Issue
-          </Button>
         </div>
       </div>
     </div>
