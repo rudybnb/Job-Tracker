@@ -108,10 +108,14 @@ export default function ContractorForm() {
   ];
 
   const updateFormData = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    try {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    } catch (error) {
+      console.error('Error updating form data:', error);
+    }
   };
 
   const validateStep = (step: number): boolean => {
@@ -120,7 +124,15 @@ export default function ContractorForm() {
     
     return config.fields.every(field => {
       const value = formData[field as keyof typeof formData];
-      return value !== "" && value !== false && value !== undefined;
+      
+      // Handle different field types properly
+      if (typeof value === 'boolean') {
+        // For boolean fields like hasRightToWork, they must be true to be valid
+        return field.startsWith('has') || field.includes('is') ? value === true : true;
+      }
+      
+      // For string fields, they must not be empty
+      return value !== "" && value !== undefined && value !== null;
     });
   };
 
@@ -140,7 +152,12 @@ export default function ContractorForm() {
     const config = stepConfig[step - 1];
     const missingFields = config.fields.filter(field => {
       const value = formData[field as keyof typeof formData];
-      return value === "" || value === false || value === undefined;
+      
+      if (typeof value === 'boolean') {
+        return field.startsWith('has') || field.includes('is') ? value !== true : false;
+      }
+      
+      return value === "" || value === undefined || value === null;
     });
 
     const fieldLabels: Record<string, string> = {
@@ -195,8 +212,9 @@ export default function ContractorForm() {
   };
 
   const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
+    try {
+      switch (currentStep) {
+        case 1:
         return (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
@@ -308,8 +326,8 @@ export default function ContractorForm() {
           </div>
         );
 
-      case 2:
-        return (
+        case 2:
+          return (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
               <Shield className="w-6 h-6 text-yellow-400" />
@@ -417,8 +435,8 @@ export default function ContractorForm() {
           </div>
         );
 
-      case 3:
-        return (
+        case 3:
+          return (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
               <FileText className="w-6 h-6 text-yellow-400" />
@@ -496,8 +514,8 @@ export default function ContractorForm() {
           </div>
         );
 
-      case 4:
-        return (
+        case 4:
+          return (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
               <CreditCard className="w-6 h-6 text-yellow-400" />
@@ -568,8 +586,8 @@ export default function ContractorForm() {
           </div>
         );
 
-      case 5:
-        return (
+        case 5:
+          return (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
               <Users className="w-6 h-6 text-yellow-400" />
@@ -613,8 +631,8 @@ export default function ContractorForm() {
           </div>
         );
 
-      case 6:
-        return (
+        case 6:
+          return (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
               <Wrench className="w-6 h-6 text-yellow-400" />
@@ -685,13 +703,23 @@ export default function ContractorForm() {
           </div>
         );
 
-      default:
-        return <div>Invalid step</div>;
+        default:
+          return <div>Invalid step</div>;
+      }
+    } catch (error) {
+      console.error('Error rendering step content:', error);
+      return (
+        <div className="text-center text-red-400 p-8">
+          <h3 className="text-lg font-semibold mb-2">Something went wrong</h3>
+          <p>Please refresh the page and try again.</p>
+        </div>
+      );
     }
   };
 
-  return (
-    <div className="min-h-screen bg-black text-white">
+  try {
+    return (
+      <div className="min-h-screen bg-black text-white">
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-700 p-4">
         <div className="max-w-2xl mx-auto">
@@ -753,5 +781,16 @@ export default function ContractorForm() {
         </Card>
       </div>
     </div>
-  );
+    );
+  } catch (error) {
+    console.error('Contractor form error:', error);
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-400 mb-4">Application Error</h1>
+          <p className="text-slate-400">Sorry, there was an error loading the form. Please try refreshing the page.</p>
+        </div>
+      </div>
+    );
+  }
 }
