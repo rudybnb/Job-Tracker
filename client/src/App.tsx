@@ -17,6 +17,7 @@ import DirectJobAssignments from "@/pages/direct-job-assignments";
 import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import SystemCleanupPage from "@/pages/system-cleanup";
 import CreateAssignment from "@/pages/create-assignment";
+import TelegramTest from "@/pages/telegram-test";
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -63,6 +64,11 @@ function Router() {
         <Route path="/system-cleanup" component={() => (
           <ProtectedRoute requiredRole="admin">
             <SystemCleanupPage />
+          </ProtectedRoute>
+        )} />
+        <Route path="/telegram-test" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <TelegramTest />
           </ProtectedRoute>
         )} />
         <Route path="/create-assignment" component={() => (
