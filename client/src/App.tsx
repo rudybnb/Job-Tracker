@@ -16,6 +16,7 @@ import TaskProgress from "@/pages/task-progress";
 import DirectJobAssignments from "@/pages/direct-job-assignments";
 import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import SystemCleanupPage from "@/pages/system-cleanup";
+import CreateAssignment from "@/pages/create-assignment";
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -62,6 +63,11 @@ function Router() {
         <Route path="/system-cleanup" component={() => (
           <ProtectedRoute requiredRole="admin">
             <SystemCleanupPage />
+          </ProtectedRoute>
+        )} />
+        <Route path="/create-assignment" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <CreateAssignment />
           </ProtectedRoute>
         )} />
         <Route component={NotFound} />

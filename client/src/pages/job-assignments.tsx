@@ -104,7 +104,7 @@ export default function JobAssignments() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-yellow-400">Job Assignments</h1>
           <Button 
-            onClick={handleCreateAssignment}
+            onClick={() => window.location.href = '/create-assignment'}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center"
           >
             <i className="fas fa-plus mr-2"></i>
