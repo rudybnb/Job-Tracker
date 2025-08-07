@@ -101,11 +101,7 @@ export default function ContractorForm() {
     "0-1 years", "2-5 years", "6-10 years", "11-15 years", "16+ years"
   ];
 
-  const cisStatusOptions = [
-    "Gross (0% deduction) - CIS Registered",
-    "Net (20% deduction) - CIS Registered", 
-    "Net (30% deduction) - Not CIS Registered"
-  ];
+  // CIS status is now automatically determined by Yes/No answer
 
   const updateFormData = (field: string, value: any) => {
     try {
@@ -438,19 +434,37 @@ export default function ContractorForm() {
 
             <div className="space-y-6">
               <div>
-                <label className="block text-yellow-400 text-sm font-medium mb-2">CIS Status *</label>
-                <select
-                  value={formData.cisStatus}
-                  onChange={(e) => updateFormData("cisStatus", e.target.value)}
-                  className="w-full bg-slate-800 border border-yellow-500 rounded-lg px-4 py-3 text-white focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400"
-                >
-                  <option value="">Select CIS status</option>
-                  {cisStatusOptions.map((option) => (
-                    <option key={option} value={option} className="bg-slate-800">
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">CIS Registration Status *</label>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="cisYes"
+                      name="cisRegistered"
+                      checked={formData.isCisRegistered === true}
+                      onChange={(e) => {
+                        updateFormData('isCisRegistered', true);
+                        updateFormData('cisStatus', 'CIS Registered (20% deduction)');
+                      }}
+                      className="w-4 h-4 text-yellow-500 bg-slate-800 border-yellow-500 focus:ring-yellow-400"
+                    />
+                    <label htmlFor="cisYes" className="text-white">Yes - I am CIS Registered (20% deduction)</label>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="cisNo"
+                      name="cisRegistered"
+                      checked={formData.isCisRegistered === false}
+                      onChange={(e) => {
+                        updateFormData('isCisRegistered', false);
+                        updateFormData('cisStatus', 'Not CIS Registered (30% deduction)');
+                      }}
+                      className="w-4 h-4 text-yellow-500 bg-slate-800 border-yellow-500 focus:ring-yellow-400"
+                    />
+                    <label htmlFor="cisNo" className="text-white">No - I am not CIS Registered (30% deduction)</label>
+                  </div>
+                </div>
               </div>
 
               {formData.isCisRegistered && (
