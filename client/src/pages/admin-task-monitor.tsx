@@ -30,20 +30,8 @@ export default function AdminTaskMonitor() {
 
   const handleAction = (action: string) => {
     if (action === "Create Job") {
-      // Check for uploaded CSV data first
-      const uploadedData = localStorage.getItem('processedCSVs');
-      const uploadedJobs = localStorage.getItem('uploadedJobs');
-      
-      if (uploadedData && JSON.parse(uploadedData).length > 0) {
-        // Navigate to upload page to create jobs from existing data
-        window.location.href = '/upload';
-      } else {
-        toast({
-          title: "No Upload Data Found",
-          description: "Please upload a CSV file first using 'Upload CSV/PDF' to create jobs",
-          variant: "destructive"
-        });
-      }
+      // Navigate directly to create assignment page for job creation
+      window.location.href = '/create-assignment';
     } else {
       toast({
         title: action,
