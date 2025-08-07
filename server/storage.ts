@@ -42,34 +42,16 @@ export class MemStorage implements IStorage {
     this.jobs = new Map();
     this.csvUploads = new Map();
     
-    // Seed with initial data
-    this.seedData();
+    // Clean startup - no seed data to prevent test data pollution
+    console.log('✅ MemStorage initialized with clean state');
   }
 
-  private async seedData() {
-    // Create initial contractors
-    const initialContractors = [
-      { name: "Mike Torres", email: "mike@example.com", specialty: "General Contractor", status: "available" as const, rating: "4.8", activeJobs: "3", completedJobs: "47" },
-      { name: "Sarah Lee", email: "sarah@example.com", specialty: "Electrician", status: "busy" as const, rating: "4.9", activeJobs: "2", completedJobs: "62" },
-      { name: "Robert Jackson", email: "robert@example.com", specialty: "HVAC Specialist", status: "available" as const, rating: "4.7", activeJobs: "1", completedJobs: "34" },
-    ];
-
-    for (const contractor of initialContractors) {
-      await this.createContractor(contractor);
-    }
-
-    // Create initial jobs
-    const contractorIds = Array.from(this.contractors.keys());
-    const initialJobs = [
-      { title: "Kitchen Renovation - Unit 4B", location: "Downtown Plaza, Chicago", status: "assigned" as const, contractorId: contractorIds[0], dueDate: "2024-03-28", description: "Complete kitchen renovation including cabinets and appliances" },
-      { title: "Plumbing Repair - Office 201", location: "Business Center, Austin", status: "pending" as const, dueDate: "2024-03-30", description: "Fix water leak in office bathroom" },
-      { title: "Electrical Inspection - Warehouse", location: "Industrial District, Houston", status: "completed" as const, contractorId: contractorIds[1], dueDate: "2024-03-25", description: "Safety inspection of electrical systems" },
-      { title: "HVAC Maintenance - Building A", location: "Tech Campus, Seattle", status: "assigned" as const, contractorId: contractorIds[2], dueDate: "2024-04-02", description: "Quarterly HVAC system maintenance" },
-    ];
-
-    for (const job of initialJobs) {
-      await this.createJob(job);
-    }
+  // Cleanup method to reset all data
+  public clearAllData(): void {
+    this.contractors.clear();
+    this.jobs.clear();
+    this.csvUploads.clear();
+    console.log('✅ All in-memory data cleared');
   }
 
   async getContractors(): Promise<Contractor[]> {

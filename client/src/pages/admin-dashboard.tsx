@@ -342,6 +342,17 @@ export default function AdminDashboard() {
                 </div>
                 
                 <div className="border-t border-slate-600 py-2">
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      window.location.href = '/system-cleanup';
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-red-400"
+                  >
+                    <i className="fas fa-broom mr-3 w-4"></i>
+                    System Cleanup
+                  </button>
+                  
                   <div className="px-4 py-1 text-slate-400 text-sm font-medium">Documents</div>
                   <div className="px-4 py-1 text-slate-400 text-sm font-medium">Help & Support</div>
                 </div>
