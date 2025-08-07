@@ -425,11 +425,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/contractor-applications/:id", async (req, res) => {
     try {
-      const application = await storage.updateContractorApplication(req.params.id, req.body);
-      if (!application) {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      // Get the original application before updating
+      const originalApplication = await storage.getContractorApplication(id);
+      if (!originalApplication) {
         return res.status(404).json({ error: "Application not found" });
       }
-      res.json(application);
+      
+      const updated = await storage.updateContractorApplication(id, updates);
+      if (!updated) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+      
+      // Send Telegram notification if status changed to approved or rejected
+      if (updates.status && updates.status !== originalApplication.status) {
+        const telegramService = new TelegramService();
+        
+        if (updates.status === 'approved') {
+          console.log('📱 Sending approval notification for:', updated.firstName, updated.lastName);
+          await telegramService.sendApprovalNotification({
+            firstName: updated.firstName,
+            lastName: updated.lastName,
+            phone: updated.phone,
+            email: updated.email,
+            primaryTrade: updated.primaryTrade,
+            adminPayRate: updated.adminPayRate || undefined
+          });
+        } else if (updates.status === 'rejected') {
+          console.log('📱 Sending rejection notification for:', updated.firstName, updated.lastName);
+          await telegramService.sendRejectionNotification({
+            firstName: updated.firstName,
+            lastName: updated.lastName,
+            phone: updated.phone,
+            email: updated.email,
+            primaryTrade: updated.primaryTrade,
+            rejectionReason: updated.adminNotes || undefined
+          });
+        }
+      }
+      
+      res.json(updated);
     } catch (error) {
       console.error("Error updating contractor application:", error);
       res.status(500).json({ error: "Failed to update contractor application" });

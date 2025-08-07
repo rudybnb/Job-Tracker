@@ -30,6 +30,7 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
   - No = Not CIS Registered (30% deduction)
 ✓ **Removed Pay Rate from Contractor Form** - Pay rates now exclusively set by admins
 ✓ **Form Validation Fixed** - Contractors can now successfully complete and submit applications
+✓ **COMPLETED: Telegram Approval/Rejection Notifications** - System now automatically sends Telegram messages to contractors when applications are approved or rejected with appropriate success/failure messages
 
 ### Earlier Updates
 ✓ **RESOLVED: Build Phase Display Issue** - Fixed job assignments showing "0 phases" instead of actual phase counts and names

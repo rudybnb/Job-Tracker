@@ -266,4 +266,143 @@ Good luck with the project! 💪`;
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
+
+  // Send approval notification to contractor
+  async sendApprovalNotification(contractorData: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    primaryTrade: string;
+    adminPayRate?: string;
+  }) {
+    try {
+      console.log('📱 Sending approval notification to contractor...');
+      
+      if (!this.botToken) {
+        console.log('⚠️ No bot token - simulating approval notification');
+        return { success: true, simulated: true };
+      }
+
+      const chatId = '7617462316';
+      
+      const payRateInfo = contractorData.adminPayRate 
+        ? `💰 <b>Pay Rate:</b> £${contractorData.adminPayRate}/hour`
+        : '';
+      
+      const message = `
+✅ <b>APPLICATION APPROVED!</b>
+
+🎉 Congratulations ${contractorData.firstName} ${contractorData.lastName}!
+
+Your contractor application has been <b>APPROVED</b> by our team.
+
+👤 <b>Trade:</b> ${contractorData.primaryTrade}
+📧 <b>Email:</b> ${contractorData.email}
+📱 <b>Phone:</b> ${contractorData.phone}
+${payRateInfo}
+
+🚀 Welcome to our contractor network! You'll start receiving job assignments soon.
+
+📞 If you have any questions, please contact us.
+`;
+
+      const response = await fetch(`${this.baseUrl}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Approval notification error:', response.status, errorData);
+        return { success: false, error: `Telegram API error: ${response.status}` };
+      }
+
+      const result = await response.json();
+      console.log('✅ Approval notification sent successfully');
+      
+      return { success: true, messageId: result.message_id };
+      
+    } catch (error) {
+      console.error('❌ Approval notification error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  // Send rejection notification to contractor
+  async sendRejectionNotification(contractorData: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    primaryTrade: string;
+    rejectionReason?: string;
+  }) {
+    try {
+      console.log('📱 Sending rejection notification to contractor...');
+      
+      if (!this.botToken) {
+        console.log('⚠️ No bot token - simulating rejection notification');
+        return { success: true, simulated: true };
+      }
+
+      const chatId = '7617462316';
+      
+      const reasonInfo = contractorData.rejectionReason 
+        ? `\n📋 <b>Reason:</b> ${contractorData.rejectionReason}`
+        : '';
+      
+      const message = `
+❌ <b>APPLICATION UPDATE</b>
+
+Dear ${contractorData.firstName} ${contractorData.lastName},
+
+Unfortunately, your contractor application has been <b>NOT APPROVED</b> at this time.
+
+👤 <b>Trade:</b> ${contractorData.primaryTrade}
+📧 <b>Email:</b> ${contractorData.email}
+📱 <b>Phone:</b> ${contractorData.phone}${reasonInfo}
+
+🔄 You may reapply in the future when requirements change.
+
+📞 If you have any questions, please contact us.
+
+Thank you for your interest in our contractor network.
+`;
+
+      const response = await fetch(`${this.baseUrl}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Rejection notification error:', response.status, errorData);
+        return { success: false, error: `Telegram API error: ${response.status}` };
+      }
+
+      const result = await response.json();
+      console.log('✅ Rejection notification sent successfully');
+      
+      return { success: true, messageId: result.message_id };
+      
+    } catch (error) {
+      console.error('❌ Rejection notification error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
 }
