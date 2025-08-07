@@ -11,7 +11,7 @@ function LogoutButton() {
   };
 
   return (
-    <div className="fixed top-4 right-4 z-50 bg-slate-800 rounded-lg p-2 border border-slate-600 shadow-lg">
+    <div className="fixed top-4 left-4 z-50 bg-slate-800 rounded-lg p-2 border border-slate-600 shadow-lg">
       <div className="flex items-center space-x-2">
         <span className="text-yellow-400 text-sm font-medium">Admin</span>
         <Button

@@ -12,7 +12,7 @@ function ContractorLogoutButton() {
   };
 
   return (
-    <div className="fixed top-4 right-4 z-50 bg-slate-800 rounded-lg p-2 border border-slate-600 shadow-lg">
+    <div className="fixed top-4 left-4 z-50 bg-slate-800 rounded-lg p-2 border border-slate-600 shadow-lg">
       <div className="flex items-center space-x-2">
         <span className="text-yellow-400 text-sm font-medium">Contractor</span>
         <Button
@@ -178,7 +178,11 @@ export default function GPSDashboard() {
                   
                   <div className="border-t border-slate-600 mt-2 pt-2">
                     <button 
-                      onClick={() => window.location.href = '/login'}
+                      onClick={() => {
+                        localStorage.removeItem('userRole');
+                        localStorage.removeItem('isLoggedIn');
+                        window.location.href = '/login';
+                      }}
                       className="w-full px-4 py-2 text-left text-red-400 hover:bg-slate-700 flex items-center"
                     >
                       <i className="fas fa-sign-out-alt mr-3 text-red-400"></i>
