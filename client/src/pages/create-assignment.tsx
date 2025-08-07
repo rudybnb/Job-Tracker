@@ -57,14 +57,27 @@ export default function CreateAssignment() {
   useEffect(() => {
     // Load uploaded jobs from localStorage (from real CSV uploads)
     const savedJobs = localStorage.getItem('uploadedJobs');
+    console.log('=== LOADING JOBS DEBUG ===');
+    console.log('Raw localStorage data:', savedJobs);
+    
     if (savedJobs) {
       const jobs = JSON.parse(savedJobs);
       setUploadedJobs(jobs);
-      console.log('Loaded real jobs from CSV uploads:', jobs);
+      console.log('✓ Loaded jobs count:', jobs.length);
+      console.log('✓ Jobs with phase data:', jobs.filter((job: any) => job.phaseData).length);
+      jobs.forEach((job: any, index: number) => {
+        console.log(`Job ${index + 1}:`, {
+          name: job.name,
+          hasPhaseData: !!job.phaseData,
+          phaseDataType: typeof job.phaseData,
+          phaseKeys: job.phaseData ? Object.keys(job.phaseData) : null
+        });
+      });
     } else {
-      console.log('No uploaded jobs found. Upload CSV files first to create jobs for assignment.');
+      console.log('❌ No uploaded jobs found in localStorage');
       setUploadedJobs([]);
     }
+    console.log('=== END LOADING DEBUG ===');
   }, []);
 
   useEffect(() => {
@@ -281,16 +294,30 @@ export default function CreateAssignment() {
               </label>
               <select
                 value={selectedHbxlJob}
-                onChange={(e) => setSelectedHbxlJob(e.target.value)}
+                onChange={(e) => {
+                  console.log('Job selection changed to:', e.target.value);
+                  setSelectedHbxlJob(e.target.value);
+                  setSelectedPhases([]);
+                }}
                 className="w-full bg-slate-700 border border-yellow-500 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
               >
                 <option value="">Select HBXL job</option>
                 {uploadedJobs.map((job) => (
                   <option key={job.id} value={job.name}>
-                    {job.name}
+                    {job.name} {job.phaseData ? `(${Object.keys(job.phaseData).length} phases)` : '(No phases)'}
                   </option>
                 ))}
               </select>
+              {uploadedJobs.length === 0 && (
+                <p className="text-red-400 text-sm mt-2">
+                  No jobs available. Upload CSV files on the Upload Job page first.
+                </p>
+              )}
+              {uploadedJobs.length > 0 && (
+                <p className="text-green-400 text-sm mt-2">
+                  ✓ {uploadedJobs.length} job(s) loaded from CSV uploads
+                </p>
+              )}
             </div>
 
             {/* Build Phases */}
