@@ -266,7 +266,7 @@ export default function AdminDashboard() {
             <span className="text-xs">Dashboard</span>
           </button>
           <button 
-            onClick={() => window.location.href = '/jobs'}
+            onClick={() => window.location.href = '/job-assignments'}
             className="py-3 px-4 text-slate-400 hover:text-white"
           >
             <i className="fas fa-briefcase block mb-1"></i>
