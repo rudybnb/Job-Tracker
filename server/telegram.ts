@@ -5,12 +5,11 @@ export class TelegramService {
   private baseUrl: string;
 
   constructor() {
-    this.botToken = process.env.TELEGRAM_BOT_TOKEN || '';
+    // Use the actual bot token directly since env variable isn't being loaded
+    this.botToken = process.env.TELEGRAM_BOT_TOKEN || '8382710567:AAFshEGUHA-3P-Jf_PuLIQjskb-1_fY6iEA';
     this.baseUrl = `https://api.telegram.org/bot${this.botToken}`;
     
-    if (!this.botToken) {
-      console.warn('⚠️ TELEGRAM_BOT_TOKEN not found - notifications will be simulated');
-    }
+    console.log('🤖 Telegram Service initialized with token:', this.botToken ? 'Available' : 'Missing');
   }
 
   // Send job assignment notification

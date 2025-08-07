@@ -136,9 +136,33 @@ export default function JobAssignments() {
                           <p className="text-sm text-slate-400">
                             Location: {assignment.workLocation || 'No location specified'}
                           </p>
+                          {assignment.buildPhases && Array.isArray(assignment.buildPhases) && assignment.buildPhases.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs text-slate-500">Build Phases:</p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {assignment.buildPhases.map((phase: string, idx: number) => (
+                                  <span 
+                                    key={idx}
+                                    className="bg-blue-600 text-white text-xs px-2 py-1 rounded"
+                                  >
+                                    {phase}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="text-right flex items-center space-x-2">
+                        <div>
+                          <div className="text-sm text-slate-400">Phases</div>
+                          <div className="text-blue-400 font-medium">
+                            {assignment.buildPhases && Array.isArray(assignment.buildPhases) 
+                              ? `${assignment.buildPhases.length} phases`
+                              : '0 phases'
+                            }
+                          </div>
+                        </div>
                         <div>
                           <div className="text-sm text-slate-400">Status</div>
                           <div className="text-green-400 font-medium">Assigned</div>
@@ -163,7 +187,12 @@ export default function JobAssignments() {
                       </div>
                       <div>
                         <div className="text-xs text-slate-400">Build Phases</div>
-                        <div className="text-white">{assignment.selectedPhases?.length || 0} phases</div>
+                        <div className="text-white">
+                          {assignment.buildPhases && Array.isArray(assignment.buildPhases) 
+                            ? `${assignment.buildPhases.length} phases`
+                            : '0 phases'
+                          }
+                        </div>
                       </div>
                       <div>
                         <div className="text-xs text-slate-400">Contact</div>
