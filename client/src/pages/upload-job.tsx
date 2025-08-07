@@ -80,11 +80,14 @@ export default function UploadJob() {
       
       // For schedule format CSVs, try to extract client info from filename
       if (hbxlFile.name.includes('Flat')) {
+        // Handle both "Flat 15" and "Flat15" patterns
         const flatMatch = hbxlFile.name.match(/Flat\s*(\d+)/i);
         if (flatMatch) {
-          clientInfo.name = `Flat ${flatMatch[1]}`;
+          const flatNumber = flatMatch[1];
+          clientInfo.name = `Flat ${flatNumber}`;
           clientInfo.address = 'Stevenage'; // Default from user's data
           clientInfo.postCode = 'SG1 1EH'; // Default from user's data
+          console.log(`✓ Extracted from filename: ${clientInfo.name}`);
         }
       }
 
@@ -169,17 +172,27 @@ export default function UploadJob() {
       console.log('  Quantity:', quantityIndex, 'Rate:', rateIndex, 'Total:', totalIndex);
       console.log('  Category:', categoryIndex, 'Type:', typeIndex, 'Subcategory:', subcategoryIndex);
       
-      // Determine CSV format type - better detection for schedule CSVs
+      // Enhanced schedule format detection
+      const firstDataRow = lines[dataStartRow + 1]?.split(',')[0] || '';
+      const hasDatePattern = firstDataRow.match(/^\d{2}\/\d{2}\/\d{4}$/);
       const isScheduleFormat = (codeIndex === -1 && categoryIndex !== -1) || 
-                               (headers.length >= 7 && headers[0]?.includes('/')) ||
-                               lines[dataStartRow + 1]?.split(',')[0]?.match(/^\d{2}\/\d{2}\/\d{4}$/);
+                               (headers.length >= 7 && hasDatePattern) ||
+                               lines[0]?.split(',')[0]?.match(/^\d{2}\/\d{2}\/\d{4}$/);
       
+      console.log('=== SCHEDULE FORMAT DETECTION ===');
       console.log('CSV Format detected:', isScheduleFormat ? 'Schedule-based' : 'Code-based');
       console.log('Detection factors:', {
         noCodeColumn: codeIndex === -1,
         hasCategoryColumn: categoryIndex !== -1,
         headerLength: headers.length,
-        firstDataCell: lines[dataStartRow + 1]?.split(',')[0]
+        firstDataCell: firstDataRow,
+        hasDatePattern: !!hasDatePattern,
+        firstLineStartsWithDate: !!lines[0]?.split(',')[0]?.match(/^\d{2}\/\d{2}\/\d{4}$/)
+      });
+      console.log('Headers:', headers);
+      console.log('First few lines:');
+      lines.slice(0, 5).forEach((line, i) => {
+        console.log(`  Line ${i}: ${line.substring(0, 100)}`);
       });
 
       // Create structured data format that's easy to read and use
