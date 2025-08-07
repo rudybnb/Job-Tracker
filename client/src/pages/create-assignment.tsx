@@ -62,39 +62,51 @@ export default function CreateAssignment() {
       setUploadedJobs(jobs);
       console.log('Loaded jobs for assignment:', jobs);
     } else {
-      // Create a sample job with proper phase data for testing
-      const sampleJob = {
-        id: 'sample-1',
-        name: 'Kitchen Fitout Project',
-        location: 'DA17 5DB', 
-        price: '£15,000',
-        status: 'approved',
-        dataType: 'CSV Data',
-        uploadedAt: new Date().toLocaleDateString('en-GB'),
-        phaseData: {
-          'Masonry Shell': [
-            { task: 'Wall construction', quantity: 25, description: 'Build walls (25 m²)', unit: 'm²', code: 'MS001' },
-            { task: 'Mortar preparation', quantity: 10, description: 'Prepare mortar (10 bags)', unit: 'bags', code: 'MS002' }
-          ],
-          'Foundation': [
-            { task: 'Excavation', quantity: 50, description: 'Site excavation (50 m³)', unit: 'm³', code: 'FD001' },
-            { task: 'Concrete pouring', quantity: 30, description: 'Pour concrete (30 m³)', unit: 'm³', code: 'FD002' }
-          ],
-          'Kitchen Fitout': [
-            { task: 'Cabinet installation', quantity: 12, description: 'Install kitchen cabinets (12 units)', unit: 'units', code: 'KF001' },
-            { task: 'Worktop fitting', quantity: 8, description: 'Fit worktops (8 m)', unit: 'm', code: 'KF002' },
-            { task: 'Appliance connections', quantity: 5, description: 'Connect appliances (5 units)', unit: 'units', code: 'KF003' }
-          ],
-          'Electrical': [
-            { task: 'Wiring installation', quantity: 15, description: 'Install electrical wiring (15 points)', unit: 'points', code: 'EL001' },
-            { task: 'Socket fitting', quantity: 20, description: 'Fit electrical sockets (20 sockets)', unit: 'sockets', code: 'EL002' }
-          ]
+      // Create sample jobs with proper phase data and real property details
+      const sampleJobs: (UploadedJob & { phaseData?: any })[] = [
+        {
+          id: 'sample-1',
+          name: 'Flat 2, 45 High Street - Kitchen Fitout',
+          location: 'DA17 5DB', 
+          price: '£15,000',
+          status: 'approved' as const,
+          dataType: 'CSV Data',
+          uploadedAt: new Date().toLocaleDateString('en-GB'),
+          phaseData: {
+            'Kitchen Fitout': [
+              { task: 'Cabinet installation', quantity: 12, description: 'Install kitchen cabinets (12 units)', unit: 'units', code: 'KF001' },
+              { task: 'Worktop fitting', quantity: 8, description: 'Fit worktops (8 m)', unit: 'm', code: 'KF002' },
+              { task: 'Appliance connections', quantity: 5, description: 'Connect appliances (5 units)', unit: 'units', code: 'KF003' }
+            ],
+            'Electrical': [
+              { task: 'Wiring installation', quantity: 15, description: 'Install electrical wiring (15 points)', unit: 'points', code: 'EL001' },
+              { task: 'Socket fitting', quantity: 20, description: 'Fit electrical sockets (20 sockets)', unit: 'sockets', code: 'EL002' }
+            ]
+          }
+        },
+        {
+          id: 'sample-2',
+          name: 'Apartment 12B, Riverside Tower - Full Refurbishment',
+          location: 'SE1 9RT',
+          price: '£45,000',
+          status: 'approved' as const,
+          dataType: 'CSV Data',
+          uploadedAt: new Date().toLocaleDateString('en-GB'),
+          phaseData: {
+            'Bathroom Fitout': [
+              { task: 'Tile installation', quantity: 30, description: 'Install bathroom tiles (30 m²)', unit: 'm²', code: 'BF001' },
+              { task: 'Plumbing fixtures', quantity: 8, description: 'Install plumbing (8 units)', unit: 'units', code: 'BF002' }
+            ],
+            'Electrical': [
+              { task: 'Full rewiring', quantity: 25, description: 'Complete electrical rewiring (25 points)', unit: 'points', code: 'EL001' }
+            ]
+          }
         }
-      };
+      ];
       
-      setUploadedJobs([sampleJob]);
-      localStorage.setItem('uploadedJobs', JSON.stringify([sampleJob]));
-      console.log('Created sample job with phase data:', sampleJob);
+      setUploadedJobs(sampleJobs);
+      localStorage.setItem('uploadedJobs', JSON.stringify(sampleJobs));
+      console.log('Created sample jobs with phase data:', sampleJobs);
     }
   }, []);
 
