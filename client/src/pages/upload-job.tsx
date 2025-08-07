@@ -287,8 +287,13 @@ export default function UploadJob() {
         }))
       });
 
-      console.log('Parsed CSV data:', { clientInfo, phaseData });
-      console.log('Phase count:', Object.keys(phaseData).length);
+      console.log('✓ Final Processed Data:', { 
+        clientInfo, 
+        phaseData,
+        phaseCount: Object.keys(phaseData).length,
+        phasesFound: Object.keys(phaseData),
+        taskCounts: Object.entries(phaseData).map(([phase, tasks]) => ({ phase, count: tasks.length }))
+      });
 
       // Store processed CSV data for job creation
       const processedCSV = {
@@ -308,10 +313,20 @@ export default function UploadJob() {
       
       console.log('Updated processedCSVs:', updatedCSVs);
 
+      const phaseCount = Object.keys(phaseData).length;
+      const phaseNames = Object.keys(phaseData);
+      
       toast({
         title: "CSV Processed Successfully", 
-        description: `${hbxlFile.name} analyzed with ${Object.keys(phaseData).length} phases detected: ${Object.keys(phaseData).join(', ')}. Click 'Create Job' to make it available for assignment.`,
+        description: `${hbxlFile.name} analyzed - ${phaseCount} phases detected: ${phaseNames.join(', ')}. Click 'Create Job' to make it available for assignment.`,
       });
+      
+      console.log('=== CSV PROCESSING SUMMARY ===');
+      console.log('File:', hbxlFile.name);
+      console.log('Phases detected:', phaseCount);
+      console.log('Phase names:', phaseNames);
+      console.log('Total tasks:', Object.values(phaseData).reduce((sum, tasks) => sum + tasks.length, 0));
+      console.log('=== END SUMMARY ===');
     };
     
     reader.readAsText(hbxlFile);
