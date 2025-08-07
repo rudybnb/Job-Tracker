@@ -521,13 +521,19 @@ export default function UploadJob() {
               <input
                 type="file"
                 accept=".csv,.xlsx,.xls"
-                onChange={handleHbxlFileUpload}
+                onChange={(e) => {
+                  console.log('=== FILE INPUT CHANGE EVENT ===');
+                  console.log('Event target:', e.target);
+                  console.log('Files:', e.target.files);
+                  handleHbxlFileUpload(e);
+                }}
                 className="hidden"
                 id="hbxl-upload"
               />
               <label 
                 htmlFor="hbxl-upload"
                 className="bg-yellow-600 hover:bg-yellow-700 text-black px-4 py-2 rounded-lg cursor-pointer border border-yellow-500 font-semibold"
+                onClick={() => console.log('=== FILE LABEL CLICKED ===')}
               >
                 <i className="fas fa-file-upload mr-2"></i>
                 Choose CSV File
@@ -543,13 +549,21 @@ export default function UploadJob() {
 
           {hbxlFile && (
             <Button 
-              onClick={handleUploadHbxl}
+              onClick={() => {
+                console.log('=== UPLOAD BUTTON CLICKED (WRAPPER) ===');
+                handleUploadHbxl();
+              }}
               className="bg-green-600 hover:bg-green-700 text-white w-full"
             >
               <i className="fas fa-upload mr-2"></i>
               Upload and Create Job
             </Button>
           )}
+          
+          {/* Debug info */}
+          <div className="mt-2 text-xs text-slate-500">
+            Debug: File selected = {hbxlFile ? hbxlFile.name : 'None'}
+          </div>
         </div>
 
         {/* Phase Tracking Documents Card */}
