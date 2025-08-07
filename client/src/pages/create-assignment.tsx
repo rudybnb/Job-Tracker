@@ -78,10 +78,14 @@ export default function CreateAssignment() {
     // When HBXL job is selected, load available phases
     if (selectedHbxlJob) {
       const selectedJob = uploadedJobs.find(job => job.name === selectedHbxlJob);
-      if (selectedJob && selectedJob.phaseData) {
-        const phases = selectedJob.phaseData.map(phase => phase.description || phase.phase);
+      if (selectedJob && selectedJob.phaseData && Array.isArray(selectedJob.phaseData)) {
+        const phases = selectedJob.phaseData.map((phase: any) => phase.description || phase.phase || phase);
         setAvailablePhases(phases);
         console.log('Available phases for', selectedHbxlJob, ':', phases);
+      } else {
+        // Fallback to default build phases if no phase data available
+        setAvailablePhases(buildPhases);
+        console.log('No phase data found, using default phases for', selectedHbxlJob);
       }
     }
   }, [selectedHbxlJob, uploadedJobs]);
