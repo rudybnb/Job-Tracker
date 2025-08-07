@@ -320,6 +320,7 @@ ${buildPhases.map(phase => `• ${phase}`).join('\n')}
 Please confirm receipt and start GPS tracking when you begin work.`;
 
         console.log("📤 Sending message:", message);
+        
         const result = await telegramService.sendMessage({ 
           chatId: '7617462316', 
           message: message,

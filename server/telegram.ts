@@ -1,7 +1,8 @@
 // Use built-in fetch (Node.js 18+)
 const fetch = globalThis.fetch;
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8382710567:AAFshEGUHA-3P-Jf_PuLIQjskb-1_fY6iEA';
+const TELEGRAM_BOT_TOKEN = '8382710567:AAFshEGUHA-3P-Jf_PuLIQjskb-1_fY6iEA';
+
 const TELEGRAM_BOT_ID = process.env.TELEGRAM_BOT_ID || '8382710567';
 
 export interface TelegramMessage {
@@ -17,7 +18,10 @@ export class TelegramService {
     if (!TELEGRAM_BOT_TOKEN) {
       throw new Error('TELEGRAM_BOT_TOKEN environment variable is required');
     }
-    this.baseUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+    // Remove any extra spaces from the token
+    const cleanToken = TELEGRAM_BOT_TOKEN.trim();
+    this.baseUrl = `https://api.telegram.org/bot${cleanToken}`;
+
   }
 
   /**
