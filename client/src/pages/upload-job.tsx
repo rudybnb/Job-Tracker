@@ -486,7 +486,25 @@ export default function UploadJob() {
               
               {(() => {
                 const csv = processedCSVs.find(c => c.id === showCreateJobForm);
-                const clientInfo = csv?.clientInfo || {};
+                console.log('Modal rendering - CSV found:', csv);
+                console.log('All processedCSVs:', processedCSVs);
+                console.log('Looking for ID:', showCreateJobForm);
+                
+                if (!csv) {
+                  return (
+                    <div className="text-center p-4">
+                      <p className="text-red-400 mb-4">CSV data not found. Please upload a CSV file first.</p>
+                      <Button 
+                        onClick={() => setShowCreateJobForm(null)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  );
+                }
+                
+                const clientInfo = csv.clientInfo || {};
                 return (
                   <>
                     {/* Client Info Preview */}
