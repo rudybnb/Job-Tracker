@@ -440,6 +440,18 @@ export default function UploadJob() {
                       Create Job
                     </Button>
                     <Button
+                      onClick={() => {
+                        console.log('Quick create job clicked for CSV:', csv.id);
+                        const defaultJobName = csv.clientInfo?.projectType || 'Quick Job';
+                        const defaultLocation = `${csv.clientInfo?.name || 'Unknown'} • ${csv.clientInfo?.address || 'Unknown'} • ${csv.clientInfo?.postCode || 'Unknown'}`;
+                        handleCreateJob(csv.id, defaultJobName, defaultLocation);
+                      }}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm"
+                    >
+                      <i className="fas fa-bolt mr-2"></i>
+                      Quick Create Job
+                    </Button>
+                    <Button
                       onClick={() => handleDeleteUpload(csv.id)}
                       className="w-full bg-red-600 hover:bg-red-700 text-white text-sm"
                     >

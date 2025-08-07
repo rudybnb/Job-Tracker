@@ -1,0 +1,48 @@
+Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+2/~:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was receivedUnderstand this error
+8Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.Understand this error
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'ambient-light-sensor'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'battery'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'execution-while-not-rendered'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'execution-while-out-of-viewport'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'layout-animations'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'legacy-image-formats'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'navigation-override'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'oversized-images'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'publickey-credentials'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'speaker-selection'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'unoptimized-images'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'unsized-media'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Unrecognized feature: 'pointer-lock'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Allow attribute will take precedence over 'allowfullscreen'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+framework-904731c5b6fb1461.js:1 Allow attribute will take precedence over 'allowpaymentrequest'.
+_ @ framework-904731c5b6fb1461.js:1Understand this warning
+7JobDispatch:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was receivedUnderstand this error
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'battery'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.Understand this warning
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.Understand this warning
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.
