@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertJobSchema, insertContractorSchema, jobAssignmentSchema } from "@shared/schema";
+import { TelegramService } from "./telegram";
 import multer from "multer";
 import type { Request as ExpressRequest } from "express";
 
@@ -219,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Telegram notification endpoint - safe implementation
+  // Telegram notification endpoint - real implementation
   app.post("/api/send-telegram-notification", async (req, res) => {
     try {
       const { contractorName, phone, hbxlJob, buildPhases, workLocation, startDate } = req.body;
@@ -233,26 +234,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startDate
       });
 
-      // For now, simulate the notification without external API calls
-      // This prevents crashes while maintaining the workflow
-      console.log('✅ Telegram notification simulated successfully');
+      // Use imported TelegramService
+      const telegramService = new TelegramService();
       
-      res.json({ 
-        success: true, 
-        message: `Notification sent to ${contractorName} (${phone})`,
-        details: {
-          job: hbxlJob,
-          phases: buildPhases,
-          location: workLocation,
-          startDate
-        }
+      // Send real Telegram notification
+      const result = await telegramService.sendJobAssignment({
+        contractorName,
+        phone,
+        hbxlJob,
+        buildPhases,
+        workLocation,
+        startDate
       });
+      
+      if (result.success) {
+        console.log('✅ Telegram notification sent successfully');
+        res.json({ 
+          success: true, 
+          message: `Notification sent to ${contractorName} (${phone})`,
+          details: {
+            job: hbxlJob,
+            phases: buildPhases,
+            location: workLocation,
+            startDate,
+            messageId: result.messageId,
+            simulated: result.simulated
+          }
+        });
+      } else {
+        console.log('⚠️ Telegram notification failed:', result.error);
+        res.json({ 
+          success: false, 
+          message: `Failed to send notification: ${result.error}`,
+          details: { error: result.error }
+        });
+      }
       
     } catch (error) {
       console.error('❌ Telegram notification error:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to send notification',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Test Telegram bot connection
+  app.get("/api/telegram/test", async (req, res) => {
+    try {
+      const telegramService = new TelegramService();
+      
+      const result = await telegramService.testConnection();
+      res.json(result);
+      
+    } catch (error) {
+      console.error('❌ Telegram test error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to test Telegram connection',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
