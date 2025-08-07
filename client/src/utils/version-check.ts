@@ -1,6 +1,6 @@
 // Version checking and cache busting utilities for mobile apps
 export class VersionChecker {
-  private static readonly CURRENT_VERSION = '2.0.0-telegram-fixed';
+  private static readonly CURRENT_VERSION = '2.0.1-mobile-force-refresh';
   private static readonly VERSION_KEY = 'app_version';
   
   /**
@@ -45,32 +45,70 @@ export class VersionChecker {
    */
   static forceRefreshWithCacheBust(): void {
     const timestamp = Date.now();
-    const cacheBustUrl = `${window.location.origin}${window.location.pathname}?v=${this.CURRENT_VERSION}&cache_bust=${timestamp}&mobile_refresh=true`;
+    const randomId = Math.random().toString(36).substring(7);
+    const cacheBustUrl = `${window.location.origin}${window.location.pathname}?v=${this.CURRENT_VERSION}&t=${timestamp}&r=${randomId}&mobile=true&force=1`;
     
-    console.log('🚀 Force refreshing with cache bust:', cacheBustUrl);
+    console.log('🚀 FORCE REFRESH - Mobile cache busting:', cacheBustUrl);
     
-    // Clear service worker cache if present
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        registrations.forEach(registration => {
-          registration.unregister();
+    // Aggressive cache clearing
+    try {
+      // Clear all localStorage
+      localStorage.clear();
+      
+      // Clear all sessionStorage  
+      sessionStorage.clear();
+      
+      // Clear service worker cache
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          registrations.forEach(registration => {
+            console.log('Unregistering service worker');
+            registration.unregister();
+          });
         });
-      });
+      }
+      
+      // Clear browser cache
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => {
+            console.log('Deleting cache:', name);
+            caches.delete(name);
+          });
+        });
+      }
+      
+      // Clear browser history state
+      if (window.history.replaceState) {
+        window.history.replaceState(null, '', cacheBustUrl);
+      }
+      
+    } catch (error) {
+      console.error('Cache clearing error:', error);
     }
     
-    // Clear browser cache
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        names.forEach(name => {
-          caches.delete(name);
-        });
-      });
-    }
+    // Multiple refresh attempts for stubborn mobile browsers
+    console.log('🔄 Attempting multiple refresh methods...');
     
-    // Force navigation with cache busting
+    // Method 1: location.replace (immediate)
+    window.location.replace(cacheBustUrl);
+    
+    // Method 2: location.href (backup after 100ms)
     setTimeout(() => {
-      window.location.replace(cacheBustUrl);
+      if (window.location.href.indexOf('mobile=true') === -1) {
+        window.location.href = cacheBustUrl;
+      }
     }, 100);
+    
+    // Method 3: window.open then close (backup after 200ms)
+    setTimeout(() => {
+      if (window.location.href.indexOf('mobile=true') === -1) {
+        const newWindow = window.open(cacheBustUrl, '_self');
+        if (newWindow) {
+          newWindow.focus();
+        }
+      }
+    }, 200);
   }
   
   /**

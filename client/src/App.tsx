@@ -16,6 +16,7 @@ import TaskProgress from "@/pages/task-progress";
 import DirectJobAssignments from "@/pages/direct-job-assignments";
 import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import SystemCleanupPage from "@/pages/system-cleanup";
+import MobileTestPage from "@/pages/mobile-test";
 import CreateAssignment from "@/pages/create-assignment";
 import TelegramTest from "@/pages/telegram-test";
 import TelegramDebug from "@/pages/telegram-debug";
@@ -80,6 +81,11 @@ function Router() {
         <Route path="/create-assignment" component={() => (
           <ProtectedRoute requiredRole="admin">
             <CreateAssignment />
+          </ProtectedRoute>
+        )} />
+        <Route path="/mobile-test" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <MobileTestPage />
           </ProtectedRoute>
         )} />
         <Route component={NotFound} />

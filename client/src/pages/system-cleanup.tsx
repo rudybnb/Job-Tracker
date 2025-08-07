@@ -78,9 +78,17 @@ export default function SystemCleanupPage() {
   };
 
   const handleForceRefresh = () => {
-    // Force reload with cache busting - perfect for mobile app updates
-    const cacheBustUrl = window.location.origin + window.location.pathname + '?v=' + Date.now() + '&cache_bust=1';
-    window.location.replace(cacheBustUrl);
+    toast({
+      title: "Force Refreshing Mobile App",
+      description: "Clearing all caches and forcing refresh...",
+    });
+    
+    // Use the aggressive version checker method
+    setTimeout(() => {
+      import('../utils/version-check').then(({ VersionChecker }) => {
+        VersionChecker.forceRefreshWithCacheBust();
+      });
+    }, 1000);
   };
 
   return (
