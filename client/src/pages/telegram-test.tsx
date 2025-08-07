@@ -10,6 +10,7 @@ export default function TelegramTest() {
   const [isLoading, setIsLoading] = useState(false);
   const [chatId, setChatId] = useState('');
   const [testMessage, setTestMessage] = useState('🔨 Test message from JobFlow!\n\nThis is a test to verify Telegram integration is working correctly.');
+  const [recentMessages, setRecentMessages] = useState<any[]>([]);
   const { toast } = useToast();
 
   const testBotConnection = async () => {
@@ -121,6 +122,36 @@ export default function TelegramTest() {
       toast({
         title: 'Error',
         description: 'Failed to send custom message',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkRecentMessages = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/telegram/messages');
+      const result = await response.json();
+      
+      if (result.success) {
+        setRecentMessages(result.messages || []);
+        toast({
+          title: 'Messages Retrieved',
+          description: `Found ${result.messages?.length || 0} recent messages`,
+        });
+      } else {
+        toast({
+          title: 'Failed to Get Messages',
+          description: result.error || 'Could not retrieve messages',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to check messages',
         variant: 'destructive',
       });
     } finally {
@@ -240,6 +271,38 @@ export default function TelegramTest() {
                 {isLoading ? 'Sending...' : 'Send Custom Message'}
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Check Messages */}
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-yellow-400">Check Recent Messages</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-slate-300">Check if you've sent any messages to the bot:</p>
+            
+            <Button 
+              onClick={checkRecentMessages}
+              disabled={isLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isLoading ? 'Checking...' : 'Check Messages'}
+            </Button>
+
+            {recentMessages.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <h4 className="text-yellow-400 font-semibold">Recent Messages:</h4>
+                {recentMessages.map((msg, index) => (
+                  <div key={index} className="bg-slate-700 p-3 rounded border">
+                    <p className="text-slate-300">{msg.text}</p>
+                    <div className="text-xs text-slate-400 mt-1">
+                      From: {msg.from?.first_name} ({msg.chatId}) • {new Date(msg.date).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

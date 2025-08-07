@@ -325,6 +325,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get recent messages sent to the bot
+  app.get("/api/telegram/messages", async (req, res) => {
+    try {
+      const telegramService = new TelegramService();
+      const result = await telegramService.getRecentMessages();
+      
+      res.json(result);
+      
+    } catch (error) {
+      console.error('❌ Error getting messages:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get messages',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

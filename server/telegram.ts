@@ -189,6 +189,54 @@ Good luck with the project! 💪
     }
   }
 
+  // Get recent messages sent to the bot
+  async getRecentMessages(limit: number = 10) {
+    try {
+      if (!this.botToken) {
+        return { success: false, error: 'No bot token provided' };
+      }
+
+      console.log('📥 Checking for recent messages...');
+      
+      const response = await fetch(`${this.baseUrl}/getUpdates?limit=${limit}`);
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Failed to get updates:', response.status, errorData);
+        return { success: false, error: `Failed to get updates: ${response.status}` };
+      }
+
+      const result = await response.json();
+      console.log('✅ Retrieved updates:', result);
+      
+      if (result.ok && result.result.length > 0) {
+        const messages = result.result.map((update: any) => ({
+          messageId: update.message?.message_id,
+          from: update.message?.from,
+          text: update.message?.text,
+          date: new Date(update.message?.date * 1000),
+          chatId: update.message?.chat?.id
+        })).filter((msg: any) => msg.text);
+
+        return { 
+          success: true, 
+          messages,
+          totalUpdates: result.result.length
+        };
+      }
+      
+      return { 
+        success: true, 
+        messages: [],
+        totalUpdates: 0
+      };
+      
+    } catch (error) {
+      console.error('❌ Error getting messages:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
   // Test bot connection
   async testConnection() {
     try {
