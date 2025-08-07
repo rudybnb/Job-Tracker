@@ -1,111 +1,94 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
-  const [formData, setFormData] = useState({
-    username: "",
-    password: ""
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const { toast } = useToast();
 
-  const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSignIn = async () => {
-    if (!formData.username || !formData.password) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter both username and password",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsLoading(true);
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
     
-    // Simulate login process
-    setTimeout(() => {
-      setIsLoading(false);
+    // Check credentials and redirect accordingly
+    if (username === "admin" && password === "admin123") {
+      localStorage.setItem('userRole', 'admin');
+      localStorage.setItem('isLoggedIn', 'true');
+      window.location.href = '/admin';
       toast({
         title: "Login Successful",
-        description: "Welcome to JobFlow",
+        description: "Welcome back, Admin!",
       });
-      // Redirect to main dashboard
+    } else if (username === "contractor" && password === "contractor123") {
+      localStorage.setItem('userRole', 'contractor');
+      localStorage.setItem('isLoggedIn', 'true');
       window.location.href = '/';
-    }, 1500);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSignIn();
+      toast({
+        title: "Login Successful", 
+        description: "Welcome back, Contractor!",
+      });
+    } else {
+      toast({
+        title: "Login Failed",
+        description: "Invalid username or password",
+        variant: "destructive",
+      });
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-900 via-blue-800 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Login Card */}
-        <div className="bg-blue-800/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-700/50 shadow-2xl">
-          <div className="space-y-6">
-            {/* Username Field */}
-            <div>
-              <label className="block text-white text-sm font-medium mb-3">
-                Username
-              </label>
-              <input
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold">JobFlow Login</CardTitle>
+          <CardDescription>Enter your credentials to access the system</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
                 type="text"
-                placeholder="Enter username"
-                value={formData.username}
-                onChange={(e) => updateFormData("username", e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="w-full bg-blue-700/50 border-2 border-yellow-500 rounded-lg px-4 py-3 text-white placeholder-blue-200 focus:outline-none focus:border-yellow-400 transition-colors"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="border-2 border-yellow-400 focus:border-yellow-500"
+                placeholder="admin or contractor"
+                required
               />
             </div>
-
-            {/* Password Field */}
-            <div>
-              <label className="block text-white text-sm font-medium mb-3">
-                Password
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
                 type="password"
-                placeholder="Enter password"
-                value={formData.password}
-                onChange={(e) => updateFormData("password", e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="w-full bg-blue-700/50 border border-blue-600 rounded-lg px-4 py-3 text-white placeholder-blue-200 focus:outline-none focus:border-yellow-400 focus:border-2 transition-colors"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
               />
             </div>
-
-            {/* Sign In Button */}
-            <Button
-              onClick={handleSignIn}
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 text-lg"
+            <Button 
+              type="submit" 
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white"
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Signing In...
-                </div>
-              ) : (
-                "Sign In"
-              )}
+              Sign In
             </Button>
+          </form>
+          
+          {/* Test Credentials Info */}
+          <div className="mt-6 p-4 bg-slate-100 rounded-lg">
+            <h4 className="font-medium text-slate-700 mb-2">Test Credentials:</h4>
+            <div className="text-sm text-slate-600 space-y-1">
+              <div><strong>Admin:</strong> admin / admin123</div>
+              <div><strong>Contractor:</strong> contractor / contractor123</div>
+            </div>
           </div>
-        </div>
-
-        {/* Footer Space */}
-        <div className="mt-8 text-center">
-          <p className="text-blue-300 text-sm">
-            JobFlow - GPS Time Tracking & Job Management
-          </p>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

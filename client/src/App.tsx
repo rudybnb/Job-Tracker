@@ -16,23 +16,58 @@ import TaskProgress from "@/pages/task-progress";
 import DirectJobAssignments from "@/pages/direct-job-assignments";
 import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import NotFound from "@/pages/not-found";
-import AccountSwitcher from "@/components/AccountSwitcher";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 function Router() {
   return (
     <div className="relative">
-      <AccountSwitcher />
       <Switch>
         <Route path="/login" component={Login} />
-        <Route path="/" component={GPSDashboard} />
-        <Route path="/jobs" component={DirectJobAssignments} />
-        <Route path="/task-progress" component={TaskProgress} />
-        <Route path="/upload" component={UploadJob} />
-        <Route path="/admin" component={AdminDashboard} />
-        <Route path="/admin-task-monitor" component={AdminTaskMonitor} />
-        <Route path="/contractor-onboarding" component={ContractorOnboarding} />
-        <Route path="/contractor-form" component={ContractorForm} />
-        <Route path="/job-assignments" component={JobAssignments} />
+        <Route path="/" component={() => (
+          <ProtectedRoute requiredRole="contractor">
+            <GPSDashboard />
+          </ProtectedRoute>
+        )} />
+        <Route path="/jobs" component={() => (
+          <ProtectedRoute requiredRole="contractor">
+            <DirectJobAssignments />
+          </ProtectedRoute>
+        )} />
+        <Route path="/task-progress" component={() => (
+          <ProtectedRoute requiredRole="contractor">
+            <TaskProgress />
+          </ProtectedRoute>
+        )} />
+        <Route path="/upload" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <UploadJob />
+          </ProtectedRoute>
+        )} />
+        <Route path="/admin" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard />
+          </ProtectedRoute>
+        )} />
+        <Route path="/admin-task-monitor" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminTaskMonitor />
+          </ProtectedRoute>
+        )} />
+        <Route path="/contractor-onboarding" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <ContractorOnboarding />
+          </ProtectedRoute>
+        )} />
+        <Route path="/contractor-form" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <ContractorForm />
+          </ProtectedRoute>
+        )} />
+        <Route path="/job-assignments" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <JobAssignments />
+          </ProtectedRoute>
+        )} />
         <Route component={NotFound} />
       </Switch>
     </div>
