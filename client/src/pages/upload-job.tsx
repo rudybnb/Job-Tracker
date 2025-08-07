@@ -270,8 +270,19 @@ export default function UploadJob() {
           </div>
           
           <p className="text-slate-400 text-sm mb-4">
-            Upload HBXL CSV files to automatically create jobs with phase detection. Try the sample_job.csv file!
+            Upload HBXL CSV files with client information (Name, Address, Post Code, Project Type) in rows 1-4. The system will detect phases and tasks automatically.
           </p>
+          
+          <div className="bg-blue-900/20 border border-blue-600/30 rounded-lg p-3 mb-4">
+            <h4 className="text-blue-400 font-medium mb-2">CSV Format Requirements:</h4>
+            <div className="text-sm text-slate-300 space-y-1">
+              <p>• Row 1: Name, [Client/Property Name]</p>
+              <p>• Row 2: Address, [Location]</p>
+              <p>• Row 3: Post Code, [Post Code]</p>
+              <p>• Row 4: Project Type, [Job Type]</p>
+              <p>• Row 6+: Task data (Code, Item Description, Unit, Quantity, etc.)</p>
+            </div>
+          </div>
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-yellow-400 mb-2">
@@ -415,54 +426,87 @@ export default function UploadJob() {
         {/* Create Job Modal */}
         {showCreateJobForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-xl font-bold text-yellow-400 mb-4">Create New Job</h3>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const projectType = formData.get('projectType') as string;
-                const clientName = formData.get('clientName') as string;
-                const address = formData.get('address') as string;
-                const postCode = formData.get('postCode') as string;
-                handleCreateJob(showCreateJobForm, projectType, `${clientName} • ${address} • ${postCode}`);
-              }}>
-                <div className="space-y-4">
-                  {(() => {
-                    const csv = processedCSVs.find(c => c.id === showCreateJobForm);
-                    const clientInfo = csv?.clientInfo || {};
-                    return (
-                      <>
+            <div className="bg-slate-800 rounded-lg p-6 w-full max-w-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-yellow-400">Create New Job</h3>
+                <Button 
+                  type="button"
+                  onClick={() => setShowCreateJobForm(null)}
+                  className="bg-slate-600 hover:bg-slate-700 p-2"
+                >
+                  <i className="fas fa-times"></i>
+                </Button>
+              </div>
+              
+              {(() => {
+                const csv = processedCSVs.find(c => c.id === showCreateJobForm);
+                const clientInfo = csv?.clientInfo || {};
+                return (
+                  <>
+                    {/* Client Info Preview */}
+                    <div className="bg-slate-700 rounded-lg p-3 mb-4">
+                      <h4 className="text-yellow-400 font-medium mb-2">CSV Client Information:</h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <label className="block text-yellow-400 text-sm font-medium mb-2">Project Type *</label>
+                          <span className="text-slate-400">Name:</span>
+                          <span className="text-white ml-2">{clientInfo.name || 'Not found'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Project Type:</span>
+                          <span className="text-white ml-2">{clientInfo.projectType || 'Not found'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Address:</span>
+                          <span className="text-white ml-2">{clientInfo.address || 'Not found'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Post Code:</span>
+                          <span className="text-white ml-2">{clientInfo.postCode || 'Not found'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      const projectType = formData.get('projectType') as string;
+                      const clientName = formData.get('clientName') as string;
+                      const address = formData.get('address') as string;
+                      const postCode = formData.get('postCode') as string;
+                      handleCreateJob(showCreateJobForm, projectType, `${clientName} • ${address} • ${postCode}`);
+                    }}>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Job Name / Project Type *</label>
                           <input
                             name="projectType"
                             type="text"
                             defaultValue={clientInfo.projectType || ''}
-                            placeholder="Fitout"
+                            placeholder="e.g. Fitout, Refurbishment, New Build"
                             required
-                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-400 focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-yellow-400 text-sm font-medium mb-2">Client Name *</label>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Client / Property Name *</label>
                           <input
                             name="clientName"
                             type="text"
                             defaultValue={clientInfo.name || ''}
-                            placeholder="Flat 2"
+                            placeholder="e.g. Flat 2, John Smith, HBXL Construction"
                             required
-                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-400 focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-yellow-400 text-sm font-medium mb-2">Address *</label>
+                          <label className="block text-yellow-400 text-sm font-medium mb-2">Address / Location *</label>
                           <input
                             name="address"
                             type="text"
                             defaultValue={clientInfo.address || ''}
-                            placeholder="Stevenage"
+                            placeholder="e.g. Stevenage, High Street, London"
                             required
-                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-400 focus:outline-none"
                           />
                         </div>
                         <div>
@@ -471,28 +515,38 @@ export default function UploadJob() {
                             name="postCode"
                             type="text"
                             defaultValue={clientInfo.postCode || ''}
-                            placeholder="SG1 1EH"
+                            placeholder="e.g. SG1 1EH"
                             required
-                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-400 focus:outline-none"
                           />
                         </div>
-                      </>
-                    );
-                  })()}
-                  <div className="flex space-x-2">
-                    <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
-                      Create Job
-                    </Button>
-                    <Button 
-                      type="button"
-                      onClick={() => setShowCreateJobForm(null)}
-                      className="flex-1 bg-slate-600 hover:bg-slate-700"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </form>
+                        
+                        <div className="bg-green-900/20 border border-green-600/30 rounded-lg p-3">
+                          <p className="text-green-400 text-sm">
+                            <i className="fas fa-info-circle mr-2"></i>
+                            This job will be created with {Object.keys(csv?.phaseData || {}).length} phases from the CSV data and made available for contractor assignment.
+                          </p>
+                        </div>
+
+                        <div className="flex space-x-3 pt-2">
+                          <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3">
+                            <i className="fas fa-check mr-2"></i>
+                            Create Job
+                          </Button>
+                          <Button 
+                            type="button"
+                            onClick={() => setShowCreateJobForm(null)}
+                            className="flex-1 bg-slate-600 hover:bg-slate-700 text-white py-3"
+                          >
+                            <i className="fas fa-times mr-2"></i>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </form>
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
