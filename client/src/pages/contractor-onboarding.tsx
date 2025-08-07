@@ -28,49 +28,12 @@ function LogoutButton() {
 
 export default function ContractorOnboarding() {
   const [activeTab, setActiveTab] = useState("Send Form");
-  const [currentStep, setCurrentStep] = useState(1);
   
-  // Step 1: Personal Information
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  // Simple form to send invitation
+  const [contractorName, setContractorName] = useState("");
+  const [contractorEmail, setContractorEmail] = useState("");
+  const [contractorPhone, setContractorPhone] = useState("");
   const [telegramId, setTelegramId] = useState("");
-  const [fullAddress, setFullAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [postcode, setPostcode] = useState("");
-  
-  // Step 2: Right to Work & Documentation
-  const [hasRightToWork, setHasRightToWork] = useState("");
-  const [passportNumber, setPassportNumber] = useState("");
-  const [passportPhoto, setPassportPhoto] = useState<File | null>(null);
-  const [utrNumber, setUtrNumber] = useState("");
-  const [cisRegistrationStatus, setCisRegistrationStatus] = useState("");
-  const [hasPublicLiability, setHasPublicLiability] = useState("");
-  
-  // Step 3: CIS & Tax Details
-  const [cisVerificationStatus, setCisVerificationStatus] = useState("");
-  const [cisNumber, setCisNumber] = useState("");
-  const [cscsCardNumber, setCscsCardNumber] = useState("");
-  const [cscsExpiry, setCscsExpiry] = useState("");
-  
-  // Step 4: Banking Information
-  const [bankName, setBankName] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [sortCode, setSortCode] = useState("");
-  const [accountHolderName, setAccountHolderName] = useState("");
-  
-  // Step 5: Emergency Contact
-  const [emergencyContactName, setEmergencyContactName] = useState("");
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
-  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState("");
-  
-  // Step 6: Trade & Tools
-  const [primaryTrade, setPrimaryTrade] = useState("");
-  const [yearsExperience, setYearsExperience] = useState("");
-  const [hasOwnTools, setHasOwnTools] = useState("");
-  const [toolsList, setToolsList] = useState("");
-  const [additionalNotes, setAdditionalNotes] = useState("");
   
   const [pendingApplications, setPendingApplications] = useState([
     {

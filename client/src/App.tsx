@@ -8,7 +8,7 @@ import GPSDashboard from "@/pages/gps-dashboard";
 import Jobs from "@/pages/jobs";
 import UploadJob from "@/pages/upload-job";
 import AdminDashboard from "@/pages/admin-dashboard";
-import ContractorOnboarding from "@/pages/contractor-onboarding";
+import ContractorOnboarding from "@/pages/contractor-onboarding-simple";
 import ContractorForm from "@/pages/contractor-form";
 import ContractorSuccess from "@/pages/contractor-success";
 import JobAssignments from "@/pages/job-assignments";
