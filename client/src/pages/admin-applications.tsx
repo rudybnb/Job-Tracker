@@ -33,7 +33,7 @@ function ApplicationCard({ application, onStatusUpdate, onAdminUpdate }: Applica
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300"><Clock className="w-3 h-3 mr-1" />Pending Review</Badge>;
+        return <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300"><Clock className="w-3 h-3 mr-1" />Pending Review</Badge>;
       case "approved":
         return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Approved</Badge>;
       case "rejected":
@@ -304,7 +304,7 @@ export default function AdminApplications() {
 
   return (
     <div className="min-h-screen bg-slate-800 text-white">
-      <div className="bg-yellow-400 text-black p-4">
+      <div className="bg-blue-600 text-white p-4">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-2xl font-bold">Contractor Applications</h1>
           <p className="text-sm opacity-75">Review and manage contractor applications</p>
@@ -317,10 +317,10 @@ export default function AdminApplications() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-yellow-400">{pendingApplications.length}</p>
+                  <p className="text-2xl font-bold text-blue-400">{pendingApplications.length}</p>
                   <p className="text-sm text-gray-300">Pending Review</p>
                 </div>
-                <Clock className="w-8 h-8 text-yellow-400" />
+                <Clock className="w-8 h-8 text-blue-400" />
               </div>
             </CardContent>
           </Card>

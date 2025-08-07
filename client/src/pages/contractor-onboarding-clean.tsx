@@ -190,7 +190,7 @@ You've been invited to join our construction team. Please complete your contract
       {/* Header matching screenshot */}
       <div className="bg-slate-800 text-white p-4">
         <div className="max-w-4xl mx-auto flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-400 rounded flex items-center justify-center">
+          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
             <span className="text-black font-bold text-sm">Pro</span>
           </div>
           <div>

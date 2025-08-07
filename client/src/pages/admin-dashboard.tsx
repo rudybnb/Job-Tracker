@@ -108,7 +108,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <span className="text-black font-bold text-sm">Pro</span>
           </div>
           <div>
@@ -119,7 +119,7 @@ export default function AdminDashboard() {
         <div className="flex items-center space-x-2">
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
           <span className="text-sm text-green-500">Online</span>
-          <i className="fas fa-sun text-yellow-400 ml-2"></i>
+          <i className="fas fa-sun text-blue-400 ml-2"></i>
           <div className="relative">
             <button 
               onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
@@ -202,7 +202,7 @@ export default function AdminDashboard() {
                       setShowAvatarDropdown(false);
                       window.location.href = '/contractor-onboarding-clean';
                     }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-blue-400"
                   >
                     <i className="fas fa-user-plus mr-3 w-4"></i>
                     Contractor Onboarding
