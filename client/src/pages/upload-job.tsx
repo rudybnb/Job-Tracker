@@ -31,8 +31,14 @@ export default function UploadJob() {
   const [showCreateJobForm, setShowCreateJobForm] = useState<string | null>(null);
 
   const handleHbxlFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setHbxlFile(e.target.files[0]);
+    const file = e.target.files?.[0];
+    console.log('=== FILE UPLOAD TRIGGERED ===');
+    console.log('File selected:', file?.name);
+    if (file) {
+      setHbxlFile(file);
+      console.log('✓ File set in state:', file.name);
+    } else {
+      console.log('❌ No file selected');
     }
   };
 
@@ -43,7 +49,11 @@ export default function UploadJob() {
   };
 
   const handleUploadHbxl = () => {
+    console.log('=== UPLOAD BUTTON CLICKED ===');
+    console.log('Current hbxlFile:', hbxlFile);
+    
     if (!hbxlFile) {
+      console.log('❌ No file to upload');
       toast({
         title: "No file selected",
         description: "Please select an HBXL CSV file to upload",
@@ -51,6 +61,8 @@ export default function UploadJob() {
       });
       return;
     }
+    
+    console.log('✓ Starting CSV processing for:', hbxlFile.name);
 
     // Parse CSV file to extract phase data and quantities
     const reader = new FileReader();
