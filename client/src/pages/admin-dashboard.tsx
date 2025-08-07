@@ -461,23 +461,28 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Priority Issues Card */}
+        {/* Admin Quick Actions Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <div className="flex items-center mb-4">
-            <i className="fas fa-exclamation-triangle text-yellow-400 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-400">Priority Issues</h3>
+            <i className="fas fa-tachometer-alt text-yellow-400 mr-2"></i>
+            <h3 className="text-lg font-semibold text-yellow-400">Admin Quick Actions</h3>
           </div>
           
-          <div className="text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="w-16 h-16 flex items-center justify-center">
-                <i className="fas fa-exclamation-triangle text-green-400 text-4xl"></i>
-              </div>
-            </div>
-            
-            <div className="text-slate-400 text-sm">
-              No urgent issues reported. All systems running smoothly.
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => window.location.href = '/admin-applications'}
+              className="bg-green-600 hover:bg-green-700 text-white p-4 h-auto flex flex-col items-center"
+            >
+              <i className="fas fa-clipboard-list text-2xl mb-2"></i>
+              <span className="text-sm font-medium">Review Applications</span>
+            </Button>
+            <Button
+              onClick={() => window.location.href = '/contractor-onboarding-clean'}
+              className="bg-blue-600 hover:bg-blue-700 text-white p-4 h-auto flex flex-col items-center"
+            >
+              <i className="fas fa-user-plus text-2xl mb-2"></i>
+              <span className="text-sm font-medium">Send Contractor Form</span>
+            </Button>
           </div>
         </div>
 
@@ -504,7 +509,7 @@ export default function AdminDashboard() {
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
-        <div className="grid grid-cols-4 text-center">
+        <div className="grid grid-cols-5 text-center">
           <button className="py-3 px-4 text-yellow-400">
             <i className="fas fa-home block mb-1"></i>
             <span className="text-xs">Dashboard</span>
@@ -515,6 +520,13 @@ export default function AdminDashboard() {
           >
             <i className="fas fa-briefcase block mb-1"></i>
             <span className="text-xs">Jobs</span>
+          </button>
+          <button 
+            onClick={() => window.location.href = '/admin-applications'}
+            className="py-3 px-4 text-slate-400 hover:text-yellow-400"
+          >
+            <i className="fas fa-clipboard-list block mb-1"></i>
+            <span className="text-xs">Applications</span>
           </button>
           <button 
             onClick={() => window.location.href = '/admin-task-monitor'}
