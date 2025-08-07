@@ -468,11 +468,23 @@ export default function UploadJob() {
 
                     <form onSubmit={(e) => {
                       e.preventDefault();
+                      console.log('Form submission triggered');
                       const formData = new FormData(e.currentTarget);
                       const projectType = formData.get('projectType') as string;
                       const clientName = formData.get('clientName') as string;
                       const address = formData.get('address') as string;
                       const postCode = formData.get('postCode') as string;
+                      console.log('Form data:', { projectType, clientName, address, postCode });
+                      
+                      if (!projectType || !clientName || !address || !postCode) {
+                        toast({
+                          title: "Missing Information",
+                          description: "Please fill in all required fields",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
                       handleCreateJob(showCreateJobForm, projectType, `${clientName} • ${address} • ${postCode}`);
                     }}>
                       <div className="space-y-4">
