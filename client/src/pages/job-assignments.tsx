@@ -163,11 +163,16 @@ export default function JobAssignments() {
                       </div>
                       <div>
                         <div className="text-xs text-slate-400">Build Phases</div>
-                        <div className="text-white">{assignment.selectedPhases?.length || 0} phases</div>
+                        <div className="text-white">{assignment.buildPhases?.length || 0} phases</div>
+                        {assignment.buildPhases && assignment.buildPhases.length > 0 && (
+                          <div className="text-xs text-slate-400 mt-1">
+                            {assignment.buildPhases.join(', ')}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <div className="text-xs text-slate-400">Contact</div>
-                        <div className="text-white">{assignment.contractorEmail || 'N/A'}</div>
+                        <div className="text-white">{assignment.email || 'N/A'}</div>
                       </div>
                     </div>
                   </div>
