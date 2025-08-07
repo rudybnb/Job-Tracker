@@ -16,7 +16,7 @@ interface ProgressTask {
 export default function TaskProgress() {
   const [currentProject] = useState("Unknown, SG1 1EH");
   // Get tasks from assigned phases (would come from CSV data in real implementation)
-  const [tasks] = useState<ProgressTask[]>([
+  const [tasks, setTasks] = useState<ProgressTask[]>([
     {
       id: "1",
       title: "Masonry Shell - Bricklaying Foundation",
@@ -48,7 +48,24 @@ export default function TaskProgress() {
   };
 
   const updateTaskProgress = (taskId: string, increment: number) => {
-    // In a real app, this would update the backend
+    setTasks(currentTasks => 
+      currentTasks.map(task => {
+        if (task.id === taskId) {
+          const newCompletedItems = Math.max(0, Math.min(task.totalItems, task.completedItems + increment));
+          const newStatus = newCompletedItems === 0 ? "not started" : 
+                          newCompletedItems === task.totalItems ? "completed" : 
+                          "in progress";
+          
+          return {
+            ...task,
+            completedItems: newCompletedItems,
+            status: newStatus as "not started" | "in progress" | "completed"
+          };
+        }
+        return task;
+      })
+    );
+    
     toast({
       title: "Progress Updated",
       description: `Task progress ${increment > 0 ? 'increased' : 'decreased'}`,
