@@ -152,9 +152,24 @@ export default function TelegramTest() {
               <p><strong>Your Chat ID:</strong> 7617462316</p>
               <p><strong>Your Phone:</strong> 07534251548</p>
               
-              <div className="mt-4 p-3 bg-slate-700 rounded">
-                <p className="text-yellow-400 font-medium mb-2">Important:</p>
-                <p className="text-sm">To receive messages, you must first start a conversation with the bot by sending any message to it on Telegram.</p>
+              <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded">
+                <p className="text-red-400 font-bold mb-2">ISSUE DETECTED:</p>
+                <p className="text-sm text-red-300 mb-3">Bot is currently blocked: "Forbidden: bot was blocked by the user"</p>
+                
+                <div className="bg-slate-700 p-3 rounded">
+                  <p className="text-yellow-400 font-medium mb-2">How to Fix:</p>
+                  <ol className="text-sm space-y-1 text-slate-300">
+                    <li>1. Open Telegram on your phone (07534251548)</li>
+                    <li>2. Search for: <code className="text-green-400">@ERbuildanddesign_bot</code><br/>
+                        OR use direct link: <code className="text-blue-400">https://t.me/ERbuildanddesign_bot</code></li>
+                    <li>3. Click "START" or send any message like "Hello"</li>
+                    <li>4. Come back and test - should work immediately</li>
+                  </ol>
+                  
+                  <div className="mt-3 p-2 bg-green-900/30 border border-green-700 rounded">
+                    <p className="text-green-400 text-xs">Bot Found: "Timetrack bot" (@ERbuildanddesign_bot)</p>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
