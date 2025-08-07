@@ -79,6 +79,11 @@ export const contractorApplications = pgTable("contractor_applications", {
   hasOwnTools: text("has_own_tools").notNull().default("false"),
   toolsList: text("tools_list"),
   
+  // Admin-only fields
+  adminCisVerification: text("admin_cis_verification"), // Admin fills CIS verification details
+  adminPayRate: text("admin_pay_rate"), // Admin sets pay rate
+  adminNotes: text("admin_notes"), // Admin internal notes
+  
   // Metadata
   status: text("status").notNull().default("pending"),
   submittedAt: timestamp("submitted_at").defaultNow(),

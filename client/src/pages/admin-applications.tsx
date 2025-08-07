@@ -5,16 +5,31 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle, XCircle, Clock, User, Mail, Phone, MapPin, Building, Calendar, FileText } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { CheckCircle, XCircle, Clock, User, Mail, Phone, MapPin, Building, Calendar, FileText, Settings, PoundSterling } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ContractorApplication } from "@shared/schema";
 
 interface ApplicationCardProps {
   application: ContractorApplication;
   onStatusUpdate: (id: string, status: string) => void;
+  onAdminUpdate: (id: string, updates: Partial<ContractorApplication>) => void;
 }
 
-function ApplicationCard({ application, onStatusUpdate }: ApplicationCardProps) {
+function ApplicationCard({ application, onStatusUpdate, onAdminUpdate }: ApplicationCardProps) {
+  const [adminFields, setAdminFields] = useState({
+    adminCisVerification: application.adminCisVerification || '',
+    adminPayRate: application.adminPayRate || '',
+    adminNotes: application.adminNotes || ''
+  });
+  const [isEditingAdmin, setIsEditingAdmin] = useState(false);
+
+  const handleAdminSave = () => {
+    onAdminUpdate(application.id, adminFields);
+    setIsEditingAdmin(false);
+  };
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
@@ -73,7 +88,7 @@ function ApplicationCard({ application, onStatusUpdate }: ApplicationCardProps) 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
             <h4 className="font-medium mb-2">Tax & CIS Information</h4>
             <ul className="space-y-1 text-gray-600">
@@ -91,6 +106,71 @@ function ApplicationCard({ application, onStatusUpdate }: ApplicationCardProps) 
               <li>• Own Tools: {application.hasOwnTools === "true" ? "Yes" : "No"}</li>
               <li>• Passport Photo: {application.passportPhotoUploaded === "true" ? "Uploaded" : "Not uploaded"}</li>
             </ul>
+          </div>
+          <div>
+            <h4 className="font-medium mb-2 flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Admin Details
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setIsEditingAdmin(!isEditingAdmin)}
+                className="ml-auto h-6 px-2 text-xs"
+              >
+                {isEditingAdmin ? "Cancel" : "Edit"}
+              </Button>
+            </h4>
+            {isEditingAdmin ? (
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="cisVerification" className="text-xs">CIS Verification</Label>
+                  <Input
+                    id="cisVerification"
+                    value={adminFields.adminCisVerification}
+                    onChange={(e) => setAdminFields(prev => ({...prev, adminCisVerification: e.target.value}))}
+                    placeholder="Admin CIS verification details"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="payRate" className="text-xs">Pay Rate (£/hour)</Label>
+                  <Input
+                    id="payRate"
+                    value={adminFields.adminPayRate}
+                    onChange={(e) => setAdminFields(prev => ({...prev, adminPayRate: e.target.value}))}
+                    placeholder="e.g. 22.50"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="adminNotes" className="text-xs">Admin Notes</Label>
+                  <Textarea
+                    id="adminNotes"
+                    value={adminFields.adminNotes}
+                    onChange={(e) => setAdminFields(prev => ({...prev, adminNotes: e.target.value}))}
+                    placeholder="Internal admin notes"
+                    className="h-16 text-xs"
+                  />
+                </div>
+                <Button size="sm" onClick={handleAdminSave} className="w-full h-7 text-xs">
+                  Save Admin Details
+                </Button>
+              </div>
+            ) : (
+              <ul className="space-y-1 text-gray-600">
+                <li className="flex items-center gap-1">
+                  <FileText className="w-3 h-3" />
+                  CIS: {application.adminCisVerification || "Not verified"}
+                </li>
+                <li className="flex items-center gap-1">
+                  <PoundSterling className="w-3 h-3" />
+                  Rate: {application.adminPayRate ? `£${application.adminPayRate}/hr` : "Not set"}
+                </li>
+                <li className="text-xs">
+                  Notes: {application.adminNotes || "None"}
+                </li>
+              </ul>
+            )}
           </div>
         </div>
 
@@ -152,8 +232,38 @@ export default function AdminApplications() {
     },
   });
 
+  const updateAdminMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<ContractorApplication> }) => {
+      const response = await fetch(`/api/contractor-applications/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) throw new Error("Failed to update admin details");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor-applications"] });
+      toast({
+        title: "Admin Details Updated",
+        description: "CIS verification and pay rate have been saved.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update admin details.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleStatusUpdate = (id: string, status: string) => {
     updateStatusMutation.mutate({ id, status });
+  };
+
+  const handleAdminUpdate = (id: string, updates: Partial<ContractorApplication>) => {
+    updateAdminMutation.mutate({ id, updates });
   };
 
   const pendingApplications = applications.filter(app => app.status === "pending");
@@ -250,6 +360,7 @@ export default function AdminApplications() {
                     key={application.id}
                     application={application}
                     onStatusUpdate={handleStatusUpdate}
+                    onAdminUpdate={handleAdminUpdate}
                   />
                 ))}
               </div>
@@ -272,6 +383,7 @@ export default function AdminApplications() {
                     key={application.id}
                     application={application}
                     onStatusUpdate={handleStatusUpdate}
+                    onAdminUpdate={handleAdminUpdate}
                   />
                 ))}
               </div>
@@ -294,6 +406,7 @@ export default function AdminApplications() {
                     key={application.id}
                     application={application}
                     onStatusUpdate={handleStatusUpdate}
+                    onAdminUpdate={handleAdminUpdate}
                   />
                 ))}
               </div>
