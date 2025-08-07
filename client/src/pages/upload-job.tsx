@@ -128,8 +128,8 @@ export default function UploadJob() {
             phase = 'General Works';
           }
           
-          // Only include tasks with quantity > 0
-          if (quantity > 0 && description) {
+          // Include ALL tasks (even quantity 0) for phase detection
+          if (description) {
             if (!phaseData[phase]) {
               phaseData[phase] = [];
             }
@@ -144,6 +144,9 @@ export default function UploadJob() {
         }
       }
 
+      console.log('Parsed CSV data:', { clientInfo, phaseData });
+      console.log('Phase count:', Object.keys(phaseData).length);
+
       // Store processed CSV data for job creation
       const processedCSV = {
         id: Date.now().toString(),
@@ -154,9 +157,13 @@ export default function UploadJob() {
         status: "processed" as const
       };
 
+      console.log('Created processedCSV:', processedCSV);
+
       const updatedCSVs = [...processedCSVs, processedCSV];
       setProcessedCSVs(updatedCSVs);
       localStorage.setItem('processedCSVs', JSON.stringify(updatedCSVs));
+      
+      console.log('Updated processedCSVs:', updatedCSVs);
 
       toast({
         title: "CSV Processed Successfully", 
@@ -437,7 +444,11 @@ export default function UploadJob() {
                   </p>
                   <div className="space-y-2">
                     <Button
-                      onClick={() => setShowCreateJobForm(csv.id)}
+                      onClick={() => {
+                        console.log('Create Job clicked for CSV ID:', csv.id);
+                        console.log('Setting showCreateJobForm to:', csv.id);
+                        setShowCreateJobForm(csv.id);
+                      }}
                       className="w-full bg-green-600 hover:bg-green-700 text-white"
                     >
                       <i className="fas fa-plus mr-2"></i>
