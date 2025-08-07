@@ -248,7 +248,10 @@ export default function AdminDashboard() {
             <i className="fas fa-briefcase block mb-1"></i>
             <span className="text-xs">Jobs</span>
           </button>
-          <button className="py-3 px-4 text-yellow-400">
+          <button 
+            onClick={() => window.location.href = '/admin'}
+            className="py-3 px-4 text-yellow-400"
+          >
             <i className="fas fa-user-cog block mb-1"></i>
             <span className="text-xs">Admin</span>
           </button>
