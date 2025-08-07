@@ -111,6 +111,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const contractor = await storage.createContractor(validation.data);
+      
+      // Send welcome notification if Telegram ID is provided
+      if (contractor.telegramId) {
+        const telegramService = new TelegramService();
+        try {
+          await telegramService.sendOnboardingNotification(
+            contractor.telegramId,
+            contractor.name,
+            contractor.specialization
+          );
+          console.log(`✅ Welcome notification sent to ${contractor.name}`);
+        } catch (telegramError) {
+          console.error("Failed to send welcome notification:", telegramError);
+          // Continue with registration even if notification fails
+        }
+      }
+      
+      res.status(201).json(contractor);
+    } catch (error) {
+      console.error("Error creating contractor:", error);
+      res.status(500).json({ error: "Failed to create contractor" });
+    }
+  });
+
+  app.post("/api/contractors", async (req, res) => {
+    try {
+      const validation = insertContractorSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid contractor data", details: validation.error.errors });
+      }
+      
+      const contractor = await storage.createContractor(validation.data);
       res.status(201).json(contractor);
     } catch (error) {
       console.error("Error creating contractor:", error);

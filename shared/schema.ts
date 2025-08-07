@@ -11,13 +11,16 @@ export const contractors = pgTable("contractors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  phone: text("phone"),
   specialty: text("specialty").notNull(),
   specialization: text("specialization").notNull().default("General Construction"),
+  address: text("address"),
   telegramId: text("telegram_id"),
   status: contractorStatusEnum("status").notNull().default("available"),
   rating: text("rating").notNull().default("0"),
   activeJobs: text("active_jobs").notNull().default("0"),
   completedJobs: text("completed_jobs").notNull().default("0"),
+  formData: text("form_data"), // Store complete form data as JSON
 });
 
 export const jobs = pgTable("jobs", {
