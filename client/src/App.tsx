@@ -24,18 +24,8 @@ function Router() {
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/" component={() => (
-          <ProtectedRoute requiredRole="contractor">
-            <GPSDashboard />
-          </ProtectedRoute>
-        )} />
-        <Route path="/jobs" component={() => (
-          <ProtectedRoute requiredRole="contractor">
-            <DirectJobAssignments />
-          </ProtectedRoute>
-        )} />
-        <Route path="/task-progress" component={() => (
-          <ProtectedRoute requiredRole="contractor">
-            <TaskProgress />
+          <ProtectedRoute>
+            <AdminDashboard />
           </ProtectedRoute>
         )} />
         <Route path="/upload" component={() => (

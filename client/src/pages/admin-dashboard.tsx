@@ -259,8 +259,8 @@ export default function AdminDashboard() {
       <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
         <div className="grid grid-cols-4 text-center">
           <button 
-            onClick={() => window.location.href = '/'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
+            onClick={() => window.location.href = '/admin'}
+            className="py-3 px-4 text-yellow-400"
           >
             <i className="fas fa-home block mb-1"></i>
             <span className="text-xs">Dashboard</span>
@@ -273,11 +273,11 @@ export default function AdminDashboard() {
             <span className="text-xs">Jobs</span>
           </button>
           <button 
-            onClick={() => window.location.href = '/admin'}
-            className="py-3 px-4 text-yellow-400"
+            onClick={() => window.location.href = '/admin-task-monitor'}
+            className="py-3 px-4 text-slate-400 hover:text-white"
           >
             <i className="fas fa-user-cog block mb-1"></i>
-            <span className="text-xs">Admin</span>
+            <span className="text-xs">Monitor</span>
           </button>
           <button 
             onClick={() => window.location.href = '/upload'}

@@ -17,18 +17,10 @@ export default function Login() {
     if (username === "admin" && password === "admin123") {
       localStorage.setItem('userRole', 'admin');
       localStorage.setItem('isLoggedIn', 'true');
-      window.location.href = '/admin';
+      window.location.href = '/';
       toast({
         title: "Login Successful",
         description: "Welcome back, Admin!",
-      });
-    } else if (username === "contractor" && password === "contractor123") {
-      localStorage.setItem('userRole', 'contractor');
-      localStorage.setItem('isLoggedIn', 'true');
-      window.location.href = '/';
-      toast({
-        title: "Login Successful", 
-        description: "Welcome back, Contractor!",
       });
     } else {
       toast({
@@ -56,7 +48,7 @@ export default function Login() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="border-2 border-yellow-400 focus:border-yellow-500"
-                placeholder="admin or contractor"
+                placeholder="admin"
                 required
               />
             </div>
@@ -81,10 +73,10 @@ export default function Login() {
           
           {/* Test Credentials Info */}
           <div className="mt-6 p-4 bg-slate-100 rounded-lg">
-            <h4 className="font-medium text-slate-700 mb-2">Test Credentials:</h4>
-            <div className="text-sm text-slate-600 space-y-1">
-              <div><strong>Admin:</strong> admin / admin123</div>
-              <div><strong>Contractor:</strong> contractor / contractor123</div>
+            <h4 className="font-medium text-slate-700 mb-2">Admin Login:</h4>
+            <div className="text-sm text-slate-600">
+              <div><strong>Username:</strong> admin</div>
+              <div><strong>Password:</strong> admin123</div>
             </div>
           </div>
         </CardContent>
