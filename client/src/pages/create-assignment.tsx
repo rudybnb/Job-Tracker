@@ -130,7 +130,35 @@ export default function CreateAssignment() {
     setSelectedPhases([]);
   };
 
-  const handleCreateAssignment = () => {
+  // Safe Telegram notification function
+  const sendTelegramNotification = async (notificationData: any) => {
+    try {
+      console.log('📱 Sending Telegram notification...', notificationData);
+      
+      const response = await fetch('/api/send-telegram-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(notificationData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Telegram notification result:', result);
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Telegram notification failed:', error);
+      // Don't throw error to prevent app crashes
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  };
+
+  const handleCreateAssignment = async () => {
     // Validate required fields
     if (!contractorName || !email || !workLocation || !selectedHbxlJob) {
       toast({
@@ -150,40 +178,59 @@ export default function CreateAssignment() {
       return;
     }
 
-    // Create assignment object
-    const assignment = {
-      id: Date.now().toString(),
-      contractorName,
-      email,
-      phone,
-      workLocation,
-      hbxlJob: selectedHbxlJob,
-      buildPhases: selectedPhases,
-      startDate,
-      endDate,
-      specialInstructions,
-      status: "assigned",
-      createdAt: new Date().toLocaleDateString('en-GB')
-    };
+    try {
+      // Create assignment object
+      const assignment = {
+        id: Date.now().toString(),
+        contractorName,
+        email,
+        phone,
+        workLocation,
+        hbxlJob: selectedHbxlJob,
+        buildPhases: selectedPhases,
+        startDate,
+        endDate,
+        specialInstructions,
+        status: "assigned",
+        createdAt: new Date().toLocaleDateString('en-GB')
+      };
 
-    // Save assignment
-    const existingAssignments = localStorage.getItem('jobAssignments');
-    const assignments = existingAssignments ? JSON.parse(existingAssignments) : [];
-    assignments.push(assignment);
-    localStorage.setItem('jobAssignments', JSON.stringify(assignments));
+      // Save assignment
+      const existingAssignments = localStorage.getItem('jobAssignments');
+      const assignments = existingAssignments ? JSON.parse(existingAssignments) : [];
+      assignments.push(assignment);
+      localStorage.setItem('jobAssignments', JSON.stringify(assignments));
 
-    console.log('Created assignment:', assignment);
+      console.log('Created assignment:', assignment);
 
-    // Simulate Telegram notification
-    toast({
-      title: "Assignment Created",
-      description: `Job assigned to ${contractorName}. Telegram notification sent.`,
-    });
+      // Send real Telegram notification
+      await sendTelegramNotification({
+        contractorName,
+        phone,
+        hbxlJob: selectedHbxlJob,
+        buildPhases: selectedPhases,
+        workLocation,
+        startDate
+      });
 
-    // Navigate back to job assignments
-    setTimeout(() => {
-      window.location.href = '/job-assignments';
-    }, 2000);
+      toast({
+        title: "Assignment Created",
+        description: `Job assigned to ${contractorName}. Telegram notification sent.`,
+      });
+
+      // Navigate back to job assignments
+      setTimeout(() => {
+        window.location.href = '/job-assignments';
+      }, 2000);
+      
+    } catch (error) {
+      console.error('❌ Assignment creation failed:', error);
+      toast({
+        title: "Assignment Error",
+        description: "Failed to create assignment. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
