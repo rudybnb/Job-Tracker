@@ -169,8 +169,21 @@ export default function UploadJob() {
   };
 
   const handleCreateJob = (csvId: string, jobName: string, location: string) => {
+    console.log('handleCreateJob called with:', { csvId, jobName, location });
+    console.log('processedCSVs:', processedCSVs);
+    
     const csvData = processedCSVs.find(csv => csv.id === csvId);
-    if (!csvData) return;
+    console.log('Found csvData:', csvData);
+    
+    if (!csvData) {
+      console.error('CSV data not found for ID:', csvId);
+      toast({
+        title: "Error",
+        description: "CSV data not found. Please try uploading again.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     const newJob: UploadedJob & { phaseData?: any } = {
       id: Date.now().toString(),
@@ -183,10 +196,14 @@ export default function UploadJob() {
       phaseData: csvData.phaseData
     };
 
+    console.log('Created newJob:', newJob);
+
     const updatedJobs = [...uploadedJobs, newJob];
     setUploadedJobs(updatedJobs);
     // Store in localStorage for job assignments page
     localStorage.setItem('uploadedJobs', JSON.stringify(updatedJobs));
+    
+    console.log('Updated jobs:', updatedJobs);
     
     // Keep CSV for multiple job creation - don't remove
     setShowCreateJobForm(null);
@@ -482,14 +499,19 @@ export default function UploadJob() {
                     <form onSubmit={(e) => {
                       e.preventDefault();
                       console.log('Form submission triggered');
-                      const formData = new FormData(e.currentTarget);
+                      console.log('showCreateJobForm:', showCreateJobForm);
+                      
+                      const form = e.currentTarget;
+                      const formData = new FormData(form);
                       const projectType = formData.get('projectType') as string;
                       const clientName = formData.get('clientName') as string;
                       const address = formData.get('address') as string;
                       const postCode = formData.get('postCode') as string;
-                      console.log('Form data:', { projectType, clientName, address, postCode });
                       
-                      if (!projectType || !clientName || !address || !postCode) {
+                      console.log('Form data extracted:', { projectType, clientName, address, postCode });
+                      
+                      if (!projectType?.trim() || !clientName?.trim() || !address?.trim() || !postCode?.trim()) {
+                        console.log('Validation failed - missing fields');
                         toast({
                           title: "Missing Information",
                           description: "Please fill in all required fields",
@@ -498,7 +520,18 @@ export default function UploadJob() {
                         return;
                       }
                       
-                      handleCreateJob(showCreateJobForm, projectType, `${clientName} • ${address} • ${postCode}`);
+                      console.log('Calling handleCreateJob...');
+                      try {
+                        handleCreateJob(showCreateJobForm!, projectType, `${clientName} • ${address} • ${postCode}`);
+                        console.log('handleCreateJob completed');
+                      } catch (error) {
+                        console.error('Error in handleCreateJob:', error);
+                        toast({
+                          title: "Error Creating Job",
+                          description: "There was an error creating the job. Please try again.",
+                          variant: "destructive"
+                        });
+                      }
                     }}>
                       <div className="space-y-4">
                         <div>
