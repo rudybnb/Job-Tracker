@@ -23,7 +23,7 @@ export default function ContractorForm() {
     passportNumber: "",
     passportPhotoUploaded: false,
     utrNumber: "",
-    isCisRegistered: false,
+    isCisRegistered: null, // null means not selected yet
     hasPublicLiability: false,
     
     // Step 3: CIS & Tax Information
@@ -69,7 +69,7 @@ export default function ContractorForm() {
       number: 3, 
       title: "CIS & Tax Information", 
       icon: FileText,
-      fields: ["cisStatus", "utrNumberDetails", "isCisRegistered"] 
+      fields: ["isCisRegistered", "utrNumberDetails"] 
     },
     { 
       number: 4, 
@@ -122,8 +122,12 @@ export default function ContractorForm() {
       const value = formData[field as keyof typeof formData];
       
       // Handle different field types properly
-      if (typeof value === 'boolean') {
+      if (typeof value === 'boolean' || value === null) {
         // For boolean fields like hasRightToWork, they must be true to be valid
+        // For isCisRegistered, it can be true or false (both are valid choices), but not null
+        if (field === 'isCisRegistered') {
+          return value === true || value === false;
+        }
         return field.startsWith('has') || field.includes('is') ? value === true : true;
       }
       
@@ -149,7 +153,11 @@ export default function ContractorForm() {
     const missingFields = config.fields.filter(field => {
       const value = formData[field as keyof typeof formData];
       
-      if (typeof value === 'boolean') {
+      if (typeof value === 'boolean' || value === null) {
+        // For isCisRegistered, it must have been set (not null/undefined)
+        if (field === 'isCisRegistered') {
+          return value === null || value === undefined;
+        }
         return field.startsWith('has') || field.includes('is') ? value !== true : false;
       }
       
