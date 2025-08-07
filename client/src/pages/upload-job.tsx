@@ -104,24 +104,64 @@ export default function UploadJob() {
         }
       }
       
-      // Parse header to find column indices
+      // Parse header to find column indices - flexible approach for different CSV formats
       const headers = lines[dataStartRow].split(',').map(h => h.trim().replace(/"/g, ''));
-      const codeIndex = headers.findIndex(h => h.toLowerCase().includes('code'));
-      const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('item'));
+      
+      // Try to find standard columns first
+      let codeIndex = headers.findIndex(h => h.toLowerCase().includes('code'));
+      let descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('item'));
       const unitIndex = headers.findIndex(h => h.toLowerCase().includes('unit'));
-      const quantityIndex = headers.findIndex(h => h.toLowerCase().includes('quantity'));
+      let quantityIndex = headers.findIndex(h => h.toLowerCase().includes('quantity'));
       const rateIndex = headers.findIndex(h => h.toLowerCase().includes('rate') || h.toLowerCase().includes('price'));
       const totalIndex = headers.findIndex(h => h.toLowerCase().includes('total') || h.toLowerCase().includes('amount'));
+      
+      // For schedule-style CSVs without code columns, use different approach
+      let categoryIndex = -1, typeIndex = -1, subcategoryIndex = -1;
+      if (codeIndex === -1) {
+        // Look for category-based structure common in construction schedules
+        categoryIndex = headers.findIndex((h, idx) => 
+          h.toLowerCase().includes('category') || 
+          h.toLowerCase().includes('work') ||
+          idx === 2 // Often 3rd column in schedule CSVs
+        );
+        typeIndex = headers.findIndex((h, idx) => 
+          h.toLowerCase().includes('type') ||
+          idx === 3 // Often 4th column
+        );
+        subcategoryIndex = headers.findIndex((h, idx) => 
+          h.toLowerCase().includes('subcategory') ||
+          idx === 4 // Often 5th column
+        );
+        
+        // Use description as the main item description
+        if (descIndex === -1) {
+          descIndex = headers.findIndex((h, idx) => 
+            idx === 5 || // Often 6th column
+            h.toLowerCase().includes('description') ||
+            h.toLowerCase().includes('item')
+          );
+        }
+        
+        // Quantity is often the last column in schedule CSVs
+        if (quantityIndex === -1) {
+          quantityIndex = headers.length - 1;
+        }
+      }
       
       console.log('=== CSV PROCESSING DEBUG ===');
       console.log('Raw CSV content (first 300 chars):', csvContent.substring(0, 300));
       console.log('File lines:', lines.length);
-      console.log('All lines:');
-      lines.forEach((line, i) => console.log(`  Line ${i}: "${line}"`));
       console.log('Client info extracted:', clientInfo);
       console.log('Data starts at row:', dataStartRow);
       console.log('Headers found:', headers);
-      console.log('Column indices - Code:', codeIndex, 'Description:', descIndex, 'Unit:', unitIndex, 'Quantity:', quantityIndex, 'Rate:', rateIndex, 'Total:', totalIndex);
+      console.log('Column indices:');
+      console.log('  Code:', codeIndex, 'Description:', descIndex, 'Unit:', unitIndex);
+      console.log('  Quantity:', quantityIndex, 'Rate:', rateIndex, 'Total:', totalIndex);
+      console.log('  Category:', categoryIndex, 'Type:', typeIndex, 'Subcategory:', subcategoryIndex);
+      
+      // Determine CSV format type
+      const isScheduleFormat = codeIndex === -1 && categoryIndex !== -1;
+      console.log('CSV Format detected:', isScheduleFormat ? 'Schedule-based' : 'Code-based');
 
       // Create structured data format that's easy to read and use
       const structuredData = {
@@ -180,27 +220,85 @@ export default function UploadJob() {
       for (let i = dataStartRow + 1; i < lines.length; i++) {
         const row = lines[i].split(',').map(cell => cell.trim().replace(/"/g, ''));
         console.log(`Row ${i}: "${lines[i]}" -> Parsed:`, row);
-        console.log(`  Row length: ${row.length}, has code: ${!!row[codeIndex]}, has desc: ${!!row[descIndex]}`);
         
-        if (row.length >= 2 && row[codeIndex] && row[descIndex]) {
-          const code = row[codeIndex] || '';
-          const description = row[descIndex] || '';
-          const unit = row[unitIndex] || 'Nr';
-          const quantity = parseFloat(row[quantityIndex]) || 0;
-          const rate = parseFloat(row[rateIndex]) || 0;
-          const total = parseFloat(row[totalIndex]) || 0;
+        let canProcess = false;
+        let code = '', description = '', unit = 'Nr', quantity = 0, rate = 0, total = 0;
+        
+        if (isScheduleFormat) {
+          // Schedule format: use category + subcategory as phase, description from description column
+          const category = row[categoryIndex] || '';
+          const type = row[typeIndex] || '';
+          const subcategory = row[subcategoryIndex] || '';
+          description = row[descIndex] || '';
+          quantity = parseFloat(row[quantityIndex]) || 0;
           
+          // Generate a pseudo-code for consistency
+          code = `${category.substring(0,2).toUpperCase()}${subcategory.substring(0,3).toUpperCase()}`;
+          
+          canProcess = !!(category && description && row.length >= 5);
+          console.log(`  Schedule format: Category="${category}", Subcategory="${subcategory}", Desc="${description}"`);
+        } else {
+          // Traditional code format
+          code = row[codeIndex] || '';
+          description = row[descIndex] || '';
+          unit = row[unitIndex] || 'Nr';
+          quantity = parseFloat(row[quantityIndex]) || 0;
+          rate = parseFloat(row[rateIndex]) || 0;
+          total = parseFloat(row[totalIndex]) || 0;
+          
+          canProcess = !!(row.length >= 2 && code && description);
+          console.log(`  Code format: Code="${code}", Desc="${description}"`);
+        }
+        
+        console.log(`  Can process: ${canProcess}, Quantity: ${quantity}`);
+        
+        if (canProcess) {
           console.log(`  ✓ Processing: Code="${code}", Desc="${description}"`);
           structuredData.metadata.dataRows++;
           
-          // Enhanced phase detection - more comprehensive and accurate
+          // Enhanced phase detection - adapt to CSV format
           let phase = 'General Construction';
           
-          // Use both code prefixes and description keywords for better accuracy
-          const codeUpper = code.toUpperCase();
-          const descLower = description.toLowerCase();
+          if (isScheduleFormat) {
+            // For schedule format, use the category directly as the phase
+            const category = row[categoryIndex] || '';
+            const subcategory = row[subcategoryIndex] || '';
+            
+            // Map schedule categories to logical construction phases
+            if (category.toLowerCase().includes('internal fitting') || category.toLowerCase().includes('fitting out')) {
+              if (subcategory.toLowerCase().includes('flooring')) {
+                phase = 'Flooring Installation';
+              } else if (subcategory.toLowerCase().includes('kitchen') || subcategory.toLowerCase().includes('appliance')) {
+                phase = 'Kitchen Fitout';
+              } else if (subcategory.toLowerCase().includes('bathroom') || subcategory.toLowerCase().includes('sanitary')) {
+                phase = 'Bathroom Installation';
+              } else if (subcategory.toLowerCase().includes('electrical')) {
+                phase = 'Electrical Installation';
+              } else if (subcategory.toLowerCase().includes('plumbing')) {
+                phase = 'Plumbing Installation';
+              } else {
+                phase = 'Internal Fitting Out';
+              }
+            } else if (category.toLowerCase().includes('internal decoration')) {
+              phase = 'Painting & Decorating';
+            } else if (category.toLowerCase().includes('external decoration')) {
+              phase = 'External Decoration';
+            } else if (category.toLowerCase().includes('structural')) {
+              phase = 'Structural Work';
+            } else if (category.toLowerCase().includes('foundation')) {
+              phase = 'Foundation Work';
+            } else if (category.toLowerCase().includes('roof')) {
+              phase = 'Roof Structure';
+            } else {
+              // Use category as phase name if no specific mapping
+              phase = category || 'General Construction';
+            }
+          } else {
+            // Traditional code-based phase detection
+            const codeUpper = code.toUpperCase();
+            const descLower = description.toLowerCase();
           
-          // Kitchen/Catering (most specific first)
+            // Kitchen/Catering (most specific first)
           if (codeUpper.includes('KIT') || codeUpper.includes('KITCHEN') ||
               descLower.includes('kitchen') || descLower.includes('catering') || 
               descLower.includes('cooker') || descLower.includes('sink') || 
@@ -287,6 +385,7 @@ export default function UploadJob() {
                    descLower.includes('dpm') || descLower.includes('membrane')) {
             phase = 'Ground Floor';
           }
+          } // Close the else block for traditional code-based detection
 
           console.log(`Row ${i}: Code="${code}", Desc="${description}" -> Phase="${phase}"`);
           

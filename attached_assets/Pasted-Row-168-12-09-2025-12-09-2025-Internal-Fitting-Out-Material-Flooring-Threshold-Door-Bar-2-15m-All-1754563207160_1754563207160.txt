@@ -1,0 +1,102 @@
+Row 168: "12/09/2025,12/09/2025,Internal Fitting Out,Material,Flooring,Threshold Door Bar 2.15m (Allowance £20) (Each),4" -> Parsed: (7) ['12/09/2025', '12/09/2025', 'Internal Fitting Out', 'Material', 'Flooring', 'Threshold Door Bar 2.15m (Allowance £20) (Each)', '4']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 169: "12/09/2025,12/09/2025,Internal Fitting Out,Material,Flooring,Vinyl Floor Adhesive (Each),3" -> Parsed: (7) ['12/09/2025', '12/09/2025', 'Internal Fitting Out', 'Material', 'Flooring', 'Vinyl Floor Adhesive (Each)', '3']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 170: "12/09/2025,12/09/2025,Internal Fitting Out,Material,Screws and Fixings,Cut Clasp Nails 65mm x 25kg (Each),0" -> Parsed: (7) ['12/09/2025', '12/09/2025', 'Internal Fitting Out', 'Material', 'Screws and Fixings', 'Cut Clasp Nails 65mm x 25kg (Each)', '0']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 171: "12/09/2025,12/09/2025,Internal Fitting Out,Material,Sealants,Silicone Sealant White 0.31 Litre (Each),1" -> Parsed: (7) ['12/09/2025', '12/09/2025', 'Internal Fitting Out', 'Material', 'Sealants', 'Silicone Sealant White 0.31 Litre (Each)', '1']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 172: "12/09/2025,12/09/2025,Internal Fitting Out,Material,Sealants,Waterproof Tile Adhesive & Grout Large (Each),2" -> Parsed: (7) ['12/09/2025', '12/09/2025', 'Internal Fitting Out', 'Material', 'Sealants', 'Waterproof Tile Adhesive & Grout Large (Each)', '2']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 173: "12/09/2025,12/09/2025,Internal Fitting Out,Material,Sealants,Waterproof Tile Adhesive Extra Large 10L (Each),3" -> Parsed: (7) ['12/09/2025', '12/09/2025', 'Internal Fitting Out', 'Material', 'Sealants', 'Waterproof Tile Adhesive Extra Large 10L (Each)', '3']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 174: "12/09/2025,12/09/2025,Internal Fitting Out,Material,Sheet Material,Hardwood Ply WBP 2440 x 1220 x 5.5mm (Each),15" -> Parsed: (7) ['12/09/2025', '12/09/2025', 'Internal Fitting Out', 'Material', 'Sheet Material', 'Hardwood Ply WBP 2440 x 1220 x 5.5mm (Each)', '15']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 175: "12/09/2025,12/09/2025,Internal Fitting Out,Material,Sundry Material,Sundry Materials (£) (Each),80" -> Parsed: (7) ['12/09/2025', '12/09/2025', 'Internal Fitting Out', 'Material', 'Sundry Material', 'Sundry Materials (£) (Each)', '80']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 176: "19/09/2025,19/09/2025,Internal Fitting Out,Plant,Light plant,Tile Cutter (Week),1" -> Parsed: (7) ['19/09/2025', '19/09/2025', 'Internal Fitting Out', 'Plant', 'Light plant', 'Tile Cutter (Week)', '1']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 177: "26/09/2025,26/09/2025,Internal Fitting Out,Material,Sundry Material,To be Defined (Unit),0" -> Parsed: (7) ['26/09/2025', '26/09/2025', 'Internal Fitting Out', 'Material', 'Sundry Material', 'To be Defined (Unit)', '0']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 178: "02/09/2025,02/09/2025,Internal Decoration,Labour,Decorator,Decorator (Hours),57" -> Parsed: (7) ['02/09/2025', '02/09/2025', 'Internal Decoration', 'Labour', 'Decorator', 'Decorator (Hours)', '57']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 179: "16/09/2025,16/09/2025,Internal Decoration,Material,Decoration,Contract Emulsion Brilliant White 5 Litre (Each),2" -> Parsed: (7) ['16/09/2025', '16/09/2025', 'Internal Decoration', 'Material', 'Decoration', 'Contract Emulsion Brilliant White 5 Litre (Each)', '2']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 180: "16/09/2025,16/09/2025,Internal Decoration,Material,Decoration,Contract Emulsion Magnolia 5 Litre (Each),5" -> Parsed: (7) ['16/09/2025', '16/09/2025', 'Internal Decoration', 'Material', 'Decoration', 'Contract Emulsion Magnolia 5 Litre (Each)', '5']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 181: "16/09/2025,16/09/2025,Internal Decoration,Material,Decoration,Dado paper 5m Roll (Allowance £5 Each) (Each),0" -> Parsed: (7) ['16/09/2025', '16/09/2025', 'Internal Decoration', 'Material', 'Decoration', 'Dado paper 5m Roll (Allowance £5 Each) (Each)', '0']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 182: "16/09/2025,16/09/2025,Internal Decoration,Material,Decoration,Gloss Brilliant White 5 Litre (Each),1" -> Parsed: (7) ['16/09/2025', '16/09/2025', 'Internal Decoration', 'Material', 'Decoration', 'Gloss Brilliant White 5 Litre (Each)', '1']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 183: "16/09/2025,16/09/2025,Internal Decoration,Material,Decoration,Quick Drying Floor Varnish Clear Gloss 2.5 Litre (Each),0" -> Parsed: (7) ['16/09/2025', '16/09/2025', 'Internal Decoration', 'Material', 'Decoration', 'Quick Drying Floor Varnish Clear Gloss 2.5 Litre (Each)', '0']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 184: "16/09/2025,16/09/2025,Internal Decoration,Material,Decoration,Undercoat White 5 Litre (Each),1" -> Parsed: (7) ['16/09/2025', '16/09/2025', 'Internal Decoration', 'Material', 'Decoration', 'Undercoat White 5 Litre (Each)', '1']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 185: "16/09/2025,16/09/2025,Internal Decoration,Material,Decoration,Wallpaper 5.3m² Roll (Allowance £10 Each) (Each),0" -> Parsed: (7) ['16/09/2025', '16/09/2025', 'Internal Decoration', 'Material', 'Decoration', 'Wallpaper 5.3m² Roll (Allowance £10 Each) (Each)', '0']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 186: "16/09/2025,16/09/2025,Internal Decoration,Material,Decoration,Wallpaper Paste (16 Roll) (Each),0" -> Parsed: (7) ['16/09/2025', '16/09/2025', 'Internal Decoration', 'Material', 'Decoration', 'Wallpaper Paste (16 Roll) (Each)', '0']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 187: "04/09/2025,04/09/2025,External Decoration,Labour,Decorator,Decorator (Hours),0" -> Parsed: (7) ['04/09/2025', '04/09/2025', 'External Decoration', 'Labour', 'Decorator', 'Decorator (Hours)', '0']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 188: "18/09/2025,18/09/2025,External Decoration,Material,Decoration,Gloss Brilliant White 5 Litre (Each),0" -> Parsed: (7) ['18/09/2025', '18/09/2025', 'External Decoration', 'Material', 'Decoration', 'Gloss Brilliant White 5 Litre (Each)', '0']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 189: "18/09/2025,18/09/2025,External Decoration,Material,Decoration,Outdoor Varnish Clear Gloss 750ml (Each),0" -> Parsed: (7) ['18/09/2025', '18/09/2025', 'External Decoration', 'Material', 'Decoration', 'Outdoor Varnish Clear Gloss 750ml (Each)', '0']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 Row 190: "18/09/2025,18/09/2025,External Decoration,Material,Decoration,Undercoat White 5 Litre (Each),0" -> Parsed: (7) ['18/09/2025', '18/09/2025', 'External Decoration', 'Material', 'Decoration', 'Undercoat White 5 Litre (Each)', '0']
+VM896 eruda.js:2   Row length: 7, has code: false, has desc: false
+VM896 eruda.js:2 === CSV PROCESSING COMPLETE ===
+VM896 eruda.js:2 Phases detected: 0
+VM896 eruda.js:2 Phases data: []
+VM896 eruda.js:2 Full structured data: {metadata: {…}, clientInfo: {…}, phases: {…}, originalData: Array(191)}
+VM896 eruda.js:2 ✓ Enhanced CSV Processing Complete: {phases: Array(0), totalTasks: 0, phaseSummary: Array(0)}
+VM896 eruda.js:2 ✓ Final Processed Data: {clientInfo: {…}, phaseData: {…}, phaseCount: 0, phasesFound: Array(0), taskCounts: Array(0)}
+VM896 eruda.js:2 Created processedCSV: {id: '1754563081130', fileName: 'Job 49 Flat2 1 Bedroom 1Smart Schedule Export.csv', phaseData: {…}, clientInfo: {…}, uploadedAt: '07/08/2025', …}
+VM896 eruda.js:2 Updated processedCSVs: [{…}]
+VM896 eruda.js:2 === CSV PROCESSING SUMMARY ===
+VM896 eruda.js:2 File: Job 49 Flat2 1 Bedroom 1Smart Schedule Export.csv
+VM896 eruda.js:2 Phases detected: 0
+VM896 eruda.js:2 Phase names: []
+VM896 eruda.js:2 Total tasks: 0
+VM896 eruda.js:2 === END SUMMARY ===
+VM896 eruda.js:2 Create Job clicked for CSV ID: 1754563081130
+VM896 eruda.js:2 Setting showCreateJobForm to: 1754563081130
+VM896 eruda.js:2 Modal rendering - CSV found: {id: '1754563081130', fileName: 'Job 49 Flat2 1 Bedroom 1Smart Schedule Export.csv', phaseData: {…}, clientInfo: {…}, uploadedAt: '07/08/2025', …}
+VM896 eruda.js:2 All processedCSVs: [{…}]
+VM896 eruda.js:2 Looking for ID: 1754563081130
+VM896 eruda.js:2 Modal rendering - CSV found: {id: '1754563081130', fileName: 'Job 49 Flat2 1 Bedroom 1Smart Schedule Export.csv', phaseData: {…}, clientInfo: {…}, uploadedAt: '07/08/2025', …}
+VM896 eruda.js:2 All processedCSVs: [{…}]
+VM896 eruda.js:2 Looking for ID: 1754563081130
+VM896 eruda.js:2 Form submission triggered
+VM896 eruda.js:2 showCreateJobForm: 1754563081130
+VM896 eruda.js:2 Form data extracted: {projectType: 'Fitout', clientName: 'Flat 2', address: 'Stevenage', postCode: 'SG1 1EH'}
+VM896 eruda.js:2 Calling handleCreateJob...
+VM896 eruda.js:2 === handleCreateJob START ===
+VM896 eruda.js:2 handleCreateJob called with: {csvId: '1754563081130', jobName: 'Fitout', location: 'Flat 2 • Stevenage • SG1 1EH'}
+VM896 eruda.js:2 Current processedCSVs: [{…}]
+VM896 eruda.js:2 Current uploadedJobs: []
+VM896 eruda.js:2 Found csvData: {id: '1754563081130', fileName: 'Job 49 Flat2 1 Bedroom 1Smart Schedule Export.csv', phaseData: {…}, clientInfo: {…}, uploadedAt: '07/08/2025', …}
+VM896 eruda.js:2 Created newJob: {id: '1754563094290', name: 'Fitout', location: 'Flat 2 • Stevenage • SG1 1EH', price: '£0', status: 'approved', …}
+VM896 eruda.js:2 About to set updatedJobs: [{…}]
+VM896 eruda.js:2 Stored in localStorage: [{…}]
+VM896 eruda.js:2 === handleCreateJob SUCCESS ===
+VM896 eruda.js:2 handleCreateJob completed
+VM896 eruda.js:2 ✓ SessionStorage cleared
+VM979 eruda.js:2 ✓ SessionStorage cleared
+VM1056 eruda.js:2 ✓ SessionStorage cleared
+Console.js:61 === LOADING JOBS DEBUG ===
+Console.js:61 Raw localStorage data: [{"id":"1754563094290","name":"Fitout","location":"Flat 2 • Stevenage • SG1 1EH","price":"£0","status":"approved","dataType":"CSV Data","uploadedAt":"07/08/2025","phaseData":{}}]
+Console.js:61 ✓ Loaded jobs count: 1
+Console.js:61 ✓ Jobs with phase data: 1
+Console.js:61 Job 1: {name: 'Fitout', hasPhaseData: true, phaseDataType: 'object', phaseKeys: Array(0)}
+Console.js:61 === END LOADING DEBUG ===
+Console.js:61 Job selection changed to: Fitout
+Console.js:61 === PHASE EXTRACTION DEBUG ===
+Console.js:61 Selected HBXL Job: Fitout
+Console.js:61 All uploaded jobs: [{…}]
+Console.js:61 Found selected job: {id: '1754563094290', name: 'Fitout', location: 'Flat 2 • Stevenage • SG1 1EH', price: '£0', status: 'approved', …}
+Console.js:61 Job phase data exists: true
+Console.js:61 Phase data type: object
+Console.js:61 Phase data content: {}
+Console.js:61 ✓ Extracted phases: []
+Console.js:61 === END DEBUG ===
+Console.js:61 
