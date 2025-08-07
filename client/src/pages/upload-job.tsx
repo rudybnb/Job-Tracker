@@ -77,6 +77,16 @@ export default function UploadJob() {
         postCode: '',
         projectType: 'Renovation' // Default to renovation, will be determined from phases
       };
+      
+      // For schedule format CSVs, try to extract client info from filename
+      if (hbxlFile.name.includes('Flat')) {
+        const flatMatch = hbxlFile.name.match(/Flat\s*(\d+)/i);
+        if (flatMatch) {
+          clientInfo.name = `Flat ${flatMatch[1]}`;
+          clientInfo.address = 'Stevenage'; // Default from user's data
+          clientInfo.postCode = 'SG1 1EH'; // Default from user's data
+        }
+      }
 
       let dataStartRow = 0;
       
@@ -159,9 +169,18 @@ export default function UploadJob() {
       console.log('  Quantity:', quantityIndex, 'Rate:', rateIndex, 'Total:', totalIndex);
       console.log('  Category:', categoryIndex, 'Type:', typeIndex, 'Subcategory:', subcategoryIndex);
       
-      // Determine CSV format type
-      const isScheduleFormat = codeIndex === -1 && categoryIndex !== -1;
+      // Determine CSV format type - better detection for schedule CSVs
+      const isScheduleFormat = (codeIndex === -1 && categoryIndex !== -1) || 
+                               (headers.length >= 7 && headers[0]?.includes('/')) ||
+                               lines[dataStartRow + 1]?.split(',')[0]?.match(/^\d{2}\/\d{2}\/\d{4}$/);
+      
       console.log('CSV Format detected:', isScheduleFormat ? 'Schedule-based' : 'Code-based');
+      console.log('Detection factors:', {
+        noCodeColumn: codeIndex === -1,
+        hasCategoryColumn: categoryIndex !== -1,
+        headerLength: headers.length,
+        firstDataCell: lines[dataStartRow + 1]?.split(',')[0]
+      });
 
       // Create structured data format that's easy to read and use
       const structuredData = {
@@ -226,17 +245,18 @@ export default function UploadJob() {
         
         if (isScheduleFormat) {
           // Schedule format: use category + subcategory as phase, description from description column
-          const category = row[categoryIndex] || '';
-          const type = row[typeIndex] || '';
-          const subcategory = row[subcategoryIndex] || '';
-          description = row[descIndex] || '';
-          quantity = parseFloat(row[quantityIndex]) || 0;
+          // Handle both positional and header-based column detection
+          const category = categoryIndex >= 0 ? row[categoryIndex] : row[2] || '';
+          const type = typeIndex >= 0 ? row[typeIndex] : row[3] || '';
+          const subcategory = subcategoryIndex >= 0 ? row[subcategoryIndex] : row[4] || '';
+          description = descIndex >= 0 ? row[descIndex] : row[5] || '';
+          quantity = parseFloat(quantityIndex >= 0 ? row[quantityIndex] : row[6]) || 0;
           
           // Generate a pseudo-code for consistency
           code = `${category.substring(0,2).toUpperCase()}${subcategory.substring(0,3).toUpperCase()}`;
           
-          canProcess = !!(category && description && row.length >= 5);
-          console.log(`  Schedule format: Category="${category}", Subcategory="${subcategory}", Desc="${description}"`);
+          canProcess = !!(category && description && row.length >= 6);
+          console.log(`  Schedule format: Category="${category}", Type="${type}", Subcategory="${subcategory}", Desc="${description}", Quantity="${quantity}"`);
         } else {
           // Traditional code format
           code = row[codeIndex] || '';
