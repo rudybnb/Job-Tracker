@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertJobSchema, insertContractorSchema, jobAssignmentSchema } from "@shared/schema";
-// TelegramService import removed to fix React hook errors
+import { TelegramService } from "./telegram";
 import multer from "multer";
 import type { Request as ExpressRequest } from "express";
 
@@ -215,8 +215,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Job or contractor not found" });
       }
 
-      // Telegram functionality temporarily removed to fix React hook errors
-      console.log('ℹ️ Job assigned successfully (Telegram notifications disabled)');
+      // Send Telegram notification if contractor has Telegram ID
+      try {
+        if (job.contractor?.telegramId) {
+          const telegramService = new TelegramService();
+          const phases = validation.data.selectedPhases || [];
+          const dueDate = validation.data.dueDate || 'Not specified';
+          
+          console.log('📱 Sending Telegram notification to contractor:', job.contractor.name);
+          
+          const notificationSent = await telegramService.sendJobAssignmentNotification(
+            job.contractor.telegramId,
+            job.title,
+            phases,
+            dueDate,
+            job.location
+          );
+
+          if (notificationSent) {
+            console.log('✅ Telegram notification sent successfully');
+          } else {
+            console.log('⚠️ Failed to send Telegram notification');
+          }
+        } else {
+          console.log('ℹ️ No Telegram ID for contractor, skipping notification');
+        }
+      } catch (telegramError) {
+        console.error('❌ Telegram notification error:', telegramError);
+        // Don't fail the assignment if notification fails
+      }
       
       res.json(job);
     } catch (error) {
@@ -225,9 +252,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Telegram test endpoint - temporarily disabled
+  // Telegram test endpoint
   app.get("/api/telegram/test", async (req, res) => {
-    res.json({ success: false, message: "Telegram functionality temporarily disabled to fix React hook errors" });
+    try {
+      const telegramService = new TelegramService();
+      const result = await telegramService.testConnection();
+      res.json(result);
+    } catch (error) {
+      console.error("Telegram test error:", error);
+      res.status(500).json({ success: false, error: (error as Error).message });
+    }
   });
 
   // Contractor onboarding with Telegram notification
@@ -240,8 +274,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const contractor = await storage.createContractor(validation.data);
 
-      // Telegram onboarding notifications temporarily disabled
-      console.log('ℹ️ Contractor created successfully (Telegram notifications disabled)');
+      // Send welcome notification if Telegram ID provided
+      if (contractor.telegramId) {
+        try {
+          const telegramService = new TelegramService();
+          await telegramService.sendOnboardingNotification(
+            contractor.telegramId,
+            contractor.name,
+            contractor.specialization
+          );
+          console.log('✅ Onboarding notification sent to:', contractor.name);
+        } catch (telegramError) {
+          console.error('❌ Failed to send onboarding notification:', telegramError);
+        }
+      }
       
       res.status(201).json(contractor);
     } catch (error) {
@@ -250,10 +296,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Telegram notification endpoint - temporarily disabled
+  // Telegram notification endpoint for frontend job assignments
   app.post("/api/send-telegram-notification", async (req, res) => {
-    console.log("ℹ️ Telegram notification request received but disabled to fix React hook errors");
-    res.json({ success: false, message: "Telegram functionality temporarily disabled" });
+    try {
+      const { contractorName, phone, hbxlJob, workLocation, buildPhases, startDate, endDate } = req.body;
+      
+      console.log("📱 Telegram notification request received:", { contractorName, phone, hbxlJob });
+      
+      // Only send if phone matches James's number
+      if (phone === '07534251548') {
+        const telegramService = new TelegramService();
+        const message = `🔨 <b>NEW JOB ASSIGNMENT</b>
+
+📋 <b>Job:</b> ${hbxlJob}
+📍 <b>Location:</b> ${workLocation}
+📅 <b>Start Date:</b> ${startDate}
+📅 <b>End Date:</b> ${endDate}
+👤 <b>Contractor:</b> ${contractorName}
+
+<b>Build Phases:</b>
+${buildPhases.map(phase => `• ${phase}`).join('\n')}
+
+Please confirm receipt and start GPS tracking when you begin work.`;
+
+        console.log("📤 Sending message:", message);
+        const result = await telegramService.sendMessage({ 
+          chatId: '7617462316', 
+          message: message,
+          parseMode: 'HTML'
+        });
+        console.log("✅ Telegram result:", result);
+        
+        res.json({ success: true, messageId: result.message_id });
+      } else {
+        console.log("⚠️ Phone number does not match, skipping notification");
+        res.json({ success: false, reason: "Phone number not configured for notifications" });
+      }
+    } catch (error) {
+      console.error("❌ Telegram notification error:", error);
+      res.status(500).json({ error: "Failed to send Telegram notification" });
+    }
   });
 
   const httpServer = createServer(app);

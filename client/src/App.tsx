@@ -2,7 +2,7 @@ import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-// TooltipProvider temporarily removed due to React hook error
+import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import GPSDashboard from "@/pages/gps-dashboard";
 import Jobs from "@/pages/jobs";
@@ -17,15 +17,11 @@ import DirectJobAssignments from "@/pages/direct-job-assignments";
 import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import SystemCleanupPage from "@/pages/system-cleanup";
 import MobileTestPage from "@/pages/mobile-test";
-import NuclearRefreshPage from "@/pages/nuclear-refresh";
-import ExtremeRefreshPage from "@/pages/extreme-refresh";
-import MobileUpdatePage from "@/pages/mobile-update";
-import EmergencyFixPage from "@/pages/emergency-fix";
 import CreateAssignment from "@/pages/create-assignment";
-// Telegram imports temporarily removed to fix React hook errors
+import TelegramTest from "@/pages/telegram-test";
+import TelegramDebug from "@/pages/telegram-debug";
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 function Router() {
   return (
@@ -72,7 +68,16 @@ function Router() {
             <SystemCleanupPage />
           </ProtectedRoute>
         )} />
-        {/* Telegram routes temporarily disabled to fix React hook errors */}
+        <Route path="/telegram-test" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <TelegramTest />
+          </ProtectedRoute>
+        )} />
+        <Route path="/telegram-debug" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <TelegramDebug />
+          </ProtectedRoute>
+        )} />
         <Route path="/create-assignment" component={() => (
           <ProtectedRoute requiredRole="admin">
             <CreateAssignment />
@@ -83,10 +88,6 @@ function Router() {
             <MobileTestPage />
           </ProtectedRoute>
         )} />
-        <Route path="/nuclear-refresh" component={NuclearRefreshPage} />
-        <Route path="/extreme-refresh" component={ExtremeRefreshPage} />
-        <Route path="/mobile-update" component={MobileUpdatePage} />
-        <Route path="/emergency-fix" component={EmergencyFixPage} />
         <Route component={NotFound} />
       </Switch>
     </div>
@@ -95,12 +96,12 @@ function Router() {
 
 function App() {
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <Router />
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
         <Toaster />
-      </QueryClientProvider>
-    </ErrorBoundary>
+        <Router />
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 

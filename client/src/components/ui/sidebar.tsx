@@ -19,9 +19,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-// TooltipProvider import removed due to React hook error
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -135,7 +135,7 @@ const SidebarProvider = React.forwardRef<
 
     return (
       <SidebarContext.Provider value={contextValue}>
-        {/* TooltipProvider removed due to React hook error */}
+        <TooltipProvider delayDuration={0}>
           <div
             style={
               {
@@ -153,7 +153,7 @@ const SidebarProvider = React.forwardRef<
           >
             {children}
           </div>
-        {/* TooltipProvider end removed */}
+        </TooltipProvider>
       </SidebarContext.Provider>
     )
   }

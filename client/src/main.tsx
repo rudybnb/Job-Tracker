@@ -3,8 +3,10 @@ import App from "./App";
 import "./index.css";
 import { VersionChecker } from "./utils/version-check";
 
-// TEMPORARILY DISABLE version checking to stop refresh loop
-console.log('✅ App version check disabled (2.0.2-nuclear-refresh active)');
-createRoot(document.getElementById("root")!).render(<App />);
+// Check version and refresh if needed (mobile cache fix)
+const needsRefresh = VersionChecker.checkVersionAndRefresh();
 
-// Manual version check available through /nuclear-refresh
+if (!needsRefresh) {
+  console.log('✅ App version check passed:', VersionChecker.getCurrentVersion());
+  createRoot(document.getElementById("root")!).render(<App />);
+}

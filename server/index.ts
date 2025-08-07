@@ -4,19 +4,14 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Nuclear cache-busting middleware for stubborn mobile browsers
+// Aggressive cache-busting middleware for mobile browsers
 app.use((req, res, next) => {
-  const timestamp = Date.now();
   res.set({
-    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0, proxy-revalidate',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache', 
     'Expires': '0',
     'Last-Modified': new Date().toUTCString(),
-    'ETag': `"${timestamp}"`,
-    'X-App-Version': '2.0.9-telegram-removed',
-    'X-Timestamp': timestamp.toString(),
-    'X-Cache-Bust': Math.random().toString(36),
-    'Vary': 'User-Agent, Accept-Encoding'
+    'ETag': Date.now().toString()
   });
   next();
 });
