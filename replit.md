@@ -23,6 +23,11 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
   - One-click approval/rejection with status tracking
 ✓ **Database Integration** - All contractor applications now persist in database with proper schema
 ✓ **Telegram Admin Notifications** - System sends notifications to admin when new applications are submitted
+✓ **FIXED: CIS Registration Form** - Simplified to Yes/No radio buttons with automatic deduction calculation:
+  - Yes = CIS Registered (20% deduction)
+  - No = Not CIS Registered (30% deduction)
+✓ **Removed Pay Rate from Contractor Form** - Pay rates now exclusively set by admins
+✓ **Form Validation Fixed** - Contractors can now successfully complete and submit applications
 
 ### Earlier Updates
 ✓ **RESOLVED: Build Phase Display Issue** - Fixed job assignments showing "0 phases" instead of actual phase counts and names
