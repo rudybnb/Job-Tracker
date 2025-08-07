@@ -169,49 +169,53 @@ export default function UploadJob() {
   };
 
   const handleCreateJob = (csvId: string, jobName: string, location: string) => {
-    console.log('handleCreateJob called with:', { csvId, jobName, location });
-    console.log('processedCSVs:', processedCSVs);
-    
-    const csvData = processedCSVs.find(csv => csv.id === csvId);
-    console.log('Found csvData:', csvData);
-    
-    if (!csvData) {
-      console.error('CSV data not found for ID:', csvId);
-      toast({
-        title: "Error",
-        description: "CSV data not found. Please try uploading again.",
-        variant: "destructive"
-      });
-      return;
+    try {
+      console.log('=== handleCreateJob START ===');
+      console.log('handleCreateJob called with:', { csvId, jobName, location });
+      console.log('Current processedCSVs:', processedCSVs);
+      console.log('Current uploadedJobs:', uploadedJobs);
+      
+      const csvData = processedCSVs.find(csv => csv.id === csvId);
+      console.log('Found csvData:', csvData);
+      
+      if (!csvData) {
+        console.error('CSV data not found for ID:', csvId);
+        alert('Error: CSV data not found. Please try uploading again.');
+        return;
+      }
+
+      const newJob: UploadedJob & { phaseData?: any } = {
+        id: Date.now().toString(),
+        name: jobName,
+        location: location,
+        price: "£0",
+        status: "approved",
+        dataType: "CSV Data", 
+        uploadedAt: new Date().toLocaleDateString('en-GB'),
+        phaseData: csvData.phaseData
+      };
+
+      console.log('Created newJob:', newJob);
+
+      const updatedJobs = [...uploadedJobs, newJob];
+      console.log('About to set updatedJobs:', updatedJobs);
+      
+      setUploadedJobs(updatedJobs);
+      
+      // Store in localStorage for job assignments page
+      localStorage.setItem('uploadedJobs', JSON.stringify(updatedJobs));
+      console.log('Stored in localStorage:', JSON.parse(localStorage.getItem('uploadedJobs') || '[]'));
+      
+      // Keep CSV for multiple job creation - don't remove
+      setShowCreateJobForm(null);
+      
+      console.log('=== handleCreateJob SUCCESS ===');
+      alert(`Success: ${jobName} created and ready for contractor assignment`);
+      
+    } catch (error) {
+      console.error('=== handleCreateJob ERROR ===', error);
+      alert(`Error creating job: ${error}`);
     }
-
-    const newJob: UploadedJob & { phaseData?: any } = {
-      id: Date.now().toString(),
-      name: jobName,
-      location: location,
-      price: "£0",
-      status: "approved",
-      dataType: "CSV Data", 
-      uploadedAt: new Date().toLocaleDateString('en-GB'),
-      phaseData: csvData.phaseData
-    };
-
-    console.log('Created newJob:', newJob);
-
-    const updatedJobs = [...uploadedJobs, newJob];
-    setUploadedJobs(updatedJobs);
-    // Store in localStorage for job assignments page
-    localStorage.setItem('uploadedJobs', JSON.stringify(updatedJobs));
-    
-    console.log('Updated jobs:', updatedJobs);
-    
-    // Keep CSV for multiple job creation - don't remove
-    setShowCreateJobForm(null);
-
-    toast({
-      title: "Job Created Successfully",
-      description: `${jobName} created and ready for contractor assignment`,
-    });
   };
 
   const handleApproveJob = (jobId: string) => {
