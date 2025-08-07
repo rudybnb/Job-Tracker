@@ -168,10 +168,10 @@ export default function ContractorOnboarding() {
   };
 
   const handleSendForm = async () => {
-    if (!validateStep(6)) {
+    if (!firstName || !lastName || !email || !phoneNumber) {
       toast({
-        title: "Incomplete Application",
-        description: "Please complete all steps before sending the onboarding form",
+        title: "Missing Information",
+        description: "Please provide at least the contractor's name, email, and phone number",
         variant: "destructive",
       });
       return;
@@ -180,97 +180,65 @@ export default function ContractorOnboarding() {
     try {
       const contractorName = `${firstName} ${lastName}`;
       
-      // Send comprehensive onboarding form to contractor via Telegram
-      const telegramMessage = `🔨 CONTRACTOR ONBOARDING FORM - JobFlow
+      // Generate unique form link
+      const formId = Math.random().toString(36).substr(2, 9);
+      const formLink = `${window.location.origin}/contractor-form?id=${formId}&name=${encodeURIComponent(contractorName)}`;
+      
+      // Send Telegram message with link to professional onboarding form
+      const telegramMessage = `📋 Contractor Onboarding - ER Build & Design
 
-👤 Hello ${contractorName}!
+Hello ${contractorName}!
 
-Please complete this 6-step onboarding form and reply with your details:
+You've been invited to join our construction team. Please complete your contractor registration form:
 
-📋 STEP 1: PERSONAL INFORMATION
-• Full Name: ${firstName} ${lastName}
-• Email: ${email}
-• Phone: ${phoneNumber}
-• Full Address: [Please provide]
-• City: [Please provide]
-• Postcode: [Please provide]
+🔗 Form Link: ${formLink}
 
-📋 STEP 2: RIGHT TO WORK & DOCUMENTATION
-• Right to work in UK: [Yes/No]
-• Passport Number: [Please provide]
-• UTR Number: [Please provide]
-• CIS Registration Status: [Registered/Not Registered/Pending]
-• Public Liability Insurance: [Yes/No/Pending]
+📝 What you'll need:
+• Personal details & contact information
+• Passport photo and right to work documents
+• CIS number and tax details
+• CSCS card information (if available)
+• Bank details for payments
+• Emergency contact details
+• Your primary trade and tool availability
 
-📋 STEP 3: CIS & TAX DETAILS
-• CIS Verification Status: [Gross/Net/Unregistered]
-• CIS Number (if registered): [Please provide]
-• CSCS Card Number: [Please provide]
-• CSCS Card Expiry: [DD/MM/YYYY]
+⏱️ Please complete within 24 hours
 
-📋 STEP 4: BANKING INFORMATION
-• Bank Name: [Please provide]
-• Account Number: [Please provide]
-• Sort Code: [Please provide]
-• Account Holder Name: [Please provide]
+❓ Need help? Reply to this message
 
-📋 STEP 5: EMERGENCY CONTACT
-• Emergency Contact Name: [Please provide]
-• Emergency Contact Phone: [Please provide]
-• Relationship: [Spouse/Parent/Sibling/Friend/Other]
+📱 Complete Form`;
 
-📋 STEP 6: TRADE & TOOLS
-• Primary Trade: [Carpenter/Electrician/Plumber/etc.]
-• Years of Experience: [0-1/2-5/6-10/11-15/16+]
-• Own Tools: [Yes-Full kit/Yes-Partial/No-Need provided]
-• Tools List: [Please list your tools]
-• Additional Notes: [Any special requirements]
+      // Send directly via Telegram API
+      if (telegramId) {
+        const response = await fetch('https://api.telegram.org/bot8382710567:AAFshEGUHA-3P-Jf_PuLIQjskb-1_fY6iEA/sendMessage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chat_id: telegramId.startsWith('@') ? telegramId.slice(1) : telegramId,
+            text: telegramMessage,
+            parse_mode: 'HTML'
+          }),
+        });
 
-📤 REPLY FORMAT:
-Please reply to this message with all your information using this format:
-
-STEP 1:
-Full Address: [Your address]
-City: [Your city]
-Postcode: [Your postcode]
-
-STEP 2:
-Right to work: [Yes/No]
-Passport Number: [Number]
-UTR Number: [Number]
-CIS Status: [Status]
-Insurance: [Yes/No]
-
-STEP 3:
-CIS Verification: [Status]
-CIS Number: [If applicable]
-CSCS Number: [Number]
-CSCS Expiry: [Date]
-
-STEP 4:
-Bank: [Bank name]
-Account: [Account number]
-Sort Code: [Sort code]
-Account Holder: [Full name]
-
-STEP 5:
-Emergency Name: [Name]
-Emergency Phone: [Phone]
-Relationship: [Relationship]
-
-STEP 6:
-Trade: [Your primary trade]
-Experience: [Years]
-Tools: [Yes/Partial/No]
-Tools List: [List tools]
-Notes: [Additional info]
-
-📞 Admin Contact: ${phoneNumber}
-📧 Email: ${email}
-
-Once completed, you'll be added to our contractor network and can start receiving job assignments!
-
-Welcome aboard! 🚀`;
+        if (response.ok) {
+          toast({
+            title: "Onboarding Form Sent Successfully",
+            description: `Professional registration form sent to ${contractorName} via Telegram with secure link.`,
+          });
+        } else {
+          toast({
+            title: "Form Link Prepared",
+            description: `Professional form link ready for ${contractorName}. Send manually if needed: ${formLink}`,
+          });
+        }
+      } else {
+        toast({
+          title: "Form Link Generated", 
+          description: `Professional registration form link prepared for ${contractorName}. Share via any contact method.`,
+        });
+      }
 
       // Send directly via Telegram API
       if (telegramId) {

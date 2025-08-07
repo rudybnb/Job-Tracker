@@ -10,6 +10,7 @@ import UploadJob from "@/pages/upload-job";
 import AdminDashboard from "@/pages/admin-dashboard";
 import ContractorOnboarding from "@/pages/contractor-onboarding";
 import ContractorForm from "@/pages/contractor-form";
+import ContractorSuccess from "@/pages/contractor-success";
 import JobAssignments from "@/pages/job-assignments";
 import Login from "@/pages/login";
 import TaskProgress from "@/pages/task-progress";
@@ -51,11 +52,8 @@ function Router() {
             <ContractorOnboarding />
           </ProtectedRoute>
         )} />
-        <Route path="/contractor-form" component={() => (
-          <ProtectedRoute requiredRole="admin">
-            <ContractorForm />
-          </ProtectedRoute>
-        )} />
+        <Route path="/contractor-form" component={ContractorForm} />
+        <Route path="/contractor-success" component={ContractorSuccess} />
         <Route path="/job-assignments" component={() => (
           <ProtectedRoute requiredRole="admin">
             <JobAssignments />
