@@ -46,7 +46,7 @@ export default function ContractorOnboarding() {
     postcode: "",
     
     // Professional Details
-    tradeSpecializations: [],
+    tradeSpecializations: [] as string[],
     experienceYears: "",
     qualifications: "",
     
@@ -79,7 +79,7 @@ export default function ContractorOnboarding() {
     "Flooring", "Roofing", "General Building", "Demolition"
   ];
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: keyof typeof formData, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -98,7 +98,7 @@ export default function ContractorOnboarding() {
   const handleSendForm = () => {
     // Basic validation
     const requiredFields = ['fullName', 'email', 'phone', 'telegramId'];
-    const missingFields = requiredFields.filter(field => !formData[field]);
+    const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
     
     if (missingFields.length > 0) {
       toast({
@@ -129,7 +129,7 @@ export default function ContractorOnboarding() {
     // Reset form
     setFormData({
       fullName: "", email: "", phone: "", address: "", postcode: "",
-      tradeSpecializations: [], experienceYears: "", qualifications: "",
+      tradeSpecializations: [] as string[], experienceYears: "", qualifications: "",
       emergencyContactName: "", emergencyContactPhone: "", telegramId: "", preferredContact: "",
       bankAccountHolder: "", sortCode: "", accountNumber: "", cisStatus: "",
       availableStartDate: "", workingHours: "", weekendAvailable: false,
