@@ -63,7 +63,7 @@ export default function ContractorForm() {
       number: 2, 
       title: "Right to Work & Documentation", 
       icon: Shield,
-      fields: ["hasRightToWork", "passportNumber", "utrNumber", "isCisRegistered", "hasPublicLiability"] 
+      fields: ["hasRightToWork", "passportNumber", "utrNumber", "isCisRegistered"] 
     },
     { 
       number: 3, 
@@ -363,14 +363,24 @@ export default function ContractorForm() {
 
                   <div>
                     <label className="block text-yellow-400 text-sm font-medium mb-2">Passport Photo</label>
-                    <Button
-                      type="button"
-                      onClick={() => updateFormData("passportPhotoUploaded", true)}
-                      className="bg-yellow-500 hover:bg-yellow-600 text-black font-medium px-6 py-2 rounded-lg flex items-center space-x-2"
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          updateFormData("passportPhotoUploaded", true);
+                        }
+                      }}
+                      className="hidden"
+                      id="passportUpload"
+                    />
+                    <label
+                      htmlFor="passportUpload"
+                      className="bg-yellow-500 hover:bg-yellow-600 text-black font-medium px-6 py-2 rounded-lg flex items-center space-x-2 cursor-pointer inline-flex"
                     >
                       <Upload className="w-4 h-4" />
                       <span>Upload Passport Photo</span>
-                    </Button>
+                    </label>
                     {formData.passportPhotoUploaded && (
                       <div className="mt-2 flex items-center space-x-2 text-green-400">
                         <CheckCircle className="w-4 h-4" />
@@ -385,20 +395,8 @@ export default function ContractorForm() {
                 <h3 className="text-yellow-400 font-medium mb-4">Tax & Registration Status</h3>
                 
                 <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      id="hasUtr"
-                      checked={!!formData.utrNumber}
-                      onChange={(e) => {
-                        if (!e.target.checked) updateFormData("utrNumber", "");
-                      }}
-                      className="w-5 h-5 text-yellow-400 bg-slate-800 border-yellow-500 rounded focus:ring-yellow-400"
-                    />
-                    <label htmlFor="hasUtr" className="text-white">I have a UTR number *</label>
-                  </div>
-
-                  {formData.utrNumber !== "" && (
+                  <div>
+                    <label className="block text-yellow-400 text-sm font-medium mb-2">UTR Number *</label>
                     <input
                       type="text"
                       value={formData.utrNumber}
@@ -406,7 +404,7 @@ export default function ContractorForm() {
                       placeholder="10 digit UTR number"
                       className="w-full bg-slate-800 border border-yellow-500 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400"
                     />
-                  )}
+                  </div>
 
                   <div className="flex items-center space-x-3">
                     <input
@@ -427,7 +425,7 @@ export default function ContractorForm() {
                       onChange={(e) => updateFormData("hasPublicLiability", e.target.checked)}
                       className="w-5 h-5 text-yellow-400 bg-slate-800 border-yellow-500 rounded focus:ring-yellow-400"
                     />
-                    <label htmlFor="hasInsurance" className="text-white">I have public liability insurance *</label>
+                    <label htmlFor="hasInsurance" className="text-white">I have public liability insurance (optional)</label>
                   </div>
                 </div>
               </div>
