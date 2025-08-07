@@ -17,10 +17,18 @@ export default function Login() {
     if (username === "admin" && password === "admin123") {
       localStorage.setItem('userRole', 'admin');
       localStorage.setItem('isLoggedIn', 'true');
-      window.location.href = '/';
+      window.location.href = '/admin';
       toast({
         title: "Login Successful",
         description: "Welcome back, Admin!",
+      });
+    } else if (username === "contractor" && password === "contractor123") {
+      localStorage.setItem('userRole', 'contractor');
+      localStorage.setItem('isLoggedIn', 'true');
+      window.location.href = '/';
+      toast({
+        title: "Login Successful",
+        description: "Welcome back, James!",
       });
     } else {
       toast({
@@ -74,9 +82,15 @@ export default function Login() {
           {/* Test Credentials Info */}
           <div className="mt-6 p-4 bg-slate-100 rounded-lg">
             <h4 className="font-medium text-slate-700 mb-2">Admin Login:</h4>
-            <div className="text-sm text-slate-600">
+            <div className="text-sm text-slate-600 mb-3">
               <div><strong>Username:</strong> admin</div>
               <div><strong>Password:</strong> admin123</div>
+            </div>
+            
+            <h4 className="font-medium text-slate-700 mb-2">Contractor Login:</h4>
+            <div className="text-sm text-slate-600">
+              <div><strong>Username:</strong> contractor</div>
+              <div><strong>Password:</strong> contractor123</div>
             </div>
           </div>
         </CardContent>
