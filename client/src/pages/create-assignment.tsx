@@ -84,10 +84,9 @@ export default function CreateAssignment() {
           setAvailablePhases(phases);
           console.log('✓ Extracted phases:', phases);
         } else {
-          console.log('❌ Phase data invalid, using fallback phases');
-          // Fallback: Extract from sample data structure if no phases
-          const fallbackPhases = ['Masonry Shell', 'Foundation', 'Roof Structure', 'Ground Floor'];
-          setAvailablePhases(fallbackPhases);
+          console.log('❌ Phase data invalid or missing');
+          console.log('Selected job structure:', JSON.stringify(selectedJob, null, 2));
+          setAvailablePhases([]);
         }
       } else {
         console.log('❌ No job found with name:', selectedHbxlJob);
