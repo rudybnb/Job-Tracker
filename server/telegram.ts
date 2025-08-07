@@ -1,8 +1,8 @@
 // Use built-in fetch (Node.js 18+)
 const fetch = globalThis.fetch;
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_BOT_ID = process.env.TELEGRAM_BOT_ID;
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8382710567:AAFshEGUHA-3P-Jf_PuLIQjskb-1_fY6iEA';
+const TELEGRAM_BOT_ID = process.env.TELEGRAM_BOT_ID || '8382710567';
 
 export interface TelegramMessage {
   chatId: string;
@@ -23,10 +23,10 @@ export class TelegramService {
   /**
    * Send a message to a Telegram chat
    */
-  async sendMessage({ chatId, message, parseMode = 'HTML' }: TelegramMessage): Promise<boolean> {
+  async sendMessage({ chatId, message, parseMode = 'HTML' }: TelegramMessage): Promise<any> {
     try {
       console.log(`📱 Sending Telegram notification to chat ${chatId}`);
-      console.log(`📝 Message: ${message}`);
+      console.log(`📝 Message:`, message.substring(0, 100) + '...');
 
       const response = await fetch(`${this.baseUrl}/sendMessage`, {
         method: 'POST',
@@ -44,7 +44,7 @@ export class TelegramService {
       
       if (response.ok && result.ok) {
         console.log('✅ Telegram notification sent successfully');
-        return true;
+        return result;
       } else {
         console.error('❌ Telegram API error:', result);
         return false;
@@ -65,8 +65,7 @@ export class TelegramService {
     dueDate: string,
     location: string
   ): Promise<boolean> {
-    const message = `
-🔨 <b>NEW JOB ASSIGNMENT</b>
+    const message = `🔨 <b>NEW JOB ASSIGNMENT</b>
 
 📋 <b>Job:</b> ${jobName}
 📍 <b>Location:</b> ${location}
@@ -75,14 +74,15 @@ export class TelegramService {
 <b>Build Phases:</b>
 ${phases.map(phase => `• ${phase}`).join('\n')}
 
-Please confirm receipt and start GPS tracking when you begin work.
-    `.trim();
+Please confirm receipt and start GPS tracking when you begin work.`;
 
-    return this.sendMessage({
+    const result = await this.sendMessage({
       chatId: contractorTelegramId,
-      message,
+      message: message,
       parseMode: 'HTML'
     });
+
+    return !!result && result.ok;
   }
 
   /**
@@ -93,66 +93,53 @@ Please confirm receipt and start GPS tracking when you begin work.
     contractorName: string,
     specialization: string
   ): Promise<boolean> {
-    const message = `
-👋 <b>WELCOME TO JOBFLOW!</b>
+    const message = `👋 <b>Welcome to JobFlow, ${contractorName}!</b>
 
-<b>Contractor:</b> ${contractorName}
-<b>Specialization:</b> ${specialization}
+🔧 <b>Specialization:</b> ${specialization}
 
-You've been successfully added to our system. You'll receive job assignments here and can track your progress through our GPS-enabled dashboard.
+Your account has been set up successfully. You'll receive job notifications through this chat.
 
-🚀 Ready to get started!
-    `.trim();
+📱 Please keep notifications enabled to receive real-time job assignments.
+🎯 Start GPS tracking when you begin work on any assigned job.
 
-    return this.sendMessage({
+Contact your admin if you have any questions.`;
+
+    const result = await this.sendMessage({
       chatId: contractorTelegramId,
-      message,
+      message: message,
       parseMode: 'HTML'
     });
+
+    return !!result && result.ok;
   }
 
   /**
-   * Send task completion notification to admin
-   */
-  async sendTaskCompletionNotification(
-    adminTelegramId: string,
-    contractorName: string,
-    taskName: string,
-    jobName: string
-  ): Promise<boolean> {
-    const message = `
-✅ <b>TASK COMPLETED</b>
-
-<b>Contractor:</b> ${contractorName}
-<b>Task:</b> ${taskName}
-<b>Job:</b> ${jobName}
-<b>Time:</b> ${new Date().toLocaleString('en-GB')}
-
-Check the admin dashboard for progress updates.
-    `.trim();
-
-    return this.sendMessage({
-      chatId: adminTelegramId,
-      message,
-      parseMode: 'HTML'
-    });
-  }
-
-  /**
-   * Test the bot connection
+   * Test connection to Telegram API
    */
   async testConnection(): Promise<{ success: boolean; botInfo?: any; error?: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/getMe`);
+      const response = await fetch(`${this.baseUrl}/getMe`, {
+        method: 'GET'
+      });
+
       const result = await response.json();
       
       if (response.ok && result.ok) {
-        return { success: true, botInfo: result.result };
+        return {
+          success: true,
+          botInfo: result.result
+        };
       } else {
-        return { success: false, error: result.description || 'Unknown error' };
+        return {
+          success: false,
+          error: result.description || 'Unknown error'
+        };
       }
     } catch (error) {
-      return { success: false, error: (error as Error).message };
+      return {
+        success: false,
+        error: (error as Error).message
+      };
     }
   }
 }
