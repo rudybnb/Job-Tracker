@@ -113,6 +113,13 @@ export default function UploadJob() {
       const rateIndex = headers.findIndex(h => h.toLowerCase().includes('rate') || h.toLowerCase().includes('price'));
       const totalIndex = headers.findIndex(h => h.toLowerCase().includes('total') || h.toLowerCase().includes('amount'));
       
+      console.log('=== CSV PROCESSING DEBUG ===');
+      console.log('File lines:', lines.length);
+      console.log('Client info extracted:', clientInfo);
+      console.log('Data starts at row:', dataStartRow);
+      console.log('Headers found:', headers);
+      console.log('Column indices - Code:', codeIndex, 'Description:', descIndex);
+
       // Create structured data format that's easy to read and use
       const structuredData = {
         metadata: {
@@ -141,6 +148,28 @@ export default function UploadJob() {
           }
         }>,
         originalData: lines
+      };
+
+      // Enhanced phase detection mapping
+      const phaseMapping = {
+        'MS': 'Masonry Shell',
+        'FD': 'Foundation Work', 
+        'RF': 'Roof Structure',
+        'GF': 'Ground Floor',
+        'EL': 'Electrical Work',
+        'PL': 'Plumbing',
+        'KI': 'Kitchen Fitout',
+        'BA': 'Bathroom Installation',
+        'FL': 'Flooring Installation',
+        'PA': 'Painting & Decoration',
+        'TI': 'Tiling Work',
+        'CA': 'Carpentry',
+        'IN': 'Insulation',
+        'HE': 'Heating System',
+        'WI': 'Windows & Doors',
+        'RO': 'Roofing',
+        'DR': 'Drainage',
+        'LA': 'Landscaping'
       };
       
       // Process each data row with enhanced phase detection
@@ -244,18 +273,31 @@ export default function UploadJob() {
                    descLower.includes('sill') || descLower.includes('lintel')) {
             phase = 'Doors & Windows';
           }
+          // Ground Floor specific - match GF codes from CSV
+          else if (codeUpper.includes('GF') || codeUpper.includes('GROUND') ||
+                   descLower.includes('ground floor') || descLower.includes('slab') ||
+                   descLower.includes('dpm') || descLower.includes('membrane')) {
+            phase = 'Ground Floor';
+          }
+
+          console.log(`Row ${i}: Code="${code}", Desc="${description}" -> Phase="${phase}"`);
           
-          // Initialize phase if not exists
+          // Create or update phase
           if (!structuredData.phases[phase]) {
             structuredData.phases[phase] = {
               tasks: [],
-              summary: { taskCount: 0, totalQuantity: 0, totalValue: 0 }
+              summary: {
+                taskCount: 0,
+                totalQuantity: 0,
+                totalValue: 0
+              }
             };
+            structuredData.metadata.phasesDetected++;
           }
           
-          // Create standardized task object
+          // Add task to phase
           const task = {
-            id: `${code}_${i}`,
+            id: `${phase.replace(/\s+/g, '_').toLowerCase()}_${code.toLowerCase()}`,
             code: code,
             description: description,
             unit: unit,
@@ -265,7 +307,6 @@ export default function UploadJob() {
             originalRow: i
           };
           
-          // Add to phase
           structuredData.phases[phase].tasks.push(task);
           structuredData.phases[phase].summary.taskCount++;
           structuredData.phases[phase].summary.totalQuantity += quantity;
@@ -273,6 +314,11 @@ export default function UploadJob() {
         }
       }
       
+      console.log('=== CSV PROCESSING COMPLETE ===');
+      console.log('Phases detected:', structuredData.metadata.phasesDetected);
+      console.log('Phases data:', Object.keys(structuredData.phases));
+      console.log('Full structured data:', structuredData);
+
       // Update metadata
       structuredData.metadata.phasesDetected = Object.keys(structuredData.phases).length;
       
