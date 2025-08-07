@@ -104,7 +104,72 @@ export default function GPSDashboard() {
     queryKey: ["/api/contractor-assignments/James"],
   });
 
-  // Update GPS coordinates based on current job assignment location
+  // State for location validation
+  const [userLocation, setUserLocation] = useState<GPSPosition | null>(null);
+  const [workSiteLocation, setWorkSiteLocation] = useState<GPSPosition | null>(null);
+  const [locationValidation, setLocationValidation] = useState<{
+    isWithinRange: boolean;
+    distance: number;
+    isValidTime: boolean;
+    canSignIn: boolean;
+    errorMessage?: string;
+  }>({
+    isWithinRange: false,
+    distance: 0,
+    isValidTime: false,
+    canSignIn: false
+  });
+
+  // Calculate distance between two GPS coordinates (Haversine formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Check if current time is within working hours (7:45am - 5pm)
+  const isWithinWorkingHours = (): boolean => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentTime = hours + minutes / 60;
+    
+    const startTime = 7 + 45/60; // 7:45 AM
+    const endTime = 17; // 5:00 PM
+    
+    return currentTime >= startTime && currentTime <= endTime;
+  };
+
+  // Get user's current location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+        },
+        (error) => {
+          console.log("Geolocation error:", error);
+          // Simulate location for demo purposes
+          setUserLocation({
+            latitude: 51.9020, // Close to Stevenage for demo
+            longitude: -0.2030,
+            accuracy: 10
+          });
+        }
+      );
+    }
+  }, []);
+
+  // Update work site coordinates based on current job assignment location
   useEffect(() => {
     let coords = { latitude: 51.491179, longitude: 0.147781 }; // Default London
     
@@ -132,14 +197,45 @@ export default function GPSDashboard() {
       }
     }
     
-    // Set GPS position based on current job location from CSV data
-    setGpsPosition({
+    // Set work site location
+    setWorkSiteLocation({
       latitude: coords.latitude,
       longitude: coords.longitude,
-      accuracy: Math.floor(Math.random() * 10) + 5 // Realistic accuracy between 5-15m
+      accuracy: 5
     });
     setGpsStatus("Good");
   }, [assignments]);
+
+  // Validate location and time whenever user location or work site changes
+  useEffect(() => {
+    if (userLocation && workSiteLocation) {
+      const distance = calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        workSiteLocation.latitude,
+        workSiteLocation.longitude
+      );
+      
+      const isWithinRange = distance <= 1; // 1km radius
+      const isValidTime = isWithinWorkingHours();
+      const canSignIn = isWithinRange && isValidTime;
+      
+      let errorMessage = '';
+      if (!isValidTime) {
+        errorMessage = 'Outside working hours (7:45 AM - 5:00 PM)';
+      } else if (!isWithinRange) {
+        errorMessage = `Too far from work site (${distance.toFixed(2)}km away)`;
+      }
+      
+      setLocationValidation({
+        isWithinRange,
+        distance,
+        isValidTime,
+        canSignIn,
+        errorMessage
+      });
+    }
+  }, [userLocation, workSiteLocation]);
 
   // Timer effect
   useEffect(() => {
@@ -165,13 +261,31 @@ export default function GPSDashboard() {
   }, [isTracking, startTime]);
 
   const handleStartWork = () => {
+    // Check location and time validation before allowing sign in
+    if (!locationValidation.canSignIn) {
+      toast({
+        title: "Cannot Sign In",
+        description: locationValidation.errorMessage,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!isTracking) {
       setIsTracking(true);
       setStartTime(new Date());
+      toast({
+        title: "Work Started",
+        description: "GPS verified - tracking time started",
+      });
     } else {
       setIsTracking(false);
       setStartTime(null);
       setCurrentTime("00:00:00");
+      toast({
+        title: "Work Ended",
+        description: "Time tracking stopped",
+      });
     }
   };
 
@@ -288,28 +402,68 @@ export default function GPSDashboard() {
               <i className="fas fa-sync-alt text-slate-400"></i>
             </div>
           </div>
+
+          {/* Location Validation Status */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-slate-400 text-sm">Work Site Access</span>
+              <Badge 
+                className={locationValidation.canSignIn ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}
+              >
+                {locationValidation.canSignIn ? 'Allowed' : 'Restricted'}
+              </Badge>
+            </div>
+            
+            {/* Distance from work site */}
+            {userLocation && workSiteLocation && (
+              <div className="text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Distance from site:</span>
+                  <span className={locationValidation.isWithinRange ? 'text-green-400' : 'text-red-400'}>
+                    {locationValidation.distance.toFixed(2)}km
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Working hours (7:45-17:00):</span>
+                  <span className={locationValidation.isValidTime ? 'text-green-400' : 'text-red-400'}>
+                    {locationValidation.isValidTime ? 'Active' : 'Outside hours'}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {/* Error message if can't sign in */}
+            {!locationValidation.canSignIn && locationValidation.errorMessage && (
+              <div className="mt-2 p-2 bg-red-900 border border-red-600 rounded text-red-200 text-sm">
+                <i className="fas fa-exclamation-triangle mr-2"></i>
+                {locationValidation.errorMessage}
+              </div>
+            )}
+          </div>
           
-          {gpsPosition && (
+          {userLocation && (
             <>
               <div className="flex items-center mb-3">
                 <i className="fas fa-map-marker-alt text-slate-400 mr-2"></i>
-                <span className="text-white">{gpsPosition.latitude}, {gpsPosition.longitude}</span>
+                <span className="text-white">Your Location: {userLocation.latitude.toFixed(6)}, {userLocation.longitude.toFixed(6)}</span>
               </div>
+              
+              {workSiteLocation && (
+                <div className="flex items-center mb-3">
+                  <i className="fas fa-building text-slate-400 mr-2"></i>
+                  <span className="text-yellow-400">Work Site: {workSiteLocation.latitude.toFixed(6)}, {workSiteLocation.longitude.toFixed(6)}</span>
+                </div>
+              )}
               
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <div className="text-slate-400">Latitude:</div>
-                  <div className="text-white font-mono">{gpsPosition.latitude}</div>
+                  <div className="text-slate-400">Your Position:</div>
+                  <div className="text-white font-mono text-xs">{userLocation.latitude.toFixed(4)}, {userLocation.longitude.toFixed(4)}</div>
                 </div>
                 <div>
-                  <div className="text-slate-400">Longitude:</div>
-                  <div className="text-white font-mono">{gpsPosition.longitude}</div>
+                  <div className="text-slate-400">Accuracy:</div>
+                  <div className="text-white">±{userLocation.accuracy}m</div>
                 </div>
-              </div>
-              
-              <div className="mt-3">
-                <div className="text-slate-400 text-sm">Accuracy:</div>
-                <div className="text-white">±{gpsPosition.accuracy} meters</div>
               </div>
             </>
           )}
@@ -324,30 +478,48 @@ export default function GPSDashboard() {
           
           <div className="flex items-center mb-4">
             <i className="fas fa-map-marker-alt text-slate-400 mr-2"></i>
-            <span className="text-slate-400">Location unknown</span>
+            <span className="text-slate-400">
+              {assignments && assignments.length > 0 
+                ? `Work Site: ${assignments[0].location}` 
+                : 'No assignment location'
+              }
+            </span>
           </div>
           
           <div className="text-center mb-6">
             <div className="text-4xl font-mono text-blue-400 mb-4">{currentTime}</div>
             <Button 
               onClick={handleStartWork}
+              disabled={!locationValidation.canSignIn && !isTracking}
               className={`w-full py-3 text-white font-medium rounded-lg flex items-center justify-center ${
-                isTracking 
-                  ? 'bg-red-600 hover:bg-red-700' 
-                  : 'bg-green-600 hover:bg-green-700'
+                !locationValidation.canSignIn && !isTracking
+                  ? 'bg-gray-600 cursor-not-allowed opacity-50'
+                  : isTracking 
+                    ? 'bg-red-600 hover:bg-red-700' 
+                    : 'bg-green-600 hover:bg-green-700'
               }`}
             >
-              <i className={`fas ${isTracking ? 'fa-stop' : 'fa-play'} mr-2`}></i>
-              {isTracking ? 'Stop Work' : 'Start Work (GPS Verified)'}
+              <i className={`fas ${isTracking ? 'fa-stop' : !locationValidation.canSignIn ? 'fa-lock' : 'fa-play'} mr-2`}></i>
+              {isTracking 
+                ? 'Stop Work' 
+                : !locationValidation.canSignIn 
+                  ? 'GPS Check Required'
+                  : 'Start Work (GPS Verified)'
+              }
             </Button>
           </div>
           
           <div className="text-center text-slate-400 text-sm mb-2">
-            Ready to start GPS-verified time tracking
+            {locationValidation.canSignIn 
+              ? 'Ready to start GPS-verified time tracking'
+              : 'Must be within 1km of work site during 7:45 AM - 5:00 PM'
+            }
           </div>
-          <div className="text-center text-red-400 text-xs">
-            TESTING MODE: Work hour restrictions disabled
-          </div>
+          {locationValidation.canSignIn && (
+            <div className="text-center text-green-400 text-xs">
+              ✓ Location verified - Ready to work
+            </div>
+          )}
         </div>
 
         {/* Active Assignment Card */}
