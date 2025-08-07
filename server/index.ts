@@ -3,18 +3,6 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
-
-// Aggressive cache-busting middleware for mobile browsers
-app.use((req, res, next) => {
-  res.set({
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache', 
-    'Expires': '0',
-    'Last-Modified': new Date().toUTCString(),
-    'ETag': Date.now().toString()
-  });
-  next();
-});
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

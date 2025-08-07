@@ -41,16 +41,13 @@ export default function JobAssignments() {
   }, []);
 
   const handleDeleteAssignment = (index: number) => {
-    const assignment = assignments[index];
-    if (window.confirm(`Are you sure you want to delete the assignment for "${assignment.hbxlJob}" assigned to ${assignment.contractorName}?`)) {
-      const updatedAssignments = assignments.filter((_, i) => i !== index);
-      setAssignments(updatedAssignments);
-      localStorage.setItem('jobAssignments', JSON.stringify(updatedAssignments));
-      toast({
-        title: "Assignment Deleted",
-        description: `Job assignment "${assignment.hbxlJob}" has been removed successfully.`,
-      });
-    }
+    const updatedAssignments = assignments.filter((_, i) => i !== index);
+    setAssignments(updatedAssignments);
+    localStorage.setItem('jobAssignments', JSON.stringify(updatedAssignments));
+    toast({
+      title: "Assignment Deleted",
+      description: "Job assignment has been removed successfully.",
+    });
   };
 
   // Filter assignments based on search term
@@ -141,18 +138,17 @@ export default function JobAssignments() {
                           </p>
                         </div>
                       </div>
-                      <div className="text-right flex items-center space-x-3">
+                      <div className="text-right flex items-center space-x-2">
                         <div>
                           <div className="text-sm text-slate-400">Status</div>
                           <div className="text-green-400 font-medium">Assigned</div>
                         </div>
                         <button
                           onClick={() => handleDeleteAssignment(index)}
-                          className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+                          className="p-2 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-colors"
                           title="Delete Assignment"
                         >
                           <i className="fas fa-trash text-sm"></i>
-                          <span className="text-sm">Delete</span>
                         </button>
                       </div>
                     </div>
@@ -167,16 +163,11 @@ export default function JobAssignments() {
                       </div>
                       <div>
                         <div className="text-xs text-slate-400">Build Phases</div>
-                        <div className="text-white">{assignment.buildPhases?.length || 0} phases</div>
-                        {assignment.buildPhases && assignment.buildPhases.length > 0 && (
-                          <div className="text-xs text-slate-400 mt-1">
-                            {assignment.buildPhases.join(', ')}
-                          </div>
-                        )}
+                        <div className="text-white">{assignment.selectedPhases?.length || 0} phases</div>
                       </div>
                       <div>
                         <div className="text-xs text-slate-400">Contact</div>
-                        <div className="text-white">{assignment.email || 'N/A'}</div>
+                        <div className="text-white">{assignment.contractorEmail || 'N/A'}</div>
                       </div>
                     </div>
                   </div>

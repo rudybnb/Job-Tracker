@@ -2,7 +2,6 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertJobSchema, insertContractorSchema, jobAssignmentSchema } from "@shared/schema";
-import { TelegramService } from "./telegram";
 import multer from "multer";
 import type { Request as ExpressRequest } from "express";
 
@@ -200,11 +199,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Job Assignment endpoint with Telegram notifications
+  // Job Assignment endpoint
   app.post("/api/assign-job", async (req, res) => {
     try {
-      console.log('📋 Processing job assignment:', req.body);
-      
       const validation = jobAssignmentSchema.safeParse(req.body);
       if (!validation.success) {
         return res.status(400).json({ error: "Invalid assignment data", details: validation.error.errors });
@@ -214,127 +211,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!job) {
         return res.status(404).json({ error: "Job or contractor not found" });
       }
-
-      // Send Telegram notification if contractor has Telegram ID
-      try {
-        if (job.contractor?.telegramId) {
-          const telegramService = new TelegramService();
-          const phases = validation.data.selectedPhases || [];
-          const dueDate = validation.data.dueDate || 'Not specified';
-          
-          console.log('📱 Sending Telegram notification to contractor:', job.contractor.name);
-          
-          const notificationSent = await telegramService.sendJobAssignmentNotification(
-            job.contractor.telegramId,
-            job.title,
-            phases,
-            dueDate,
-            job.location
-          );
-
-          if (notificationSent) {
-            console.log('✅ Telegram notification sent successfully');
-          } else {
-            console.log('⚠️ Failed to send Telegram notification');
-          }
-        } else {
-          console.log('ℹ️ No Telegram ID for contractor, skipping notification');
-        }
-      } catch (telegramError) {
-        console.error('❌ Telegram notification error:', telegramError);
-        // Don't fail the assignment if notification fails
-      }
       
       res.json(job);
     } catch (error) {
       console.error("Error assigning job:", error);
       res.status(500).json({ error: "Failed to assign job" });
-    }
-  });
-
-  // Telegram test endpoint
-  app.get("/api/telegram/test", async (req, res) => {
-    try {
-      const telegramService = new TelegramService();
-      const result = await telegramService.testConnection();
-      res.json(result);
-    } catch (error) {
-      console.error("Telegram test error:", error);
-      res.status(500).json({ success: false, error: (error as Error).message });
-    }
-  });
-
-  // Contractor onboarding with Telegram notification
-  app.post("/api/contractors/onboard", async (req, res) => {
-    try {
-      const validation = insertContractorSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json({ error: "Invalid contractor data", details: validation.error.errors });
-      }
-      
-      const contractor = await storage.createContractor(validation.data);
-
-      // Send welcome notification if Telegram ID provided
-      if (contractor.telegramId) {
-        try {
-          const telegramService = new TelegramService();
-          await telegramService.sendOnboardingNotification(
-            contractor.telegramId,
-            contractor.name,
-            contractor.specialization
-          );
-          console.log('✅ Onboarding notification sent to:', contractor.name);
-        } catch (telegramError) {
-          console.error('❌ Failed to send onboarding notification:', telegramError);
-        }
-      }
-      
-      res.status(201).json(contractor);
-    } catch (error) {
-      console.error("Error creating contractor:", error);
-      res.status(500).json({ error: "Failed to create contractor" });
-    }
-  });
-
-  // Telegram notification endpoint for frontend job assignments
-  app.post("/api/send-telegram-notification", async (req, res) => {
-    try {
-      const { contractorName, phone, hbxlJob, workLocation, buildPhases, startDate, endDate } = req.body;
-      
-      console.log("📱 Telegram notification request received:", { contractorName, phone, hbxlJob });
-      
-      // Only send if phone matches James's number
-      if (phone === '07534251548') {
-        const telegramService = new TelegramService();
-        const message = `🔨 <b>NEW JOB ASSIGNMENT</b>
-
-📋 <b>Job:</b> ${hbxlJob}
-📍 <b>Location:</b> ${workLocation}
-📅 <b>Start Date:</b> ${startDate}
-📅 <b>End Date:</b> ${endDate}
-👤 <b>Contractor:</b> ${contractorName}
-
-<b>Build Phases:</b>
-${buildPhases.map(phase => `• ${phase}`).join('\n')}
-
-Please confirm receipt and start GPS tracking when you begin work.`;
-
-        console.log("📤 Sending message:", message);
-        const result = await telegramService.sendMessage({ 
-          chatId: '7617462316', 
-          message: message,
-          parseMode: 'HTML'
-        });
-        console.log("✅ Telegram result:", result);
-        
-        res.json({ success: true, messageId: result.message_id });
-      } else {
-        console.log("⚠️ Phone number does not match, skipping notification");
-        res.json({ success: false, reason: "Phone number not configured for notifications" });
-      }
-    } catch (error) {
-      console.error("❌ Telegram notification error:", error);
-      res.status(500).json({ error: "Failed to send Telegram notification" });
     }
   });
 
