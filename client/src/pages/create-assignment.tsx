@@ -52,17 +52,7 @@ export default function CreateAssignment() {
   const [availablePhases, setAvailablePhases] = useState<string[]>([]);
   const { toast } = useToast();
 
-  // Build phases that can be selected
-  const buildPhases = [
-    "Footings",
-    "Foundations", 
-    "Groundwork",
-    "Oversite and Slabbing",
-    "Masonry Shell",
-    "Roof Structure",
-    "Roof Tiling",
-    "External Decoration"
-  ];
+  // Dynamic build phases will be loaded from CSV data
 
   useEffect(() => {
     // Load uploaded jobs from localStorage
@@ -75,18 +65,29 @@ export default function CreateAssignment() {
   }, []);
 
   useEffect(() => {
-    // When HBXL job is selected, load available phases
+    // When HBXL job is selected, load available phases from CSV data
     if (selectedHbxlJob) {
       const selectedJob = uploadedJobs.find(job => job.name === selectedHbxlJob);
-      if (selectedJob && selectedJob.phaseData && Array.isArray(selectedJob.phaseData)) {
-        const phases = selectedJob.phaseData.map((phase: any) => phase.description || phase.phase || phase);
-        setAvailablePhases(phases);
-        console.log('Available phases for', selectedHbxlJob, ':', phases);
+      if (selectedJob && selectedJob.phaseData) {
+        console.log('Found job with phase data:', selectedJob);
+        console.log('Phase data type:', typeof selectedJob.phaseData);
+        console.log('Phase data content:', selectedJob.phaseData);
+        
+        // Extract unique phases from the phaseData object
+        if (typeof selectedJob.phaseData === 'object' && selectedJob.phaseData !== null) {
+          const phases = Object.keys(selectedJob.phaseData);
+          setAvailablePhases(phases);
+          console.log('Available phases extracted from CSV for', selectedHbxlJob, ':', phases);
+        } else {
+          console.log('Phase data is not an object, setting empty phases');
+          setAvailablePhases([]);
+        }
       } else {
-        // Fallback to default build phases if no phase data available
-        setAvailablePhases(buildPhases);
-        console.log('No phase data found, using default phases for', selectedHbxlJob);
+        console.log('No phase data found for job:', selectedHbxlJob);
+        setAvailablePhases([]);
       }
+    } else {
+      setAvailablePhases([]);
     }
   }, [selectedHbxlJob, uploadedJobs]);
 
@@ -99,7 +100,7 @@ export default function CreateAssignment() {
   };
 
   const handleSelectAllPhases = () => {
-    setSelectedPhases([...buildPhases]);
+    setSelectedPhases([...availablePhases]);
   };
 
   const handleClearAllPhases = () => {
@@ -307,24 +308,30 @@ export default function CreateAssignment() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  {buildPhases.map((phase) => (
-                    <div key={phase} className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        id={phase}
-                        checked={selectedPhases.includes(phase)}
-                        onChange={() => handlePhaseToggle(phase)}
-                        className="w-4 h-4 text-yellow-400 bg-slate-700 border-slate-600 rounded focus:ring-yellow-500"
-                      />
-                      <label htmlFor={phase} className="text-white text-sm">
-                        {phase}
-                      </label>
+                  {availablePhases.length > 0 ? (
+                    availablePhases.map((phase) => (
+                      <div key={phase} className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id={phase}
+                          checked={selectedPhases.includes(phase)}
+                          onChange={() => handlePhaseToggle(phase)}
+                          className="w-4 h-4 text-yellow-400 bg-slate-700 border-slate-600 rounded focus:ring-yellow-500"
+                        />
+                        <label htmlFor={phase} className="text-white text-sm">
+                          {phase}
+                        </label>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-2 text-slate-400 text-sm text-center py-4">
+                      Loading phases from CSV data...
                     </div>
-                  ))}
+                  )}
                 </div>
                 
                 <div className="mt-2 text-slate-400 text-sm">
-                  Selected: {selectedPhases.length} phases from {selectedHbxlJob}
+                  Selected: {selectedPhases.length} of {availablePhases.length} phases from {selectedHbxlJob}
                 </div>
               </div>
             )}
