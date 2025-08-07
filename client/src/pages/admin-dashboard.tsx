@@ -156,7 +156,7 @@ export default function AdminDashboard() {
                   <button 
                     onClick={() => {
                       setShowAvatarDropdown(false);
-                      toast({ title: "Contractor Onboarding", description: "Opening contractor onboarding..." });
+                      window.location.href = '/contractor-onboarding';
                     }}
                     className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
                   >
