@@ -1,18 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "./ui/button";
 
 export default function AccountSwitcher() {
-  const [, setLocation] = useLocation();
-  const [currentUser, setCurrentUser] = useState("contractor"); // contractor or admin
+  const [location, setLocation] = useLocation();
+  const [currentUser, setCurrentUser] = useState(() => {
+    // Initialize based on current route
+    return location.startsWith('/admin') ? "admin" : "contractor";
+  });
+
+  // Update currentUser when location changes
+  useEffect(() => {
+    if (location.startsWith('/admin')) {
+      setCurrentUser("admin");
+    } else {
+      setCurrentUser("contractor");
+    }
+  }, [location]);
 
   const switchToAdmin = () => {
-    setCurrentUser("admin");
     setLocation("/admin");
   };
 
   const switchToContractor = () => {
-    setCurrentUser("contractor");
     setLocation("/");
   };
 
