@@ -39,27 +39,18 @@ export default function AdminDashboard() {
   };
 
   const handleCreateJob = () => {
-    toast({
-      title: "Create Job",
-      description: "Opening job creation form...",
-    });
-    // Would open job creation modal or page
+    // Navigate to job assignments page where admins can create and assign jobs
+    window.location.href = '/job-assignments';
   };
 
   const handleTimeTracking = () => {
-    toast({
-      title: "Time Tracking",
-      description: "Opening time tracking interface...",
-    });
-    // Would open time tracking interface
+    // Navigate to admin task monitor for time tracking oversight
+    window.location.href = '/admin-task-monitor';
   };
 
   const handleAssignments = () => {
-    toast({
-      title: "Assignments",
-      description: "Opening assignments management...",
-    });
-    // Would open assignments management page
+    // Navigate to job assignments management page
+    window.location.href = '/job-assignments';
   };
 
   return (
