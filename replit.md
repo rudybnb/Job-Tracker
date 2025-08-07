@@ -99,10 +99,11 @@ CSV Upload → Job Creation → HBXL Assignment → Phase Selection → Subtask 
 ## User Interface Theme
 
 Dark navy background (#1e293b) with:
-- Yellow/orange headers and action buttons (#eab308, #ea580c)
+- Muted yellow-grey headers and text (#d97706, #ca8a04) - softer, less bright yellow tones
 - Rounded cards with slate borders (#374151)
 - Consistent bottom navigation with active state highlighting
 - GPS coordinates and timer displays matching provided screenshots exactly
+- Applications management moved to contractor applications page rather than admin dashboard
 
 ## System Architecture
 

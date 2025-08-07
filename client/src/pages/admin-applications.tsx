@@ -304,7 +304,7 @@ export default function AdminApplications() {
 
   return (
     <div className="min-h-screen bg-slate-800 text-white">
-      <div className="bg-yellow-500 text-black p-4">
+      <div className="bg-slate-700 text-white p-4 border-b border-slate-600">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-2xl font-bold">Contractor Applications</h1>
           <p className="text-sm opacity-75">Review and manage contractor applications</p>
@@ -317,10 +317,10 @@ export default function AdminApplications() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-yellow-500">{pendingApplications.length}</p>
+                  <p className="text-2xl font-bold text-yellow-600">{pendingApplications.length}</p>
                   <p className="text-sm text-gray-300">Pending Review</p>
                 </div>
-                <Clock className="w-8 h-8 text-yellow-500" />
+                <Clock className="w-8 h-8 text-yellow-600" />
               </div>
             </CardContent>
           </Card>
@@ -431,6 +431,43 @@ export default function AdminApplications() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Bottom Navigation for Applications */}
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
+        <div className="grid grid-cols-4 text-center">
+          <button 
+            onClick={() => setActiveTab("pending")}
+            className={`py-3 px-4 ${activeTab === "pending" ? "text-yellow-600" : "text-slate-400 hover:text-white"}`}
+          >
+            <Clock className="w-5 h-5 mx-auto mb-1" />
+            <span className="text-xs">Pending ({pendingApplications.length})</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab("approved")}
+            className={`py-3 px-4 ${activeTab === "approved" ? "text-yellow-600" : "text-slate-400 hover:text-white"}`}
+          >
+            <CheckCircle className="w-5 h-5 mx-auto mb-1" />
+            <span className="text-xs">Approved ({approvedApplications.length})</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab("rejected")}
+            className={`py-3 px-4 ${activeTab === "rejected" ? "text-yellow-600" : "text-slate-400 hover:text-white"}`}
+          >
+            <XCircle className="w-5 h-5 mx-auto mb-1" />
+            <span className="text-xs">Rejected ({rejectedApplications.length})</span>
+          </button>
+          <button 
+            onClick={() => window.location.href = '/contractor-onboarding-clean'}
+            className="py-3 px-4 text-slate-400 hover:text-yellow-600"
+          >
+            <i className="fas fa-user-plus block mb-1"></i>
+            <span className="text-xs">Send Form</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom padding to account for fixed navigation */}
+      <div className="h-20"></div>
     </div>
   );
 }

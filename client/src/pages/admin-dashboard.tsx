@@ -108,7 +108,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-yellow-600 rounded-lg flex items-center justify-center">
             <span className="text-black font-bold text-sm">Pro</span>
           </div>
           <div>
@@ -119,7 +119,7 @@ export default function AdminDashboard() {
         <div className="flex items-center space-x-2">
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
           <span className="text-sm text-green-500">Online</span>
-          <i className="fas fa-sun text-yellow-400 ml-2"></i>
+          <i className="fas fa-sun text-yellow-600 ml-2"></i>
           <div className="relative">
             <button 
               onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
@@ -386,8 +386,8 @@ export default function AdminDashboard() {
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <i className="fas fa-signal text-yellow-400"></i>
-              <h3 className="text-lg font-semibold text-yellow-400">GPS Status</h3>
+              <i className="fas fa-signal text-yellow-600"></i>
+              <h3 className="text-lg font-semibold text-yellow-600">GPS Status</h3>
             </div>
             <div className="flex items-center space-x-2">
               <Badge className={getStatusColor(gpsStatus)}>
@@ -425,8 +425,8 @@ export default function AdminDashboard() {
         {/* GPS Time Tracker Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <div className="flex items-center mb-4">
-            <i className="fas fa-clock text-yellow-400 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-400">GPS Time Tracker</h3>
+            <i className="fas fa-clock text-yellow-600 mr-2"></i>
+            <h3 className="text-lg font-semibold text-yellow-600">GPS Time Tracker</h3>
           </div>
           
           <div className="text-center space-y-4">
@@ -461,36 +461,31 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Admin Quick Actions Card */}
+        {/* Priority Issues Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <div className="flex items-center mb-4">
-            <i className="fas fa-tachometer-alt text-yellow-400 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-400">Admin Quick Actions</h3>
+            <i className="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
+            <h3 className="text-lg font-semibold text-yellow-600">Priority Issues</h3>
           </div>
           
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={() => window.location.href = '/admin-applications'}
-              className="bg-green-600 hover:bg-green-700 text-white p-4 h-auto flex flex-col items-center"
-            >
-              <i className="fas fa-clipboard-list text-2xl mb-2"></i>
-              <span className="text-sm font-medium">Review Applications</span>
-            </Button>
-            <Button
-              onClick={() => window.location.href = '/contractor-onboarding-clean'}
-              className="bg-blue-600 hover:bg-blue-700 text-white p-4 h-auto flex flex-col items-center"
-            >
-              <i className="fas fa-user-plus text-2xl mb-2"></i>
-              <span className="text-sm font-medium">Send Contractor Form</span>
-            </Button>
+          <div className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 flex items-center justify-center">
+                <i className="fas fa-exclamation-triangle text-green-400 text-4xl"></i>
+              </div>
+            </div>
+            
+            <div className="text-slate-400 text-sm">
+              No urgent issues reported. All systems running smoothly.
+            </div>
           </div>
         </div>
 
         {/* Overdue Projects Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <div className="flex items-center mb-4">
-            <i className="fas fa-calendar-times text-yellow-400 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-400">Overdue Projects</h3>
+            <i className="fas fa-calendar-times text-yellow-600 mr-2"></i>
+            <h3 className="text-lg font-semibold text-yellow-600">Overdue Projects</h3>
           </div>
           
           <div className="text-center space-y-4">
@@ -509,8 +504,8 @@ export default function AdminDashboard() {
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
-        <div className="grid grid-cols-5 text-center">
-          <button className="py-3 px-4 text-yellow-400">
+        <div className="grid grid-cols-4 text-center">
+          <button className="py-3 px-4 text-yellow-600">
             <i className="fas fa-home block mb-1"></i>
             <span className="text-xs">Dashboard</span>
           </button>
@@ -520,13 +515,6 @@ export default function AdminDashboard() {
           >
             <i className="fas fa-briefcase block mb-1"></i>
             <span className="text-xs">Jobs</span>
-          </button>
-          <button 
-            onClick={() => window.location.href = '/admin-applications'}
-            className="py-3 px-4 text-slate-400 hover:text-yellow-400"
-          >
-            <i className="fas fa-clipboard-list block mb-1"></i>
-            <span className="text-xs">Applications</span>
           </button>
           <button 
             onClick={() => window.location.href = '/admin-task-monitor'}
