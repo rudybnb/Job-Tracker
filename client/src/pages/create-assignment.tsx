@@ -55,50 +55,16 @@ export default function CreateAssignment() {
   // Dynamic build phases will be loaded from CSV data
 
   useEffect(() => {
-    // Clear old cached data and create fresh sample jobs
-    localStorage.removeItem('uploadedJobs');
-    console.log('Cleared old job data, creating fresh sample jobs');
-    
-    // Create sample jobs with proper phase data and real property details
-    const sampleJobs = [
-      {
-        id: 'sample-1',
-        name: 'Flat 2, 45 High Street - Kitchen Fitout',
-        location: 'DA17 5DB',
-        status: 'approved' as const,
-        dataType: 'CSV Data',
-        uploadedAt: new Date().toLocaleDateString('en-GB'),
-        phaseData: {
-          'Kitchen Fitout': [
-            { task: 'Cabinet installation', quantity: 12, description: 'Install kitchen cabinets (12 units)', unit: 'units', code: 'KF001' },
-            { task: 'Worktop fitting', quantity: 8, description: 'Fit worktops (8 m)', unit: 'm', code: 'KF002' }
-          ],
-          'Electrical': [
-            { task: 'Wiring installation', quantity: 15, description: 'Install electrical wiring (15 points)', unit: 'points', code: 'EL001' }
-          ]
-        }
-      },
-      {
-        id: 'sample-2',
-        name: 'Apartment 12B, Riverside Tower - Full Refurbishment',
-        location: 'SE1 9RT',
-        status: 'approved' as const,
-        dataType: 'CSV Data',
-        uploadedAt: new Date().toLocaleDateString('en-GB'),
-        phaseData: {
-          'Bathroom Fitout': [
-            { task: 'Tile installation', quantity: 30, description: 'Install bathroom tiles (30 m²)', unit: 'm²', code: 'BF001' }
-          ],
-          'Electrical': [
-            { task: 'Full rewiring', quantity: 25, description: 'Complete electrical rewiring (25 points)', unit: 'points', code: 'EL001' }
-          ]
-        }
-      }
-    ];
-      
-    setUploadedJobs(sampleJobs);
-    localStorage.setItem('uploadedJobs', JSON.stringify(sampleJobs));
-    console.log('Created sample jobs with phase data:', sampleJobs);
+    // Load uploaded jobs from localStorage (from real CSV uploads)
+    const savedJobs = localStorage.getItem('uploadedJobs');
+    if (savedJobs) {
+      const jobs = JSON.parse(savedJobs);
+      setUploadedJobs(jobs);
+      console.log('Loaded real jobs from CSV uploads:', jobs);
+    } else {
+      console.log('No uploaded jobs found. Upload CSV files first to create jobs for assignment.');
+      setUploadedJobs([]);
+    }
   }, []);
 
   useEffect(() => {
