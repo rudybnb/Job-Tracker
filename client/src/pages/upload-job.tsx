@@ -75,7 +75,7 @@ export default function UploadJob() {
         name: '',
         address: '',
         postCode: '',
-        projectType: ''
+        projectType: 'Renovation' // Default to renovation, will be determined from phases
       };
 
       let dataStartRow = 0;
@@ -429,6 +429,35 @@ export default function UploadJob() {
       // Update metadata
       structuredData.metadata.phasesDetected = Object.keys(structuredData.phases).length;
       
+      // Determine project type based on detected phases
+      const detectedPhases = Object.keys(structuredData.phases);
+      const determineProjectType = (phases: string[]) => {
+        const phaseList = phases.map(p => p.toLowerCase());
+        
+        // Count different types of work
+        const foundationWork = phaseList.some(p => p.includes('foundation') || p.includes('ground floor'));
+        const structuralWork = phaseList.some(p => p.includes('structural') || p.includes('masonry') || p.includes('roof'));
+        const fittingWork = phaseList.some(p => p.includes('fitting') || p.includes('kitchen') || p.includes('bathroom'));
+        const decorativeWork = phaseList.some(p => p.includes('painting') || p.includes('decorat') || p.includes('flooring'));
+        
+        // Determine project type based on work scope
+        if (foundationWork && structuralWork) {
+          return 'New Build';
+        } else if (structuralWork && fittingWork) {
+          return 'Extension';
+        } else if (fittingWork && decorativeWork && !structuralWork) {
+          return 'Renovation';
+        } else if (fittingWork && !decorativeWork) {
+          return 'Fitout';
+        } else {
+          return 'Renovation'; // Default for smaller projects
+        }
+      };
+      
+      // Set the determined project type
+      clientInfo.projectType = determineProjectType(detectedPhases);
+      console.log(`✓ Project type determined as: ${clientInfo.projectType} based on phases:`, detectedPhases);
+      
       // Convert to old format for compatibility
       const phaseData: Record<string, Array<{task: string, quantity: number, description: string, unit: string, code: string}>> = {};
       
@@ -514,15 +543,21 @@ export default function UploadJob() {
         return;
       }
 
+      // Determine job type from phases for proper classification
+      const phaseNames = Object.keys(csvData.phaseData);
+      const jobType = csvData.clientInfo?.projectType || 'Renovation';
+      
       const newJob: UploadedJob & { phaseData?: any } = {
         id: Date.now().toString(),
-        name: jobName,
+        name: `${jobType} - ${jobName}`, // Include job type in name
         location: location,
         price: "£0",
         status: "approved",
         dataType: "CSV Data", 
         uploadedAt: new Date().toLocaleDateString('en-GB'),
-        phaseData: csvData.phaseData
+        phaseData: csvData.phaseData,
+        jobType: jobType,
+        detectedPhases: phaseNames
       };
 
       console.log('Created newJob:', newJob);
