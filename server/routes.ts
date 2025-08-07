@@ -434,6 +434,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Clear all applications endpoint for admin
+  app.delete("/api/contractor-applications", async (req, res) => {
+    try {
+      (storage as any).contractorApplications.clear();
+      console.log("🧹 All contractor applications cleared from memory");
+      res.json({ message: "All applications cleared successfully" });
+    } catch (error) {
+      console.error("Error clearing applications:", error);
+      res.status(500).json({ error: "Failed to clear applications" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
