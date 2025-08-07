@@ -175,23 +175,40 @@ function ApplicationCard({ application, onStatusUpdate, onAdminUpdate }: Applica
         </div>
 
         {application.status === "pending" && (
-          <div className="flex gap-2 mt-4 pt-4 border-t">
+          <div className="flex gap-3 mt-6 pt-4 border-t">
             <Button
-              size="sm"
-              className="bg-green-600 hover:bg-green-700"
+              size="lg"
+              className="bg-green-600 hover:bg-green-700 flex-1 py-3 text-base font-medium"
               onClick={() => onStatusUpdate(application.id, "approved")}
             >
-              <CheckCircle className="w-4 h-4 mr-1" />
-              Approve
+              <CheckCircle className="w-5 h-5 mr-2" />
+              Approve Application
             </Button>
             <Button
-              size="sm"
+              size="lg"
               variant="destructive"
+              className="flex-1 py-3 text-base font-medium"
               onClick={() => onStatusUpdate(application.id, "rejected")}
             >
-              <XCircle className="w-4 h-4 mr-1" />
-              Reject
+              <XCircle className="w-5 h-5 mr-2" />
+              Reject Application
             </Button>
+          </div>
+        )}
+        {application.status === "approved" && (
+          <div className="mt-4 pt-4 border-t">
+            <Badge className="bg-green-100 text-green-800 border-green-300 px-4 py-2 text-sm">
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Application Approved
+            </Badge>
+          </div>
+        )}
+        {application.status === "rejected" && (
+          <div className="mt-4 pt-4 border-t">
+            <Badge className="bg-red-100 text-red-800 border-red-300 px-4 py-2 text-sm">
+              <XCircle className="w-4 h-4 mr-2" />
+              Application Rejected
+            </Badge>
           </div>
         )}
       </CardContent>
