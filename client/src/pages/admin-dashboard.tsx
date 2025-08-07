@@ -39,6 +39,7 @@ export default function AdminDashboard() {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [gpsPosition, setGpsPosition] = useState<GPSPosition | null>(null);
   const [gpsStatus, setGpsStatus] = useState<"Good" | "Poor" | "Unavailable">("Good");
+  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const { toast } = useToast();
 
   // Mock GPS data to match screenshot
@@ -119,8 +120,233 @@ export default function AdminDashboard() {
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
           <span className="text-sm text-green-500">Online</span>
           <i className="fas fa-sun text-yellow-400 ml-2"></i>
-          <div className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4">
-            <span className="text-white font-bold text-sm">RD</span>
+          <div className="relative">
+            <button 
+              onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
+              className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4 hover:bg-yellow-700 transition-colors"
+            >
+              <span className="text-white font-bold text-sm">RD</span>
+            </button>
+            <i className="fas fa-chevron-down text-slate-400 text-xs ml-1"></i>
+            
+            {/* Avatar Dropdown */}
+            {showAvatarDropdown && (
+              <div className="absolute right-0 mt-2 w-80 bg-slate-800 rounded-lg shadow-xl border border-slate-600 z-50 max-h-96 overflow-y-auto">
+                <div className="p-4 border-b border-slate-600">
+                  <div className="font-medium text-white">Rudy Diedericks</div>
+                  <div className="text-sm text-slate-400">rudy@erbuildanddesign.co.uk</div>
+                  <div className="flex items-center mt-2">
+                    <i className="fas fa-shield-alt text-red-500 mr-2"></i>
+                    <span className="text-red-400 text-sm">Admin Access</span>
+                  </div>
+                </div>
+                
+                <div className="py-2">
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Account Switching", description: "Switch account functionality" });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-user-friends mr-3 w-4"></i>
+                    Switch Account
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Contractor Onboarding", description: "Opening contractor onboarding..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-user-plus mr-3 w-4"></i>
+                    Contractor Onboarding
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      window.location.href = '/job-assignments';
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-tasks mr-3 w-4"></i>
+                    Assignment Management
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "HBXL Labour Assignments", description: "Opening labour assignments..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-hammer mr-3 w-4"></i>
+                    HBXL Labour Assignments
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Contractor Onboarding", description: "Opening contractor onboarding..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-user-plus mr-3 w-4"></i>
+                    Contractor Onboarding
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Cost Analysis", description: "Opening HBXL vs Daily cost analysis..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-chart-bar mr-3 w-4"></i>
+                    HBXL vs Daily Cost Analysis
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Planning System", description: "Opening hybrid planning system..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-project-diagram mr-3 w-4"></i>
+                    Hybrid Planning System
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      window.location.href = '/upload';
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-cloud-upload-alt mr-3 w-4"></i>
+                    HBXL Job Upload & Approval
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Export & Archive", description: "Opening export and archive..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-download mr-3 w-4"></i>
+                    Export & Archive
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Create Contractor", description: "Creating James contractor profile..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-user-plus mr-3 w-4"></i>
+                    Create Contractor (James)
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Preview Interface", description: "Opening James's contractor interface..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-eye mr-3 w-4"></i>
+                    Preview James's Interface
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Telegram Notifications", description: "Opening Telegram settings..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fab fa-telegram mr-3 w-4"></i>
+                    Telegram Notifications
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "AI Agent Management", description: "Opening AI agent management..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-robot mr-3 w-4"></i>
+                    AI Agent Management
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Project Estimation", description: "Opening project estimation & materials..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-calculator mr-3 w-4"></i>
+                    Project Estimation & Materials
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Supplier Comparison", description: "Opening supplier price comparison..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-dollar-sign mr-3 w-4"></i>
+                    Supplier Price Comparison
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Quality Control", description: "Opening work inspection & quality control..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-clipboard-check mr-3 w-4"></i>
+                    Work Inspection & Quality Control
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "CIS Payroll", description: "Opening CIS payroll system..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-receipt mr-3 w-4"></i>
+                    CIS Payroll
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      toast({ title: "Accounting Exports", description: "Opening accounting exports..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                  >
+                    <i className="fas fa-file-export mr-3 w-4"></i>
+                    Accounting Exports
+                  </button>
+                </div>
+                
+                <div className="border-t border-slate-600 py-2">
+                  <div className="px-4 py-1 text-slate-400 text-sm font-medium">Documents</div>
+                  <div className="px-4 py-1 text-slate-400 text-sm font-medium">Help & Support</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
