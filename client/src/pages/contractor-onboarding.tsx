@@ -180,34 +180,95 @@ export default function ContractorOnboarding() {
     try {
       const contractorName = `${firstName} ${lastName}`;
       
-      // Send onboarding form to contractor via Telegram
-      const telegramMessage = `🔨 CONTRACTOR ONBOARDING - Welcome to JobFlow!
+      // Send comprehensive onboarding form to contractor via Telegram
+      const telegramMessage = `🔨 CONTRACTOR ONBOARDING FORM - JobFlow
 
 👤 Hello ${contractorName}!
 
-We're excited to have you join our contractor network. Please complete your comprehensive onboarding process:
+Please complete this 6-step onboarding form and reply with your details:
 
-📋 6-STEP ONBOARDING PROCESS:
-1. Personal Information ✓
-2. Right to Work & Documentation
-3. CIS & Tax Details  
-4. Banking Information
-5. Emergency Contact
-6. Trade & Tools
+📋 STEP 1: PERSONAL INFORMATION
+• Full Name: ${firstName} ${lastName}
+• Email: ${email}
+• Phone: ${phoneNumber}
+• Full Address: [Please provide]
+• City: [Please provide]
+• Postcode: [Please provide]
 
-📱 NEXT STEPS:
-• Complete all 6 steps of the onboarding form
-• Upload required documents (Passport, CSCS Card, Insurance)
-• Verify your CIS tax status
-• Provide banking details for payments
-• Emergency contact information
-• Tool inventory and trade certification
+📋 STEP 2: RIGHT TO WORK & DOCUMENTATION
+• Right to work in UK: [Yes/No]
+• Passport Number: [Please provide]
+• UTR Number: [Please provide]
+• CIS Registration Status: [Registered/Not Registered/Pending]
+• Public Liability Insurance: [Yes/No/Pending]
 
-📞 Contact: ${phoneNumber}
+📋 STEP 3: CIS & TAX DETAILS
+• CIS Verification Status: [Gross/Net/Unregistered]
+• CIS Number (if registered): [Please provide]
+• CSCS Card Number: [Please provide]
+• CSCS Card Expiry: [DD/MM/YYYY]
+
+📋 STEP 4: BANKING INFORMATION
+• Bank Name: [Please provide]
+• Account Number: [Please provide]
+• Sort Code: [Please provide]
+• Account Holder Name: [Please provide]
+
+📋 STEP 5: EMERGENCY CONTACT
+• Emergency Contact Name: [Please provide]
+• Emergency Contact Phone: [Please provide]
+• Relationship: [Spouse/Parent/Sibling/Friend/Other]
+
+📋 STEP 6: TRADE & TOOLS
+• Primary Trade: [Carpenter/Electrician/Plumber/etc.]
+• Years of Experience: [0-1/2-5/6-10/11-15/16+]
+• Own Tools: [Yes-Full kit/Yes-Partial/No-Need provided]
+• Tools List: [Please list your tools]
+• Additional Notes: [Any special requirements]
+
+📤 REPLY FORMAT:
+Please reply to this message with all your information using this format:
+
+STEP 1:
+Full Address: [Your address]
+City: [Your city]
+Postcode: [Your postcode]
+
+STEP 2:
+Right to work: [Yes/No]
+Passport Number: [Number]
+UTR Number: [Number]
+CIS Status: [Status]
+Insurance: [Yes/No]
+
+STEP 3:
+CIS Verification: [Status]
+CIS Number: [If applicable]
+CSCS Number: [Number]
+CSCS Expiry: [Date]
+
+STEP 4:
+Bank: [Bank name]
+Account: [Account number]
+Sort Code: [Sort code]
+Account Holder: [Full name]
+
+STEP 5:
+Emergency Name: [Name]
+Emergency Phone: [Phone]
+Relationship: [Relationship]
+
+STEP 6:
+Trade: [Your primary trade]
+Experience: [Years]
+Tools: [Yes/Partial/No]
+Tools List: [List tools]
+Notes: [Additional info]
+
+📞 Admin Contact: ${phoneNumber}
 📧 Email: ${email}
-🔧 Trade: ${primaryTrade}
 
-Questions? Reply to this message or contact our admin team.
+Once completed, you'll be added to our contractor network and can start receiving job assignments!
 
 Welcome aboard! 🚀`;
 
@@ -227,19 +288,19 @@ Welcome aboard! 🚀`;
 
         if (response.ok) {
           toast({
-            title: "Onboarding Form Sent",
-            description: `Welcome message sent to ${contractorName} via Telegram`,
+            title: "Onboarding Form Sent Successfully",
+            description: `Complete 6-step form sent to ${contractorName} via Telegram. They can now fill it out and send back.`,
           });
         } else {
           toast({
             title: "Form Prepared",
-            description: `Onboarding form ready for ${contractorName}. Contact manually if needed.`,
+            description: `Onboarding form ready for ${contractorName}. Send manually via other contact method if needed.`,
           });
         }
       } else {
         toast({
           title: "Form Prepared", 
-          description: `Onboarding package prepared for ${contractorName}. Send via email or manual contact.`,
+          description: `Complete 6-step onboarding form prepared for ${contractorName}. Send via email or other contact method.`,
         });
       }
 
@@ -768,8 +829,22 @@ Welcome aboard! 🚀`;
         {activeTab === "Send Form" && (
           <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
             <div className="flex items-center mb-6">
-              <i className="fas fa-user-plus text-yellow-400 mr-3 text-xl"></i>
-              <h2 className="text-xl font-semibold text-yellow-400">6-Step Contractor Onboarding</h2>
+              <i className="fas fa-paper-plane text-yellow-400 mr-3 text-xl"></i>
+              <h2 className="text-xl font-semibold text-yellow-400">Send Onboarding Form to Contractor</h2>
+            </div>
+            
+            <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start space-x-3">
+                <i className="fas fa-info-circle text-blue-400 mt-1"></i>
+                <div className="text-blue-300 text-sm">
+                  <p className="font-medium mb-1">How it works:</p>
+                  <p>1. Fill in the contractor's basic details below</p>
+                  <p>2. Click "Send Form" to send the complete 6-step onboarding form via Telegram</p>
+                  <p>3. Contractor receives the form and fills it out in Telegram</p>
+                  <p>4. Contractor replies with all their information</p>
+                  <p>5. Review and approve their application in the "Pending Review" tab</p>
+                </div>
+              </div>
             </div>
             
             {/* Step Indicator */}
