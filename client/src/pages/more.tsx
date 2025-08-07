@@ -231,127 +231,127 @@ export default function More() {
 
       {/* Main Content */}
       <div className="p-4 pb-20">
-        <h1 className="text-2xl font-bold text-yellow-400 mb-6">Earnings & Payroll</h1>
+        <h1 className="text-2xl font-bold text-yellow-400 mb-4">Earnings Dashboard</h1>
 
-        {/* Week Selection */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-slate-400 mb-2">
-            Select Week Ending
-          </label>
+        {/* Top Stats Row */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {/* Net Earnings Card */}
+          <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-xl p-4 text-black">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium opacity-80">This Week</div>
+                <div className="text-2xl font-bold">£{weeklyData.netEarnings.toFixed(0)}</div>
+                <div className="text-xs opacity-70">Net Earnings</div>
+              </div>
+              <i className="fas fa-pound-sign text-3xl opacity-60"></i>
+            </div>
+          </div>
+
+          {/* Hours Card */}
+          <div className="bg-slate-800 border border-slate-600 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-slate-400">Total Hours</div>
+                <div className="text-2xl font-bold text-white">{weeklyData.totalHours.toFixed(1)}</div>
+                <div className="text-xs text-green-400">GPS Verified</div>
+              </div>
+              <i className="fas fa-clock text-3xl text-slate-600"></i>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Stats Grid */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 text-center">
+            <div className="text-lg font-bold text-green-400">£{weeklyData.grossEarnings.toFixed(0)}</div>
+            <div className="text-xs text-slate-400">Gross</div>
+          </div>
+          <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 text-center">
+            <div className="text-lg font-bold text-red-400">-£{weeklyData.cisDeduction.toFixed(0)}</div>
+            <div className="text-xs text-slate-400">CIS ({contractorInfo.cisRate}%)</div>
+          </div>
+          <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 text-center">
+            <div className="text-lg font-bold text-yellow-400">£{contractorInfo.hourlyRate}</div>
+            <div className="text-xs text-slate-400">Rate/Hour</div>
+          </div>
+        </div>
+
+        {/* Week Navigation */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-yellow-400">Week Details</h2>
           <select 
             value={selectedWeek}
             onChange={(e) => setSelectedWeek(e.target.value)}
-            className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"
+            className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1 text-white text-sm"
           >
-            <option value="2025-02-08">Week Ending Feb 8, 2025</option>
-            <option value="2025-02-01">Week Ending Feb 1, 2025</option>
-            <option value="2025-01-25">Week Ending Jan 25, 2025</option>
+            <option value="2025-02-08">Feb 8</option>
+            <option value="2025-02-01">Feb 1</option>
+            <option value="2025-01-25">Jan 25</option>
           </select>
         </div>
 
-        {/* Weekly Summary Card */}
-        <Card className="mb-6 bg-slate-800 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-yellow-400">Weekly Summary</CardTitle>
-            <CardDescription>Week ending {selectedWeek}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Total Hours:</span>
-                  <span className="text-white font-semibold">{weeklyData.totalHours.toFixed(1)}h</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Hourly Rate:</span>
-                  <span className="text-white font-semibold">£{contractorInfo.hourlyRate.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Gross Earnings:</span>
-                  <span className="text-green-400 font-semibold">£{weeklyData.grossEarnings.toFixed(2)}</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">CIS Status:</span>
-                  <Badge variant={contractorInfo.cisRegistered ? "default" : "destructive"}>
-                    {contractorInfo.cisRegistered ? "Registered" : "Not Registered"}
-                  </Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">CIS Deduction ({contractorInfo.cisRate}%):</span>
-                  <span className="text-red-400 font-semibold">-£{weeklyData.cisDeduction.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-lg">
-                  <span className="text-slate-400 font-semibold">Net Earnings:</span>
-                  <span className="text-yellow-400 font-bold">£{weeklyData.netEarnings.toFixed(2)}</span>
-                </div>
+        {/* CIS Status Banner */}
+        <div className="bg-slate-800 border-l-4 border-green-500 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <i className="fas fa-shield-alt text-green-500 mr-3"></i>
+              <div>
+                <div className="text-white font-semibold">CIS Registered</div>
+                <div className="text-slate-400 text-sm">20% tax deduction applied</div>
               </div>
             </div>
-            
-            <div className="mt-4 pt-4 border-t border-slate-700">
-              <Button onClick={handleExportWeek} className="w-full bg-yellow-600 hover:bg-yellow-700 text-black">
-                <i className="fas fa-download mr-2"></i>
-                Export Week for Accounts
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            <Badge variant="default" className="bg-green-600">
+              Compliant
+            </Badge>
+          </div>
+        </div>
 
-        {/* Daily Work Sessions */}
-        <Card className="mb-6 bg-slate-800 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-yellow-400">Daily Work Sessions</CardTitle>
-            <CardDescription>GPS-verified work hours</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {weeklyData.sessions.length === 0 ? (
-                <div className="text-center py-8 text-slate-400">
-                  No work sessions for this week
-                </div>
-              ) : (
-                weeklyData.sessions.map((session) => (
-                  <div key={session.id} className="bg-slate-700 rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h4 className="text-white font-semibold">{session.jobName}</h4>
-                        <div className="text-slate-400 text-sm">{session.location}</div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {session.gpsVerified && (
-                          <Badge variant="default" className="bg-green-600">
-                            <i className="fas fa-map-marker-alt mr-1"></i>
-                            GPS Verified
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-slate-400">Date: </span>
-                        <span className="text-white">{session.date}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Time: </span>
-                        <span className="text-white">{session.startTime} - {session.endTime}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Hours: </span>
-                        <span className="text-white">{session.hoursWorked.toFixed(1)}h</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Earnings: </span>
-                        <span className="text-green-400 font-semibold">£{session.grossEarnings.toFixed(2)}</span>
-                      </div>
+        {/* Daily Sessions - Compact View */}
+        <div className="space-y-3 mb-6">
+          <h3 className="text-lg font-semibold text-yellow-400">Daily Breakdown</h3>
+          {weeklyData.sessions.length === 0 ? (
+            <div className="text-center py-8 text-slate-400 bg-slate-800 rounded-lg">
+              <i className="fas fa-calendar-times text-3xl mb-2"></i>
+              <div>No work sessions this week</div>
+            </div>
+          ) : (
+            weeklyData.sessions.map((session) => (
+              <div key={session.id} className="bg-slate-800 border border-slate-600 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                    <div>
+                      <div className="text-white font-medium text-sm">{session.date}</div>
+                      <div className="text-slate-400 text-xs">{session.startTime} - {session.endTime}</div>
                     </div>
                   </div>
-                ))
-              )}
+                  <div className="text-right">
+                    <div className="text-white font-semibold">{session.hoursWorked.toFixed(1)}h</div>
+                    <div className="text-green-400 text-sm">£{session.grossEarnings.toFixed(0)}</div>
+                  </div>
+                </div>
+                <div className="text-slate-400 text-sm truncate">
+                  <i className="fas fa-map-marker-alt mr-1"></i>
+                  {session.jobName}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Export Action */}
+        <div className="bg-slate-800 border border-slate-600 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-white font-semibold">Weekly Export</div>
+              <div className="text-slate-400 text-sm">Generate payroll data for accounting</div>
             </div>
-          </CardContent>
-        </Card>
+            <i className="fas fa-file-export text-yellow-400 text-xl"></i>
+          </div>
+          <Button onClick={handleExportWeek} className="w-full bg-yellow-600 hover:bg-yellow-700 text-black font-semibold">
+            Export Week Ending {new Date(selectedWeek).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
+          </Button>
+        </div>
       </div>
 
       {/* Bottom Navigation */}
