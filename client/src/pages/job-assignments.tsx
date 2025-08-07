@@ -153,26 +153,26 @@ export default function JobAssignments() {
                           )}
                         </div>
                       </div>
-                      <div className="text-right flex items-center space-x-2">
-                        <div>
-                          <div className="text-sm text-slate-400">Phases</div>
-                          <div className="text-blue-400 font-medium">
+                      <div className="text-right flex items-center space-x-3">
+                        <div className="text-center">
+                          <div className="text-xs text-slate-400">Status</div>
+                          <div className="text-green-400 font-medium text-sm">Assigned</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-slate-400">Phases</div>
+                          <div className="text-blue-400 font-medium text-sm">
                             {assignment.buildPhases && Array.isArray(assignment.buildPhases) 
-                              ? `${assignment.buildPhases.length} phases`
-                              : '0 phases'
+                              ? assignment.buildPhases.length
+                              : 0
                             }
                           </div>
                         </div>
-                        <div>
-                          <div className="text-sm text-slate-400">Status</div>
-                          <div className="text-green-400 font-medium">Assigned</div>
-                        </div>
                         <button
                           onClick={() => handleDeleteAssignment(index)}
-                          className="p-2 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-colors"
+                          className="p-3 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-colors border border-red-800 hover:border-red-600"
                           title="Delete Assignment"
                         >
-                          <i className="fas fa-trash text-sm"></i>
+                          <i className="fas fa-trash text-lg"></i>
                         </button>
                       </div>
                     </div>
