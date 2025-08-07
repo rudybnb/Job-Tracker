@@ -20,8 +20,14 @@ export default function UploadJob() {
   const [jobReference, setJobReference] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [uploadedJobs, setUploadedJobs] = useState<UploadedJob[]>([]);
-  const [processedCSVs, setProcessedCSVs] = useState<any[]>([]);
+  const [uploadedJobs, setUploadedJobs] = useState<UploadedJob[]>(() => {
+    const saved = localStorage.getItem('uploadedJobs');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [processedCSVs, setProcessedCSVs] = useState<any[]>(() => {
+    const saved = localStorage.getItem('processedCSVs');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showCreateJobForm, setShowCreateJobForm] = useState<string | null>(null);
 
   const handleHbxlFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,7 +154,9 @@ export default function UploadJob() {
         status: "processed" as const
       };
 
-      setProcessedCSVs((prev: any[]) => [...prev, processedCSV]);
+      const updatedCSVs = [...processedCSVs, processedCSV];
+      setProcessedCSVs(updatedCSVs);
+      localStorage.setItem('processedCSVs', JSON.stringify(updatedCSVs));
 
       toast({
         title: "CSV Processed Successfully", 
@@ -204,7 +212,9 @@ export default function UploadJob() {
   };
 
   const handleDeleteJob = (jobId: string) => {
-    setUploadedJobs(prev => prev.filter(job => job.id !== jobId));
+    const updatedJobs = uploadedJobs.filter(job => job.id !== jobId);
+    setUploadedJobs(updatedJobs);
+    localStorage.setItem('uploadedJobs', JSON.stringify(updatedJobs));
     toast({
       title: "Job deleted",
       description: "Job has been removed",
@@ -212,7 +222,9 @@ export default function UploadJob() {
   };
 
   const handleDeleteUpload = (csvId: string) => {
-    setProcessedCSVs(prev => prev.filter(csv => csv.id !== csvId));
+    const updatedCSVs = processedCSVs.filter(csv => csv.id !== csvId);
+    setProcessedCSVs(updatedCSVs);
+    localStorage.setItem('processedCSVs', JSON.stringify(updatedCSVs));
     toast({
       title: "Upload Deleted",
       description: "CSV upload has been removed. You can no longer create jobs from this data.",
@@ -221,6 +233,7 @@ export default function UploadJob() {
 
   const clearAllJobs = () => {
     setUploadedJobs([]);
+    localStorage.setItem('uploadedJobs', JSON.stringify([]));
     toast({
       title: "All jobs cleared",
       description: "All uploaded jobs have been removed",
