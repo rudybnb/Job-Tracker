@@ -180,8 +180,7 @@ export default function UploadJob() {
     // Store in localStorage for job assignments page
     localStorage.setItem('uploadedJobs', JSON.stringify(updatedJobs));
     
-    // Remove from processed CSVs
-    setProcessedCSVs(prev => prev.filter(csv => csv.id !== csvId));
+    // Keep CSV for multiple job creation - don't remove
     setShowCreateJobForm(null);
 
     toast({
@@ -209,6 +208,14 @@ export default function UploadJob() {
     toast({
       title: "Job deleted",
       description: "Job has been removed",
+    });
+  };
+
+  const handleDeleteUpload = (csvId: string) => {
+    setProcessedCSVs(prev => prev.filter(csv => csv.id !== csvId));
+    toast({
+      title: "Upload Deleted",
+      description: "CSV upload has been removed. You can no longer create jobs from this data.",
     });
   };
 
@@ -361,8 +368,11 @@ export default function UploadJob() {
           <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 mb-4">
             <h3 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
               <i className="fas fa-cog mr-2"></i>
-              Processed CSVs - Create Jobs
+              CSV Uploads - Create Multiple Jobs
             </h3>
+            <p className="text-slate-400 text-sm mb-4">
+              Create multiple jobs from the same upload. Delete upload only when the entire project is complete.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {processedCSVs.map((csv) => (
                 <div key={csv.id} className="bg-slate-700 p-4 rounded-lg border border-slate-600">
@@ -373,16 +383,29 @@ export default function UploadJob() {
                   <p className="text-slate-400 text-sm mb-2">
                     {Object.keys(csv.phaseData).length} phases detected
                   </p>
-                  <p className="text-slate-400 text-sm mb-3">
+                  <p className="text-slate-400 text-sm mb-1">
                     Phases: {Object.keys(csv.phaseData).slice(0, 3).join(', ')}{Object.keys(csv.phaseData).length > 3 ? '...' : ''}
                   </p>
-                  <Button
-                    onClick={() => setShowCreateJobForm(csv.id)}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    <i className="fas fa-plus mr-2"></i>
-                    Create Job
-                  </Button>
+                  <p className="text-green-400 text-xs mb-3">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    Upload kept for multiple job creation
+                  </p>
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => setShowCreateJobForm(csv.id)}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <i className="fas fa-plus mr-2"></i>
+                      Create Job
+                    </Button>
+                    <Button
+                      onClick={() => handleDeleteUpload(csv.id)}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white text-sm"
+                    >
+                      <i className="fas fa-trash mr-2"></i>
+                      Delete Upload
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
