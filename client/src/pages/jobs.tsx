@@ -19,10 +19,8 @@ interface JobAssignment {
 export default function Jobs() {
   const { toast } = useToast();
   
-  // Mock job assignments data - in production this would come from API
-  const [assignments, setAssignments] = useState<JobAssignment[]>([
-    // Empty array initially as shown in screenshot
-  ]);
+  // Load real job assignments from localStorage (created from CSV uploads)
+  const [assignments, setAssignments] = useState<JobAssignment[]>([]);
 
   const handleCreateJob = () => {
     toast({
@@ -33,25 +31,13 @@ export default function Jobs() {
   };
 
   const handleCreateFirstJob = () => {
-    // Demo: Create a sample job assignment
-    const newAssignment: JobAssignment = {
-      id: Date.now().toString(),
-      title: "Flat Installation - Unit 12",
-      contractor: "John Smith",
-      location: "SG1 1EH",
-      status: "pending",
-      deadline: "2025-08-10",
-      priority: "medium",
-      telegramSent: true,
-      createdAt: new Date().toISOString()
-    };
-    
-    setAssignments([newAssignment]);
-    
     toast({
-      title: "Job Assignment Created",
-      description: "Telegram notification sent to contractor",
+      title: "No CSV Data Found",
+      description: "Upload CSV files first to create jobs for assignment",
+      variant: "destructive"
     });
+    // Redirect to upload page
+    window.location.href = '/upload';
   };
 
   const getStatusBadge = (status: JobAssignment["status"]) => {
