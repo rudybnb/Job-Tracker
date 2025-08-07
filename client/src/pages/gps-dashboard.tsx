@@ -236,14 +236,14 @@ export default function GPSDashboard() {
                   </div>
                 </div>
                 
-                {/* Contractor Menu Items */}
+                {/* Simple Contractor Menu Items */}
                 <div className="py-2">
                   <button 
-                    onClick={() => handleMenuAction("Switch Account")}
+                    onClick={() => window.location.href = '/task-progress'}
                     className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 flex items-center"
                   >
-                    <i className="fas fa-user-circle mr-3 text-slate-400"></i>
-                    Switch Account
+                    <i className="fas fa-tasks mr-3 text-slate-400"></i>
+                    My Tasks
                   </button>
                   
                   <button 
@@ -252,22 +252,6 @@ export default function GPSDashboard() {
                   >
                     <i className="fas fa-exclamation-triangle mr-3 text-yellow-400"></i>
                     Report Issue
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Documents")}
-                    className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-file-alt mr-3 text-slate-400"></i>
-                    Documents
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Help & Support")}
-                    className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-question-circle mr-3 text-slate-400"></i>
-                    Help & Support
                   </button>
                   
                   <div className="border-t border-slate-600 mt-2 pt-2">
@@ -280,95 +264,9 @@ export default function GPSDashboard() {
                       className="w-full px-4 py-2 text-left text-red-400 hover:bg-slate-700 flex items-center"
                     >
                       <i className="fas fa-sign-out-alt mr-3 text-red-400"></i>
-                      Sign Out & Switch Account
+                      Logout
                     </button>
                   </div>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Export & Archive")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-download mr-3 text-yellow-400"></i>
-                    Export & Archive
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Create Contractor (James)")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-user-plus mr-3 text-yellow-400"></i>
-                    Create Contractor (James)
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Preview James's Interface")}
-                    className="w-full px-4 py-2 text-left text-slate-300 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-eye mr-3 text-slate-400"></i>
-                    Preview James's Interface
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Telegram Notifications")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fab fa-telegram-plane mr-3 text-yellow-400"></i>
-                    Telegram Notifications
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("AI Agent Management")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-robot mr-3 text-yellow-400"></i>
-                    AI Agent Management
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Project Estimation & Materials")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-calculator mr-3 text-yellow-400"></i>
-                    Project Estimation & Materials
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Supplier Price Comparison")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-dollar-sign mr-3 text-yellow-400"></i>
-                    Supplier Price Comparison
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Work Inspection & Quality Control")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-search mr-3 text-yellow-400"></i>
-                    Work Inspection & Quality Control
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("CIS Payroll")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-money-check-alt mr-3 text-yellow-400"></i>
-                    CIS Payroll
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Accounting Exports")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-file-invoice mr-3 text-yellow-400"></i>
-                    Accounting Exports
-                  </button>
-                </div>
-                
-                {/* Footer Sections */}
-                <div className="border-t border-slate-600 py-2">
-                  <div className="px-4 py-1 text-slate-400 text-sm font-medium">Documents</div>
-                  <div className="px-4 py-1 text-slate-400 text-sm font-medium">Help & Support</div>
                 </div>
               </div>
             )}
