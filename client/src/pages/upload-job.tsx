@@ -418,11 +418,22 @@ export default function UploadJob() {
   };
 
   const clearAllJobs = () => {
+    // Clear all storage data
     setUploadedJobs([]);
-    localStorage.setItem('uploadedJobs', JSON.stringify([]));
+    setProcessedCSVs([]);
+    localStorage.removeItem('uploadedJobs');
+    localStorage.removeItem('processedCSVs');
+    localStorage.removeItem('createdJobs');
+    localStorage.removeItem('assignments');
+    
+    console.log('=== ALL DATA CLEARED ===');
+    console.log('Cleared uploadedJobs, processedCSVs, createdJobs, assignments');
+    console.log('Ready for fresh CSV upload with enhanced processing');
+    
     toast({
-      title: "All jobs cleared",
-      description: "All uploaded jobs have been removed",
+      title: "All data cleared",
+      description: "All data removed. Now upload your CSV file again to use enhanced phase detection.",
+      duration: 5000,
     });
   };
 
