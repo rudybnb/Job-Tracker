@@ -304,7 +304,7 @@ export default function AdminApplications() {
 
   return (
     <div className="min-h-screen bg-slate-800 text-white">
-      <div className="bg-blue-600 text-white p-4">
+      <div className="bg-yellow-500 text-black p-4">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-2xl font-bold">Contractor Applications</h1>
           <p className="text-sm opacity-75">Review and manage contractor applications</p>
@@ -317,10 +317,10 @@ export default function AdminApplications() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-blue-400">{pendingApplications.length}</p>
+                  <p className="text-2xl font-bold text-yellow-500">{pendingApplications.length}</p>
                   <p className="text-sm text-gray-300">Pending Review</p>
                 </div>
-                <Clock className="w-8 h-8 text-blue-400" />
+                <Clock className="w-8 h-8 text-yellow-500" />
               </div>
             </CardContent>
           </Card>
