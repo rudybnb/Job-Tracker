@@ -28,25 +28,48 @@ function LogoutButton() {
 
 export default function ContractorOnboarding() {
   const [activeTab, setActiveTab] = useState("Send Form");
-  const [contractorName, setContractorName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [currentStep, setCurrentStep] = useState(1);
+  
+  // Step 1: Personal Information
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [telegramId, setTelegramId] = useState("");
+  const [fullAddress, setFullAddress] = useState("");
+  const [city, setCity] = useState("");
   const [postcode, setPostcode] = useState("");
-  const [emergencyContact, setEmergencyContact] = useState("");
-  const [emergencyPhone, setEmergencyPhone] = useState("");
-  const [tradeSpecialization, setTradeSpecialization] = useState<string[]>([]);
-  const [yearsExperience, setYearsExperience] = useState("");
-  const [hasInsurance, setHasInsurance] = useState(false);
-  const [hasCSCS, setHasCSCS] = useState(false);
-  const [hasDriversLicense, setHasDriversLicense] = useState(false);
+  
+  // Step 2: Right to Work & Documentation
+  const [hasRightToWork, setHasRightToWork] = useState("");
+  const [passportNumber, setPassportNumber] = useState("");
+  const [passportPhoto, setPassportPhoto] = useState<File | null>(null);
+  const [utrNumber, setUtrNumber] = useState("");
+  const [cisRegistrationStatus, setCisRegistrationStatus] = useState("");
+  const [hasPublicLiability, setHasPublicLiability] = useState("");
+  
+  // Step 3: CIS & Tax Details
+  const [cisVerificationStatus, setCisVerificationStatus] = useState("");
+  const [cisNumber, setCisNumber] = useState("");
+  const [cscsCardNumber, setCscsCardNumber] = useState("");
+  const [cscsExpiry, setCscsExpiry] = useState("");
+  
+  // Step 4: Banking Information
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [sortCode, setSortCode] = useState("");
-  const [niNumber, setNiNumber] = useState("");
-  const [cisStatus, setCisStatus] = useState("");
-  const [availability, setAvailability] = useState("");
-  const [telegramId, setTelegramId] = useState("");
+  const [accountHolderName, setAccountHolderName] = useState("");
+  
+  // Step 5: Emergency Contact
+  const [emergencyContactName, setEmergencyContactName] = useState("");
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
+  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState("");
+  
+  // Step 6: Trade & Tools
+  const [primaryTrade, setPrimaryTrade] = useState("");
+  const [yearsExperience, setYearsExperience] = useState("");
+  const [hasOwnTools, setHasOwnTools] = useState("");
+  const [toolsList, setToolsList] = useState("");
   const [additionalNotes, setAdditionalNotes] = useState("");
   
   const [pendingApplications, setPendingApplications] = useState([
@@ -88,53 +111,101 @@ export default function ContractorOnboarding() {
   const { toast } = useToast();
 
   const tradeOptions = [
-    "Carpentry", "Bricklaying", "Electrical", "Plumbing", "Roofing", 
-    "Plastering", "Painting", "Tiling", "Flooring", "HVAC", 
-    "Landscaping", "Masonry", "Glazing", "Kitchen Fitting", "Bathroom Fitting"
+    "Carpenter", "Electrician", "Plumber", "Bricklayer", "Roofer", 
+    "Plasterer", "Painter & Decorator", "Tiler", "Flooring Specialist", "HVAC Engineer", 
+    "Landscaper", "Mason", "Glazier", "Kitchen Fitter", "Bathroom Fitter"
   ];
 
-  const toggleTradeSpecialization = (trade: string) => {
-    setTradeSpecialization(prev => 
-      prev.includes(trade) 
-        ? prev.filter(t => t !== trade)
-        : [...prev, trade]
-    );
+  const stepTitles = [
+    "Personal Information",
+    "Right to Work & Documentation", 
+    "CIS & Tax Details",
+    "Banking Information",
+    "Emergency Contact",
+    "Trade & Tools"
+  ];
+
+  const validateStep = (step: number): boolean => {
+    switch (step) {
+      case 1:
+        return !!(firstName && lastName && email && phoneNumber && fullAddress && city && postcode);
+      case 2:
+        return !!(hasRightToWork && passportNumber && utrNumber && cisRegistrationStatus && hasPublicLiability);
+      case 3:
+        return !!(cisVerificationStatus && cscsCardNumber && cscsExpiry);
+      case 4:
+        return !!(bankName && accountNumber && sortCode && accountHolderName);
+      case 5:
+        return !!(emergencyContactName && emergencyContactPhone && emergencyContactRelationship);
+      case 6:
+        return !!(primaryTrade && yearsExperience && hasOwnTools);
+      default:
+        return false;
+    }
+  };
+
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, 6));
+    } else {
+      toast({
+        title: "Incomplete Information",
+        description: "Please fill in all required fields before proceeding",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const prevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setPassportPhoto(file);
+    }
   };
 
   const handleSendForm = async () => {
-    if (!contractorName || !phoneNumber || !email) {
+    if (!validateStep(6)) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in contractor name, phone number, and email",
+        title: "Incomplete Application",
+        description: "Please complete all steps before sending the onboarding form",
         variant: "destructive",
       });
       return;
     }
 
     try {
+      const contractorName = `${firstName} ${lastName}`;
+      
       // Send onboarding form to contractor via Telegram
       const telegramMessage = `🔨 CONTRACTOR ONBOARDING - Welcome to JobFlow!
 
 👤 Hello ${contractorName}!
 
-We're excited to have you join our contractor network. Please complete your onboarding by providing the following information:
+We're excited to have you join our contractor network. Please complete your comprehensive onboarding process:
 
-📋 REQUIRED INFORMATION:
-• Personal Details (Name, Address, Contact Info)
-• Trade Specializations & Experience
-• Insurance & Certification Status
-• Banking Details for Payments
-• Emergency Contact Information
-• Tool Inventory & Availability
+📋 6-STEP ONBOARDING PROCESS:
+1. Personal Information ✓
+2. Right to Work & Documentation
+3. CIS & Tax Details  
+4. Banking Information
+5. Emergency Contact
+6. Trade & Tools
 
 📱 NEXT STEPS:
-1. Reply with your full details
-2. Upload required documents (Insurance, CSCS, etc.)
-3. Complete skills assessment
-4. Schedule orientation meeting
+• Complete all 6 steps of the onboarding form
+• Upload required documents (Passport, CSCS Card, Insurance)
+• Verify your CIS tax status
+• Provide banking details for payments
+• Emergency contact information
+• Tool inventory and trade certification
 
 📞 Contact: ${phoneNumber}
 📧 Email: ${email}
+🔧 Trade: ${primaryTrade}
 
 Questions? Reply to this message or contact our admin team.
 
@@ -160,7 +231,6 @@ Welcome aboard! 🚀`;
             description: `Welcome message sent to ${contractorName} via Telegram`,
           });
         } else {
-          // Fallback: simulate successful send for demo
           toast({
             title: "Form Prepared",
             description: `Onboarding form ready for ${contractorName}. Contact manually if needed.`,
@@ -179,7 +249,7 @@ Welcome aboard! 🚀`;
         name: contractorName,
         phone: phoneNumber,
         email: email,
-        specialization: tradeSpecialization,
+        specialization: [primaryTrade],
         status: "invited" as const,
         submittedDate: new Date().toLocaleDateString('en-GB'),
         telegramId: telegramId
@@ -187,26 +257,37 @@ Welcome aboard! 🚀`;
 
       setPendingApplications(prev => [newApplication, ...prev]);
 
-      // Clear form
-      setContractorName("");
-      setPhoneNumber("");
+      // Reset form
+      setCurrentStep(1);
+      setFirstName("");
+      setLastName("");
       setEmail("");
-      setAddress("");
+      setPhoneNumber("");
+      setTelegramId("");
+      setFullAddress("");
+      setCity("");
       setPostcode("");
-      setEmergencyContact("");
-      setEmergencyPhone("");
-      setTradeSpecialization([]);
-      setYearsExperience("");
-      setHasInsurance(false);
-      setHasCSCS(false);
-      setHasDriversLicense(false);
+      setHasRightToWork("");
+      setPassportNumber("");
+      setPassportPhoto(null);
+      setUtrNumber("");
+      setCisRegistrationStatus("");
+      setHasPublicLiability("");
+      setCisVerificationStatus("");
+      setCisNumber("");
+      setCscsCardNumber("");
+      setCscsExpiry("");
       setBankName("");
       setAccountNumber("");
       setSortCode("");
-      setNiNumber("");
-      setCisStatus("");
-      setAvailability("");
-      setTelegramId("");
+      setAccountHolderName("");
+      setEmergencyContactName("");
+      setEmergencyContactPhone("");
+      setEmergencyContactRelationship("");
+      setPrimaryTrade("");
+      setYearsExperience("");
+      setHasOwnTools("");
+      setToolsList("");
       setAdditionalNotes("");
 
     } catch (error) {
@@ -245,6 +326,396 @@ Welcome aboard! 🚀`;
     }
   };
 
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-white border-b border-slate-600 pb-2">Step 1: Personal Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">First Name *</label>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="James"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Last Name *</label>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Carpenter"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Email Address *</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="james@gmail.com"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Phone Number *</label>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="07534251548"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Telegram ID (Optional)</label>
+                <input
+                  type="text"
+                  value={telegramId}
+                  onChange={(e) => setTelegramId(e.target.value)}
+                  placeholder="@username or 7617462316"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+                <p className="text-slate-500 text-xs mt-1">For job notifications</p>
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Full Address *</label>
+                <input
+                  type="text"
+                  value={fullAddress}
+                  onChange={(e) => setFullAddress(e.target.value)}
+                  placeholder="123 Main Street, London"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">City *</label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="London"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Postcode *</label>
+                <input
+                  type="text"
+                  value={postcode}
+                  onChange={(e) => setPostcode(e.target.value)}
+                  placeholder="SW1A 1AA"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 2:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-white border-b border-slate-600 pb-2">Step 2: Right to Work & Documentation</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Right to Work in UK *</label>
+                <select
+                  value={hasRightToWork}
+                  onChange={(e) => setHasRightToWork(e.target.value)}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="">Select status</option>
+                  <option value="yes">Yes - Confirmed</option>
+                  <option value="no">No - Require sponsorship</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Passport Number *</label>
+                <input
+                  type="text"
+                  value={passportNumber}
+                  onChange={(e) => setPassportNumber(e.target.value)}
+                  placeholder="123456789"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Passport Photo</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-600 file:text-black hover:file:bg-yellow-700"
+                />
+                {passportPhoto && <p className="text-green-400 text-xs mt-1">File uploaded: {passportPhoto.name}</p>}
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">UTR Number *</label>
+                <input
+                  type="text"
+                  value={utrNumber}
+                  onChange={(e) => setUtrNumber(e.target.value)}
+                  placeholder="1234567890"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">CIS Registration Status *</label>
+                <select
+                  value={cisRegistrationStatus}
+                  onChange={(e) => setCisRegistrationStatus(e.target.value)}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="">Select status</option>
+                  <option value="registered">CIS Registered</option>
+                  <option value="not-registered">Not CIS Registered</option>
+                  <option value="pending">Registration Pending</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Public Liability Insurance *</label>
+                <select
+                  value={hasPublicLiability}
+                  onChange={(e) => setHasPublicLiability(e.target.value)}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="">Select status</option>
+                  <option value="yes">Yes - Valid Insurance</option>
+                  <option value="no">No - Need to Obtain</option>
+                  <option value="pending">Application Pending</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 3:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-white border-b border-slate-600 pb-2">Step 3: CIS & Tax Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">CIS Verification Status *</label>
+                <select
+                  value={cisVerificationStatus}
+                  onChange={(e) => setCisVerificationStatus(e.target.value)}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="">Select status</option>
+                  <option value="gross">Gross Payment (0% deduction)</option>
+                  <option value="net">Net Payment (20% deduction)</option>
+                  <option value="unregistered">Unregistered (30% deduction)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">CIS Number</label>
+                <input
+                  type="text"
+                  value={cisNumber}
+                  onChange={(e) => setCisNumber(e.target.value)}
+                  placeholder="12/34567890"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+                <p className="text-slate-500 text-xs mt-1">Only if CIS registered</p>
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">CSCS Card Number *</label>
+                <input
+                  type="text"
+                  value={cscsCardNumber}
+                  onChange={(e) => setCscsCardNumber(e.target.value)}
+                  placeholder="123456789"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">CSCS Card Expiry *</label>
+                <input
+                  type="date"
+                  value={cscsExpiry}
+                  onChange={(e) => setCscsExpiry(e.target.value)}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 4:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-white border-b border-slate-600 pb-2">Step 4: Banking Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Bank Name *</label>
+                <input
+                  type="text"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="Lloyds Bank"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Account Number *</label>
+                <input
+                  type="text"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                  placeholder="12345678"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Sort Code *</label>
+                <input
+                  type="text"
+                  value={sortCode}
+                  onChange={(e) => setSortCode(e.target.value)}
+                  placeholder="12-34-56"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Account Holder Name *</label>
+                <input
+                  type="text"
+                  value={accountHolderName}
+                  onChange={(e) => setAccountHolderName(e.target.value)}
+                  placeholder="James Carpenter"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 5:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-white border-b border-slate-600 pb-2">Step 5: Emergency Contact</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Emergency Contact Name *</label>
+                <input
+                  type="text"
+                  value={emergencyContactName}
+                  onChange={(e) => setEmergencyContactName(e.target.value)}
+                  placeholder="Sarah Carpenter"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Emergency Contact Phone *</label>
+                <input
+                  type="tel"
+                  value={emergencyContactPhone}
+                  onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                  placeholder="07987654321"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Relationship *</label>
+                <select
+                  value={emergencyContactRelationship}
+                  onChange={(e) => setEmergencyContactRelationship(e.target.value)}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="">Select relationship</option>
+                  <option value="spouse">Spouse/Partner</option>
+                  <option value="parent">Parent</option>
+                  <option value="sibling">Sibling</option>
+                  <option value="child">Child</option>
+                  <option value="friend">Friend</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 6:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-white border-b border-slate-600 pb-2">Step 6: Trade & Tools</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Primary Trade *</label>
+                <select
+                  value={primaryTrade}
+                  onChange={(e) => setPrimaryTrade(e.target.value)}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="">Select primary trade</option>
+                  {tradeOptions.map((trade) => (
+                    <option key={trade} value={trade}>{trade}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Years of Experience *</label>
+                <select
+                  value={yearsExperience}
+                  onChange={(e) => setYearsExperience(e.target.value)}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="">Select experience</option>
+                  <option value="0-1">0-1 years (Apprentice)</option>
+                  <option value="2-5">2-5 years (Junior)</option>
+                  <option value="6-10">6-10 years (Experienced)</option>
+                  <option value="11-15">11-15 years (Senior)</option>
+                  <option value="16+">16+ years (Expert)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Own Tools *</label>
+                <select
+                  value={hasOwnTools}
+                  onChange={(e) => setHasOwnTools(e.target.value)}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="">Select availability</option>
+                  <option value="yes">Yes - Full tool kit</option>
+                  <option value="partial">Yes - Partial tools</option>
+                  <option value="no">No - Need tools provided</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Tools List</label>
+                <textarea
+                  value={toolsList}
+                  onChange={(e) => setToolsList(e.target.value)}
+                  placeholder="List your available tools and equipment..."
+                  rows={3}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-yellow-400 text-sm font-medium mb-2">Additional Notes</label>
+                <textarea
+                  value={additionalNotes}
+                  onChange={(e) => setAdditionalNotes(e.target.value)}
+                  placeholder="Any additional information..."
+                  rows={3}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+            </div>
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       <LogoutButton />
@@ -273,7 +744,7 @@ Welcome aboard! 🚀`;
       <div className="p-4 space-y-6">
         {/* Page Title */}
         <div>
-          <h1 className="text-slate-400 text-lg">Send forms and manage contractor applications</h1>
+          <h1 className="text-slate-400 text-lg">Contractor Onboarding Management</h1>
         </div>
 
         {/* Tab Navigation */}
@@ -298,232 +769,57 @@ Welcome aboard! 🚀`;
           <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
             <div className="flex items-center mb-6">
               <i className="fas fa-user-plus text-yellow-400 mr-3 text-xl"></i>
-              <h2 className="text-xl font-semibold text-yellow-400">Send Contractor Onboarding</h2>
+              <h2 className="text-xl font-semibold text-yellow-400">6-Step Contractor Onboarding</h2>
             </div>
             
-            <p className="text-slate-400 text-sm mb-6">
-              Send comprehensive onboarding package to new contractors via Telegram
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Personal Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-white border-b border-slate-600 pb-2">Personal Information</h3>
-                
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Full Name *</label>
-                  <input
-                    type="text"
-                    value={contractorName}
-                    onChange={(e) => setContractorName(e.target.value)}
-                    placeholder="e.g. James Carpenter"
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Phone Number *</label>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="07534251548"
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Email Address *</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="james@gmail.com"
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Address</label>
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="123 Main Street, London"
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Postcode</label>
-                  <input
-                    type="text"
-                    value={postcode}
-                    onChange={(e) => setPostcode(e.target.value)}
-                    placeholder="SW1A 1AA"
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Telegram ID</label>
-                  <input
-                    type="text"
-                    value={telegramId}
-                    onChange={(e) => setTelegramId(e.target.value)}
-                    placeholder="@username or 7617462316"
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                  />
-                  <p className="text-slate-500 text-xs mt-1">Use @username or numeric ID for Telegram notifications</p>
-                </div>
-              </div>
-
-              {/* Trade Specializations & Experience */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-white border-b border-slate-600 pb-2">Trade Specializations</h3>
-                
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Specializations</label>
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                    {tradeOptions.map((trade) => (
-                      <label key={trade} className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={tradeSpecialization.includes(trade)}
-                          onChange={() => toggleTradeSpecialization(trade)}
-                          className="rounded border-slate-600 text-yellow-500 focus:ring-yellow-500"
-                        />
-                        <span className="text-white text-sm">{trade}</span>
-                      </label>
-                    ))}
+            {/* Step Indicator */}
+            <div className="flex items-center justify-between mb-8">
+              {stepTitles.map((title, index) => (
+                <div key={index} className="flex flex-col items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    currentStep > index + 1 ? 'bg-green-600 text-white' :
+                    currentStep === index + 1 ? 'bg-yellow-600 text-black' :
+                    'bg-slate-600 text-slate-400'
+                  }`}>
+                    {currentStep > index + 1 ? '✓' : index + 1}
                   </div>
-                  {tradeSpecialization.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {tradeSpecialization.map((trade) => (
-                        <Badge key={trade} className="bg-yellow-600 text-black text-xs">{trade}</Badge>
-                      ))}
-                    </div>
-                  )}
+                  <span className="text-xs text-slate-400 mt-1 text-center max-w-20">{title}</span>
                 </div>
-
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Years of Experience</label>
-                  <select
-                    value={yearsExperience}
-                    onChange={(e) => setYearsExperience(e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                  >
-                    <option value="">Select experience level</option>
-                    <option value="0-1">0-1 years (Apprentice)</option>
-                    <option value="2-5">2-5 years (Junior)</option>
-                    <option value="6-10">6-10 years (Experienced)</option>
-                    <option value="11-15">11-15 years (Senior)</option>
-                    <option value="16+">16+ years (Expert)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">CIS Status</label>
-                  <select
-                    value={cisStatus}
-                    onChange={(e) => setCisStatus(e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                  >
-                    <option value="">Select CIS status</option>
-                    <option value="registered">CIS Registered</option>
-                    <option value="gross">Gross Payment Status</option>
-                    <option value="not-registered">Not CIS Registered</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">Availability</label>
-                  <select
-                    value={availability}
-                    onChange={(e) => setAvailability(e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                  >
-                    <option value="">Select availability</option>
-                    <option value="immediate">Available Immediately</option>
-                    <option value="1-week">Available in 1 week</option>
-                    <option value="2-weeks">Available in 2 weeks</option>
-                    <option value="1-month">Available in 1 month</option>
-                    <option value="project-basis">Project basis only</option>
-                  </select>
-                </div>
-
-                {/* Certifications */}
-                <div className="space-y-3">
-                  <label className="block text-yellow-400 text-sm font-medium">Certifications & Documents</label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={hasInsurance}
-                      onChange={(e) => setHasInsurance(e.target.checked)}
-                      className="rounded border-slate-600 text-yellow-500 focus:ring-yellow-500"
-                    />
-                    <span className="text-white text-sm">Has valid insurance</span>
-                  </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={hasCSCS}
-                      onChange={(e) => setHasCSCS(e.target.checked)}
-                      className="rounded border-slate-600 text-yellow-500 focus:ring-yellow-500"
-                    />
-                    <span className="text-white text-sm">Has CSCS Card</span>
-                  </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={hasDriversLicense}
-                      onChange={(e) => setHasDriversLicense(e.target.checked)}
-                      className="rounded border-slate-600 text-yellow-500 focus:ring-yellow-500"
-                    />
-                    <span className="text-white text-sm">Has driver's license</span>
-                  </label>
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* Additional Notes */}
-            <div className="mt-6">
-              <label className="block text-yellow-400 text-sm font-medium mb-2">Additional Notes</label>
-              <textarea
-                value={additionalNotes}
-                onChange={(e) => setAdditionalNotes(e.target.value)}
-                placeholder="Any additional information about this contractor..."
-                rows={3}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-              />
-            </div>
+            {/* Step Content */}
+            {renderStepContent()}
 
-            {/* Information Box */}
-            <div className="bg-slate-700 rounded-lg p-4 border border-slate-600 mt-6">
-              <div className="flex items-start space-x-3">
-                <i className="fas fa-info-circle text-yellow-400 mt-1"></i>
-                <div className="text-slate-300 text-sm">
-                  <p className="font-medium mb-2">The contractor will receive a comprehensive onboarding package including:</p>
-                  <ul className="space-y-1 text-slate-400">
-                    <li>• Welcome message with next steps</li>
-                    <li>• Document requirements (Insurance, CSCS, Right to Work)</li>
-                    <li>• Banking and payment setup instructions</li>
-                    <li>• Health & safety orientation details</li>
-                    <li>• Tool inventory checklist</li>
-                    <li>• JobFlow app download and setup guide</li>
-                  </ul>
-                </div>
-              </div>
+            {/* Navigation Buttons */}
+            <div className="flex justify-between mt-8">
+              <Button
+                onClick={prevStep}
+                disabled={currentStep === 1}
+                className="bg-slate-600 hover:bg-slate-700 text-white disabled:opacity-50"
+              >
+                <i className="fas fa-arrow-left mr-2"></i>
+                Previous
+              </Button>
+              
+              {currentStep < 6 ? (
+                <Button
+                  onClick={nextStep}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-black"
+                >
+                  Next
+                  <i className="fas fa-arrow-right ml-2"></i>
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSendForm}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <i className="fas fa-paper-plane mr-2"></i>
+                  Send Onboarding Package
+                </Button>
+              )}
             </div>
-
-            {/* Send Button */}
-            <Button
-              onClick={handleSendForm}
-              className="w-full bg-yellow-600 hover:bg-yellow-700 text-black font-medium py-3 text-lg mt-6"
-            >
-              <i className="fas fa-paper-plane mr-2"></i>
-              Send Onboarding Package
-            </Button>
           </div>
         )}
 
