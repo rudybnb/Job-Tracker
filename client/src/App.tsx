@@ -23,6 +23,21 @@ import TelegramTest from "@/pages/telegram-test";
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
+// Role-based dashboard component
+function RoleBased() {
+  const userRole = localStorage.getItem('userRole');
+  
+  if (userRole === 'admin') {
+    return <AdminDashboard />;
+  } else if (userRole === 'contractor') {
+    return <GPSDashboard />;
+  } else {
+    // Default fallback - redirect to login
+    window.location.href = '/login';
+    return <div>Redirecting...</div>;
+  }
+}
+
 function Router() {
   return (
     <div className="relative">
@@ -30,7 +45,7 @@ function Router() {
         <Route path="/login" component={Login} />
         <Route path="/" component={() => (
           <ProtectedRoute>
-            <AdminDashboard />
+            <RoleBased />
           </ProtectedRoute>
         )} />
         <Route path="/upload" component={() => (
