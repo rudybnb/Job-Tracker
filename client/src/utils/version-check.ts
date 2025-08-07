@@ -1,6 +1,6 @@
 // Version checking and cache busting utilities for mobile apps
 export class VersionChecker {
-  private static readonly CURRENT_VERSION = '2.0.3-extreme-refresh';
+  private static readonly CURRENT_VERSION = '2.0.4-emergency-fix';
   private static readonly VERSION_KEY = 'app_version';
   
   /**

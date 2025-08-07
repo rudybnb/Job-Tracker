@@ -15,6 +15,14 @@ export default function MobileUpdatePage() {
         
         <div className="space-y-4">
           <Button 
+            onClick={() => setLocation('/emergency-fix')}
+            className="w-full bg-red-900 hover:bg-red-800 text-white font-bold py-3"
+          >
+            🚨 EMERGENCY FIX
+            <span className="block text-xs mt-1">Ultimate solution - clears cookies too</span>
+          </Button>
+          
+          <Button 
             onClick={() => setLocation('/extreme-refresh')}
             className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3"
           >

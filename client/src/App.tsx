@@ -20,6 +20,7 @@ import MobileTestPage from "@/pages/mobile-test";
 import NuclearRefreshPage from "@/pages/nuclear-refresh";
 import ExtremeRefreshPage from "@/pages/extreme-refresh";
 import MobileUpdatePage from "@/pages/mobile-update";
+import EmergencyFixPage from "@/pages/emergency-fix";
 import CreateAssignment from "@/pages/create-assignment";
 import TelegramTest from "@/pages/telegram-test";
 import TelegramDebug from "@/pages/telegram-debug";
@@ -94,6 +95,7 @@ function Router() {
         <Route path="/nuclear-refresh" component={NuclearRefreshPage} />
         <Route path="/extreme-refresh" component={ExtremeRefreshPage} />
         <Route path="/mobile-update" component={MobileUpdatePage} />
+        <Route path="/emergency-fix" component={EmergencyFixPage} />
         <Route component={NotFound} />
       </Switch>
     </div>
