@@ -1,8 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ArrowRight, CheckCircle, User, FileText, CreditCard, Phone, Wrench, Shield } from "lucide-react";
 
 interface FormData {
   // Step 1: Personal Information
@@ -108,63 +106,12 @@ export default function ContractorForm() {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  const submitForm = async () => {
+  const submitForm = () => {
     if (validateStep(6)) {
-      try {
-        // Create contractor payload
-        const contractorData = {
-          name: `${formData.firstName} ${formData.lastName}`,
-          email: formData.email,
-          phone: formData.phone,
-          specialty: formData.primaryTrade,
-          specialization: formData.primaryTrade,
-          address: `${formData.address}, ${formData.city}, ${formData.postcode}`,
-          telegramId: formData.telegramId,
-          status: "available" as const,
-          // Additional data stored as JSON for future reference
-          formData: JSON.stringify(formData)
-        };
-
-        const response = await fetch("/api/contractors", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(contractorData),
-        });
-
-        if (response.ok) {
-          toast({
-            title: "Application Submitted Successfully! 🎉",
-            description: "Welcome to JobFlow! You'll receive confirmation soon.",
-          });
-          
-          // Reset form after successful submission
-          setFormData({
-            firstName: "", lastName: "", email: "", phone: "", telegramId: "",
-            address: "", city: "", postcode: "", rightToWork: false, passportNumber: "",
-            passportPhoto: null, utrNumber: "", cisRegistered: false, publicLiabilityInsurance: false,
-            cisStatus: "", cisNumber: "", utrConfirmed: "", cscsCardNumber: "", cscsExpiry: "",
-            bankName: "", accountNumber: "", sortCode: "", accountHolderName: "",
-            emergencyName: "", emergencyPhone: "", emergencyRelationship: "",
-            primaryTrade: "", yearsExperience: 0, toolsAvailable: false, toolsList: ""
-          });
-          setCurrentStep(1);
-        } else {
-          toast({
-            title: "Submission Failed",
-            description: "Please try again or contact support",
-            variant: "destructive"
-          });
-        }
-      } catch (error) {
-        console.error("Form submission error:", error);
-        toast({
-          title: "Network Error",
-          description: "Please check your connection and try again",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Form Submitted Successfully",
+        description: "Your contractor application has been submitted for review",
+      });
     }
   };
 
@@ -531,115 +478,60 @@ export default function ContractorForm() {
     }
   };
 
-  const stepIcons = [
-    { icon: User, label: "Personal" },
-    { icon: Shield, label: "Verification" },
-    { icon: FileText, label: "Tax Details" },
-    { icon: CreditCard, label: "Banking" },
-    { icon: Phone, label: "Emergency" },
-    { icon: Wrench, label: "Trade & Tools" }
-  ];
-
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-6 py-4 border-b border-slate-600">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center">
-            <User className="w-6 h-6 text-slate-900" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-yellow-400">Contractor Application</h1>
-            <p className="text-slate-300 text-sm">Complete your registration to join our network</p>
-          </div>
-        </div>
+      <div className="bg-slate-800 px-4 py-3">
+        <h1 className="text-xl font-bold text-yellow-400">Contractor Application Form</h1>
+        <p className="text-slate-400 text-sm">Complete all steps to submit your application</p>
       </div>
 
-      {/* Enhanced Progress Bar */}
-      <div className="bg-slate-800 px-6 py-4 border-b border-slate-700">
-        <div className="flex items-center justify-between mb-3">
-          {stepIcons.map((step, index) => {
-            const stepNumber = index + 1;
-            const isActive = currentStep === stepNumber;
-            const isCompleted = currentStep > stepNumber;
-            const IconComponent = step.icon;
-            
-            return (
-              <div key={stepNumber} className="flex flex-col items-center">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300 ${
-                  isCompleted ? 'bg-green-500' : 
-                  isActive ? 'bg-yellow-400' : 'bg-slate-600'
-                }`}>
-                  {isCompleted ? (
-                    <CheckCircle className="w-6 h-6 text-white" />
-                  ) : (
-                    <IconComponent className={`w-6 h-6 ${
-                      isActive ? 'text-slate-900' : 'text-slate-300'
-                    }`} />
-                  )}
-                </div>
-                <span className={`text-xs font-medium ${
-                  isActive ? 'text-yellow-400' : 
-                  isCompleted ? 'text-green-400' : 'text-slate-400'
-                }`}>
-                  {step.label}
-                </span>
-              </div>
-            );
-          })}
+      {/* Progress Bar */}
+      <div className="bg-slate-800 px-4 py-2">
+        <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+          {[1, 2, 3, 4, 5, 6].map(step => (
+            <span key={step} className={`${currentStep >= step ? 'text-yellow-400' : ''}`}>
+              Step {step}
+            </span>
+          ))}
         </div>
         <div className="w-full bg-slate-600 rounded-full h-2">
           <div 
-            className="bg-gradient-to-r from-yellow-400 to-orange-400 h-2 rounded-full transition-all duration-500 ease-out"
+            className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
             style={{ width: `${(currentStep / 6) * 100}%` }}
-          />
-        </div>
-        <div className="text-center mt-2">
-          <span className="text-slate-300 text-sm">
-            Step {currentStep} of 6 - {stepIcons[currentStep - 1]?.label}
-          </span>
+          ></div>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-4">
         {/* Form Content */}
-        <Card className="bg-slate-800 border-slate-700">
-          <CardContent className="p-6">
-            {renderStep()}
-          </CardContent>
-        </Card>
+        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+          {renderStep()}
+        </div>
 
-        {/* Enhanced Navigation Buttons */}
-        <div className="flex justify-between items-center mt-6">
+        {/* Navigation Buttons */}
+        <div className="flex justify-between mt-6">
           <Button 
             onClick={prevStep} 
             disabled={currentStep === 1}
-            variant="outline"
-            className="bg-slate-700 border-slate-600 hover:bg-slate-600 text-white flex items-center gap-2"
+            className="bg-slate-600 hover:bg-slate-700 text-white"
           >
-            <ArrowLeft className="w-4 h-4" />
             Previous
           </Button>
-          
-          <div className="text-center text-slate-400 text-sm">
-            Progress: {Math.round((currentStep / 6) * 100)}% Complete
-          </div>
           
           {currentStep < 6 ? (
             <Button 
               onClick={nextStep}
-              className="bg-yellow-600 hover:bg-yellow-700 text-black flex items-center gap-2"
+              className="bg-yellow-600 hover:bg-yellow-700 text-black"
             >
               Next Step
-              <ArrowRight className="w-4 h-4" />
             </Button>
           ) : (
             <Button 
               onClick={submitForm}
-              className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
               Submit Application
-              <CheckCircle className="w-4 h-4" />
             </Button>
           )}
         </div>

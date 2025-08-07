@@ -67,15 +67,12 @@ export class MemStorage implements IStorage {
     const contractor: Contractor = { 
       ...insertContractor, 
       id,
-      phone: insertContractor.phone || null,
-      address: insertContractor.address || null,
       specialization: insertContractor.specialization || insertContractor.specialty || "General Construction",
       telegramId: insertContractor.telegramId || null,
       status: insertContractor.status || "available",
       rating: insertContractor.rating || "0",
       activeJobs: insertContractor.activeJobs || "0",
-      completedJobs: insertContractor.completedJobs || "0",
-      formData: insertContractor.formData || null
+      completedJobs: insertContractor.completedJobs || "0"
     };
     this.contractors.set(id, contractor);
     return contractor;
