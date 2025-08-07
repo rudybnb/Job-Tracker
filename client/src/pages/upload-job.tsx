@@ -517,53 +517,48 @@ export default function UploadJob() {
             <label className="block text-sm font-medium text-yellow-400 mb-2">
               Select HBXL Work Scheduler File
             </label>
-            <div className="flex items-center space-x-3">
-              <input
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                onChange={(e) => {
-                  console.log('=== FILE INPUT CHANGE EVENT ===');
-                  console.log('Event target:', e.target);
-                  console.log('Files:', e.target.files);
-                  handleHbxlFileUpload(e);
-                }}
-                className="hidden"
-                id="hbxl-upload"
-              />
-              <label 
-                htmlFor="hbxl-upload"
-                className="bg-yellow-600 hover:bg-yellow-700 text-black px-4 py-2 rounded-lg cursor-pointer border border-yellow-500 font-semibold"
-                onClick={() => console.log('=== FILE LABEL CLICKED ===')}
-              >
-                <i className="fas fa-file-upload mr-2"></i>
-                Choose CSV File
-              </label>
-              <span className="text-slate-400">
-                {hbxlFile ? hbxlFile.name : "Select sample_job.csv or your own CSV file"}
-              </span>
+            
+            {/* Simple direct file input - visible for testing */}
+            <input
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={(e) => {
+                console.log('=== DIRECT FILE INPUT ===');
+                const file = e.target.files?.[0];
+                console.log('File:', file);
+                if (file) {
+                  setHbxlFile(file);
+                  console.log('File set:', file.name);
+                }
+              }}
+              className="block w-full text-white bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mb-3"
+            />
+            
+            <div className="bg-slate-700 rounded p-2 text-xs">
+              <strong>Debug Info:</strong><br/>
+              Selected file: {hbxlFile ? hbxlFile.name : 'None'}<br/>
+              File size: {hbxlFile ? `${hbxlFile.size} bytes` : 'N/A'}<br/>
+              File type: {hbxlFile ? hbxlFile.type : 'N/A'}
             </div>
-            <p className="text-slate-500 text-xs mt-2">
-              Supported formats: CSV, Excel (.xlsx, .xls)
-            </p>
           </div>
 
-          {hbxlFile && (
-            <Button 
-              onClick={() => {
-                console.log('=== UPLOAD BUTTON CLICKED (WRAPPER) ===');
-                handleUploadHbxl();
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white w-full"
-            >
-              <i className="fas fa-upload mr-2"></i>
-              Upload and Create Job
-            </Button>
-          )}
-          
-          {/* Debug info */}
-          <div className="mt-2 text-xs text-slate-500">
-            Debug: File selected = {hbxlFile ? hbxlFile.name : 'None'}
-          </div>
+          <Button 
+            onClick={() => {
+              console.log('=== PROCESS CSV BUTTON CLICKED ===');
+              if (!hbxlFile) {
+                console.log('No file selected');
+                alert('Please select a CSV file first');
+                return;
+              }
+              console.log('Processing file:', hbxlFile.name);
+              handleUploadHbxl();
+            }}
+            className="bg-green-600 hover:bg-green-700 text-white w-full mb-3"
+            disabled={!hbxlFile}
+          >
+            <i className="fas fa-upload mr-2"></i>
+            {hbxlFile ? `Process ${hbxlFile.name}` : 'Select CSV file first'}
+          </Button>
         </div>
 
         {/* Phase Tracking Documents Card */}
