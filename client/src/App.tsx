@@ -15,6 +15,7 @@ import AdminApplications from "@/pages/admin-applications";
 import JobAssignments from "@/pages/job-assignments";
 import Login from "@/pages/login";
 import TaskProgress from "@/pages/task-progress";
+import More from "@/pages/more";
 import DirectJobAssignments from "@/pages/direct-job-assignments";
 import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import SystemCleanupPage from "@/pages/system-cleanup";
@@ -83,6 +84,11 @@ function Router() {
         <Route path="/task-progress" component={() => (
           <ProtectedRoute requiredRole="contractor">
             <TaskProgress />
+          </ProtectedRoute>
+        )} />
+        <Route path="/more" component={() => (
+          <ProtectedRoute requiredRole="contractor">
+            <More />
           </ProtectedRoute>
         )} />
         <Route path="/job-assignments" component={() => (

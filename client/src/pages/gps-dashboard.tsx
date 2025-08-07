@@ -382,7 +382,7 @@ export default function GPSDashboard() {
             <span className="text-xs">Jobs</span>
           </button>
           <button 
-            onClick={() => setContractorDropdownOpen(!contractorDropdownOpen)}
+            onClick={() => window.location.href = '/more'}
             className="py-3 px-4 text-slate-400 hover:text-white"
           >
             <i className="fas fa-ellipsis-h block mb-1"></i>
