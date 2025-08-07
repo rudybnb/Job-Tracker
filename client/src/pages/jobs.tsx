@@ -1,92 +1,36 @@
-import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 
-interface JobAssignment {
+interface ContractorAssignment {
   id: string;
-  title: string;
-  contractor: string;
+  contractorName: string;
   location: string;
-  status: "pending" | "accepted" | "in_progress" | "completed";
-  deadline: string;
-  priority: "low" | "medium" | "high";
-  telegramSent: boolean;
+  title: string;
+  phases: string;
+  startDate: string;
+  dueDate: string;
+  status: string;
   createdAt: string;
 }
 
 export default function Jobs() {
-  const { toast } = useToast();
-  
-  // Load real job assignments from localStorage (created from CSV uploads)
-  const [assignments, setAssignments] = useState<JobAssignment[]>([]);
+  // Get contractor assignments from database
+  const { data: assignments = [], isLoading } = useQuery<ContractorAssignment[]>({
+    queryKey: ['/api/contractor-assignments/James'],
+    enabled: true,
+  });
 
-  // Load job assignments on component mount
-  useEffect(() => {
-    const savedAssignments = localStorage.getItem('jobAssignments');
-    if (savedAssignments) {
-      const assignmentData = JSON.parse(savedAssignments);
-      setAssignments(assignmentData);
-    }
-  }, []);
-
-  const handleDeleteAssignment = (id: string) => {
-    const updatedAssignments = assignments.filter(assignment => assignment.id !== id);
-    setAssignments(updatedAssignments);
-    localStorage.setItem('jobAssignments', JSON.stringify(updatedAssignments));
-    toast({
-      title: "Assignment Deleted", 
-      description: "Job assignment has been removed successfully.",
-    });
-  };
-
-  const handleCreateJob = () => {
-    toast({
-      title: "Create Job Assignment",
-      description: "Opening job creation form...",
-    });
-    // Would open job creation modal or form
-  };
-
-  const handleCreateFirstJob = () => {
-    toast({
-      title: "No CSV Data Found",
-      description: "Upload CSV files first to create jobs for assignment",
-      variant: "destructive"
-    });
-    // Redirect to upload page
-    window.location.href = '/upload';
-  };
-
-  const getStatusBadge = (status: JobAssignment["status"]) => {
-    const styles = {
-      pending: "bg-yellow-600 text-white",
-      accepted: "bg-blue-600 text-white", 
-      in_progress: "bg-orange-600 text-white",
-      completed: "bg-green-600 text-white"
-    };
-    
+  if (isLoading) {
     return (
-      <Badge className={styles[status]}>
-        {status.replace('_', ' ').toUpperCase()}
-      </Badge>
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading assignments...</p>
+        </div>
+      </div>
     );
-  };
-
-  const getPriorityBadge = (priority: JobAssignment["priority"]) => {
-    const styles = {
-      low: "bg-green-100 text-green-800",
-      medium: "bg-yellow-100 text-yellow-800",
-      high: "bg-red-100 text-red-800"
-    };
-    
-    return (
-      <Badge className={styles[priority]}>
-        {priority.toUpperCase()}
-      </Badge>
-    );
-  };
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
@@ -94,16 +38,9 @@ export default function Jobs() {
       <div className="bg-slate-800 px-4 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Direct Job Assignments</h1>
-            <p className="text-slate-400 text-sm">Create and assign jobs directly to contractors</p>
+            <h1 className="text-xl font-bold text-white mb-1">Direct Job Assignments</h1>
+            <p className="text-slate-400 text-sm">Jobs are assigned to you directly</p>
           </div>
-          <Button 
-            onClick={handleCreateJob}
-            className="bg-orange-600 hover:bg-orange-700 text-white flex items-center"
-          >
-            <i className="fas fa-plus mr-2"></i>
-            Create & Assign Job
-          </Button>
         </div>
       </div>
 
@@ -114,15 +51,8 @@ export default function Jobs() {
             <div className="w-24 h-24 mx-auto mb-6 text-slate-500">
               <i className="fas fa-briefcase text-6xl"></i>
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">No Assignments Created</h3>
-            <p className="text-slate-400 mb-6">Create your first job assignment to get started.</p>
-            <Button 
-              onClick={handleCreateFirstJob}
-              className="bg-orange-600 hover:bg-orange-700 text-white flex items-center mx-auto"
-            >
-              <i className="fas fa-plus mr-2"></i>
-              Create First Job
-            </Button>
+            <h3 className="text-xl font-semibold text-white mb-2">No Assignments</h3>
+            <p className="text-slate-400 mb-6">You don't have any job assignments yet.</p>
           </div>
         ) : (
           /* Assignments List */
@@ -131,61 +61,45 @@ export default function Jobs() {
               <div key={assignment.id} className="bg-slate-800 rounded-lg p-4 border border-slate-700">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
-                    <h3 className="text-lg font-semibold text-white">{assignment.title}</h3>
-                    {getStatusBadge(assignment.status)}
-                    {getPriorityBadge(assignment.priority)}
+                    <div className="w-12 h-12 bg-slate-700 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-calendar text-white"></i>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-yellow-400">{assignment.location}</h3>
+                      <p className="text-slate-400 text-sm">{assignment.title}</p>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    {assignment.telegramSent && (
-                      <Badge className="bg-blue-600 text-white">
-                        <i className="fab fa-telegram-plane mr-1"></i>
-                        Sent
-                      </Badge>
-                    )}
-                    <Button 
-                      size="sm" 
-                      className="bg-red-600 hover:bg-red-700 text-white p-2"
-                      onClick={() => handleDeleteAssignment(assignment.id)}
-                      title="Delete Assignment"
-                    >
-                      <i className="fas fa-trash"></i>
-                    </Button>
+                  <Badge className="bg-yellow-500 text-black text-xs px-3 py-1">
+                    active
+                  </Badge>
+                </div>
+                
+                <div className="space-y-2 text-sm mb-4">
+                  <div className="flex items-center text-slate-300">
+                    <i className="fas fa-user text-slate-400 mr-2 w-4"></i>
+                    <span>Assigned to: James</span>
+                  </div>
+                  <div className="flex items-center text-slate-300">
+                    <i className="fas fa-clock text-slate-400 mr-2 w-4"></i>
+                    <span>{assignment.startDate} - {assignment.dueDate}</span>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="text-slate-400">Contractor:</span>
-                    <div className="text-white font-medium">{assignment.contractor}</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Location:</span>
-                    <div className="text-white font-medium">{assignment.location}</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Deadline:</span>
-                    <div className="text-white font-medium">{assignment.deadline}</div>
-                  </div>
-                </div>
-                
-                <div className="mt-3 pt-3 border-t border-slate-700 flex items-center justify-between">
-                  <span className="text-slate-500 text-xs">
-                    Created: {new Date(assignment.createdAt).toLocaleDateString()}
-                  </span>
-                  <div className="flex space-x-2">
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
-                      <i className="fas fa-check mr-1"></i>
-                      Approve
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      className="bg-red-600 hover:bg-red-700 text-white"
-                      onClick={() => handleDeleteAssignment(assignment.id)}
-                    >
-                      <i className="fas fa-trash mr-1"></i>
-                      Delete
-                    </Button>
-                  </div>
+                <div className="flex space-x-2">
+                  <Button 
+                    size="sm" 
+                    className="bg-yellow-600 hover:bg-yellow-700 text-black flex-1"
+                    onClick={() => window.location.href = '/task-progress'}
+                  >
+                    Continue Work
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="bg-red-600 hover:bg-red-700 text-white px-4"
+                  >
+                    <i className="fas fa-exclamation-triangle mr-1"></i>
+                    Report Issue
+                  </Button>
                 </div>
               </div>
             ))}
