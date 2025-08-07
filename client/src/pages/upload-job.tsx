@@ -582,7 +582,7 @@ export default function UploadJob() {
       
       const newJob: UploadedJob & { phaseData?: any } = {
         id: Date.now().toString(),
-        name: `${jobType} - ${jobName}`, // Include job type in name
+        name: `${csvData.clientInfo.name} - ${jobType}`, // Use client name (Flat #) as primary identifier
         location: location,
         price: "£0",
         status: "approved",
