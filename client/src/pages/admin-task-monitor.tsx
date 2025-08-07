@@ -29,10 +29,27 @@ export default function AdminTaskMonitor() {
   const { toast } = useToast();
 
   const handleAction = (action: string) => {
-    toast({
-      title: action,
-      description: `${action} functionality`,
-    });
+    if (action === "Create Job") {
+      // Check for uploaded CSV data first
+      const uploadedData = localStorage.getItem('processedCSVs');
+      const uploadedJobs = localStorage.getItem('uploadedJobs');
+      
+      if (uploadedData && JSON.parse(uploadedData).length > 0) {
+        // Navigate to upload page to create jobs from existing data
+        window.location.href = '/upload';
+      } else {
+        toast({
+          title: "No Upload Data Found",
+          description: "Please upload a CSV file first using 'Upload CSV/PDF' to create jobs",
+          variant: "destructive"
+        });
+      }
+    } else {
+      toast({
+        title: action,
+        description: `${action} functionality`,
+      });
+    }
   };
 
   return (

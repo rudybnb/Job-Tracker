@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,13 +28,44 @@ function LogoutButton() {
 export default function JobAssignments() {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [uploadedJobs, setUploadedJobs] = useState<any[]>([]);
   const { toast } = useToast();
 
+  // Load uploaded jobs from localStorage on component mount
+  useEffect(() => {
+    const savedJobs = localStorage.getItem('uploadedJobs');
+    if (savedJobs) {
+      const jobs = JSON.parse(savedJobs);
+      setUploadedJobs(jobs);
+      console.log('Loaded uploaded jobs:', jobs);
+    }
+  }, []);
+
   const handleCreateAssignment = () => {
-    toast({
-      title: "Create Assignment",
-      description: "Assignment creation functionality",
-    });
+    // Check if there are uploaded jobs available
+    const savedJobs = localStorage.getItem('uploadedJobs');
+    const processedCSVs = localStorage.getItem('processedCSVs');
+    
+    if (savedJobs && JSON.parse(savedJobs).length > 0) {
+      // Navigate to a job assignment creation page or show modal
+      toast({
+        title: "Create Assignment",
+        description: `${JSON.parse(savedJobs).length} uploaded jobs available for assignment`,
+      });
+      // Could navigate to a specific assignment creation page here
+    } else if (processedCSVs && JSON.parse(processedCSVs).length > 0) {
+      toast({
+        title: "Jobs Need Creation",
+        description: "Upload data found. Please create jobs first in Upload page",
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "No Data Available",
+        description: "Please upload CSV files and create jobs first",
+        variant: "destructive"
+      });
+    }
   };
 
   const filteredAssignments = assignments.filter(assignment =>
@@ -99,12 +130,52 @@ export default function JobAssignments() {
               />
             </div>
 
-            {/* Empty State */}
-            <div className="text-center py-12">
-              <div className="text-slate-400 text-lg mb-2">
-                No assignments found. Create your first assignment above.
+            {/* Show available jobs for assignment or empty state */}
+            {uploadedJobs.length > 0 ? (
+              <div className="space-y-4">
+                <div className="text-sm text-green-400 mb-4">
+                  {uploadedJobs.length} uploaded job(s) available for assignment
+                </div>
+                
+                {uploadedJobs.map((job) => (
+                  <div key={job.id} className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-white font-medium">{job.name}</h4>
+                        <p className="text-slate-400 text-sm">{job.location}</p>
+                        <p className="text-slate-500 text-xs">Uploaded: {job.uploadedAt}</p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          job.status === 'approved' ? 'bg-green-900 text-green-300' : 
+                          'bg-yellow-900 text-yellow-300'
+                        }`}>
+                          {job.status}
+                        </span>
+                        <button 
+                          onClick={() => toast({ 
+                            title: "Assign Job", 
+                            description: `Assigning ${job.name} to contractor` 
+                          })}
+                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                        >
+                          Assign
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-slate-400 text-lg mb-2">
+                  No jobs available for assignment.
+                </div>
+                <div className="text-slate-500 text-sm">
+                  Upload CSV files and create jobs first.
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -20,8 +20,14 @@ export default function UploadJob() {
   const [jobReference, setJobReference] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [uploadedJobs, setUploadedJobs] = useState<UploadedJob[]>([]);
-  const [processedCSVs, setProcessedCSVs] = useState<any[]>([]);
+  const [uploadedJobs, setUploadedJobs] = useState<UploadedJob[]>(() => {
+    const saved = localStorage.getItem('uploadedJobs');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [processedCSVs, setProcessedCSVs] = useState<any[]>(() => {
+    const saved = localStorage.getItem('processedCSVs');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showCreateJobForm, setShowCreateJobForm] = useState<string | null>(null);
 
   const handleHbxlFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
