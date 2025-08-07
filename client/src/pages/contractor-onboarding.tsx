@@ -1,12 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
 function LogoutButton() {
@@ -34,107 +28,28 @@ function LogoutButton() {
 
 export default function ContractorOnboarding() {
   const [activeTab, setActiveTab] = useState("Send Form");
+  const [contractorName, setContractorName] = useState("");
+  const [telegramId, setTelegramId] = useState("");
   const { toast } = useToast();
 
-  // Form state
-  const [formData, setFormData] = useState({
-    // Personal Information
-    fullName: "",
-    email: "",
-    phone: "",
-    address: "",
-    postcode: "",
-    
-    // Professional Details
-    tradeSpecializations: [] as string[],
-    experienceYears: "",
-    qualifications: "",
-    
-    // Contact & Communication
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    telegramId: "",
-    preferredContact: "",
-    
-    // Banking & Payment
-    bankAccountHolder: "",
-    sortCode: "",
-    accountNumber: "",
-    cisStatus: "",
-    
-    // Availability
-    availableStartDate: "",
-    workingHours: "",
-    weekendAvailable: false,
-    
-    // Additional
-    hasOwnTransport: false,
-    hasInsurance: false,
-    additionalNotes: ""
-  });
-
-  const tradeOptions = [
-    "Kitchen Fitting", "Bathroom Fitting", "Plumbing", "Electrical", 
-    "Carpentry", "Plastering", "Tiling", "Decorating", "Masonry",
-    "Flooring", "Roofing", "General Building", "Demolition"
-  ];
-
-  const handleInputChange = (field: keyof typeof formData, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleTradeToggle = (trade: string) => {
-    const currentTrades = formData.tradeSpecializations;
-    const updatedTrades = currentTrades.includes(trade)
-      ? currentTrades.filter(t => t !== trade)
-      : [...currentTrades, trade];
-    
-    handleInputChange('tradeSpecializations', updatedTrades);
-  };
-
   const handleSendForm = () => {
-    // Basic validation
-    const requiredFields = ['fullName', 'email', 'phone', 'telegramId'];
-    const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
-    
-    if (missingFields.length > 0) {
+    if (!contractorName || !telegramId) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields marked with *",
+        description: "Please fill in both contractor name and Telegram ID",
         variant: "destructive",
       });
       return;
     }
-
-    if (formData.tradeSpecializations.length === 0) {
-      toast({
-        title: "Missing Trade Specialization",
-        description: "Please select at least one trade specialization",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // TODO: Send comprehensive onboarding data to contractor via Telegram
-    console.log("Sending comprehensive onboarding form:", formData);
 
     toast({
-      title: "Comprehensive Form Sent Successfully",
-      description: `Detailed onboarding form sent to ${formData.fullName} via Telegram`,
+      title: "Form Sent Successfully",
+      description: `Onboarding form sent to ${contractorName} via Telegram`,
     });
 
-    // Reset form
-    setFormData({
-      fullName: "", email: "", phone: "", address: "", postcode: "",
-      tradeSpecializations: [] as string[], experienceYears: "", qualifications: "",
-      emergencyContactName: "", emergencyContactPhone: "", telegramId: "", preferredContact: "",
-      bankAccountHolder: "", sortCode: "", accountNumber: "", cisStatus: "",
-      availableStartDate: "", workingHours: "", weekendAvailable: false,
-      hasOwnTransport: false, hasInsurance: false, additionalNotes: ""
-    });
+    // Clear form
+    setContractorName("");
+    setTelegramId("");
   };
 
   return (
@@ -185,341 +100,75 @@ export default function ContractorOnboarding() {
           ))}
         </div>
 
-        {/* Comprehensive Contractor Onboarding Form */}
-        <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Send Contractor Form */}
+        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+          <div className="flex items-center mb-6">
+            <i className="fas fa-paper-plane text-yellow-400 mr-3 text-xl"></i>
+            <h2 className="text-xl font-semibold text-yellow-400">Send Contractor Form</h2>
+          </div>
           
-          {/* Personal Information */}
-          <Card className="bg-slate-800 border-slate-600">
-            <CardHeader>
-              <CardTitle className="text-yellow-400 flex items-center">
-                <i className="fas fa-user mr-2"></i>
-                Personal Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-yellow-400">Full Name *</Label>
-                  <Input
-                    value={formData.fullName}
-                    onChange={(e) => handleInputChange('fullName', e.target.value)}
-                    placeholder="e.g. James Carpenter"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-yellow-400">Email Address *</Label>
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    placeholder="james@example.com"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-yellow-400">Phone Number *</Label>
-                  <Input
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    placeholder="07534251548"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-yellow-400">Postcode</Label>
-                  <Input
-                    value={formData.postcode}
-                    onChange={(e) => handleInputChange('postcode', e.target.value)}
-                    placeholder="DA17 5DB"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label className="text-yellow-400">Full Address</Label>
-                <Textarea
-                  value={formData.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  placeholder="Full address including street, city"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <p className="text-slate-400 text-sm mb-6">
+            Send onboarding form to new contractors via Telegram
+          </p>
 
-          {/* Trade Specializations */}
-          <Card className="bg-slate-800 border-slate-600">
-            <CardHeader>
-              <CardTitle className="text-yellow-400 flex items-center">
-                <i className="fas fa-tools mr-2"></i>
-                Trade Specializations *
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                Select all trades the contractor is qualified for
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {tradeOptions.map((trade) => (
-                  <div key={trade} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={trade}
-                      checked={formData.tradeSpecializations.includes(trade)}
-                      onCheckedChange={() => handleTradeToggle(trade)}
-                      className="border-slate-600"
-                    />
-                    <Label htmlFor={trade} className="text-sm text-slate-300 cursor-pointer">
-                      {trade}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 space-y-3">
-                <div>
-                  <Label className="text-yellow-400">Years of Experience</Label>
-                  <Select value={formData.experienceYears} onValueChange={(value) => handleInputChange('experienceYears', value)}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                      <SelectValue placeholder="Select experience level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0-2">0-2 years</SelectItem>
-                      <SelectItem value="3-5">3-5 years</SelectItem>
-                      <SelectItem value="6-10">6-10 years</SelectItem>
-                      <SelectItem value="10+">10+ years</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-yellow-400">Qualifications & Certifications</Label>
-                  <Textarea
-                    value={formData.qualifications}
-                    onChange={(e) => handleInputChange('qualifications', e.target.value)}
-                    placeholder="List relevant qualifications, certifications, licenses"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            {/* Contractor Name Field */}
+            <div>
+              <label className="block text-yellow-400 text-sm font-medium mb-2">
+                Contractor Name *
+              </label>
+              <input
+                type="text"
+                value={contractorName}
+                onChange={(e) => setContractorName(e.target.value)}
+                placeholder="e.g. James Carpenter"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+              />
+            </div>
 
-          {/* Contact & Communication */}
-          <Card className="bg-slate-800 border-slate-600">
-            <CardHeader>
-              <CardTitle className="text-yellow-400 flex items-center">
-                <i className="fas fa-phone mr-2"></i>
-                Contact & Communication
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-yellow-400">Emergency Contact Name</Label>
-                  <Input
-                    value={formData.emergencyContactName}
-                    onChange={(e) => handleInputChange('emergencyContactName', e.target.value)}
-                    placeholder="Next of kin name"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-yellow-400">Emergency Contact Phone</Label>
-                  <Input
-                    value={formData.emergencyContactPhone}
-                    onChange={(e) => handleInputChange('emergencyContactPhone', e.target.value)}
-                    placeholder="Emergency contact number"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-yellow-400">Telegram ID *</Label>
-                  <Input
-                    value={formData.telegramId}
-                    onChange={(e) => handleInputChange('telegramId', e.target.value)}
-                    placeholder="@username or 7617462316"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                  <p className="text-slate-500 text-xs mt-1">For job notifications</p>
-                </div>
-                <div>
-                  <Label className="text-yellow-400">Preferred Contact Method</Label>
-                  <Select value={formData.preferredContact} onValueChange={(value) => handleInputChange('preferredContact', value)}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                      <SelectValue placeholder="How to reach you" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="telegram">Telegram</SelectItem>
-                      <SelectItem value="phone">Phone Call</SelectItem>
-                      <SelectItem value="sms">Text Message</SelectItem>
-                      <SelectItem value="email">Email</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Telegram ID Field */}
+            <div>
+              <label className="block text-yellow-400 text-sm font-medium mb-2">
+                Telegram ID *
+              </label>
+              <input
+                type="text"
+                value={telegramId}
+                onChange={(e) => setTelegramId(e.target.value)}
+                placeholder="@username or 123456789"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+              />
+              <p className="text-slate-500 text-xs mt-1">
+                Use @username or numeric ID
+              </p>
+            </div>
 
-          {/* Banking & Payment */}
-          <Card className="bg-slate-800 border-slate-600">
-            <CardHeader>
-              <CardTitle className="text-yellow-400 flex items-center">
-                <i className="fas fa-credit-card mr-2"></i>
-                Banking & Payment Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-yellow-400">Account Holder Name</Label>
-                  <Input
-                    value={formData.bankAccountHolder}
-                    onChange={(e) => handleInputChange('bankAccountHolder', e.target.value)}
-                    placeholder="Name on bank account"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
+            {/* Information Box */}
+            <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+              <div className="flex items-start space-x-3">
+                <i className="fas fa-info-circle text-yellow-400 mt-1"></i>
+                <div className="text-slate-300 text-sm">
+                  <p className="font-medium mb-2">The contractor will receive a comprehensive form covering:</p>
+                  <ul className="space-y-1 text-slate-400">
+                    <li>• Personal details, right to work, CIS information</li>
+                    <li>• Banking details, emergency contacts and trade experience</li>
+                    <li>• Health & safety certifications</li>
+                    <li>• Insurance documentation</li>
+                    <li>• Tool inventory and availability</li>
+                  </ul>
                 </div>
-                <div>
-                  <Label className="text-yellow-400">Sort Code</Label>
-                  <Input
-                    value={formData.sortCode}
-                    onChange={(e) => handleInputChange('sortCode', e.target.value)}
-                    placeholder="12-34-56"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-yellow-400">Account Number</Label>
-                  <Input
-                    value={formData.accountNumber}
-                    onChange={(e) => handleInputChange('accountNumber', e.target.value)}
-                    placeholder="12345678"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label className="text-yellow-400">CIS Status</Label>
-                <Select value={formData.cisStatus} onValueChange={(value) => handleInputChange('cisStatus', value)}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue placeholder="Construction Industry Scheme status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="registered">CIS Registered</SelectItem>
-                    <SelectItem value="not-registered">Not CIS Registered</SelectItem>
-                    <SelectItem value="sole-trader">Sole Trader</SelectItem>
-                    <SelectItem value="limited-company">Limited Company</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Availability & Additional Information */}
-          <Card className="bg-slate-800 border-slate-600">
-            <CardHeader>
-              <CardTitle className="text-yellow-400 flex items-center">
-                <i className="fas fa-calendar mr-2"></i>
-                Availability & Additional Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-yellow-400">Available Start Date</Label>
-                  <Input
-                    type="date"
-                    value={formData.availableStartDate}
-                    onChange={(e) => handleInputChange('availableStartDate', e.target.value)}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-yellow-400">Preferred Working Hours</Label>
-                  <Select value={formData.workingHours} onValueChange={(value) => handleInputChange('workingHours', value)}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                      <SelectValue placeholder="Select working hours" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="full-time">Full Time (40+ hours)</SelectItem>
-                      <SelectItem value="part-time">Part Time (20-40 hours)</SelectItem>
-                      <SelectItem value="flexible">Flexible Hours</SelectItem>
-                      <SelectItem value="weekends-only">Weekends Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="weekends"
-                    checked={formData.weekendAvailable}
-                    onCheckedChange={(checked) => handleInputChange('weekendAvailable', checked)}
-                    className="border-slate-600"
-                  />
-                  <Label htmlFor="weekends" className="text-slate-300">Available for weekend work</Label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="transport"
-                    checked={formData.hasOwnTransport}
-                    onCheckedChange={(checked) => handleInputChange('hasOwnTransport', checked)}
-                    className="border-slate-600"
-                  />
-                  <Label htmlFor="transport" className="text-slate-300">Has own transport and can travel to job sites</Label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="insurance"
-                    checked={formData.hasInsurance}
-                    onCheckedChange={(checked) => handleInputChange('hasInsurance', checked)}
-                    className="border-slate-600"
-                  />
-                  <Label htmlFor="insurance" className="text-slate-300">Has public liability insurance</Label>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-yellow-400">Additional Notes</Label>
-                <Textarea
-                  value={formData.additionalNotes}
-                  onChange={(e) => handleInputChange('additionalNotes', e.target.value)}
-                  placeholder="Any additional information, special requirements, or notes"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Summary Box */}
-          <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
-            <div className="flex items-start space-x-3">
-              <i className="fas fa-info-circle text-yellow-400 mt-1"></i>
-              <div className="text-slate-300 text-sm">
-                <p className="font-medium mb-2">This comprehensive form will be sent to the contractor covering:</p>
-                <ul className="space-y-1 text-slate-400 text-xs">
-                  <li>• Personal details and contact information</li>
-                  <li>• Trade specializations and experience verification</li>
-                  <li>• Banking details and CIS status</li>
-                  <li>• Emergency contacts and communication preferences</li>
-                  <li>• Availability and additional requirements</li>
-                  <li>• Insurance and transportation details</li>
-                </ul>
               </div>
             </div>
-          </div>
 
-          {/* Send Button */}
-          <Button
-            onClick={handleSendForm}
-            className="w-full bg-yellow-600 hover:bg-yellow-700 text-black font-medium py-4 text-lg"
-            disabled={!formData.fullName || !formData.email || !formData.phone || !formData.telegramId}
-          >
-            <i className="fas fa-paper-plane mr-2"></i>
-            Send Comprehensive Onboarding Form
-          </Button>
+            {/* Send Button */}
+            <Button
+              onClick={handleSendForm}
+              className="w-full bg-yellow-600 hover:bg-yellow-700 text-black font-medium py-3 text-lg"
+            >
+              <i className="fas fa-paper-plane mr-2"></i>
+              Send Onboarding Form
+            </Button>
+          </div>
         </div>
       </div>
 

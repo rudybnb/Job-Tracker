@@ -2,13 +2,13 @@ import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-
+import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import GPSDashboard from "@/pages/gps-dashboard";
 import Jobs from "@/pages/jobs";
 import UploadJob from "@/pages/upload-job";
 import AdminDashboard from "@/pages/admin-dashboard";
-import ContractorOnboarding from "@/pages/contractor-onboarding-simple";
+import ContractorOnboarding from "@/pages/contractor-onboarding";
 import ContractorForm from "@/pages/contractor-form";
 import JobAssignments from "@/pages/job-assignments";
 import Login from "@/pages/login";
@@ -105,8 +105,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster />
-      <Router />
+      <TooltipProvider>
+        <Toaster />
+        <Router />
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }
