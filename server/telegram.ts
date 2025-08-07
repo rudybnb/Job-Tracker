@@ -30,11 +30,8 @@ export class TelegramService {
         return { success: true, simulated: true };
       }
 
-      // IMPORTANT: To receive messages, you need to:
-      // 1. Start a chat with your bot by searching for it in Telegram
-      // 2. Send /start to the bot  
-      // 3. Replace this with your actual chat ID
-      const chatId = '1234567890'; // ⚠️ REPLACE WITH YOUR REAL CHAT ID
+      // Use Rudy's actual Chat ID for job notifications
+      const chatId = '7617462316';
       
       const message = this.formatJobAssignmentMessage(params);
       
@@ -77,7 +74,8 @@ export class TelegramService {
         return { success: true, simulated: true };
       }
 
-      const chatId = '1234567890'; // ⚠️ REPLACE WITH YOUR REAL CHAT ID
+      // Use Rudy's actual Chat ID for welcome messages
+      const chatId = '7617462316';
       
       const message = `
 🎉 <b>Welcome to JobFlow, ${contractorName}!</b>
@@ -131,23 +129,25 @@ Ready to receive your first job assignment!
     workLocation: string;
     startDate: string;
   }) {
-    const { contractorName, hbxlJob, buildPhases, workLocation, startDate } = params;
+    const { contractorName, phone, hbxlJob, buildPhases, workLocation, startDate } = params;
     
-    return `
-🔨 <b>New Job Assignment - JobFlow</b>
+    const phasesText = Array.isArray(buildPhases) && buildPhases.length > 0
+      ? buildPhases.map(phase => `• ${phase}`).join('\n')
+      : '• No phases specified';
+    
+    return `🔨 JOB ASSIGNMENT - ${hbxlJob}
 
-👷‍♂️ <b>Contractor:</b> ${contractorName}
-🏗️ <b>Project:</b> ${hbxlJob}
-📍 <b>Location:</b> ${workLocation}
-📅 <b>Start Date:</b> ${startDate}
+👤 Contractor: ${contractorName}
+📱 Phone: ${phone}
+📍 Location: ${workLocation}
+📅 Start Date: ${startDate}
 
-<b>Build Phases Assigned:</b>
-${buildPhases.map(phase => `• ${phase}`).join('\n')}
+🏗️ Build Phases:
+${phasesText}
 
-Please confirm receipt and contact the project manager if you have any questions.
+Please confirm receipt and let us know if you have any questions!
 
-Good luck with the project! 💪
-    `.trim();
+Good luck with the project! 💪`;
   }
 
   // Send custom message to specific chat ID
