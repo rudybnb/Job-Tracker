@@ -175,9 +175,10 @@ export default function UploadJob() {
       phaseData: csvData.phaseData
     };
 
-    setUploadedJobs(prev => [...prev, newJob]);
+    const updatedJobs = [...uploadedJobs, newJob];
+    setUploadedJobs(updatedJobs);
     // Store in localStorage for job assignments page
-    localStorage.setItem('uploadedJobs', JSON.stringify([...uploadedJobs, newJob]));
+    localStorage.setItem('uploadedJobs', JSON.stringify(updatedJobs));
     
     // Remove from processed CSVs
     setProcessedCSVs(prev => prev.filter(csv => csv.id !== csvId));
