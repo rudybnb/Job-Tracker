@@ -63,13 +63,13 @@ export default function ContractorForm() {
       number: 2, 
       title: "Right to Work & Documentation", 
       icon: Shield,
-      fields: ["hasRightToWork", "passportNumber", "utrNumber", "isCisRegistered"] 
+      fields: ["hasRightToWork", "passportNumber"] 
     },
     { 
       number: 3, 
       title: "CIS & Tax Information", 
       icon: FileText,
-      fields: ["cisStatus", "utrNumberDetails"] 
+      fields: ["cisStatus", "utrNumberDetails", "isCisRegistered"] 
     },
     { 
       number: 4, 
@@ -392,31 +392,9 @@ export default function ContractorForm() {
               </Card>
 
               <div className="border-t border-slate-600 pt-4">
-                <h3 className="text-yellow-400 font-medium mb-4">Tax & Registration Status</h3>
+                <h3 className="text-yellow-400 font-medium mb-4">Insurance (Optional)</h3>
                 
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-yellow-400 text-sm font-medium mb-2">UTR Number *</label>
-                    <input
-                      type="text"
-                      value={formData.utrNumber}
-                      onChange={(e) => updateFormData("utrNumber", e.target.value)}
-                      placeholder="10 digit UTR number"
-                      className="w-full bg-slate-800 border border-yellow-500 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400"
-                    />
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      id="ciRegistered"
-                      checked={formData.isCisRegistered}
-                      onChange={(e) => updateFormData("isCisRegistered", e.target.checked)}
-                      className="w-5 h-5 text-yellow-400 bg-slate-800 border-yellow-500 rounded focus:ring-yellow-400"
-                    />
-                    <label htmlFor="ciRegistered" className="text-white">I am registered for CIS *</label>
-                  </div>
-
                   <div className="flex items-center space-x-3">
                     <input
                       type="checkbox"
