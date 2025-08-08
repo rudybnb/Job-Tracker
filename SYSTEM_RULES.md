@@ -18,6 +18,14 @@
 - Validate data source before displaying
 - Clear only broken/incorrect data, never working data
 
+## RULE 6: CSV DATA SUPREMACY (NEW MANDATORY)
+- When a job is uploaded via CSV, ONLY information in that CSV file must be used
+- NO assumptions, fallbacks, or old stored data permitted
+- ALL task items, quantities, descriptions must come directly from uploaded CSV
+- If CSV data missing, display "Data Missing from CSV" rather than assumptions
+- Clear any old cached data immediately when new CSV is uploaded
+- Never supplement CSV data with custom or assumed information
+
 ## RULE 4: CHANGE ISOLATION
 - Changes to one feature must NOT affect other features
 - Use targeted fixes, not system-wide rewrites
