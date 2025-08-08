@@ -84,11 +84,14 @@ export default function TaskProgress() {
     ];
   });
 
-  // Update tasks when job details are loaded
+  // Load saved progress and update tasks when job details are loaded
   useEffect(() => {
+    const storageKey = `task_progress_${jobId || locationFromUrl || 'default'}`;
+    const savedProgress = localStorage.getItem(storageKey);
+    
     if (jobDetails && jobDetails.phases) {
       const phases = JSON.parse(jobDetails.phases);
-      const newTasks = phases.map((phase: string, index: number) => ({
+      let newTasks = phases.map((phase: string, index: number) => ({
         id: (index + 1).toString(),
         title: phase,
         description: `Complete ${phase} work`,
@@ -97,9 +100,45 @@ export default function TaskProgress() {
         completedItems: 0,
         status: "not started" as const
       }));
+      
+      // If we have saved progress for this job, restore it
+      if (savedProgress) {
+        try {
+          const savedTasks = JSON.parse(savedProgress) as ProgressTask[];
+          // Merge saved progress with current tasks
+          newTasks = newTasks.map(task => {
+            const savedTask = savedTasks.find(saved => saved.id === task.id || saved.title === task.title);
+            return savedTask ? { ...task, completedItems: savedTask.completedItems, status: savedTask.status } : task;
+          });
+        } catch (error) {
+          console.error('Failed to load saved progress:', error);
+        }
+      }
+      
       setTasks(newTasks);
+    } else if (savedProgress) {
+      // Load saved progress for location-based tasks
+      try {
+        const savedTasks = JSON.parse(savedProgress) as ProgressTask[];
+        setTasks(currentTasks => 
+          currentTasks.map(task => {
+            const savedTask = savedTasks.find(saved => saved.id === task.id || saved.title === task.title);
+            return savedTask ? { ...task, completedItems: savedTask.completedItems, status: savedTask.status } : task;
+          })
+        );
+      } catch (error) {
+        console.error('Failed to load saved progress:', error);
+      }
     }
-  }, [jobDetails]);
+  }, [jobDetails, jobId, locationFromUrl]);
+  
+  // Save progress whenever tasks change
+  useEffect(() => {
+    if (tasks.length > 0) {
+      const storageKey = `task_progress_${jobId || locationFromUrl || 'default'}`;
+      localStorage.setItem(storageKey, JSON.stringify(tasks));
+    }
+  }, [tasks, jobId, locationFromUrl]);
   
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
   const { toast } = useToast();
@@ -112,23 +151,27 @@ export default function TaskProgress() {
   };
 
   const updateTaskProgress = (taskId: string, increment: number) => {
-    setTasks(currentTasks => 
-      currentTasks.map(task => {
-        if (task.id === taskId) {
-          const newCompletedItems = Math.max(0, Math.min(task.totalItems, task.completedItems + increment));
-          const newStatus = newCompletedItems === 0 ? "not started" : 
-                          newCompletedItems === task.totalItems ? "completed" : 
-                          "in progress";
-          
-          return {
-            ...task,
-            completedItems: newCompletedItems,
-            status: newStatus as "not started" | "in progress" | "completed"
-          };
-        }
-        return task;
-      })
-    );
+    const updatedTasks = tasks.map(task => {
+      if (task.id === taskId) {
+        const newCompletedItems = Math.max(0, Math.min(task.totalItems, task.completedItems + increment));
+        const newStatus = newCompletedItems === 0 ? "not started" : 
+                        newCompletedItems === task.totalItems ? "completed" : 
+                        "in progress";
+        
+        return {
+          ...task,
+          completedItems: newCompletedItems,
+          status: newStatus as "not started" | "in progress" | "completed"
+        };
+      }
+      return task;
+    });
+    
+    setTasks(updatedTasks);
+    
+    // Save progress to localStorage with job-specific key
+    const storageKey = `task_progress_${jobId || locationFromUrl || 'default'}`;
+    localStorage.setItem(storageKey, JSON.stringify(updatedTasks));
     
     toast({
       title: "Progress Updated",
