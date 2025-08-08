@@ -222,22 +222,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get contractor's active assignments
-  app.get("/api/contractor-assignments/:contractorName", async (req, res) => {
-    try {
-      const { contractorName } = req.params;
-      console.log("🔍 Fetching assignments for contractor:", contractorName);
-      
-      const assignments = await storage.getContractorAssignments(contractorName);
-      console.log("📋 Found assignments:", assignments.length);
-      
-      res.json(assignments);
-    } catch (error) {
-      console.error("Error fetching contractor assignments:", error);
-      res.status(500).json({ error: "Failed to fetch assignments" });
-    }
-  });
-
   // Get all job assignments (for admin interface)
   app.get("/api/job-assignments", async (req, res) => {
     try {
@@ -248,25 +232,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching job assignments:", error);
       res.status(500).json({ error: "Failed to fetch job assignments" });
-    }
-  });
-
-  // Get specific job assignment details
-  app.get("/api/job-assignments/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      console.log("📋 Fetching job assignment details for ID:", id);
-      
-      const assignment = await storage.getJobAssignmentById(id);
-      if (!assignment) {
-        return res.status(404).json({ error: "Assignment not found" });
-      }
-      
-      console.log("📋 Found assignment:", assignment.title);
-      res.json(assignment);
-    } catch (error) {
-      console.error("Error fetching job assignment details:", error);
-      res.status(500).json({ error: "Failed to fetch assignment details" });
     }
   });
 
