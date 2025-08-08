@@ -69,9 +69,16 @@ interface GPSPosition {
 }
 
 export default function GPSDashboard() {
-  const [currentTime, setCurrentTime] = useState("00:00:00");
-  const [isTracking, setIsTracking] = useState(false);
-  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [currentTime, setCurrentTime] = useState(() => {
+    return localStorage.getItem('gps_timer_current') || "00:00:00";
+  });
+  const [isTracking, setIsTracking] = useState(() => {
+    return localStorage.getItem('gps_timer_active') === 'true';
+  });
+  const [startTime, setStartTime] = useState<Date | null>(() => {
+    const saved = localStorage.getItem('gps_timer_start');
+    return saved ? new Date(saved) : null;
+  });
   const [gpsPosition, setGpsPosition] = useState<GPSPosition | null>(null);
   const [gpsStatus, setGpsStatus] = useState<"Good" | "Poor" | "Unavailable">("Unavailable");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -238,17 +245,23 @@ export default function GPSDashboard() {
     let interval: NodeJS.Timeout;
     
     if (isTracking && startTime) {
-      interval = setInterval(() => {
+      const updateTimer = () => {
         const now = new Date();
         const diff = now.getTime() - startTime.getTime();
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
         
-        setCurrentTime(
-          `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-        );
-      }, 1000);
+        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        setCurrentTime(timeString);
+        localStorage.setItem('gps_timer_current', timeString);
+      };
+      
+      updateTimer(); // Update immediately when starting
+      interval = setInterval(updateTimer, 1000);
+    } else {
+      setCurrentTime("00:00:00");
+      localStorage.removeItem('gps_timer_current');
     }
     
     return () => {
@@ -268,8 +281,11 @@ export default function GPSDashboard() {
     }
 
     if (!isTracking) {
+      const newStartTime = new Date();
       setIsTracking(true);
-      setStartTime(new Date());
+      setStartTime(newStartTime);
+      localStorage.setItem('gps_timer_active', 'true');
+      localStorage.setItem('gps_timer_start', newStartTime.toISOString());
       toast({
         title: "Work Started",
         description: "GPS verified - tracking time started",
@@ -278,6 +294,9 @@ export default function GPSDashboard() {
       setIsTracking(false);
       setStartTime(null);
       setCurrentTime("00:00:00");
+      localStorage.removeItem('gps_timer_active');
+      localStorage.removeItem('gps_timer_start');
+      localStorage.removeItem('gps_timer_current');
       toast({
         title: "Work Ended",
         description: "Time tracking stopped",
