@@ -240,7 +240,7 @@ export default function GPSDashboard() {
     }
   }, [userLocation, workSiteLocation]);
 
-  // Timer effect
+  // Timer effect - maintains timer across page navigation
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
@@ -254,20 +254,57 @@ export default function GPSDashboard() {
         
         const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         setCurrentTime(timeString);
+        // Always persist current time to localStorage when timer is running
         localStorage.setItem('gps_timer_current', timeString);
+        localStorage.setItem('gps_timer_active', 'true');
+        localStorage.setItem('gps_timer_start', startTime.toISOString());
       };
       
       updateTimer(); // Update immediately when starting
       interval = setInterval(updateTimer, 1000);
-    } else {
+    } else if (!isTracking) {
+      // Only reset to "00:00:00" when explicitly stopped, not when component unmounts
       setCurrentTime("00:00:00");
-      localStorage.removeItem('gps_timer_current');
     }
     
     return () => {
       if (interval) clearInterval(interval);
+      // DON'T clear localStorage on component cleanup - timer should persist
     };
   }, [isTracking, startTime]);
+
+  // Initialize timer from localStorage on component mount
+  useEffect(() => {
+    const savedActive = localStorage.getItem('gps_timer_active');
+    const savedStart = localStorage.getItem('gps_timer_start');
+    const savedCurrent = localStorage.getItem('gps_timer_current');
+    
+    if (savedActive === 'true' && savedStart) {
+      const startDate = new Date(savedStart);
+      const now = new Date();
+      
+      // Check if saved start time is valid (not more than 24 hours old)
+      if (now.getTime() - startDate.getTime() < 24 * 60 * 60 * 1000) {
+        setIsTracking(true);
+        setStartTime(startDate);
+        
+        // Calculate current time based on elapsed time
+        const diff = now.getTime() - startDate.getTime();
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        setCurrentTime(timeString);
+      } else {
+        // Clear old timer data if more than 24 hours old
+        localStorage.removeItem('gps_timer_active');
+        localStorage.removeItem('gps_timer_start');
+        localStorage.removeItem('gps_timer_current');
+      }
+    } else if (savedCurrent) {
+      setCurrentTime(savedCurrent);
+    }
+  }, []); // Only run on initial mount
 
   const handleStartWork = () => {
     // Check location and time validation before allowing sign in
