@@ -52,12 +52,12 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
         <div className="space-y-2 text-sm">
           <div className="flex items-center text-slate-300">
             <i className="fas fa-calendar text-slate-400 mr-2 w-4"></i>
-            <span>{activeAssignment.startDate} - {activeAssignment.dueDate}</span>
+            <span>{activeAssignment.startDate} - {activeAssignment.endDate}</span>
           </div>
-          {activeAssignment.notes && (
+          {activeAssignment.specialInstructions && (
             <div className="flex items-start text-slate-300">
               <i className="fas fa-sticky-note text-slate-400 mr-2 w-4 mt-0.5"></i>
-              <span>{activeAssignment.notes}</span>
+              <span>{activeAssignment.specialInstructions}</span>
             </div>
           )}
         </div>

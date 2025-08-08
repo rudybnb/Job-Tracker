@@ -33,7 +33,12 @@ export class TelegramService {
       
       const message = this.formatJobAssignmentMessage(params);
       
-      const response = await fetch(`${this.baseUrl}/sendMessage`, {
+      const url = `${this.baseUrl}/sendMessage`;
+      console.log('📱 Telegram API URL:', url);
+      console.log('📱 Chat ID:', chatId);
+      console.log('📱 Message length:', message.length);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
