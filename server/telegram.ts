@@ -149,6 +149,57 @@ Please confirm receipt and let us know if you have any questions!
 Good luck with the project! 💪`;
   }
 
+  // Send hello message from contractor
+  async sendContractorHello(contractorName: string = 'James Carpenter') {
+    try {
+      console.log('📱 Sending contractor hello message...');
+      
+      if (!this.botToken) {
+        console.log('⚠️ No bot token - simulating hello message');
+        return { success: true, simulated: true };
+      }
+
+      // Use Rudy's Chat ID
+      const chatId = '7617462316';
+      
+      const message = `👋 Hello from ${contractorName}!
+
+🔧 I'm ready to start work today
+📍 Currently at job site
+⏰ Timer system is working perfectly
+📱 All systems are ready for GPS tracking
+
+Looking forward to today's assignments! 💪`;
+      
+      const response = await fetch(`${this.baseUrl}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Telegram hello message error:', response.status, errorData);
+        return { success: false, error: `Telegram API error: ${response.status}` };
+      }
+
+      const result = await response.json();
+      console.log('✅ Contractor hello message sent:', result);
+      
+      return { success: true, messageId: result.message_id };
+      
+    } catch (error) {
+      console.error('❌ Hello message error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
   // Send custom message to specific chat ID
   async sendCustomMessage(chatId: string, message: string) {
     try {
