@@ -41,61 +41,28 @@ export default function TaskProgress() {
       setCurrentProject(`${jobDetails.title} - ${jobDetails.location}`);
     }
   }, [jobDetails]);
-  // Initialize tasks based on location from URL
-  const [tasks, setTasks] = useState<ProgressTask[]>(() => {
-    return locationFromUrl && locationFromUrl.includes('DA17 5DB') ? [
-      {
-        id: "1",
-        title: "External Works - Garden Layout",
-        description: "Design and layout garden areas",
-        area: "Garden Area",
-        totalItems: 80,
-        completedItems: 0,
-        status: "not started" as const
-      },
-      {
-        id: "2", 
-        title: "External Works - Landscaping",
-        description: "Complete landscaping work", 
-        area: "Landscaping",
-        totalItems: 120,
-        completedItems: 0,
-        status: "not started" as const
-      }
-    ] : [
-      {
-        id: "1",
-        title: "Masonry Shell - Bricklaying Foundation",
-        description: "Lay foundation bricks and mortar joints (50 No)",
-        area: "Foundation Area",
-        totalItems: 50,
-        completedItems: 0,
-        status: "not started" as const
-      },
-      {
-        id: "2", 
-        title: "Masonry Shell - Block Work",
-        description: "Install concrete blocks for walls (120 No)",
-        area: "Main Structure", 
-        totalItems: 120,
-        completedItems: 0,
-        status: "not started" as const
-      }
-    ];
-  });
+  // Initialize tasks as empty - will be populated from actual job assignment data
+  const [tasks, setTasks] = useState<ProgressTask[]>([]);
+
+  // Clear any old static task data when component loads
+  useEffect(() => {
+    // Clear old static task data from localStorage
+    const keysToRemove = ['task_progress_default', 'task_progress_DA17 5DB'];
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+  }, []);
 
   // Load saved progress and update tasks when job details are loaded
   useEffect(() => {
     const storageKey = `task_progress_${jobId || locationFromUrl || 'default'}`;
     const savedProgress = localStorage.getItem(storageKey);
     
-    if (jobDetails && jobDetails.phases) {
-      const phases = JSON.parse(jobDetails.phases);
-      let newTasks = phases.map((phase: string, index: number) => ({
+    if (jobDetails && jobDetails.buildPhases) {
+      // Use buildPhases from the actual job assignment 
+      let newTasks = jobDetails.buildPhases.map((phase: string, index: number) => ({
         id: (index + 1).toString(),
         title: phase,
         description: `Complete ${phase} work`,
-        area: jobDetails.location,
+        area: jobDetails.workLocation || jobDetails.hbxlJob,
         totalItems: 100, // Default to 100% progress
         completedItems: 0,
         status: "not started" as const
