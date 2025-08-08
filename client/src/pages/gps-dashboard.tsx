@@ -105,7 +105,7 @@ export default function GPSDashboard() {
     return saved ? new Date(saved) : null;
   });
   const [gpsPosition, setGpsPosition] = useState<GPSPosition | null>(null);
-  const [gpsStatus, setGpsStatus] = useState<"Good" | "Poor" | "Unavailable">("Unavailable");
+  const [gpsStatus, setGpsStatus] = useState<"Good" | "Poor" | "Unavailable" | string>("Unavailable");
   const [showDropdown, setShowDropdown] = useState(false);
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -361,13 +361,50 @@ export default function GPSDashboard() {
     }
   }, [userLocation, workSiteLocation]);
 
-  // Timer effect - maintains timer across page navigation
+  // Timer effect - maintains timer across page navigation + automatic logout at 5 PM
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
     if (isTracking && startTime) {
       const updateTimer = () => {
         const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        
+        // Automatic logout at 5:00 PM sharp
+        if (currentHour >= 17) {
+          console.log('🕐 Automatic logout at 5:00 PM');
+          
+          // End work session automatically
+          if (activeSessionId) {
+            endSessionMutation.mutate({
+              sessionId: activeSessionId,
+              sessionData: {
+                endTime: now.toISOString(),
+                gpsLatitude: userLocation?.latitude || 0,
+                gpsLongitude: userLocation?.longitude || 0,
+                status: 'completed'
+              }
+            });
+          }
+          
+          // Reset timer state
+          setIsTracking(false);
+          setStartTime(null);
+          setCurrentTime("00:00:00");
+          localStorage.removeItem('gps_timer_active');
+          localStorage.removeItem('gps_timer_start');
+          localStorage.removeItem('gps_timer_current');
+          
+          toast({
+            title: "Work Day Ended",
+            description: "Automatically logged out at 5:00 PM - work day complete",
+            variant: "default"
+          });
+          
+          return; // Stop the timer
+        }
+        
         const diff = now.getTime() - startTime.getTime();
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -392,7 +429,7 @@ export default function GPSDashboard() {
       if (interval) clearInterval(interval);
       // DON'T clear localStorage on component cleanup - timer should persist
     };
-  }, [isTracking, startTime]);
+  }, [isTracking, startTime, endSessionMutation, contractorName, userLocation, activeSessionId, toast]);
 
   // Initialize timer from localStorage on component mount
   useEffect(() => {

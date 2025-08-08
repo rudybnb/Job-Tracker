@@ -42,6 +42,9 @@
 ✅ Job assignment creation and storage in database
 ✅ Contractor assignment retrieval by name
 ✅ GPS dashboard assignment display
+✅ GPS proximity validation (1km radius)
+✅ Working hours enforcement (7:45 AM - 5:00 PM)
+✅ Automatic logout at 5:00 PM sharp
 ✅ Database connections and queries
 ✅ Express server routing
 ✅ React component rendering

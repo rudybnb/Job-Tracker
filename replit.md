@@ -40,7 +40,7 @@ The application features a dark navy background (`#1e293b`) with muted yellow-gr
 - **Validation**: Zod schemas for type-safe data validation.
 
 **Core Features**:
-- **GPS Security & Validation**: 1km proximity validation using Haversine formula, enforced working hours (7:45 AM - 5:00 PM), and automatic GPS coordinate extraction from CSV postcode data.
+- **GPS Security & Validation**: 1km proximity validation using Haversine formula, enforced working hours (7:45 AM - 5:00 PM), automatic logout at 5:00 PM sharp, and automatic GPS coordinate extraction from CSV postcode data.
 - **Permanent Database Work Session Tracking**: Comprehensive `work_sessions` table stores all GPS and time data, with API endpoints for starting, ending, and retrieving sessions. Sessions are synchronized on page load to restore active tracking.
 - **Saturday Overtime Admin Control**: `admin_settings` table allows administrators to enable/disable Saturday work, with validation against same time restrictions and GPS validation.
 - **Location-Aware Job Detection**: Smart multi-site detection automatically identifies the nearest job site using Haversine distance, dynamically updating the Active Assignment section.
