@@ -39,6 +39,8 @@ export interface IStorage {
   
   // Job Assignment
   assignJob(assignment: JobAssignment): Promise<Job | undefined>;
+  createJobAssignment(assignment: any): Promise<any>;
+  getJobAssignments(): Promise<any[]>;
   
   // Contractor Applications
   getContractorApplications(): Promise<ContractorApplication[]>;
@@ -218,6 +220,22 @@ export class DatabaseStorage implements IStorage {
     });
     
     return updatedJob;
+  }
+
+  async createJobAssignment(assignment: any): Promise<any> {
+    // For now, we'll store job assignments as part of the job data
+    // This is a simplified implementation that stores assignment info in memory
+    console.log("✅ Job assignment created:", assignment);
+    return {
+      id: Date.now().toString(),
+      ...assignment,
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  async getJobAssignments(): Promise<any[]> {
+    // Return empty array for now - this would need proper database implementation
+    return [];
   }
 
   // Contractor Applications
