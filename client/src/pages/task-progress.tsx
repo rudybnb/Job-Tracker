@@ -54,16 +54,102 @@ export default function TaskProgress() {
       const storageKey = `task_progress_${activeAssignment.id}`;
       const savedProgress = localStorage.getItem(storageKey);
       
-      // Use buildPhases from the actual job assignment 
-      let newTasks = activeAssignment.buildPhases.map((phase: string, index: number) => ({
-        id: (index + 1).toString(),
-        title: phase,
-        description: `Complete ${phase} work`,
-        area: activeAssignment.workLocation || activeAssignment.hbxlJob,
-        totalItems: 100, // Default to 100% progress
-        completedItems: 0,
-        status: "not started" as const
-      }));
+      // Create detailed sub-tasks for each build phase
+      let taskId = 1;
+      let newTasks: ProgressTask[] = [];
+      
+      activeAssignment.buildPhases.forEach((phase: string) => {
+        if (phase === "Joinery 1st Fix") {
+          newTasks.push(
+            {
+              id: (taskId++).toString(),
+              title: "Door Frame Installation",
+              description: "Install all internal door frames and architraves",
+              area: "Joinery 1st Fix",
+              totalItems: 8,
+              completedItems: 0,
+              status: "not started" as const
+            },
+            {
+              id: (taskId++).toString(),
+              title: "Window Board Installation",
+              description: "Fit window boards and sills throughout property",
+              area: "Joinery 1st Fix",
+              totalItems: 6,
+              completedItems: 0,
+              status: "not started" as const
+            },
+            {
+              id: (taskId++).toString(),
+              title: "Staircase Installation",
+              description: "Install main staircase and handrails",
+              area: "Joinery 1st Fix",
+              totalItems: 1,
+              completedItems: 0,
+              status: "not started" as const
+            },
+            {
+              id: (taskId++).toString(),
+              title: "Kitchen Unit Framework",
+              description: "Install kitchen base unit framework",
+              area: "Joinery 1st Fix",
+              totalItems: 12,
+              completedItems: 0,
+              status: "not started" as const
+            }
+          );
+        } else if (phase === "Build Phase") {
+          newTasks.push(
+            {
+              id: (taskId++).toString(),
+              title: "Foundation Work",
+              description: "Complete foundation excavation and concrete pour",
+              area: "Build Phase",
+              totalItems: 4,
+              completedItems: 0,
+              status: "not started" as const
+            },
+            {
+              id: (taskId++).toString(),
+              title: "Block Work",
+              description: "Build internal and external block walls",
+              area: "Build Phase",
+              totalItems: 25,
+              completedItems: 0,
+              status: "not started" as const
+            },
+            {
+              id: (taskId++).toString(),
+              title: "Roof Structure",
+              description: "Install roof trusses and felt covering",
+              area: "Build Phase",
+              totalItems: 8,
+              completedItems: 0,
+              status: "not started" as const
+            },
+            {
+              id: (taskId++).toString(),
+              title: "Window Installation",
+              description: "Fit all external windows and doors",
+              area: "Build Phase",
+              totalItems: 10,
+              completedItems: 0,
+              status: "not started" as const
+            }
+          );
+        } else {
+          // Fallback for any other phases
+          newTasks.push({
+            id: (taskId++).toString(),
+            title: phase,
+            description: `Complete ${phase} work`,
+            area: activeAssignment.workLocation || activeAssignment.hbxlJob,
+            totalItems: 10,
+            completedItems: 0,
+            status: "not started" as const
+          });
+        }
+      });
       
       // If we have saved progress for this job, restore it
       if (savedProgress) {
