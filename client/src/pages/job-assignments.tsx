@@ -158,21 +158,7 @@ export default function JobAssignments() {
                           <p className="text-sm text-slate-400">
                             Location: {assignment.location || 'No location specified'}
                           </p>
-                          {assignment.phases && (
-                            <div className="mt-2">
-                              <p className="text-xs text-slate-500">Build Phases:</p>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {JSON.parse(assignment.phases).map((phase: string, idx: number) => (
-                                  <span 
-                                    key={idx}
-                                    className="bg-blue-600 text-white text-xs px-2 py-1 rounded"
-                                  >
-                                    {phase}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+
                         </div>
                       </div>
                       <div className="text-right flex items-center space-x-3">
@@ -181,12 +167,16 @@ export default function JobAssignments() {
                           <div className="text-green-400 font-medium text-sm">Assigned</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-xs text-slate-400">Phases</div>
-                          <div className="text-blue-400 font-medium text-sm">
-                            {assignment.phases 
-                              ? JSON.parse(assignment.phases).length
-                              : 0
-                            }
+                          <div className="text-xs text-slate-400">Build Phases</div>
+                          <div className="flex flex-wrap gap-1 justify-center mt-1">
+                            {assignment.phases && JSON.parse(assignment.phases).map((phase: string, idx: number) => (
+                              <span 
+                                key={idx}
+                                className="bg-blue-600 text-white text-xs px-2 py-1 rounded"
+                              >
+                                {phase}
+                              </span>
+                            ))}
                           </div>
                         </div>
                         <button
@@ -214,8 +204,13 @@ export default function JobAssignments() {
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-400">Contact</div>
-                        <div className="text-white">{assignment.contractorEmail || 'N/A'}</div>
+                        <div className="text-xs text-slate-400">Actions</div>
+                        <button 
+                          onClick={() => window.location.href = `/assignment-details/${assignment.id}`}
+                          className="text-blue-400 hover:text-blue-300 text-sm underline"
+                        >
+                          View Assignment
+                        </button>
                       </div>
                     </div>
                   </div>
