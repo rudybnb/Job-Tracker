@@ -234,6 +234,15 @@ export default function GPSDashboard() {
         canSignIn,
         errorMessage
       });
+    } else {
+      // No GPS location available - restrict access
+      setLocationValidation({
+        isWithinRange: false,
+        distance: 0,
+        isValidTime: false,
+        canSignIn: false,
+        errorMessage: 'GPS location required - please enable location services'
+      });
     }
   }, [userLocation, workSiteLocation]);
 
@@ -381,13 +390,7 @@ export default function GPSDashboard() {
         </div>
       </div>
 
-      {/* Daily Tracking Banner */}
-      <div className="bg-yellow-600 px-4 py-2">
-        <div className="flex items-center">
-          <i className="fas fa-exclamation-triangle text-black mr-2"></i>
-          <span className="text-black font-medium text-sm">Daily Tracking Test</span>
-        </div>
-      </div>
+
 
       <div className="p-4 space-y-4">
         {/* GPS Status Card */}
@@ -492,8 +495,8 @@ export default function GPSDashboard() {
               onClick={handleStartWork}
               disabled={!locationValidation.canSignIn && !isTracking}
               className={`w-full py-3 text-white font-medium rounded-lg flex items-center justify-center ${
-                !locationValidation.canSignIn && !isTracking
-                  ? 'bg-gray-600 cursor-not-allowed opacity-50'
+                (!locationValidation.canSignIn && !isTracking)
+                  ? 'bg-red-600 cursor-not-allowed opacity-75'
                   : isTracking 
                     ? 'bg-red-600 hover:bg-red-700' 
                     : 'bg-green-600 hover:bg-green-700'
@@ -510,9 +513,11 @@ export default function GPSDashboard() {
           </div>
           
           <div className="text-center text-slate-400 text-sm mb-2">
-            {locationValidation.canSignIn 
-              ? 'Ready to start GPS-verified time tracking'
-              : 'Must be within 1km of work site during 7:45 AM - 5:00 PM'
+            {!userLocation 
+              ? 'GPS location required - please enable location services'
+              : locationValidation.canSignIn 
+                ? 'Ready to start GPS-verified time tracking'
+                : 'Must be within 1km of work site during 7:45 AM - 5:00 PM'
             }
           </div>
           {locationValidation.canSignIn && (
