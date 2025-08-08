@@ -1,6 +1,35 @@
 # JobFlow - GPS Time Tracking & Job Management System
 ## Changelog
 
+### Version 1.3.2 - August 8, 2025
+
+#### 🎯 Location-Aware Job Detection & Interface Cleanup
+
+**Smart Multi-Site Job Detection**
+- ✅ Automatic GPS-based job site detection using distance calculation
+- ✅ Multiple job site support: ME5 9GX (Gillingham, Kent) and DA17 5DB (Belvedere, London)
+- ✅ Nearest job assignment selection based on contractor's current GPS location
+- ✅ Real-time location matching with console logging for distance verification
+- ✅ Dynamic work site switching based on contractor proximity
+
+**Active Assignment Interface Cleanup**
+- ✅ Simplified Active Assignment display showing only essential information:
+  - Postcode location (ME5 9GX or DA17 5DB)
+  - Client name (Promise)
+  - Start and finish dates
+  - Active status badge
+- ✅ Removed interface clutter: phase badges, task breakdowns, and extra buttons
+- ✅ Clean, focused display for improved user experience
+- ✅ Location-aware assignment updates based on nearest job site
+
+**GPS System Enhancements**
+- ✅ Enhanced distance calculation using Haversine formula for all assigned job sites
+- ✅ Automatic job site detection without manual selection
+- ✅ Improved GPS validation for multiple work locations
+- ✅ Real-time assignment switching based on contractor location
+
+---
+
 ### Version 1.3.1 - August 8, 2025
 
 #### 🧹 Complete System Cleanup & Admin Time Tracking
