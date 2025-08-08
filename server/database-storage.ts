@@ -43,6 +43,7 @@ export interface IStorage {
   assignJob(assignment: JobAssignment): Promise<Job | undefined>;
   createJobAssignment(assignment: InsertJobAssignment): Promise<JobAssignmentRecord>;
   getJobAssignments(): Promise<JobAssignmentRecord[]>;
+  deleteJobAssignment(id: string): Promise<boolean>;
   
   // Contractor Applications
   getContractorApplications(): Promise<ContractorApplication[]>;
@@ -234,6 +235,12 @@ export class DatabaseStorage implements IStorage {
     const assignments = await db.select().from(jobAssignments).orderBy(desc(jobAssignments.createdAt));
     console.log("📋 Retrieved job assignments:", assignments.length);
     return assignments;
+  }
+
+  async deleteJobAssignment(id: string): Promise<boolean> {
+    const result = await db.delete(jobAssignments).where(eq(jobAssignments.id, id));
+    console.log("🗑️ Deleted job assignment:", id, "Affected rows:", result.rowCount);
+    return result.rowCount > 0;
   }
 
   // Contractor Applications

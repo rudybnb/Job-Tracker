@@ -69,10 +69,10 @@ export default function JobAssignments() {
   };
 
   // Filter assignments based on search term
-  const filteredAssignments = assignments.filter(assignment =>
+  const filteredAssignments = assignments.filter((assignment: any) =>
     assignment?.contractorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    assignment?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    assignment?.location?.toLowerCase().includes(searchTerm.toLowerCase())
+    assignment?.hbxlJob?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    assignment?.workLocation?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -156,23 +156,24 @@ export default function JobAssignments() {
                             Assigned to: {assignment.contractorName || 'Unknown'}
                           </p>
                           <p className="text-sm text-slate-400">
-                            Location: {assignment.location || 'No location specified'}
+                            Location: {assignment.workLocation || 'No location specified'}
                           </p>
-
+                          <p className="text-sm text-slate-400">
+                            Job: {assignment.hbxlJob || 'No job specified'}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right flex items-center space-x-3">
                         <div className="text-center">
                           <div className="text-xs text-slate-400">Status</div>
-                          <div className="text-green-400 font-medium text-sm">Assigned</div>
+                          <div className="text-green-400 font-medium text-sm">
+                            {assignment.status || 'Assigned'}
+                          </div>
                         </div>
                         <div className="text-center">
                           <div className="text-xs text-slate-400">Phases</div>
                           <div className="text-blue-400 font-medium text-sm">
-                            {assignment.phases 
-                              ? JSON.parse(assignment.phases).length
-                              : 0
-                            }
+                            {assignment.buildPhases?.length || 0}
                           </div>
                         </div>
                         <button
