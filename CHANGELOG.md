@@ -1,6 +1,35 @@
 # JobFlow - GPS Time Tracking & Job Management System
 ## Changelog
 
+### Version 1.3.3 - Automatic Logout & CSV Data Supremacy (August 8, 2025)
+
+#### 🔐 New Security Features
+**Automatic Logout at 5:00 PM**
+- ✅ Implemented mandatory automatic logout when 5:00 PM hits
+- ✅ Timer continuously monitors current time during active work sessions  
+- ✅ Automatic work session termination with GPS coordinates saved to database
+- ✅ Complete timer reset and localStorage cleanup on auto-logout
+- ✅ User notification: "Work Day Ended - Automatically logged out at 5:00 PM"
+- ✅ Prevents contractors from working beyond authorized hours
+
+#### 📊 Data Integrity Enhancement  
+**CSV Data Supremacy Rule (Rule 3)**
+- ✅ Established mandatory CSV data supremacy for all job information
+- ✅ Task Progress now uses only authentic CSV task items (MS001 Masonry Shell, FD001 Foundation, etc.)
+- ✅ Eliminated static/custom task assumptions - strict CSV-only data policy
+- ✅ Created CSV Data Validator service to reject non-authentic data
+- ✅ System displays "Data Missing from CSV" instead of making assumptions
+- ✅ Automatic cache clearing when new CSV uploaded to prevent data contamination
+
+#### 🛠️ Technical Implementation
+- Updated GPS dashboard timer logic with 5:00 PM automatic logout check
+- Enhanced task progress to fetch real CSV job data via /api/uploaded-jobs endpoint
+- Created server/csv-data-validator.ts for data validation and integrity enforcement
+- Updated SYSTEM_RULES.md and replit.md with new mandatory development rules
+- Fixed TypeScript errors and improved error handling in GPS dashboard
+
+---
+
 ### Version 1.3.2 - August 8, 2025
 
 #### 🎯 Location-Aware Job Detection & Interface Cleanup
