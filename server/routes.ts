@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { DatabaseStorage } from "./database-storage";
 
 const storage = new DatabaseStorage();
-import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema } from "@shared/schema";
+import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema, insertAdminSettingSchema } from "@shared/schema";
 import { TelegramService } from "./telegram";
 import multer from "multer";
 import type { Request as ExpressRequest } from "express";
@@ -760,6 +760,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating work session:", error);
       res.status(400).json({ error: "Failed to update work session" });
+    }
+  });
+
+  // Admin Settings endpoints
+  app.get("/api/admin-settings", async (req, res) => {
+    try {
+      console.log("⚙️ Fetching admin settings");
+      const settings = await storage.getAdminSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching admin settings:", error);
+      res.status(500).json({ error: "Failed to fetch admin settings" });
+    }
+  });
+
+  app.get("/api/admin-settings/:key", async (req, res) => {
+    try {
+      console.log("⚙️ Fetching admin setting:", req.params.key);
+      const setting = await storage.getAdminSetting(req.params.key);
+      if (setting) {
+        res.json(setting);
+      } else {
+        res.status(404).json({ error: "Setting not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching admin setting:", error);
+      res.status(500).json({ error: "Failed to fetch admin setting" });
+    }
+  });
+
+  app.post("/api/admin-settings", async (req, res) => {
+    try {
+      console.log("⚙️ Creating/updating admin setting:", req.body);
+      const validatedSetting = insertAdminSettingSchema.parse(req.body);
+      const setting = await storage.setAdminSetting(validatedSetting);
+      res.status(201).json(setting);
+    } catch (error) {
+      console.error("Error creating admin setting:", error);
+      res.status(400).json({ error: "Failed to create admin setting" });
+    }
+  });
+
+  app.put("/api/admin-settings/:key", async (req, res) => {
+    try {
+      console.log("⚙️ Updating admin setting:", req.params.key, req.body);
+      const { value, updatedBy } = req.body;
+      const setting = await storage.updateAdminSetting(req.params.key, value, updatedBy);
+      if (setting) {
+        res.json(setting);
+      } else {
+        res.status(404).json({ error: "Setting not found" });
+      }
+    } catch (error) {
+      console.error("Error updating admin setting:", error);
+      res.status(400).json({ error: "Failed to update admin setting" });
     }
   });
 

@@ -10,9 +10,11 @@ import {
   type ContractorApplication, 
   type InsertContractorApplication,
   type WorkSession,
-  type InsertWorkSession
+  type InsertWorkSession,
+  type AdminSetting,
+  type InsertAdminSetting
 } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications, workSessions } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -49,6 +51,12 @@ export interface IStorage {
   getActiveWorkSession(contractorName: string): Promise<WorkSession | undefined>;
   createWorkSession(session: InsertWorkSession): Promise<WorkSession>;
   updateWorkSession(id: string, session: Partial<WorkSession>): Promise<WorkSession | undefined>;
+  
+  // Admin Settings
+  getAdminSettings(): Promise<AdminSetting[]>;
+  getAdminSetting(key: string): Promise<AdminSetting | undefined>;
+  setAdminSetting(setting: InsertAdminSetting): Promise<AdminSetting>;
+  updateAdminSetting(key: string, value: string, updatedBy: string): Promise<AdminSetting | undefined>;
   
   // Stats
   getStats(): Promise<{
@@ -269,6 +277,62 @@ export class DatabaseStorage implements IStorage {
       .where(eq(workSessions.id, id))
       .returning();
     return session;
+  }
+
+  // Admin Settings Methods
+  async getAdminSettings(): Promise<AdminSetting[]> {
+    const settings = await db.select().from(adminSettings);
+    console.log("⚙️ Retrieved admin settings:", settings.length);
+    return settings;
+  }
+
+  async getAdminSetting(key: string): Promise<AdminSetting | undefined> {
+    const [setting] = await db.select().from(adminSettings).where(eq(adminSettings.settingKey, key));
+    console.log("⚙️ Retrieved admin setting:", key, setting?.settingValue);
+    return setting;
+  }
+
+  async setAdminSetting(setting: InsertAdminSetting): Promise<AdminSetting> {
+    // Check if setting already exists
+    const existing = await this.getAdminSetting(setting.settingKey);
+    
+    if (existing) {
+      // Update existing setting
+      const [updated] = await db
+        .update(adminSettings)
+        .set({
+          settingValue: setting.settingValue,
+          updatedBy: setting.updatedBy,
+          updatedAt: new Date()
+        })
+        .where(eq(adminSettings.settingKey, setting.settingKey))
+        .returning();
+      console.log("⚙️ Updated admin setting:", setting.settingKey);
+      return updated;
+    } else {
+      // Create new setting
+      const [created] = await db
+        .insert(adminSettings)
+        .values(setting)
+        .returning();
+      console.log("⚙️ Created admin setting:", setting.settingKey);
+      return created;
+    }
+  }
+
+  async updateAdminSetting(key: string, value: string, updatedBy: string): Promise<AdminSetting | undefined> {
+    const [updated] = await db
+      .update(adminSettings)
+      .set({
+        settingValue: value,
+        updatedBy: updatedBy,
+        updatedAt: new Date()
+      })
+      .where(eq(adminSettings.settingKey, key))
+      .returning();
+    
+    console.log("⚙️ Updated admin setting:", key, "to:", value);
+    return updated;
   }
 
   // Stats

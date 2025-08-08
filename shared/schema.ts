@@ -157,6 +157,21 @@ export const insertWorkSessionSchema = createInsertSchema(workSessions).omit({
   createdAt: true,
 });
 
+// Admin settings table for system configuration
+export const adminSettings = pgTable("admin_settings", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  settingKey: text("setting_key").notNull().unique(),
+  settingValue: text("setting_value").notNull(),
+  description: text("description"),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAdminSettingSchema = createInsertSchema(adminSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export type InsertContractor = z.infer<typeof insertContractorSchema>;
 export type Contractor = typeof contractors.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
@@ -170,6 +185,8 @@ export type ContractorReply = typeof contractorReplies.$inferSelect;
 export type InsertWorkSession = z.infer<typeof insertWorkSessionSchema>;
 export type WorkSession = typeof workSessions.$inferSelect;
 export type JobAssignment = z.infer<typeof jobAssignmentSchema>;
+export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
+export type AdminSetting = typeof adminSettings.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;

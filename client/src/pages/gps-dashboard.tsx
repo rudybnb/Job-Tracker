@@ -141,6 +141,18 @@ export default function GPSDashboard() {
     queryKey: ["/api/contractor-assignments/James"],
   });
 
+  // Get Saturday overtime setting from admin settings
+  const { data: saturdayOvertimeSetting } = useQuery({
+    queryKey: ["/api/admin-settings/saturday_overtime"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin-settings/saturday_overtime");
+      if (response.status === 404) return null; // Setting doesn't exist
+      if (!response.ok) throw new Error('Failed to fetch Saturday overtime setting');
+      return response.json();
+    },
+    retry: false,
+  });
+
   // State for location validation
   const [userLocation, setUserLocation] = useState<GPSPosition | null>(null);
   const [workSiteLocation, setWorkSiteLocation] = useState<GPSPosition | null>(null);
@@ -170,22 +182,40 @@ export default function GPSDashboard() {
     return R * c;
   };
 
-  // Check if current time is within working hours (7:45am - 5pm)
+  // Check if current time is within working hours (7:45am - 5pm) or Saturday overtime is allowed
   const isWithinWorkingHours = (allowClockOut = false): boolean => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const currentTime = hours + minutes / 60;
+    const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
     
     const startTime = 7 + 45/60; // 7:45 AM
     const endTime = 17; // 5:00 PM
+    
+    // Check if Saturday overtime is enabled and it's Saturday
+    const isSaturday = dayOfWeek === 6;
+    const saturdayOvertimeEnabled = saturdayOvertimeSetting?.settingValue === 'true';
     
     // If already tracking and trying to clock out, allow it even after hours
     if (allowClockOut && isTracking) {
       return currentTime >= startTime; // Only need to be after start time
     }
     
-    return currentTime >= startTime && currentTime <= endTime;
+    // Regular working hours (Monday-Friday)
+    const isRegularWorkingHours = currentTime >= startTime && currentTime <= endTime;
+    
+    // If it's Saturday and Saturday overtime is enabled, allow work
+    if (isSaturday && saturdayOvertimeEnabled) {
+      return isRegularWorkingHours; // Same time restrictions but on Saturday
+    }
+    
+    // Sunday is never allowed
+    if (dayOfWeek === 0) {
+      return false;
+    }
+    
+    return isRegularWorkingHours;
   };
 
   // Get user's current location

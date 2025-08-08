@@ -1,198 +1,65 @@
 # JobFlow - GPS Time Tracking & Job Management System
 
 ## Overview
-
-JobFlow is a GPS-based time tracking and job management application for contractors. The system includes GPS-verified time tracking, file upload capabilities for job creation, admin dashboards, and direct job assignment workflows with Telegram notifications.
+JobFlow is a GPS-based time tracking and job management application designed for contractors. It offers GPS-verified time tracking, file upload capabilities for job creation, comprehensive admin dashboards, and direct job assignment workflows. The system aims to provide a robust solution for managing contractor operations, from time tracking and compliance to job assignment and progress monitoring.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
-
 App Recreation Method: User prefers to provide visual references (screenshots/pictures) showing color schemes, layouts, and functionality rather than detailed written descriptions. Visual specifications are more effective for accurate app recreation.
-
-## Recent Changes (August 8, 2025)
-
-### Latest Updates (Session 4 - August 8, 2025)
-✓ **COMPLETED: Location-Aware Job Detection System** - Revolutionary GPS-based job site detection:
-  - Smart multi-site detection automatically identifies nearest job site using Haversine distance calculation
-  - Multiple job sites supported: ME5 9GX (Gillingham, Kent) and DA17 5DB (Belvedere, London) with authentic GPS coordinates
-  - Dynamic Active Assignment section updates based on contractor's current GPS location
-  - Real-time job switching - shows correct assignment when moving between job sites
-  - Console logging displays distance calculations and nearest job site selection
-✓ **Active Assignment Interface Cleanup** - Streamlined display for essential information only:
-  - Removed clutter: phase badges, task breakdowns, and extra action buttons
-  - Clean display shows only postcode, client name (Promise), start/finish dates, and status
-  - Location-aware updates with "nearest" badge for current job site
-  - Improved user experience with focused, minimal interface design
-✓ **System Cleanup** - Removed Telegram functionality to streamline application:
-  - Removed Telegram routes and menu items from admin interface
-  - Cleaned up navigation and simplified admin dashboard
-  - Application now focuses on core GPS tracking and job management features
-
-### Previous Updates (Session 3 - August 7, 2025)
-✓ **COMPLETED: GPS Security & Location Validation System** - Implemented comprehensive GPS-based access control:
-  - 1km proximity validation using Haversine formula for precise distance calculation
-  - Working hours enforcement (7:45 AM - 5:00 PM) with real-time time checking
-  - GPS coordinates automatically extracted from CSV postcode data (SG1, SW1, EC1, W1A, N1A, SE1)
-  - Visual validation dashboard with distance display and access status badges
-  - Smart button states and error messaging when restrictions are active
-✓ **Enhanced More Page Layout** - Complete redesign with modern dashboard styling:
-  - Prominent earnings cards with gradient golden styling for net earnings
-  - Compact 3-column quick stats (Gross, CIS deductions, hourly rate)
-  - CIS compliance banner with visual shield indicators
-  - Timeline-style daily sessions with GPS location markers
-  - Professional export section with dynamic date formatting
-✓ **GPS-CSV Data Integration** - Connected GPS system to pull real location data from uploaded CSV files
-✓ **CRITICAL FIX: Permanent Database Storage Implemented** - Replaced in-memory storage with PostgreSQL database to prevent application data loss
-✓ **Database Migration Completed** - All contractor applications now persist permanently across server restarts
-✓ **COMPLETED: Full Application Submission System** - Contractor forms now submit real data to database via API endpoints
-✓ **Admin CIS Management** - Added admin-only fields for CIS verification details that only admins can fill
-✓ **Pay Rate Administration** - Admins can set contractor pay rates (£/hour) through dedicated admin interface
-✓ **Admin Applications Dashboard** - Built comprehensive review system at `/admin-applications` with:
-  - Three-tab organization: Pending, Approved, Rejected applications
-  - Detailed contractor profiles with all UK construction compliance details
-  - Admin-only editing section for CIS verification and pay rate management
-  - One-click approval/rejection with status tracking
-✓ **Database Integration** - All contractor applications now persist in database with proper schema
-✓ **Telegram Admin Notifications** - System sends notifications to admin when new applications are submitted
-✓ **FIXED: CIS Registration Form** - Simplified to Yes/No radio buttons with automatic deduction calculation:
-  - Yes = CIS Registered (20% deduction)
-  - No = Not CIS Registered (30% deduction)
-✓ **Removed Pay Rate from Contractor Form** - Pay rates now exclusively set by admins
-✓ **Form Validation Fixed** - Contractors can now successfully complete and submit applications
-✓ **COMPLETED: Telegram Approval/Rejection Notifications** - System now automatically sends Telegram messages to contractors when applications are approved or rejected with appropriate success/failure messages
-
-### Earlier Updates
-✓ **RESOLVED: Build Phase Display Issue** - Fixed job assignments showing "0 phases" instead of actual phase counts and names
-✓ **Enhanced Job Assignment UI** - Added blue phase badges displaying individual phase names under each assignment
-✓ **Fixed Delete Button Visibility** - Restored and enhanced delete functionality with larger, more visible red delete buttons
-✓ **COMPLETED: Comprehensive 6-Step Contractor Onboarding Form** - Built professional onboarding system that sends complete forms to contractors via Telegram:
-  - Step 1: Personal Information (Name, Email, Phone, Address, City, Postcode)
-  - Step 2: Right to Work & Documentation (UK work rights, Passport, UTR, CIS registration, Insurance)
-  - Step 3: CIS & Tax Details (CIS verification status, CSCS card details, tax compliance)
-  - Step 4: Banking Information (Bank details for payments)
-  - Step 5: Emergency Contact (Safety compliance)
-  - Step 6: Trade & Tools (15 trade specializations, experience levels, tool inventory)
-✓ **Telegram Form Distribution System** - Contractors receive structured forms via Telegram to fill out and return
-✓ **UK Construction Compliance** - Full integration of CIS verification, UTR numbers, CSCS cards, public liability insurance
-✓ **Professional Review Workflow** - Three-tab system: Send Form → Pending Review → Approved Contractors
-
-### Previous Session Achievements
-✓ **RESOLVED: Admin Dashboard Navigation Issue** - Fixed button routing and implemented proper authentication
-✓ **NEW: Authentication System** - Replaced temporary account switcher with proper login/logout system
-✓ **Login Credentials Added** - Admin: admin/admin123, Contractor: contractor/contractor123  
-✓ **GPS Dashboard Implemented** - Transformed dashboard to GPS time tracking interface matching user screenshot
-✓ **Avatar Dropdown Menu** - Added comprehensive 15+ option management menu with all admin tools
-✓ **Job Assignments Page** - Simplified layout with search functionality and empty state
-✓ **Admin Task Monitor** - Statistics dashboard with quick actions and admin controls
-✓ **Session Management** - Proper login/logout functionality with localStorage session tracking
-✓ **RESOLVED: Create Job Button Issue** - Fixed CSV upload persistence and job creation workflow
-✓ **Enhanced CSV Processing** - Improved phase detection and client data extraction from uploaded files
-✓ **Persistent Data Storage** - Added localStorage for CSV uploads and created jobs across page navigation
-✓ **Debug System Implementation** - Added comprehensive logging for troubleshooting job creation process
-✓ **Task Progress Interface Working** - Contractors can now view and interact with assigned subtasks
-✓ **Complete Workflow Functional** - CSV upload → Job creation → Assignment → Task tracking fully operational
-✓ **FIXED: Create Job Button Connection** - Admin "Create Job" button now properly connects to upload data and guides users through workflow
-✓ **NEW: Complete Assignment Creation Form** - Built comprehensive job assignment form with contractor details, HBXL job selection from uploads, build phase checkboxes, dates, and Telegram notifications
-
-### Previous Features (August 6, 2025)
-✓ Transformed application into GPS-based time tracking and job management system based on user screenshots
-✓ Created GPS Dashboard (/) - GPS coordinates, real-time timer, "Start Work" functionality  
-✓ Built Upload Job page (/upload) - HBXL CSV/PDF file uploads with approval workflow
-✓ Implemented Admin Dashboard (/admin) - Statistics overview and quick action buttons
-✓ Added Jobs page (/jobs) - Direct job assignments with Telegram notification integration
-✓ Applied consistent dark navy theme with yellow headers across all pages
-✓ Integrated bottom navigation system connecting Dashboard, Jobs, Admin, Upload Job
-✓ Added comprehensive avatar dropdown menu with 15+ management options
-✓ Created contractor task progress interface with detailed progress tracking and +/- controls
-✓ Implemented Direct Job Assignments page showing available jobs for contractors
-✓ Added Admin Task Monitor for real-time contractor progress and time tracking oversight
-✓ Built complete CSV → Job → HBXL → Phase → Subtask workflow system
-✓ Enhanced CSV parsing to extract specific client data (Name, Address, Post Code, Project Type)
-✓ Added floating account switcher for seamless admin/contractor interface switching
-
-## Application Structure
-
-Complete workflow system with role-based interfaces:
-
-### Admin Interface:
-1. **Upload Job (/upload)** - CSV/PDF upload creates jobs automatically
-2. **Job Assignments (/job-assignments)** - Assign HBXL job types and select phases
-3. **Admin Task Monitor (/admin-task-monitor)** - Monitor contractor progress and time tracking
-4. **Admin Dashboard (/admin)** - Management interface with statistics and quick actions
-
-### Contractor Interface:
-1. **GPS Dashboard (/)** - Time tracking with GPS verification (James Carpenter perspective)
-2. **Direct Job Assignments (/jobs)** - View available job assignments
-3. **Task Progress (/task-progress)** - Work on assigned subtasks with progress tracking
-
-### Complete Workflow:
-CSV Upload → Job Creation → HBXL Assignment → Phase Selection → Subtask Breakdown → Contractor Assignment → Progress Monitoring
-
-## User Interface Theme
-
-Dark navy background (#1e293b) with:
-- Muted yellow-grey headers and text (#d97706, #ca8a04) - softer, less bright yellow tones
-- Rounded cards with slate borders (#374151)
-- Consistent bottom navigation with active state highlighting
-- GPS coordinates and timer displays matching provided screenshots exactly
-- Applications management moved to contractor applications page rather than admin dashboard
 
 ## System Architecture
 
-### Frontend Architecture
-- **Framework**: React with TypeScript using Vite as the build tool
-- **UI Library**: Shadcn/ui components built on Radix UI primitives
-- **Styling**: Tailwind CSS with CSS variables for theming
-- **State Management**: TanStack React Query for server state management
-- **Routing**: Wouter for lightweight client-side routing
-- **Form Handling**: React Hook Form with Zod validation
+### UI/UX Decisions
+The application features a dark navy background (`#1e293b`) with muted yellow-grey headers and text (`#d97706`, `#ca8a04`), providing a softer, less bright aesthetic. Key UI elements include rounded cards with slate borders (`#374151`) and consistent bottom navigation with active state highlighting. The GPS coordinates and timer displays are designed to match provided screenshots precisely.
 
-### Backend Architecture
-- **Runtime**: Node.js with Express.js server
-- **Language**: TypeScript with ES modules
-- **API Design**: RESTful API endpoints with JSON responses
-- **Storage**: In-memory storage implementation with interface for future database integration
-- **File Processing**: Multer for CSV file uploads with parsing capabilities
-- **Development**: Hot reloading with Vite middleware integration
+### Technical Implementations
+**Frontend**:
+- **Framework**: React with TypeScript, using Vite as the build tool.
+- **UI**: Shadcn/ui components built on Radix UI primitives.
+- **Styling**: Tailwind CSS with CSS variables for theming.
+- **State Management**: TanStack React Query for server state.
+- **Routing**: Wouter for lightweight client-side routing.
+- **Form Handling**: React Hook Form with Zod validation.
 
-### Database Schema
-- **ORM**: Drizzle ORM configured for PostgreSQL
-- **Tables**: 
-  - `contractors` - contractor information and status
-  - `jobs` - job details with status tracking
-  - `csv_uploads` - file upload metadata and processing status
-- **Enums**: Status enums for jobs, contractors, and uploads
-- **Relationships**: Foreign key relationships between jobs and contractors
+**Backend**:
+- **Runtime**: Node.js with Express.js.
+- **Language**: TypeScript with ES modules.
+- **API Design**: RESTful API endpoints with JSON responses.
+- **File Processing**: Multer for CSV file uploads.
 
-### Data Storage Solutions
-- **Current**: In-memory storage with seeded data for development
-- **Configured**: PostgreSQL with Neon Database serverless connection
-- **Migration**: Drizzle Kit for schema migrations
-- **Validation**: Zod schemas for type-safe data validation
+**Database**:
+- **ORM**: Drizzle ORM configured for PostgreSQL.
+- **Schema**: Includes `work_sessions`, `admin_settings`, `contractors`, `jobs`, and `csv_uploads` tables with defined relationships and status enums.
+- **Validation**: Zod schemas for type-safe data validation.
 
-### Authentication and Authorization
-- **Current**: No authentication implemented
-- **Prepared**: Express middleware structure ready for auth integration
-- **Session**: Cookie-based session management configured
+**Core Features**:
+- **GPS Security & Validation**: 1km proximity validation using Haversine formula, enforced working hours (7:45 AM - 5:00 PM), and automatic GPS coordinate extraction from CSV postcode data.
+- **Permanent Database Work Session Tracking**: Comprehensive `work_sessions` table stores all GPS and time data, with API endpoints for starting, ending, and retrieving sessions. Sessions are synchronized on page load to restore active tracking.
+- **Saturday Overtime Admin Control**: `admin_settings` table allows administrators to enable/disable Saturday work, with validation against same time restrictions and GPS validation.
+- **Location-Aware Job Detection**: Smart multi-site detection automatically identifies the nearest job site using Haversine distance, dynamically updating the Active Assignment section.
+- **Contractor Onboarding**: A 6-step form captures personal information, right to work details, CIS/tax details, banking information, emergency contacts, and trade/tool information.
+- **Admin Management**: Features include an Admin Applications Dashboard for reviewing and managing contractor applications, CIS management, and pay rate administration.
+- **Authentication**: A proper login/logout system is implemented with session management.
+
+### System Design Choices
+The application adopts a complete workflow system with distinct role-based interfaces for administrators and contractors. The workflow spans from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize persistence (PostgreSQL database), security (GPS validation), and user experience (streamlined interfaces, simplified forms).
 
 ## External Dependencies
 
 ### Database Services
-- **Neon Database**: Serverless PostgreSQL database (configured via DATABASE_URL)
-- **Drizzle ORM**: Type-safe database operations with PostgreSQL dialect
+- **Neon Database**: Serverless PostgreSQL database.
+- **Drizzle ORM**: Type-safe database operations for PostgreSQL.
 
 ### Cloud Storage
-- **Google Cloud Storage**: File storage service integration
-- **Uppy**: File upload components with AWS S3 and dashboard support
+- **Google Cloud Storage**: Used for file storage.
+- **Uppy**: File upload components with AWS S3 and dashboard support.
 
-### UI and Styling
-- **Radix UI**: Comprehensive component primitives
-- **Tailwind CSS**: Utility-first CSS framework
-- **Lucide React**: Icon library for UI components
+### UI and Styling Libraries
+- **Radix UI**: Comprehensive component primitives.
+- **Tailwind CSS**: Utility-first CSS framework.
+- **Lucide React**: Icon library for UI components.
 
 ### Development Tools
-- **Vite**: Build tool and development server
-- **ESBuild**: Fast JavaScript bundler for production
-- **TypeScript**: Type safety and enhanced developer experience
-- **Replit Integration**: Development environment optimizations
+- **Vite**: Build tool and development server.
+- **ESBuild**: Fast JavaScript bundler.
+- **TypeScript**: For type safety.

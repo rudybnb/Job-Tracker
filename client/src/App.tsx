@@ -25,6 +25,7 @@ import TelegramTest from "@/pages/telegram-test";
 import AdminTimeTracking from "@/pages/admin-time-tracking";
 import AssignmentDetails from "@/pages/assignment-details";
 import ContractorIdCapture from "@/pages/contractor-id-capture";
+import AdminSettings from "@/pages/admin-settings";
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -123,6 +124,11 @@ function Router() {
         <Route path="/contractor-id-capture" component={() => (
           <ProtectedRoute requiredRole="admin">
             <ContractorIdCapture />
+          </ProtectedRoute>
+        )} />
+        <Route path="/admin-settings" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminSettings />
           </ProtectedRoute>
         )} />
         <Route component={NotFound} />
