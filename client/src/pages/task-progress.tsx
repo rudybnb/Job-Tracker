@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -14,28 +15,91 @@ interface ProgressTask {
 }
 
 export default function TaskProgress() {
-  const [currentProject] = useState("Promise - Renovation, ME5 9GX");
-  // Get tasks from assigned phases (would come from CSV data in real implementation)
-  const [tasks, setTasks] = useState<ProgressTask[]>([
-    {
-      id: "1",
-      title: "Masonry Shell - Bricklaying Foundation",
-      description: "Lay foundation bricks and mortar joints (50 No)",
-      area: "Foundation Area",
-      totalItems: 50,
-      completedItems: 0,
-      status: "not started" as const
-    },
-    {
-      id: "2", 
-      title: "Masonry Shell - Block Work",
-      description: "Install concrete blocks for walls (120 No)",
-      area: "Main Structure", 
-      totalItems: 120,
-      completedItems: 0,
-      status: "not started" as const
+  // Get job details from URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const jobId = urlParams.get('jobId');
+  const locationFromUrl = urlParams.get('location');
+  
+  // Fetch job details from API
+  const { data: jobDetails, isLoading } = useQuery({
+    queryKey: [`/api/job-assignments/${jobId}`],
+    enabled: !!jobId,
+  });
+  
+  // Update current project based on job details or URL
+  const [currentProject, setCurrentProject] = useState(() => {
+    if (locationFromUrl) {
+      return `Job Assignment - ${locationFromUrl}`;
+    } else {
+      return "Promise - Renovation, ME5 9GX";
     }
-  ].filter(task => task.totalItems > 0)); // Only show tasks with quantity > 0
+  });
+
+  // Update project title when job details are loaded
+  useEffect(() => {
+    if (jobDetails) {
+      setCurrentProject(`${jobDetails.title} - ${jobDetails.location}`);
+    }
+  }, [jobDetails]);
+  // Initialize tasks based on location from URL
+  const [tasks, setTasks] = useState<ProgressTask[]>(() => {
+    return locationFromUrl && locationFromUrl.includes('DA17 5DB') ? [
+      {
+        id: "1",
+        title: "External Works - Garden Layout",
+        description: "Design and layout garden areas",
+        area: "Garden Area",
+        totalItems: 80,
+        completedItems: 0,
+        status: "not started" as const
+      },
+      {
+        id: "2", 
+        title: "External Works - Landscaping",
+        description: "Complete landscaping work", 
+        area: "Landscaping",
+        totalItems: 120,
+        completedItems: 0,
+        status: "not started" as const
+      }
+    ] : [
+      {
+        id: "1",
+        title: "Masonry Shell - Bricklaying Foundation",
+        description: "Lay foundation bricks and mortar joints (50 No)",
+        area: "Foundation Area",
+        totalItems: 50,
+        completedItems: 0,
+        status: "not started" as const
+      },
+      {
+        id: "2", 
+        title: "Masonry Shell - Block Work",
+        description: "Install concrete blocks for walls (120 No)",
+        area: "Main Structure", 
+        totalItems: 120,
+        completedItems: 0,
+        status: "not started" as const
+      }
+    ];
+  });
+
+  // Update tasks when job details are loaded
+  useEffect(() => {
+    if (jobDetails && jobDetails.phases) {
+      const phases = JSON.parse(jobDetails.phases);
+      const newTasks = phases.map((phase: string, index: number) => ({
+        id: (index + 1).toString(),
+        title: phase,
+        description: `Complete ${phase} work`,
+        area: jobDetails.location,
+        totalItems: 100, // Default to 100% progress
+        completedItems: 0,
+        status: "not started" as const
+      }));
+      setTasks(newTasks);
+    }
+  }, [jobDetails]);
   
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
   const { toast } = useToast();

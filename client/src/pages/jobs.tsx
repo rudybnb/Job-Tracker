@@ -113,7 +113,7 @@ export default function Jobs() {
                   <Button 
                     size="sm" 
                     className="bg-yellow-600 hover:bg-yellow-700 text-black flex-1"
-                    onClick={() => window.location.href = '/task-progress'}
+                    onClick={() => window.location.href = `/task-progress?jobId=${assignment.id}&location=${encodeURIComponent(assignment.location)}`}
                   >
                     Continue Work
                   </Button>
