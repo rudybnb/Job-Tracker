@@ -317,6 +317,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send contractor hello message
+  app.post("/api/send-contractor-hello", async (req, res) => {
+    try {
+      console.log('📱 Contractor hello message request');
+      
+      const telegramService = new TelegramService();
+      const result = await telegramService.sendContractorHello('James Carpenter');
+      
+      if (result.success) {
+        console.log('✅ Contractor hello message sent successfully');
+        res.json({ 
+          success: true, 
+          message: 'Hello message sent from James Carpenter',
+          messageId: result.messageId,
+          simulated: result.simulated
+        });
+      } else {
+        console.log('⚠️ Contractor hello message failed:', result.error);
+        res.json({ 
+          success: false, 
+          message: `Failed to send hello message: ${result.error}`,
+          error: result.error
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ Contractor hello message error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to send hello message',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Telegram notification endpoint - real implementation
   app.post("/api/send-telegram-notification", async (req, res) => {
     try {
