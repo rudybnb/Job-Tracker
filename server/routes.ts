@@ -239,6 +239,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create job assignment from admin interface
+  // Get all job assignments (for admin interface)
+  app.get("/api/job-assignments", async (req, res) => {
+    try {
+      console.log("📋 Fetching all job assignments");
+      const assignments = await storage.getAllJobAssignments();
+      console.log("📋 Found", assignments.length, "job assignments");
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching job assignments:", error);
+      res.status(500).json({ error: "Failed to fetch job assignments" });
+    }
+  });
+
   app.post("/api/job-assignments", async (req, res) => {
     try {
       console.log("📋 Creating job assignment:", req.body);
@@ -267,6 +280,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating job assignment:", error);
       res.status(500).json({ error: "Failed to create job assignment" });
+    }
+  });
+
+  // Delete job assignment
+  app.delete("/api/job-assignments/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log("🗑️ Deleting job assignment:", id);
+      
+      await storage.deleteJobAssignment(id);
+      
+      res.status(200).json({ message: "Assignment deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting job assignment:", error);
+      res.status(500).json({ error: "Failed to delete job assignment" });
     }
   });
 

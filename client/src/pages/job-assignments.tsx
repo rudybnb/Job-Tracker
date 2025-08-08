@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 function LogoutButton() {
   const handleLogout = () => {
@@ -26,35 +27,52 @@ function LogoutButton() {
 }
 
 export default function JobAssignments() {
-  const [assignments, setAssignments] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
-  // Load actual job assignments (jobs assigned to contractors) from localStorage
-  useEffect(() => {
-    const savedAssignments = localStorage.getItem('jobAssignments');
-    if (savedAssignments) {
-      const assignmentData = JSON.parse(savedAssignments);
-      setAssignments(assignmentData);
-      console.log('Loaded job assignments:', assignmentData);
+  // Fetch job assignments from the database
+  const { data: assignments = [], isLoading, refetch } = useQuery({
+    queryKey: ['/api/job-assignments'],
+    queryFn: async () => {
+      const response = await fetch('/api/job-assignments');
+      if (!response.ok) {
+        throw new Error('Failed to fetch job assignments');
+      }
+      return response.json();
     }
-  }, []);
+  });
 
-  const handleDeleteAssignment = (index: number) => {
-    const updatedAssignments = assignments.filter((_, i) => i !== index);
-    setAssignments(updatedAssignments);
-    localStorage.setItem('jobAssignments', JSON.stringify(updatedAssignments));
-    toast({
-      title: "Assignment Deleted",
-      description: "Job assignment has been removed successfully.",
-    });
+  const handleDeleteAssignment = async (assignmentId: string) => {
+    try {
+      const response = await fetch(`/api/job-assignments/${assignmentId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete assignment');
+      }
+      
+      // Refresh the assignments list
+      refetch();
+      
+      toast({
+        title: "Assignment Deleted",
+        description: "Job assignment has been removed successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete assignment. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Filter assignments based on search term
   const filteredAssignments = assignments.filter(assignment =>
     assignment?.contractorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    assignment?.hbxlJob?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    assignment?.workLocation?.toLowerCase().includes(searchTerm.toLowerCase())
+    assignment?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    assignment?.location?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -114,7 +132,11 @@ export default function JobAssignments() {
             </div>
 
             {/* Assignment Cards - Show only actual assignments to contractors */}
-            {filteredAssignments && filteredAssignments.length > 0 ? (
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="text-slate-400">Loading assignments...</div>
+              </div>
+            ) : filteredAssignments && filteredAssignments.length > 0 ? (
               <div className="space-y-4">
                 {filteredAssignments.map((assignment: any, index: number) => (
                   <div 
@@ -128,19 +150,19 @@ export default function JobAssignments() {
                         </div>
                         <div>
                           <h3 className="text-lg font-semibold text-white">
-                            {assignment.hbxlJob || 'Job Assignment'}
+                            {assignment.title || 'Job Assignment'}
                           </h3>
                           <p className="text-sm text-slate-400">
                             Assigned to: {assignment.contractorName || 'Unknown'}
                           </p>
                           <p className="text-sm text-slate-400">
-                            Location: {assignment.workLocation || 'No location specified'}
+                            Location: {assignment.location || 'No location specified'}
                           </p>
-                          {assignment.buildPhases && Array.isArray(assignment.buildPhases) && assignment.buildPhases.length > 0 && (
+                          {assignment.phases && (
                             <div className="mt-2">
                               <p className="text-xs text-slate-500">Build Phases:</p>
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {assignment.buildPhases.map((phase: string, idx: number) => (
+                                {JSON.parse(assignment.phases).map((phase: string, idx: number) => (
                                   <span 
                                     key={idx}
                                     className="bg-blue-600 text-white text-xs px-2 py-1 rounded"
@@ -161,14 +183,14 @@ export default function JobAssignments() {
                         <div className="text-center">
                           <div className="text-xs text-slate-400">Phases</div>
                           <div className="text-blue-400 font-medium text-sm">
-                            {assignment.buildPhases && Array.isArray(assignment.buildPhases) 
-                              ? assignment.buildPhases.length
+                            {assignment.phases 
+                              ? JSON.parse(assignment.phases).length
                               : 0
                             }
                           </div>
                         </div>
                         <button
-                          onClick={() => handleDeleteAssignment(index)}
+                          onClick={() => handleDeleteAssignment(assignment.id)}
                           className="p-3 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-colors border border-red-800 hover:border-red-600"
                           title="Delete Assignment"
                         >
@@ -182,14 +204,14 @@ export default function JobAssignments() {
                         <div className="text-white">{assignment.startDate || 'N/A'}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-400">End Date</div>
-                        <div className="text-white">{assignment.endDate || 'N/A'}</div>
+                        <div className="text-xs text-slate-400">Due Date</div>
+                        <div className="text-white">{assignment.dueDate || 'N/A'}</div>
                       </div>
                       <div>
                         <div className="text-xs text-slate-400">Build Phases</div>
                         <div className="text-white">
-                          {assignment.buildPhases && Array.isArray(assignment.buildPhases) 
-                            ? `${assignment.buildPhases.length} phases`
+                          {assignment.phases
+                            ? `${JSON.parse(assignment.phases).length} phases`
                             : '0 phases'
                           }
                         </div>

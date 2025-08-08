@@ -248,4 +248,21 @@ export class DatabaseStorage implements IStorage {
     
     return result[0];
   }
+
+  async getAllJobAssignments(): Promise<Job[]> {
+    console.log("📋 DatabaseStorage: Getting all job assignments");
+    
+    const assignments = await db.select().from(jobs);
+    
+    console.log("📋 DatabaseStorage: Found", assignments.length, "job assignments");
+    return assignments;
+  }
+
+  async deleteJobAssignment(id: string): Promise<void> {
+    console.log("🗑️ DatabaseStorage: Deleting job assignment", id);
+    
+    await db.delete(jobs).where(eq(jobs.id, id));
+    
+    console.log("✅ DatabaseStorage: Job assignment deleted");
+  }
 }
