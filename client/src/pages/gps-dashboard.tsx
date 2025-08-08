@@ -33,8 +33,15 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
     );
   }
 
-  // Show the assignment for the job site you're currently nearest to
-  const activeAssignment = assignments[0];
+  // Validate assignment data before displaying
+  const validAssignments = assignments.filter((assignment: any) => {
+    // Import dataIntegrity here to avoid import issues
+    const DataIntegrityService = require('@/lib/data-integrity').DataIntegrityService;
+    const integrity = DataIntegrityService.getInstance();
+    return integrity.validateAssignmentData(assignment);
+  });
+
+  const activeAssignment = validAssignments[0];
 
   return (
     <div className="space-y-3">

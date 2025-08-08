@@ -7,6 +7,13 @@ JobFlow is a GPS-based time tracking and job management application designed for
 Preferred communication style: Simple, everyday language.
 App Recreation Method: User prefers to provide visual references (screenshots/pictures) showing color schemes, layouts, and functionality rather than detailed written descriptions. Visual specifications are more effective for accurate app recreation.
 
+**MANDATORY DEVELOPMENT RULE**: When making ANY changes to the system:
+- NEVER touch or modify working code/features
+- Only modify broken or non-functional parts
+- Make incremental changes only, never rewrite entire systems
+- Always verify what is currently working before making changes
+- This rule is mandatory and must be followed at all times to prevent regression of working functionality
+
 ## System Architecture
 
 ### UI/UX Decisions

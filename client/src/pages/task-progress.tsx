@@ -45,11 +45,16 @@ export default function TaskProgress() {
   // Initialize tasks as empty - will be populated from actual job assignment data
   const [tasks, setTasks] = useState<ProgressTask[]>([]);
 
-  // Clear any old static task data when component loads
+  // Clear any old static task data when component loads  
   useEffect(() => {
     // Clear old static task data from localStorage
     const keysToRemove = ['task_progress_default', 'task_progress_DA17 5DB'];
     keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    // Validate assignment data integrity
+    if (!dataIntegrity.validateTaskData(tasks, jobId)) {
+      dataIntegrity.clearStaleData();
+    }
   }, []);
 
   // Load saved progress and update tasks when job details are loaded
