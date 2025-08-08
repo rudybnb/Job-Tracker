@@ -109,11 +109,6 @@ function Router() {
             <CreateAssignment />
           </ProtectedRoute>
         )} />
-        <Route path="/telegram-test" component={() => (
-          <ProtectedRoute requiredRole="admin">
-            <TelegramTest />
-          </ProtectedRoute>
-        )} />
         <Route path="/admin-time-tracking" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AdminTimeTracking />
@@ -122,11 +117,6 @@ function Router() {
         <Route path="/assignment-details/:id" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AssignmentDetails />
-          </ProtectedRoute>
-        )} />
-        <Route path="/telegram-monitor" component={() => (
-          <ProtectedRoute requiredRole="admin">
-            <TelegramTest />
           </ProtectedRoute>
         )} />
         <Route component={NotFound} />

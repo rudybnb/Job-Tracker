@@ -297,17 +297,6 @@ export default function AdminDashboard() {
                   <button 
                     onClick={() => {
                       setShowAvatarDropdown(false);
-                      window.location.href = '/telegram-monitor';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-green-400 bg-green-900/20"
-                  >
-                    <i className="fas fa-paper-plane mr-3 w-4"></i>
-                    📱 Telegram ID System Demo
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
                       toast({ title: "Create Contractor", description: "Creating James contractor profile..." });
                     }}
                     className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
@@ -325,17 +314,6 @@ export default function AdminDashboard() {
                   >
                     <i className="fas fa-eye mr-3 w-4"></i>
                     Preview James's Interface
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "Telegram Notifications", description: "Opening Telegram settings..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fab fa-telegram mr-3 w-4"></i>
-                    Telegram Notifications
                   </button>
                   
                   <button 
