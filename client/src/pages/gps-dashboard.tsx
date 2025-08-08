@@ -33,13 +33,8 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
     );
   }
 
-  // Validate assignment data before displaying
-  const validAssignments = assignments.filter((assignment: any) => {
-    // Import dataIntegrity here to avoid import issues
-    const DataIntegrityService = require('@/lib/data-integrity').DataIntegrityService;
-    const integrity = DataIntegrityService.getInstance();
-    return integrity.validateAssignmentData(assignment);
-  });
+  // Use assignments directly - data integrity is enforced at the API level
+  const validAssignments = assignments;
 
   const activeAssignment = validAssignments[0];
 
