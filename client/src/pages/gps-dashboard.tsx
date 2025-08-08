@@ -54,6 +54,19 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
             <i className="fas fa-calendar text-slate-400 mr-2 w-4"></i>
             <span>{activeAssignment.startDate} - {activeAssignment.endDate}</span>
           </div>
+          <div className="flex items-start text-slate-300">
+            <i className="fas fa-tools text-slate-400 mr-2 w-4 mt-0.5"></i>
+            <div>
+              <span className="text-slate-400">Assigned Phases:</span>
+              <div className="mt-1">
+                {activeAssignment.buildPhases?.map((phase: string, index: number) => (
+                  <div key={index} className="text-yellow-400 text-xs">
+                    • {phase}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
           {activeAssignment.specialInstructions && (
             <div className="flex items-start text-slate-300">
               <i className="fas fa-sticky-note text-slate-400 mr-2 w-4 mt-0.5"></i>
