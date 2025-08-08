@@ -50,106 +50,102 @@ export default function TaskProgress() {
 
   // Load saved progress and update tasks when assignment is loaded
   useEffect(() => {
-    if (activeAssignment && activeAssignment.buildPhases) {
+    if (!activeAssignment || !activeAssignment.buildPhases) return;
+    
+    const loadTasksFromCSV = async () => {
       const storageKey = `task_progress_${activeAssignment.id}`;
       const savedProgress = localStorage.getItem(storageKey);
       
-      // Create detailed sub-tasks for each build phase
-      let taskId = 1;
+      // Fetch the actual CSV job data to get real task items
       let newTasks: ProgressTask[] = [];
       
-      activeAssignment.buildPhases.forEach((phase: string) => {
-        if (phase === "Joinery 1st Fix") {
-          newTasks.push(
-            {
+      try {
+        // Get the uploaded jobs data that contains CSV task items
+        const jobsResponse = await fetch('/api/uploaded-jobs');
+        const uploadedJobs = await jobsResponse.json();
+        
+        // Find the job that matches this assignment
+        const matchingJob = uploadedJobs.find((job: any) => 
+          job.name === activeAssignment.hbxlJob || 
+          job.name.includes(activeAssignment.hbxlJob.split(' - ')[0])
+        );
+        
+        if (matchingJob && matchingJob.phaseData) {
+          let taskId = 1;
+          
+          // Create tasks from real CSV data for each assigned phase
+          activeAssignment.buildPhases.forEach((phase: string) => {
+            if (matchingJob.phaseData[phase]) {
+              // Use actual CSV items for this phase
+              matchingJob.phaseData[phase].forEach((item: any) => {
+                newTasks.push({
+                  id: (taskId++).toString(),
+                  title: item.itemDescription || `${item.code} - Task`,
+                  description: item.itemDescription || '',
+                  area: phase,
+                  totalItems: parseInt(item.quantity) || 1,
+                  completedItems: 0,
+                  status: "not started" as const
+                });
+              });
+            } else {
+              // If no CSV data for this phase, create a basic task
+              newTasks.push({
+                id: (taskId++).toString(),
+                title: phase,
+                description: `Complete ${phase} work`,
+                area: phase,
+                totalItems: 1,
+                completedItems: 0,
+                status: "not started" as const
+              });
+            }
+          });
+        } else {
+          // Fallback: create basic tasks if no CSV data found
+          let taskId = 1;
+          activeAssignment.buildPhases.forEach((phase: string) => {
+            newTasks.push({
               id: (taskId++).toString(),
-              title: "Door Frame Installation",
-              description: "Install all internal door frames and architraves",
-              area: "Joinery 1st Fix",
-              totalItems: 8,
-              completedItems: 0,
-              status: "not started" as const
-            },
-            {
-              id: (taskId++).toString(),
-              title: "Window Board Installation",
-              description: "Fit window boards and sills throughout property",
-              area: "Joinery 1st Fix",
-              totalItems: 6,
-              completedItems: 0,
-              status: "not started" as const
-            },
-            {
-              id: (taskId++).toString(),
-              title: "Staircase Installation",
-              description: "Install main staircase and handrails",
-              area: "Joinery 1st Fix",
+              title: phase,
+              description: `Complete ${phase} work`,
+              area: phase,
               totalItems: 1,
               completedItems: 0,
               status: "not started" as const
-            },
-            {
-              id: (taskId++).toString(),
-              title: "Kitchen Unit Framework",
-              description: "Install kitchen base unit framework",
-              area: "Joinery 1st Fix",
-              totalItems: 12,
-              completedItems: 0,
-              status: "not started" as const
-            }
-          );
-        } else if (phase === "Build Phase") {
-          newTasks.push(
-            {
-              id: (taskId++).toString(),
-              title: "Foundation Work",
-              description: "Complete foundation excavation and concrete pour",
-              area: "Build Phase",
-              totalItems: 4,
-              completedItems: 0,
-              status: "not started" as const
-            },
-            {
-              id: (taskId++).toString(),
-              title: "Block Work",
-              description: "Build internal and external block walls",
-              area: "Build Phase",
-              totalItems: 25,
-              completedItems: 0,
-              status: "not started" as const
-            },
-            {
-              id: (taskId++).toString(),
-              title: "Roof Structure",
-              description: "Install roof trusses and felt covering",
-              area: "Build Phase",
-              totalItems: 8,
-              completedItems: 0,
-              status: "not started" as const
-            },
-            {
-              id: (taskId++).toString(),
-              title: "Window Installation",
-              description: "Fit all external windows and doors",
-              area: "Build Phase",
-              totalItems: 10,
-              completedItems: 0,
-              status: "not started" as const
-            }
-          );
-        } else {
-          // Fallback for any other phases
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch CSV job data:', error);
+        // Fallback: create basic tasks
+        let taskId = 1;
+        activeAssignment.buildPhases.forEach((phase: string) => {
           newTasks.push({
             id: (taskId++).toString(),
             title: phase,
             description: `Complete ${phase} work`,
-            area: activeAssignment.workLocation || activeAssignment.hbxlJob,
-            totalItems: 10,
+            area: phase,
+            totalItems: 1,
             completedItems: 0,
             status: "not started" as const
           });
+        });
+      }
+      
+      // If we have saved progress for this job, restore it
+      if (savedProgress) {
+        try {
+          const savedTasks = JSON.parse(savedProgress) as ProgressTask[];
+          // Merge saved progress with current tasks
+          newTasks = newTasks.map(task => {
+            const savedTask = savedTasks.find(saved => saved.id === task.id || saved.title === task.title);
+            return savedTask ? { ...task, completedItems: savedTask.completedItems, status: savedTask.status } : task;
+          });
+        } catch (error) {
+          console.error('Failed to load saved progress:', error);
         }
-      });
+      }
       
       // If we have saved progress for this job, restore it
       if (savedProgress) {
@@ -166,7 +162,9 @@ export default function TaskProgress() {
       }
       
       setTasks(newTasks);
-    }
+    };
+    
+    loadTasksFromCSV();
   }, [activeAssignment]);
   
   // Save progress whenever tasks change
