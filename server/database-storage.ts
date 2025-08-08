@@ -12,9 +12,11 @@ import {
   type WorkSession,
   type InsertWorkSession,
   type AdminSetting,
-  type InsertAdminSetting
+  type InsertAdminSetting,
+  type JobAssignmentRecord,
+  type InsertJobAssignment
 } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -39,8 +41,8 @@ export interface IStorage {
   
   // Job Assignment
   assignJob(assignment: JobAssignment): Promise<Job | undefined>;
-  createJobAssignment(assignment: any): Promise<any>;
-  getJobAssignments(): Promise<any[]>;
+  createJobAssignment(assignment: InsertJobAssignment): Promise<JobAssignmentRecord>;
+  getJobAssignments(): Promise<JobAssignmentRecord[]>;
   
   // Contractor Applications
   getContractorApplications(): Promise<ContractorApplication[]>;
@@ -222,20 +224,16 @@ export class DatabaseStorage implements IStorage {
     return updatedJob;
   }
 
-  async createJobAssignment(assignment: any): Promise<any> {
-    // For now, we'll store job assignments as part of the job data
-    // This is a simplified implementation that stores assignment info in memory
-    console.log("✅ Job assignment created:", assignment);
-    return {
-      id: Date.now().toString(),
-      ...assignment,
-      createdAt: new Date().toISOString()
-    };
+  async createJobAssignment(assignment: InsertJobAssignment): Promise<JobAssignmentRecord> {
+    const [created] = await db.insert(jobAssignments).values(assignment).returning();
+    console.log("✅ Job assignment created in database:", created);
+    return created;
   }
 
-  async getJobAssignments(): Promise<any[]> {
-    // Return empty array for now - this would need proper database implementation
-    return [];
+  async getJobAssignments(): Promise<JobAssignmentRecord[]> {
+    const assignments = await db.select().from(jobAssignments).orderBy(desc(jobAssignments.createdAt));
+    console.log("📋 Retrieved job assignments:", assignments.length);
+    return assignments;
   }
 
   // Contractor Applications

@@ -172,6 +172,30 @@ export const insertAdminSettingSchema = createInsertSchema(adminSettings).omit({
   updatedAt: true,
 });
 
+// Job Assignments table
+export const jobAssignments = pgTable("job_assignments", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorName: text("contractor_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  workLocation: text("work_location").notNull(),
+  hbxlJob: text("hbxl_job").notNull(),
+  buildPhases: text("build_phases").array().notNull(),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  specialInstructions: text("special_instructions"),
+  status: text("status").notNull().default("assigned"),
+  sendTelegramNotification: boolean("send_telegram_notification").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertJobAssignmentSchema = createInsertSchema(jobAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertContractor = z.infer<typeof insertContractorSchema>;
 export type Contractor = typeof contractors.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
@@ -187,6 +211,8 @@ export type WorkSession = typeof workSessions.$inferSelect;
 export type JobAssignment = z.infer<typeof jobAssignmentSchema>;
 export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
 export type AdminSetting = typeof adminSettings.$inferSelect;
+export type InsertJobAssignment = z.infer<typeof insertJobAssignmentSchema>;
+export type JobAssignmentRecord = typeof jobAssignments.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;

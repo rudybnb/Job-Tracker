@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { DatabaseStorage } from "./database-storage";
 
 const storage = new DatabaseStorage();
-import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema, insertAdminSettingSchema } from "@shared/schema";
+import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema, insertAdminSettingSchema, insertJobAssignmentSchema } from "@shared/schema";
 import { TelegramService } from "./telegram";
 import multer from "multer";
 import type { Request as ExpressRequest } from "express";
@@ -238,12 +238,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create job assignment from admin interface
   // Get all job assignments (for admin interface)
   app.get("/api/job-assignments", async (req, res) => {
     try {
       console.log("📋 Fetching all job assignments");
-      const assignments = await storage.getAllJobAssignments();
+      const assignments = await storage.getJobAssignments();
       console.log("📋 Found", assignments.length, "job assignments");
       res.json(assignments);
     } catch (error) {
@@ -274,8 +273,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/job-assignments", async (req, res) => {
     try {
       console.log("📋 Creating job assignment:", req.body);
-      
-      const assignment = await storage.createJobAssignment(req.body);
+      const validatedAssignment = insertJobAssignmentSchema.parse(req.body);
+      const assignment = await storage.createJobAssignment(validatedAssignment);
       
       // Send Telegram notification if requested
       if (req.body.sendTelegramNotification) {
