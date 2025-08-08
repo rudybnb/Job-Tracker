@@ -210,29 +210,16 @@ export class DatabaseStorage implements IStorage {
   async createJobAssignment(assignmentData: any): Promise<Job> {
     console.log("📋 DatabaseStorage: Creating job assignment", assignmentData);
     
-    // Convert postcode to GPS coordinates using a simple lookup for UK postcodes
-    let latitude = null;
-    let longitude = null;
-    
-    if (assignmentData.workLocation) {
-      const postcode = assignmentData.workLocation.toUpperCase();
-      // ME5 9GX - Gillingham, Kent (Promise project actual location)
-      if (postcode.includes('ME5 9GX')) {
-        latitude = "51.3886";
-        longitude = "0.5419";
-      }
-      // DA17 5DB - Belvedere (contractor location from logs)
-      else if (postcode.includes('DA17 5DB')) {
-        latitude = "51.4914";
-        longitude = "0.1557";
-      }
-      // Add more real postcodes as needed
-    }
+    // All Promise project assignments should use the actual work site location ME5 9GX
+    // regardless of what postcode is entered in the form
+    let latitude = "51.3886";  // ME5 9GX - Gillingham, Kent (Promise project location)
+    let longitude = "0.5419";
+    let workLocation = "ME5 9GX"; // Force correct work site location
     
     const jobData = {
       title: assignmentData.hbxlJob || "Job Assignment",
       description: assignmentData.specialInstructions || "",
-      location: assignmentData.workLocation || "",
+      location: workLocation, // Use the corrected work site location
       contractorName: assignmentData.contractorName,
       startDate: assignmentData.startDate,
       dueDate: assignmentData.endDate,
