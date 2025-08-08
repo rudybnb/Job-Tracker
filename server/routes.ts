@@ -317,6 +317,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Telegram webhook to handle contractor replies
+  app.post("/api/telegram-webhook", async (req, res) => {
+    try {
+      console.log('🔔 Telegram webhook received:', JSON.stringify(req.body, null, 2));
+      
+      const { message } = req.body;
+      
+      if (!message || !message.text) {
+        return res.status(200).json({ ok: true, message: "No text message" });
+      }
+
+      const contractorName = message.from?.first_name || "Unknown Contractor";
+      const contractorPhone = message.contact?.phone_number;
+      const messageText = message.text.toLowerCase();
+      
+      // Check if this is a contractor reply (not from admin)
+      const isContractorReply = message.from?.id !== 7617462316; // Not Rudy's ID
+      
+      if (isContractorReply && (
+        messageText.includes('hello') || 
+        messageText.includes('hi') || 
+        messageText.includes('work') || 
+        messageText.includes('job') ||
+        messageText.includes('ready') ||
+        messageText.includes('start')
+      )) {
+        console.log('🎯 Contractor reply detected from:', contractorName);
+        
+        // Generate unique ID and send onboarding form
+        const telegramService = new TelegramService();
+        const result = await telegramService.sendOnboardingForm(contractorName, contractorPhone);
+        
+        if (result.success) {
+          console.log('✅ Auto-sent onboarding form with ID:', result.contractorId);
+          
+          // Store contractor reply in database
+          await storage.createContractorReply({
+            contractorName,
+            contractorPhone,
+            messageText: message.text,
+            contractorId: result.contractorId,
+            telegramUserId: message.from?.id?.toString(),
+            receivedAt: new Date().toISOString()
+          });
+        }
+      }
+      
+      res.status(200).json({ ok: true });
+      
+    } catch (error) {
+      console.error('❌ Telegram webhook error:', error);
+      res.status(200).json({ ok: true, error: error.message });
+    }
+  });
+
   // Send onboarding form to contractor
   app.post("/api/send-onboarding-form", async (req, res) => {
     try {
