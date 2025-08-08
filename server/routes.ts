@@ -317,6 +317,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send onboarding form to contractor
+  app.post("/api/send-onboarding-form", async (req, res) => {
+    try {
+      const { contractorName, contractorPhone } = req.body;
+      console.log('📱 Onboarding form request for:', contractorName);
+      
+      if (!contractorName) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Contractor name is required' 
+        });
+      }
+      
+      const telegramService = new TelegramService();
+      const result = await telegramService.sendOnboardingForm(contractorName, contractorPhone);
+      
+      if (result.success) {
+        console.log('✅ Onboarding form sent successfully with ID:', result.contractorId);
+        res.json({ 
+          success: true, 
+          message: `Onboarding form sent to ${contractorName}`,
+          contractorId: result.contractorId,
+          messageId: result.messageId,
+          simulated: result.simulated
+        });
+      } else {
+        console.log('⚠️ Onboarding form failed:', result.error);
+        res.json({ 
+          success: false, 
+          message: `Failed to send onboarding form: ${result.error}`,
+          error: result.error
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ Onboarding form error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to send onboarding form',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Send contractor hello message
   app.post("/api/send-contractor-hello", async (req, res) => {
     try {

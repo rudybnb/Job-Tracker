@@ -149,6 +149,74 @@ Please confirm receipt and let us know if you have any questions!
 Good luck with the project! 💪`;
   }
 
+  // Generate unique contractor ID and send onboarding form
+  async sendOnboardingForm(contractorName: string, contractorPhone?: string) {
+    try {
+      console.log('📱 Sending onboarding form to contractor...');
+      
+      if (!this.botToken) {
+        console.log('⚠️ No bot token - simulating onboarding form');
+        return { success: true, simulated: true };
+      }
+
+      // Generate unique contractor ID
+      const contractorId = `CTR-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      
+      // Use Rudy's Chat ID
+      const chatId = '7617462316';
+      
+      const message = `🎯 <b>New Contractor Onboarding Required</b>
+
+👤 Contractor: ${contractorName}
+${contractorPhone ? `📱 Phone: ${contractorPhone}` : ''}
+🆔 ID: <code>${contractorId}</code>
+
+📋 <b>Please complete your contractor onboarding form:</b>
+👆 Click the link below to access your personalized form
+
+🔗 <a href="https://${process.env.REPL_SLUG || 'jobflow'}.${process.env.REPLIT_DEV_DOMAIN || 'replit.dev'}/contractor-form?id=${contractorId}">Complete Onboarding Form</a>
+
+⚠️ <b>Important:</b>
+• Fill out all 6 steps completely
+• Upload required documents (Passport, UTR, CIS, Insurance)
+• Submit form for admin review
+• You'll receive confirmation once approved
+
+Need help? Reply to this message! 💬`;
+      
+      const response = await fetch(`${this.baseUrl}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Telegram onboarding form error:', response.status, errorData);
+        return { success: false, error: `Telegram API error: ${response.status}` };
+      }
+
+      const result = await response.json();
+      console.log('✅ Onboarding form sent with ID:', contractorId);
+      
+      return { 
+        success: true, 
+        messageId: result.message_id,
+        contractorId: contractorId
+      };
+      
+    } catch (error) {
+      console.error('❌ Onboarding form error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
   // Send hello message from contractor
   async sendContractorHello(contractorName: string = 'James Carpenter') {
     try {

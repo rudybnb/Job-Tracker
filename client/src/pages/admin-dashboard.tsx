@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface GPSPosition {
   latitude: number;
@@ -41,6 +42,36 @@ export default function AdminDashboard() {
   const [gpsStatus, setGpsStatus] = useState<"Good" | "Poor" | "Unavailable">("Good");
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const { toast } = useToast();
+
+  // Send onboarding form mutation
+  const sendOnboardingFormMutation = useMutation({
+    mutationFn: async (data: { contractorName: string; contractorPhone?: string }) => {
+      const response = await apiRequest("POST", "/api/send-onboarding-form", data);
+      return response.json();
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        toast({
+          title: "✅ Onboarding Form Sent",
+          description: `Sent to ${result.contractorId || 'contractor'} via Telegram`,
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: "⚠️ Form Send Failed",
+          description: result.error || "Failed to send onboarding form",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "❌ Error",
+        description: "Failed to send onboarding form",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Mock GPS data to match screenshot
   useEffect(() => {
@@ -261,6 +292,21 @@ export default function AdminDashboard() {
                   >
                     <i className="fas fa-download mr-3 w-4"></i>
                     Export & Archive
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      sendOnboardingFormMutation.mutate({
+                        contractorName: "David Wilson",
+                        contractorPhone: "07934567890"
+                      });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-green-400 bg-green-900/20"
+                    disabled={sendOnboardingFormMutation.isPending}
+                  >
+                    <i className="fas fa-paper-plane mr-3 w-4"></i>
+                    {sendOnboardingFormMutation.isPending ? "Sending..." : "📋 Send Onboarding Form"}
                   </button>
                   
                   <button 
