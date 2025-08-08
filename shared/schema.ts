@@ -120,6 +120,22 @@ export const jobAssignmentSchema = z.object({
   notes: z.string().optional(),
 });
 
+// Contractor Replies tracking  
+export const contractorReplies = pgTable("contractor_replies", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  contractorName: text("contractor_name").notNull(),
+  contractorPhone: text("contractor_phone"),
+  messageText: text("message_text").notNull(),
+  contractorId: text("contractor_id").notNull(), // The generated unique ID
+  telegramUserId: text("telegram_user_id"),
+  receivedAt: text("received_at").notNull(),
+  formSent: boolean("form_sent").default(false),
+});
+
+export const insertContractorReplySchema = createInsertSchema(contractorReplies).omit({
+  id: true,
+});
+
 export type InsertContractor = z.infer<typeof insertContractorSchema>;
 export type Contractor = typeof contractors.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
@@ -128,6 +144,8 @@ export type InsertCsvUpload = z.infer<typeof insertCsvUploadSchema>;
 export type CsvUpload = typeof csvUploads.$inferSelect;
 export type InsertContractorApplication = z.infer<typeof insertContractorApplicationSchema>;
 export type ContractorApplication = typeof contractorApplications.$inferSelect;
+export type InsertContractorReply = z.infer<typeof insertContractorReplySchema>;
+export type ContractorReply = typeof contractorReplies.$inferSelect;
 export type JobAssignment = z.infer<typeof jobAssignmentSchema>;
 
 export interface JobWithContractor extends Job {
