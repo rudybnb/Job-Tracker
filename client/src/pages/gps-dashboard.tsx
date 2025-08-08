@@ -132,9 +132,17 @@ export default function GPSDashboard() {
     return R * c;
   };
 
-  // Allow work at any time (no working hour restrictions)
+  // Check if current time is within working hours (7:45am - 5pm)
   const isWithinWorkingHours = (): boolean => {
-    return true; // Always allow work regardless of time
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentTime = hours + minutes / 60;
+    
+    const startTime = 7 + 45/60; // 7:45 AM
+    const endTime = 17; // 5:00 PM
+    
+    return currentTime >= startTime && currentTime <= endTime;
   };
 
   // Get user's current location
@@ -150,11 +158,11 @@ export default function GPSDashboard() {
         },
         (error) => {
           console.log("Geolocation error:", error);
-          // Simulate location for demo purposes
-          setUserLocation({
-            latitude: 51.9020, // Close to Stevenage for demo
-            longitude: -0.2030,
-            accuracy: 10
+          setGpsStatus("Unavailable");
+          toast({
+            title: "GPS Error",
+            description: "Unable to access your location. Please enable GPS and try again.",
+            variant: "destructive"
           });
         }
       );
@@ -210,10 +218,12 @@ export default function GPSDashboard() {
       
       const isWithinRange = distance <= 1; // 1km radius
       const isValidTime = isWithinWorkingHours();
-      const canSignIn = isWithinRange; // Only require location proximity, no time restriction
+      const canSignIn = isWithinRange && isValidTime;
       
       let errorMessage = '';
-      if (!isWithinRange) {
+      if (!isValidTime) {
+        errorMessage = 'Outside working hours (7:45 AM - 5:00 PM)';
+      } else if (!isWithinRange) {
         errorMessage = `Too far from work site (${distance.toFixed(2)}km away)`;
       }
       
