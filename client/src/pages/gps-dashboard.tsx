@@ -132,17 +132,9 @@ export default function GPSDashboard() {
     return R * c;
   };
 
-  // Check if current time is within working hours (7:45am - 5pm)
+  // Allow work at any time (no working hour restrictions)
   const isWithinWorkingHours = (): boolean => {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTime = hours + minutes / 60;
-    
-    const startTime = 7 + 45/60; // 7:45 AM
-    const endTime = 17; // 5:00 PM
-    
-    return currentTime >= startTime && currentTime <= endTime;
+    return true; // Always allow work regardless of time
   };
 
   // Get user's current location
@@ -218,12 +210,10 @@ export default function GPSDashboard() {
       
       const isWithinRange = distance <= 1; // 1km radius
       const isValidTime = isWithinWorkingHours();
-      const canSignIn = isWithinRange && isValidTime;
+      const canSignIn = isWithinRange; // Only require location proximity, no time restriction
       
       let errorMessage = '';
-      if (!isValidTime) {
-        errorMessage = 'Outside working hours (7:45 AM - 5:00 PM)';
-      } else if (!isWithinRange) {
+      if (!isWithinRange) {
         errorMessage = `Too far from work site (${distance.toFixed(2)}km away)`;
       }
       
