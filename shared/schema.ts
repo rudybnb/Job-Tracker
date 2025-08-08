@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, pgEnum, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -122,7 +122,7 @@ export const jobAssignmentSchema = z.object({
 
 // Contractor Replies tracking  
 export const contractorReplies = pgTable("contractor_replies", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id").primaryKey(),
   contractorName: text("contractor_name").notNull(),
   contractorPhone: text("contractor_phone"),
   messageText: text("message_text").notNull(),

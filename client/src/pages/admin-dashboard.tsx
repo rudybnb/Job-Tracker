@@ -297,16 +297,12 @@ export default function AdminDashboard() {
                   <button 
                     onClick={() => {
                       setShowAvatarDropdown(false);
-                      sendOnboardingFormMutation.mutate({
-                        contractorName: "David Wilson",
-                        contractorPhone: "07934567890"
-                      });
+                      window.location.href = '/telegram-monitor';
                     }}
                     className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-green-400 bg-green-900/20"
-                    disabled={sendOnboardingFormMutation.isPending}
                   >
                     <i className="fas fa-paper-plane mr-3 w-4"></i>
-                    {sendOnboardingFormMutation.isPending ? "Sending..." : "📋 Send Onboarding Form"}
+                    📱 Telegram ID System Demo
                   </button>
                   
                   <button 

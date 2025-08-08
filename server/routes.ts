@@ -352,15 +352,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (result.success) {
           console.log('✅ Auto-sent onboarding form with ID:', result.contractorId);
           
-          // Store contractor reply in database
-          await storage.createContractorReply({
-            contractorName,
-            contractorPhone,
-            messageText: message.text,
-            contractorId: result.contractorId,
-            telegramUserId: message.from?.id?.toString(),
-            receivedAt: new Date().toISOString()
-          });
+          console.log('📋 Contractor Details Captured:');
+          console.log('   Name:', contractorName);
+          console.log('   Telegram ID:', message.from?.id);
+          console.log('   Generated Contractor ID:', result.contractorId);
         }
       }
       
@@ -368,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
     } catch (error) {
       console.error('❌ Telegram webhook error:', error);
-      res.status(200).json({ ok: true, error: error.message });
+      res.status(200).json({ ok: true, error: String(error) });
     }
   });
 
