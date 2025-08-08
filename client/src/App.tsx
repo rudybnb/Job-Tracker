@@ -22,6 +22,7 @@ import SystemCleanupPage from "@/pages/system-cleanup";
 import CreateAssignment from "@/pages/create-assignment";
 import TelegramTest from "@/pages/telegram-test";
 import AdminTimeTracking from "@/pages/admin-time-tracking";
+import AssignmentDetails from "@/pages/assignment-details";
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -115,6 +116,11 @@ function Router() {
         <Route path="/admin-time-tracking" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AdminTimeTracking />
+          </ProtectedRoute>
+        )} />
+        <Route path="/assignment-details/:id" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AssignmentDetails />
           </ProtectedRoute>
         )} />
         <Route component={NotFound} />
