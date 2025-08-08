@@ -208,12 +208,9 @@ export default function JobAssignments() {
                         <div className="text-white">{assignment.dueDate || 'N/A'}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-400">Build Phases</div>
+                        <div className="text-xs text-slate-400">Telegram</div>
                         <div className="text-white">
-                          {assignment.phases
-                            ? `${JSON.parse(assignment.phases).length} phases`
-                            : '0 phases'
-                          }
+                          {assignment.telegramNotified === 'true' ? '✓ Sent' : 'Not sent'}
                         </div>
                       </div>
                       <div>

@@ -61,16 +61,25 @@ export default function Jobs() {
               <div key={assignment.id} className="bg-slate-800 rounded-lg p-4 border border-slate-700">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-slate-700 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-calendar text-white"></i>
+                    <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-briefcase text-white"></i>
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-yellow-400">{assignment.location}</h3>
-                      <p className="text-slate-400 text-sm">{assignment.title}</p>
+                      <h3 className="text-lg font-semibold text-yellow-400">{assignment.title}</h3>
+                      <p className="text-slate-400 text-sm">Location: {assignment.location}</p>
+                      <p className="text-slate-400 text-xs">
+                        {assignment.startDate} → {assignment.dueDate}
+                      </p>
                     </div>
                   </div>
-                  <Badge className="bg-yellow-500 text-black text-xs px-3 py-1">
-                    active
+                  <Badge className={`text-xs px-3 py-1 ${
+                    assignment.status === 'assigned' 
+                      ? 'bg-yellow-500 text-black' 
+                      : assignment.status === 'completed'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-slate-500 text-white'
+                  }`}>
+                    {assignment.status}
                   </Badge>
                 </div>
                 
@@ -83,6 +92,21 @@ export default function Jobs() {
                     <i className="fas fa-clock text-slate-400 mr-2 w-4"></i>
                     <span>{assignment.startDate} - {assignment.dueDate}</span>
                   </div>
+                  {assignment.phases && (
+                    <div className="flex items-start text-slate-300">
+                      <i className="fas fa-tasks text-slate-400 mr-2 w-4 mt-0.5"></i>
+                      <div className="flex flex-wrap gap-1">
+                        {JSON.parse(assignment.phases).map((phase: string, idx: number) => (
+                          <span 
+                            key={idx}
+                            className="bg-blue-600 text-white text-xs px-2 py-1 rounded"
+                          >
+                            {phase}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex space-x-2">
