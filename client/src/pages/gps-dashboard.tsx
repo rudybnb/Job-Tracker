@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 // Active Assignment Component
-function ActiveAssignmentContent() {
+function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
   const { data: assignments = [], isLoading } = useQuery({
     queryKey: ["/api/contractor-assignments/James"], // Using James as the contractor name from screenshots
   });
@@ -33,7 +33,8 @@ function ActiveAssignmentContent() {
     );
   }
 
-  const activeAssignment = assignments[0]; // Show the first active assignment
+  // Show the assignment for the job site you're currently nearest to
+  const activeAssignment = nearestJobSite || assignments[0];
   const phases = activeAssignment.phases ? JSON.parse(activeAssignment.phases) : [];
 
   return (
@@ -45,7 +46,7 @@ function ActiveAssignmentContent() {
             <p className="text-slate-400 text-sm">{activeAssignment.title}</p>
           </div>
           <Badge className="bg-yellow-500 text-black text-xs px-2 py-1">
-            active
+            {nearestJobSite ? 'nearest' : 'active'}
           </Badge>
         </div>
         
@@ -53,6 +54,28 @@ function ActiveAssignmentContent() {
           <div className="flex items-center text-slate-300">
             <i className="fas fa-calendar text-slate-400 mr-2 w-4"></i>
             <span>{activeAssignment.startDate} - {activeAssignment.dueDate}</span>
+          </div>
+          
+          {phases.length > 0 && (
+            <div className="flex items-start text-slate-300 mt-2">
+              <i className="fas fa-tasks text-slate-400 mr-2 w-4 mt-0.5"></i>
+              <div className="flex flex-wrap gap-1">
+                {phases.map((phase: string, index: number) => (
+                  <Badge key={index} className="bg-blue-600 text-white text-xs px-2 py-0.5">
+                    {phase}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <div className="mt-3 pt-3 border-t border-slate-600">
+            <button 
+              onClick={() => window.location.href = '/task-progress'}
+              className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-medium py-2 px-4 rounded-lg text-sm transition-colors"
+            >
+              Continue Work
+            </button>
           </div>
         </div>
       </div>
@@ -107,6 +130,7 @@ export default function GPSDashboard() {
   // State for location validation
   const [userLocation, setUserLocation] = useState<GPSPosition | null>(null);
   const [workSiteLocation, setWorkSiteLocation] = useState<GPSPosition | null>(null);
+  const [nearestJob, setNearestJob] = useState<any>(null);
   const [locationValidation, setLocationValidation] = useState<{
     isWithinRange: boolean;
     distance: number;
@@ -198,14 +222,17 @@ export default function GPSDashboard() {
           longitude: parseFloat(nearestAssignment.longitude),
           accuracy: 5
         });
+        setNearestJob(nearestAssignment);
         setGpsStatus("Good");
         console.log(`🎯 Nearest job site: ${nearestAssignment.location} (${shortestDistance.toFixed(2)}km away)`);
       } else {
         setWorkSiteLocation(null);
+        setNearestJob(null);
         setGpsStatus("No GPS coordinates available for assignments");
       }
     } else {
       setWorkSiteLocation(null);
+      setNearestJob(null);
       setGpsStatus(assignments?.length > 0 ? "Waiting for GPS location" : "No assignments");
     }
   }, [assignments, userLocation]);
@@ -546,7 +573,7 @@ export default function GPSDashboard() {
             <h3 className="text-lg font-semibold text-yellow-400">Active Assignment</h3>
           </div>
           
-          <ActiveAssignmentContent />
+          <ActiveAssignmentContent nearestJobSite={nearestJob} />
         </div>
 
         {/* Priority Issues Card */}
