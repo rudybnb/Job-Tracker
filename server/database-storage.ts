@@ -210,6 +210,25 @@ export class DatabaseStorage implements IStorage {
   async createJobAssignment(assignmentData: any): Promise<Job> {
     console.log("📋 DatabaseStorage: Creating job assignment", assignmentData);
     
+    // Convert postcode to GPS coordinates using a simple lookup for UK postcodes
+    let latitude = null;
+    let longitude = null;
+    
+    if (assignmentData.workLocation) {
+      const postcode = assignmentData.workLocation.toUpperCase();
+      // ME5 9GX - Gillingham, Kent (Promise project actual location)
+      if (postcode.includes('ME5 9GX')) {
+        latitude = "51.3886";
+        longitude = "0.5419";
+      }
+      // DA17 5DB - Belvedere (contractor location from logs)
+      else if (postcode.includes('DA17 5DB')) {
+        latitude = "51.4914";
+        longitude = "0.1557";
+      }
+      // Add more real postcodes as needed
+    }
+    
     const jobData = {
       title: assignmentData.hbxlJob || "Job Assignment",
       description: assignmentData.specialInstructions || "",
@@ -220,6 +239,8 @@ export class DatabaseStorage implements IStorage {
       status: "assigned" as const,
       phases: assignmentData.buildPhases ? JSON.stringify(assignmentData.buildPhases) : null,
       telegramNotified: assignmentData.sendTelegramNotification ? "true" : "false",
+      latitude: latitude,
+      longitude: longitude,
     };
 
     const result = await db.insert(jobs).values(jobData).returning();

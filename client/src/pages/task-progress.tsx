@@ -14,7 +14,7 @@ interface ProgressTask {
 }
 
 export default function TaskProgress() {
-  const [currentProject] = useState("Unknown, SG1 1EH");
+  const [currentProject] = useState("Promise - Renovation, ME5 9GX");
   // Get tasks from assigned phases (would come from CSV data in real implementation)
   const [tasks, setTasks] = useState<ProgressTask[]>([
     {

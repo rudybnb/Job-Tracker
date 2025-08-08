@@ -32,6 +32,8 @@ export const jobs = pgTable("jobs", {
   uploadId: varchar("upload_id").references(() => csvUploads.id),
   phases: text("phases"), // JSON string of selected phases
   telegramNotified: text("telegram_notified").default("false"),
+  latitude: text("latitude"), // GPS latitude for work site
+  longitude: text("longitude"), // GPS longitude for work site
 });
 
 export const csvUploads = pgTable("csv_uploads", {

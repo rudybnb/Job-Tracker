@@ -171,39 +171,26 @@ export default function GPSDashboard() {
 
   // Update work site coordinates based on current job assignment location
   useEffect(() => {
-    let coords = { latitude: 51.491179, longitude: 0.147781 }; // Default London
-    
     if (assignments && assignments.length > 0) {
       const activeAssignment = assignments[0];
       
-      // Extract coordinates based on assignment location/postcode from CSV data
-      if (activeAssignment.location) {
-        const location = activeAssignment.location.toLowerCase();
-        
-        // Map known locations from CSV data to GPS coordinates
-        if (location.includes('stevenage') || location.includes('sg1')) {
-          coords = { latitude: 51.9022, longitude: -0.2034 }; // Stevenage
-        } else if (location.includes('high street') || location.includes('sw1')) {
-          coords = { latitude: 51.4956, longitude: -0.1447 }; // SW1 High Street area
-        } else if (location.includes('business park') || location.includes('ec1')) {
-          coords = { latitude: 51.5200, longitude: -0.1089 }; // EC1 Business area
-        } else if (location.includes('elm avenue') || location.includes('w1a')) {
-          coords = { latitude: 51.5155, longitude: -0.1426 }; // W1A Elm Avenue area
-        } else if (location.includes('oak road') || location.includes('n1a')) {
-          coords = { latitude: 51.5461, longitude: -0.1058 }; // N1A Oak Road area
-        } else if (location.includes('garden close') || location.includes('se1')) {
-          coords = { latitude: 51.5017, longitude: -0.0943 }; // SE1 Garden Close area
-        }
+      // Use GPS coordinates from the assignment data if available
+      if (activeAssignment.latitude && activeAssignment.longitude) {
+        setWorkSiteLocation({
+          latitude: parseFloat(activeAssignment.latitude),
+          longitude: parseFloat(activeAssignment.longitude),
+          accuracy: 5
+        });
+        setGpsStatus("Good");
+      } else {
+        // No GPS coordinates available
+        setWorkSiteLocation(null);
+        setGpsStatus("GPS coordinates needed for " + activeAssignment.location);
       }
+    } else {
+      setWorkSiteLocation(null);
+      setGpsStatus("No assignment");
     }
-    
-    // Set work site location
-    setWorkSiteLocation({
-      latitude: coords.latitude,
-      longitude: coords.longitude,
-      accuracy: 5
-    });
-    setGpsStatus("Good");
   }, [assignments]);
 
   // Validate location and time whenever user location or work site changes
@@ -239,9 +226,9 @@ export default function GPSDashboard() {
       setLocationValidation({
         isWithinRange: false,
         distance: 0,
-        isValidTime: false,
+        isValidTime: isWithinWorkingHours(),
         canSignIn: false,
-        errorMessage: 'GPS location required - please enable location services'
+        errorMessage: userLocation ? 'Work site location data missing' : 'GPS location required - please enable location services'
       });
     }
   }, [userLocation, workSiteLocation]);
