@@ -124,14 +124,11 @@ function Router() {
             <AssignmentDetails />
           </ProtectedRoute>
         )} />
-        <Route path="/telegram-monitor" component={() => {
-          const TelegramMonitor = lazy(() => import("@/pages/telegram-monitor"));
-          return (
-            <ProtectedRoute requiredRole="admin">
-              <TelegramMonitor />
-            </ProtectedRoute>
-          );
-        }} />
+        <Route path="/telegram-monitor" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <TelegramTest />
+          </ProtectedRoute>
+        )} />
         <Route component={NotFound} />
       </Switch>
     </div>
