@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { DatabaseStorage } from "./database-storage";
 
 const storage = new DatabaseStorage();
-import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema } from "@shared/schema";
+import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema } from "@shared/schema";
 import { TelegramService } from "./telegram";
 import multer from "multer";
 import type { Request as ExpressRequest } from "express";
@@ -706,6 +706,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error clearing applications:", error);
       res.status(500).json({ error: "Failed to clear applications" });
+    }
+  });
+
+  // Work Sessions endpoints
+  app.post("/api/work-sessions", async (req, res) => {
+    try {
+      console.log("🕐 Creating work session:", req.body);
+      const validatedSession = insertWorkSessionSchema.parse(req.body);
+      const session = await storage.createWorkSession(validatedSession);
+      res.status(201).json(session);
+    } catch (error) {
+      console.error("Error creating work session:", error);
+      res.status(400).json({ error: "Failed to create work session" });
+    }
+  });
+
+  app.get("/api/work-sessions/:contractorName", async (req, res) => {
+    try {
+      console.log("🕐 Fetching sessions for contractor:", req.params.contractorName);
+      const sessions = await storage.getWorkSessions(req.params.contractorName);
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching work sessions:", error);
+      res.status(500).json({ error: "Failed to fetch work sessions" });
+    }
+  });
+
+  app.get("/api/work-sessions/:contractorName/active", async (req, res) => {
+    try {
+      console.log("🕐 Fetching active session for:", req.params.contractorName);
+      const session = await storage.getActiveWorkSession(req.params.contractorName);
+      if (session) {
+        res.json(session);
+      } else {
+        res.status(404).json({ error: "No active session found" });
+      }
+    } catch (error) {
+      console.error("Error fetching active work session:", error);
+      res.status(500).json({ error: "Failed to fetch active work session" });
+    }
+  });
+
+  app.put("/api/work-sessions/:id", async (req, res) => {
+    try {
+      console.log("🕐 Updating work session:", req.params.id, req.body);
+      const session = await storage.updateWorkSession(req.params.id, req.body);
+      if (session) {
+        res.json(session);
+      } else {
+        res.status(404).json({ error: "Work session not found" });
+      }
+    } catch (error) {
+      console.error("Error updating work session:", error);
+      res.status(400).json({ error: "Failed to update work session" });
     }
   });
 

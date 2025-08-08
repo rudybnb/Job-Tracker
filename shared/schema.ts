@@ -6,6 +6,7 @@ import { z } from "zod";
 export const jobStatusEnum = pgEnum("job_status", ["pending", "assigned", "completed"]);
 export const contractorStatusEnum = pgEnum("contractor_status", ["available", "busy", "unavailable"]);
 export const uploadStatusEnum = pgEnum("upload_status", ["processing", "processed", "failed"]);
+export const sessionStatusEnum = pgEnum("session_status", ["active", "completed", "cancelled"]);
 
 export const contractors = pgTable("contractors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -95,6 +96,21 @@ export const contractorApplications = pgTable("contractor_applications", {
   submittedAt: timestamp("submitted_at").defaultNow(),
 });
 
+export const workSessions = pgTable("work_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorName: text("contractor_name").notNull(),
+  jobSiteLocation: text("job_site_location").notNull(), // e.g., "ME5 9GX"
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  totalHours: text("total_hours"), // e.g., "08:11:19"
+  startLatitude: text("start_latitude"),
+  startLongitude: text("start_longitude"),
+  endLatitude: text("end_latitude"), 
+  endLongitude: text("end_longitude"),
+  status: sessionStatusEnum("status").default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertContractorSchema = createInsertSchema(contractors).omit({
   id: true,
 });
@@ -136,6 +152,11 @@ export const insertContractorReplySchema = createInsertSchema(contractorReplies)
   id: true,
 });
 
+export const insertWorkSessionSchema = createInsertSchema(workSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertContractor = z.infer<typeof insertContractorSchema>;
 export type Contractor = typeof contractors.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
@@ -146,6 +167,8 @@ export type InsertContractorApplication = z.infer<typeof insertContractorApplica
 export type ContractorApplication = typeof contractorApplications.$inferSelect;
 export type InsertContractorReply = z.infer<typeof insertContractorReplySchema>;
 export type ContractorReply = typeof contractorReplies.$inferSelect;
+export type InsertWorkSession = z.infer<typeof insertWorkSessionSchema>;
+export type WorkSession = typeof workSessions.$inferSelect;
 export type JobAssignment = z.infer<typeof jobAssignmentSchema>;
 
 export interface JobWithContractor extends Job {

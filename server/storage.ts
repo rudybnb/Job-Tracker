@@ -1,5 +1,5 @@
-import { type Contractor, type InsertContractor, type Job, type InsertJob, type CsvUpload, type InsertCsvUpload, type JobWithContractor, type JobAssignment, type ContractorApplication, type InsertContractorApplication } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications } from "@shared/schema";
+import { type Contractor, type InsertContractor, type Job, type InsertJob, type CsvUpload, type InsertCsvUpload, type JobWithContractor, type JobAssignment, type ContractorApplication, type InsertContractorApplication, type WorkSession, type InsertWorkSession } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -31,6 +31,12 @@ export interface IStorage {
   getContractorApplication(id: string): Promise<ContractorApplication | undefined>;
   createContractorApplication(application: InsertContractorApplication): Promise<ContractorApplication>;
   updateContractorApplication(id: string, application: Partial<ContractorApplication>): Promise<ContractorApplication | undefined>;
+  
+  // Work Sessions
+  getWorkSessions(contractorName?: string): Promise<WorkSession[]>;
+  getActiveWorkSession(contractorName: string): Promise<WorkSession | undefined>;
+  createWorkSession(session: InsertWorkSession): Promise<WorkSession>;
+  updateWorkSession(id: string, session: Partial<WorkSession>): Promise<WorkSession | undefined>;
   
   // Stats
   getStats(): Promise<{
@@ -241,4 +247,5 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Import from database-storage
+export { storage } from './database-storage';

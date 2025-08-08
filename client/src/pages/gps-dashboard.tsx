@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -69,6 +69,10 @@ interface GPSPosition {
 }
 
 export default function GPSDashboard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const contractorName = "James"; // Using James as contractor name from screenshots
+  
   const [currentTime, setCurrentTime] = useState(() => {
     return localStorage.getItem('gps_timer_current') || "00:00:00";
   });
@@ -83,7 +87,54 @@ export default function GPSDashboard() {
   const [gpsStatus, setGpsStatus] = useState<"Good" | "Poor" | "Unavailable">("Unavailable");
   const [showDropdown, setShowDropdown] = useState(false);
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
-  const { toast } = useToast();
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  // Check for existing active session on load
+  const { data: activeSession } = useQuery({
+    queryKey: [`/api/work-sessions/${contractorName}/active`],
+    queryFn: async () => {
+      const response = await fetch(`/api/work-sessions/${contractorName}/active`);
+      if (response.status === 404) return null; // No active session
+      if (!response.ok) throw new Error('Failed to fetch active session');
+      return response.json();
+    },
+    retry: false,
+  });
+
+  // Mutations for work sessions
+  const startSessionMutation = useMutation({
+    mutationFn: async (sessionData: any) => {
+      const response = await fetch('/api/work-sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sessionData)
+      });
+      if (!response.ok) throw new Error('Failed to start session');
+      return response.json();
+    },
+    onSuccess: (session) => {
+      setActiveSessionId(session.id);
+      queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorName}/active`] });
+      console.log('✅ Work session started in database:', session.id);
+    }
+  });
+
+  const endSessionMutation = useMutation({
+    mutationFn: async ({ sessionId, sessionData }: { sessionId: string, sessionData: any }) => {
+      const response = await fetch(`/api/work-sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sessionData)
+      });
+      if (!response.ok) throw new Error('Failed to end session');
+      return response.json();
+    },
+    onSuccess: (session) => {
+      setActiveSessionId(null);
+      queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorName}/active`] });
+      console.log('✅ Work session ended in database:', session.totalHours);
+    }
+  });
 
   // Get current assignment data for GPS coordinates
   const { data: assignments = [] } = useQuery({
@@ -328,13 +379,49 @@ export default function GPSDashboard() {
       const newStartTime = new Date();
       setIsTracking(true);
       setStartTime(newStartTime);
+      
+      // Create work session in database
+      const sessionData = {
+        contractorName: contractorName,
+        jobSiteLocation: nearestJob?.location || 'Unknown Location',
+        startTime: newStartTime.toISOString(),
+        status: 'active',
+        startLatitude: userLocation?.latitude?.toString(),
+        startLongitude: userLocation?.longitude?.toString()
+      };
+
+      startSessionMutation.mutate(sessionData);
+      
+      // Persist to localStorage for UI consistency
       localStorage.setItem('gps_timer_active', 'true');
       localStorage.setItem('gps_timer_start', newStartTime.toISOString());
+      
       toast({
         title: "Work Started",
         description: "GPS verified - tracking time started",
       });
     } else {
+      // Stop work - save session to database
+      const endTime = new Date();
+      const diff = endTime.getTime() - (startTime?.getTime() || Date.now());
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      const totalHours = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      
+      if (activeSessionId) {
+        const sessionUpdate = {
+          endTime: endTime.toISOString(),
+          totalHours: totalHours,
+          status: 'completed',
+          endLatitude: userLocation?.latitude?.toString(),
+          endLongitude: userLocation?.longitude?.toString()
+        };
+        
+        endSessionMutation.mutate({ sessionId: activeSessionId, sessionData: sessionUpdate });
+      }
+      
+      // Reset UI state
       setIsTracking(false);
       setStartTime(null);
       setCurrentTime("00:00:00");
@@ -342,7 +429,7 @@ export default function GPSDashboard() {
       localStorage.removeItem('gps_timer_start');
       localStorage.removeItem('gps_timer_current');
       toast({
-        title: "Work Ended",
+        title: "Work Ended", 
         description: "Time tracking stopped",
       });
     }
