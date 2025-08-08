@@ -34,15 +34,15 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
   }
 
   // Show the assignment for the job site you're currently nearest to
-  const activeAssignment = nearestJobSite || assignments[0];
+  const activeAssignment = assignments[0];
 
   return (
     <div className="space-y-3">
       <div className="bg-slate-700 rounded-lg p-4">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h4 className="text-white font-medium">{activeAssignment.location}</h4>
-            <p className="text-slate-400 text-sm">Promise</p>
+            <h4 className="text-white font-medium">{activeAssignment.workLocation || activeAssignment.hbxlJob}</h4>
+            <p className="text-slate-400 text-sm">{activeAssignment.hbxlJob}</p>
           </div>
           <Badge className="bg-yellow-500 text-black text-xs px-2 py-1">
             active
@@ -54,6 +54,12 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
             <i className="fas fa-calendar text-slate-400 mr-2 w-4"></i>
             <span>{activeAssignment.startDate} - {activeAssignment.dueDate}</span>
           </div>
+          {activeAssignment.notes && (
+            <div className="flex items-start text-slate-300">
+              <i className="fas fa-sticky-note text-slate-400 mr-2 w-4 mt-0.5"></i>
+              <span>{activeAssignment.notes}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

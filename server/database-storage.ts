@@ -43,6 +43,7 @@ export interface IStorage {
   assignJob(assignment: JobAssignment): Promise<Job | undefined>;
   createJobAssignment(assignment: InsertJobAssignment): Promise<JobAssignmentRecord>;
   getJobAssignments(): Promise<JobAssignmentRecord[]>;
+  getContractorAssignments(contractorName: string): Promise<any[]>;
   deleteJobAssignment(id: string): Promise<boolean>;
   
   // Contractor Applications
@@ -241,6 +242,32 @@ export class DatabaseStorage implements IStorage {
     const result = await db.delete(jobAssignments).where(eq(jobAssignments.id, id));
     console.log("🗑️ Deleted job assignment:", id, "Affected rows:", result.rowCount);
     return result.rowCount > 0;
+  }
+
+  async getContractorAssignments(contractorName: string): Promise<any[]> {
+    try {
+      // Get all job assignments for this contractor
+      const assignments = await db
+        .select({
+          id: jobAssignments.id,
+          contractorName: jobAssignments.contractorName,
+          jobId: jobAssignments.jobId,
+          hbxlJob: jobAssignments.hbxlJob,
+          workLocation: jobAssignments.workLocation,
+          startDate: jobAssignments.startDate,
+          dueDate: jobAssignments.dueDate,
+          notes: jobAssignments.notes,
+          createdAt: jobAssignments.createdAt
+        })
+        .from(jobAssignments)
+        .where(eq(jobAssignments.contractorName, contractorName));
+
+      console.log(`📋 Found ${assignments.length} assignments for contractor: ${contractorName}`);
+      return assignments;
+    } catch (error) {
+      console.error("Error fetching contractor assignments:", error);
+      return [];
+    }
   }
 
   // Contractor Applications

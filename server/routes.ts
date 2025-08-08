@@ -222,6 +222,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contractor's active assignments
+  app.get("/api/contractor-assignments/:contractorName", async (req, res) => {
+    try {
+      const { contractorName } = req.params;
+      console.log("🔍 Fetching assignments for contractor:", contractorName);
+      
+      const assignments = await storage.getContractorAssignments(contractorName);
+      console.log("📋 Found assignments:", assignments.length);
+      
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching contractor assignments:", error);
+      res.status(500).json({ error: "Failed to fetch assignments" });
+    }
+  });
+
   // Get all job assignments (for admin interface)
   app.get("/api/job-assignments", async (req, res) => {
     try {

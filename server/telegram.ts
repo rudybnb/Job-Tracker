@@ -5,8 +5,7 @@ export class TelegramService {
   private baseUrl: string;
 
   constructor() {
-    // Use the actual bot token directly since env variable isn't being loaded
-    this.botToken = process.env.TELEGRAM_BOT_TOKEN || '8382710567:AAFshEGUHA-3P-Jf_PuLIQjskb-1_fY6iEA';
+    this.botToken = process.env.TELEGRAM_BOT_TOKEN || '';
     this.baseUrl = `https://api.telegram.org/bot${this.botToken}`;
     
     console.log('🤖 Telegram Service initialized with token:', this.botToken ? 'Available' : 'Missing');
