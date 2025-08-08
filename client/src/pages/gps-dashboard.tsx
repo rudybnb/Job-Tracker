@@ -35,18 +35,17 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
 
   // Show the assignment for the job site you're currently nearest to
   const activeAssignment = nearestJobSite || assignments[0];
-  const phases = activeAssignment.phases ? JSON.parse(activeAssignment.phases) : [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="bg-slate-700 rounded-lg p-4">
         <div className="flex items-start justify-between mb-3">
           <div>
             <h4 className="text-white font-medium">{activeAssignment.location}</h4>
-            <p className="text-slate-400 text-sm">{activeAssignment.title}</p>
+            <p className="text-slate-400 text-sm">Promise</p>
           </div>
           <Badge className="bg-yellow-500 text-black text-xs px-2 py-1">
-            {nearestJobSite ? 'nearest' : 'active'}
+            active
           </Badge>
         </div>
         
@@ -54,28 +53,6 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
           <div className="flex items-center text-slate-300">
             <i className="fas fa-calendar text-slate-400 mr-2 w-4"></i>
             <span>{activeAssignment.startDate} - {activeAssignment.dueDate}</span>
-          </div>
-          
-          {phases.length > 0 && (
-            <div className="flex items-start text-slate-300 mt-2">
-              <i className="fas fa-tasks text-slate-400 mr-2 w-4 mt-0.5"></i>
-              <div className="flex flex-wrap gap-1">
-                {phases.map((phase: string, index: number) => (
-                  <Badge key={index} className="bg-blue-600 text-white text-xs px-2 py-0.5">
-                    {phase}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          <div className="mt-3 pt-3 border-t border-slate-600">
-            <button 
-              onClick={() => window.location.href = '/task-progress'}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-medium py-2 px-4 rounded-lg text-sm transition-colors"
-            >
-              Continue Work
-            </button>
           </div>
         </div>
       </div>
