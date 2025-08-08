@@ -179,6 +179,18 @@ export default function GPSDashboard() {
     retry: false,
   });
 
+  // Get James's daily rate for earnings calculation
+  const { data: jamesDayRate } = useQuery({
+    queryKey: ["/api/admin-settings/james_day_rate"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin-settings/james_day_rate");
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error('Failed to fetch James day rate');
+      return response.json();
+    },
+    retry: false,
+  });
+
   // State for location validation
   const [userLocation, setUserLocation] = useState<GPSPosition | null>(null);
   const [workSiteLocation, setWorkSiteLocation] = useState<GPSPosition | null>(null);
@@ -692,6 +704,26 @@ export default function GPSDashboard() {
           
           <div className="text-center mb-6">
             <div className="text-4xl font-mono text-blue-400 mb-4">{currentTime}</div>
+            
+            {jamesDayRate && (
+              <div className="mb-4 text-center">
+                <div className="text-xl text-green-400 font-semibold">
+                  £{(() => {
+                    if (!currentTime || currentTime === "00:00:00") return "0.00";
+                    const [hours, minutes, seconds] = currentTime.split(':').map(Number);
+                    const totalHours = hours + minutes/60 + seconds/3600;
+                    const dailyRate = parseFloat(jamesDayRate.settingValue);
+                    const hourlyRate = dailyRate / 8; // 8 hour work day
+                    const earnings = totalHours * hourlyRate;
+                    return earnings.toFixed(2);
+                  })()}
+                </div>
+                <div className="text-slate-400 text-xs">
+                  Earnings Today (£{jamesDayRate.settingValue}/day)
+                </div>
+              </div>
+            )}
+            
             <Button 
               onClick={handleStartWork}
               disabled={!locationValidation.canSignIn && !isTracking}
