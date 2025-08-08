@@ -167,15 +167,12 @@ export default function JobAssignments() {
                           <div className="text-green-400 font-medium text-sm">Assigned</div>
                         </div>
                         <div className="text-center">
-                          <div className="flex flex-wrap gap-1 justify-center">
-                            {assignment.phases && JSON.parse(assignment.phases).map((phase: string, idx: number) => (
-                              <span 
-                                key={idx}
-                                className="bg-blue-600 text-white text-xs px-2 py-1 rounded"
-                              >
-                                {phase}
-                              </span>
-                            ))}
+                          <div className="text-xs text-slate-400">Phases</div>
+                          <div className="text-blue-400 font-medium text-sm">
+                            {assignment.phases 
+                              ? JSON.parse(assignment.phases).length
+                              : 0
+                            }
                           </div>
                         </div>
                         <button
