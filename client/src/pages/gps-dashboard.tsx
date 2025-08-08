@@ -169,29 +169,46 @@ export default function GPSDashboard() {
     }
   }, []);
 
-  // Update work site coordinates based on current job assignment location
+  // Find the nearest job site based on user's current location
   useEffect(() => {
-    if (assignments && assignments.length > 0) {
-      const activeAssignment = assignments[0];
+    if (assignments && assignments.length > 0 && userLocation) {
+      let nearestAssignment = null;
+      let shortestDistance = Infinity;
       
-      // Use GPS coordinates from the assignment data if available
-      if (activeAssignment.latitude && activeAssignment.longitude) {
+      // Check all assignments to find which one the user is closest to
+      for (const assignment of assignments) {
+        if (assignment.latitude && assignment.longitude) {
+          const distance = calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            parseFloat(assignment.latitude),
+            parseFloat(assignment.longitude)
+          );
+          
+          if (distance < shortestDistance) {
+            shortestDistance = distance;
+            nearestAssignment = assignment;
+          }
+        }
+      }
+      
+      if (nearestAssignment) {
         setWorkSiteLocation({
-          latitude: parseFloat(activeAssignment.latitude),
-          longitude: parseFloat(activeAssignment.longitude),
+          latitude: parseFloat(nearestAssignment.latitude),
+          longitude: parseFloat(nearestAssignment.longitude),
           accuracy: 5
         });
         setGpsStatus("Good");
+        console.log(`🎯 Nearest job site: ${nearestAssignment.location} (${shortestDistance.toFixed(2)}km away)`);
       } else {
-        // No GPS coordinates available
         setWorkSiteLocation(null);
-        setGpsStatus("GPS coordinates needed for " + activeAssignment.location);
+        setGpsStatus("No GPS coordinates available for assignments");
       }
     } else {
       setWorkSiteLocation(null);
-      setGpsStatus("No assignment");
+      setGpsStatus(assignments?.length > 0 ? "Waiting for GPS location" : "No assignments");
     }
-  }, [assignments]);
+  }, [assignments, userLocation]);
 
   // Validate location and time whenever user location or work site changes
   useEffect(() => {
@@ -469,8 +486,16 @@ export default function GPSDashboard() {
           <div className="flex items-center mb-4">
             <i className="fas fa-map-marker-alt text-slate-400 mr-2"></i>
             <span className="text-slate-400">
-              {assignments && assignments.length > 0 
-                ? `Work Site: ${assignments[0].location}` 
+              {workSiteLocation && assignments && assignments.length > 0
+                ? (() => {
+                    // Find which assignment matches the current work site location
+                    const currentJob = assignments.find(a => 
+                      a.latitude && a.longitude &&
+                      Math.abs(parseFloat(a.latitude) - workSiteLocation.latitude) < 0.001 &&
+                      Math.abs(parseFloat(a.longitude) - workSiteLocation.longitude) < 0.001
+                    );
+                    return currentJob ? `Work Site: ${currentJob.location}` : 'Work Site: Unknown';
+                  })()
                 : 'No assignment location'
               }
             </span>
