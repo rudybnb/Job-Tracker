@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { lazy } from "react";
 import Dashboard from "@/pages/dashboard";
 import GPSDashboard from "@/pages/gps-dashboard";
 import Jobs from "@/pages/jobs";
@@ -123,14 +124,14 @@ function Router() {
             <AssignmentDetails />
           </ProtectedRoute>
         )} />
-        <Route path="/telegram-monitor" component={() => (
-          <ProtectedRoute requiredRole="admin">
-            {(() => {
-              const TelegramMonitor = lazy(() => import("@/pages/telegram-monitor"));
-              return <TelegramMonitor />;
-            })()}
-          </ProtectedRoute>
-        )} />
+        <Route path="/telegram-monitor" component={() => {
+          const TelegramMonitor = lazy(() => import("@/pages/telegram-monitor"));
+          return (
+            <ProtectedRoute requiredRole="admin">
+              <TelegramMonitor />
+            </ProtectedRoute>
+          );
+        }} />
         <Route component={NotFound} />
       </Switch>
     </div>
