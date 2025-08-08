@@ -120,7 +120,7 @@ export default function GPSDashboard() {
   };
 
   // Check if current time is within working hours (7:45am - 5pm)
-  const isWithinWorkingHours = (): boolean => {
+  const isWithinWorkingHours = (allowClockOut = false): boolean => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
@@ -128,6 +128,11 @@ export default function GPSDashboard() {
     
     const startTime = 7 + 45/60; // 7:45 AM
     const endTime = 17; // 5:00 PM
+    
+    // If already tracking and trying to clock out, allow it even after hours
+    if (allowClockOut && isTracking) {
+      return currentTime >= startTime; // Only need to be after start time
+    }
     
     return currentTime >= startTime && currentTime <= endTime;
   };
@@ -211,12 +216,14 @@ export default function GPSDashboard() {
       );
       
       const isWithinRange = distance <= 1; // 1km radius
-      const isValidTime = isWithinWorkingHours();
+      const isValidTime = isWithinWorkingHours(isTracking); // Allow clock out after hours
       const canSignIn = isWithinRange && isValidTime;
       
       let errorMessage = '';
       if (!isValidTime) {
-        errorMessage = 'Outside working hours (7:45 AM - 5:00 PM)';
+        errorMessage = isTracking 
+          ? 'Cannot clock out before 7:45 AM' 
+          : 'Outside working hours (7:45 AM - 5:00 PM)';
       } else if (!isWithinRange) {
         errorMessage = `Too far from work site (${distance.toFixed(2)}km away)`;
       }
@@ -567,8 +574,10 @@ export default function GPSDashboard() {
             {!userLocation 
               ? 'GPS location required - please enable location services'
               : locationValidation.canSignIn 
-                ? 'Ready to start GPS-verified time tracking'
-                : 'Must be within 1km of work site during 7:45 AM - 5:00 PM'
+                ? (isTracking ? 'Ready to stop GPS-verified time tracking' : 'Ready to start GPS-verified time tracking')
+                : isTracking 
+                  ? 'Must be within 1km of work site to clock out'
+                  : 'Must be within 1km of work site during 7:45 AM - 5:00 PM'
             }
           </div>
           {locationValidation.canSignIn && (
