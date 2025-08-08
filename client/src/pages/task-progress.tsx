@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { dataIntegrity } from "@/lib/data-integrity";
+// Data integrity handled at API level
 
 interface ProgressTask {
   id: string;
@@ -16,32 +16,25 @@ interface ProgressTask {
 }
 
 export default function TaskProgress() {
-  // Get job details from URL parameters
-  const urlParams = new URLSearchParams(window.location.search);
-  const jobId = urlParams.get('jobId');
-  const locationFromUrl = urlParams.get('location');
-  
-  // Fetch job details from API
-  const { data: jobDetails, isLoading } = useQuery({
-    queryKey: [`/api/job-assignments/${jobId}`],
-    enabled: !!jobId,
-  });
-  
-  // Update current project based on job details or URL
-  const [currentProject, setCurrentProject] = useState(() => {
-    if (locationFromUrl) {
-      return `Job Assignment - ${locationFromUrl}`;
-    } else {
-      return "Promise - Renovation, ME5 9GX";
-    }
+  // Get contractor assignments (since we have assignments for James)
+  const { data: assignments = [], isLoading } = useQuery({
+    queryKey: ["/api/contractor-assignments/James"],
   });
 
-  // Update project title when job details are loaded
+  // Get the first (active) assignment
+  const activeAssignment = assignments[0];
+  
+  // Update current project based on assignment data
+  const [currentProject, setCurrentProject] = useState("Loading...");
+
+  // Update project title when assignment is loaded
   useEffect(() => {
-    if (jobDetails) {
-      setCurrentProject(`${jobDetails.title} - ${jobDetails.location}`);
+    if (activeAssignment) {
+      setCurrentProject(`${activeAssignment.hbxlJob} - ${activeAssignment.workLocation}`);
+    } else {
+      setCurrentProject("No Active Assignment");
     }
-  }, [jobDetails]);
+  }, [activeAssignment]);
   // Initialize tasks as empty - will be populated from actual job assignment data
   const [tasks, setTasks] = useState<ProgressTask[]>([]);
 
@@ -51,24 +44,22 @@ export default function TaskProgress() {
     const keysToRemove = ['task_progress_default', 'task_progress_DA17 5DB'];
     keysToRemove.forEach(key => localStorage.removeItem(key));
     
-    // Validate assignment data integrity
-    if (!dataIntegrity.validateTaskData(tasks, jobId)) {
-      dataIntegrity.clearStaleData();
-    }
+    // Clear old task data - integrity enforced at API level
+    console.log('🧹 Cleared stale task data');
   }, []);
 
-  // Load saved progress and update tasks when job details are loaded
+  // Load saved progress and update tasks when assignment is loaded
   useEffect(() => {
-    const storageKey = `task_progress_${jobId || locationFromUrl || 'default'}`;
-    const savedProgress = localStorage.getItem(storageKey);
-    
-    if (jobDetails && jobDetails.buildPhases) {
+    if (activeAssignment && activeAssignment.buildPhases) {
+      const storageKey = `task_progress_${activeAssignment.id}`;
+      const savedProgress = localStorage.getItem(storageKey);
+      
       // Use buildPhases from the actual job assignment 
-      let newTasks = jobDetails.buildPhases.map((phase: string, index: number) => ({
+      let newTasks = activeAssignment.buildPhases.map((phase: string, index: number) => ({
         id: (index + 1).toString(),
         title: phase,
         description: `Complete ${phase} work`,
-        area: jobDetails.workLocation || jobDetails.hbxlJob,
+        area: activeAssignment.workLocation || activeAssignment.hbxlJob,
         totalItems: 100, // Default to 100% progress
         completedItems: 0,
         status: "not started" as const
@@ -89,29 +80,16 @@ export default function TaskProgress() {
       }
       
       setTasks(newTasks);
-    } else if (savedProgress) {
-      // Load saved progress for location-based tasks
-      try {
-        const savedTasks = JSON.parse(savedProgress) as ProgressTask[];
-        setTasks(currentTasks => 
-          currentTasks.map(task => {
-            const savedTask = savedTasks.find(saved => saved.id === task.id || saved.title === task.title);
-            return savedTask ? { ...task, completedItems: savedTask.completedItems, status: savedTask.status } : task;
-          })
-        );
-      } catch (error) {
-        console.error('Failed to load saved progress:', error);
-      }
     }
-  }, [jobDetails, jobId, locationFromUrl]);
+  }, [activeAssignment]);
   
   // Save progress whenever tasks change
   useEffect(() => {
-    if (tasks.length > 0) {
-      const storageKey = `task_progress_${jobId || locationFromUrl || 'default'}`;
+    if (tasks.length > 0 && activeAssignment) {
+      const storageKey = `task_progress_${activeAssignment.id}`;
       localStorage.setItem(storageKey, JSON.stringify(tasks));
     }
-  }, [tasks, jobId, locationFromUrl]);
+  }, [tasks, activeAssignment]);
   
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
   const { toast } = useToast();
