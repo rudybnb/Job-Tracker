@@ -19,7 +19,7 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
     );
   }
 
-  if (assignments.length === 0) {
+  if ((assignments as any[]).length === 0) {
     return (
       <div className="text-center py-8">
         <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
@@ -34,7 +34,7 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
   }
 
   // Use assignments directly - data integrity is enforced at the API level
-  const validAssignments = assignments;
+  const validAssignments = assignments as any[];
 
   const activeAssignment = validAssignments[0];
 
@@ -161,6 +161,9 @@ export default function GPSDashboard() {
   const { data: assignments = [] } = useQuery({
     queryKey: ["/api/contractor-assignments/James"],
   });
+  
+  // Type guard for assignments
+  const typedAssignments = assignments as any[];
 
   // Get Saturday overtime setting from admin settings
   const { data: saturdayOvertimeSetting } = useQuery({
@@ -277,12 +280,12 @@ export default function GPSDashboard() {
 
   // Find the nearest job site based on user's current location
   useEffect(() => {
-    if (assignments && assignments.length > 0 && userLocation) {
+    if (typedAssignments && typedAssignments.length > 0 && userLocation) {
       let nearestAssignment = null;
       let shortestDistance = Infinity;
       
       // Check all assignments to find which one the user is closest to
-      for (const assignment of assignments) {
+      for (const assignment of typedAssignments) {
         if (assignment.latitude && assignment.longitude) {
           const distance = calculateDistance(
             userLocation.latitude,
@@ -315,9 +318,9 @@ export default function GPSDashboard() {
     } else {
       setWorkSiteLocation(null);
       setNearestJob(null);
-      setGpsStatus(assignments?.length > 0 ? "Waiting for GPS location" : "No assignments");
+      setGpsStatus(typedAssignments?.length > 0 ? "Waiting for GPS location" : "No assignments");
     }
-  }, [assignments, userLocation]);
+  }, [typedAssignments, userLocation]);
 
   // Validate location and time whenever user location or work site changes
   useEffect(() => {
@@ -719,10 +722,10 @@ export default function GPSDashboard() {
           <div className="flex items-center mb-4">
             <i className="fas fa-map-marker-alt text-slate-400 mr-2"></i>
             <span className="text-slate-400">
-              {workSiteLocation && assignments && assignments.length > 0
+              {workSiteLocation && typedAssignments && typedAssignments.length > 0
                 ? (() => {
                     // Find which assignment matches the current work site location
-                    const currentJob = assignments.find(a => 
+                    const currentJob = typedAssignments.find((a: any) => 
                       a.latitude && a.longitude &&
                       Math.abs(parseFloat(a.latitude) - workSiteLocation.latitude) < 0.001 &&
                       Math.abs(parseFloat(a.longitude) - workSiteLocation.longitude) < 0.001
