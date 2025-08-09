@@ -322,7 +322,7 @@ export class DatabaseStorage implements IStorage {
       const startTime = new Date(updates.startTime);
       const endTime = new Date(updates.endTime);
       const diffMs = endTime.getTime() - startTime.getTime();
-      updates.totalHours = Number((diffMs / (1000 * 60 * 60)).toFixed(2)); // Convert to hours with 2 decimal places
+      updates.totalHours = (diffMs / (1000 * 60 * 60)).toFixed(2); // Convert to hours with 2 decimal places as string
       console.log(`💰 Calculated totalHours: ${updates.totalHours} hours`);
     } else if (updates.endTime) {
       // If only endTime provided, get the existing session to calculate from startTime
@@ -331,7 +331,7 @@ export class DatabaseStorage implements IStorage {
         const startTime = new Date(existingSession[0].startTime);
         const endTime = new Date(updates.endTime);
         const diffMs = endTime.getTime() - startTime.getTime();
-        updates.totalHours = Number((diffMs / (1000 * 60 * 60)).toFixed(2));
+        updates.totalHours = (diffMs / (1000 * 60 * 60)).toFixed(2);
         console.log(`💰 Calculated totalHours from existing startTime: ${updates.totalHours} hours`);
       }
     }

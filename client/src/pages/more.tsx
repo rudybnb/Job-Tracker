@@ -78,7 +78,7 @@ export default function More() {
 
   // Convert real work sessions to our format with proper payment calculation
   const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
-    const hoursWorked = session.totalHours || 0;
+    const hoursWorked = parseFloat(session.totalHours) || 0; // Parse string to number
     const grossEarnings = hoursWorked * contractorInfo.hourlyRate;
     
     console.log(`💰 Session ${session.id}: ${hoursWorked} hours × £${contractorInfo.hourlyRate}/hour = £${grossEarnings.toFixed(2)}`);
