@@ -11,6 +11,7 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
 - **Rule 1: NEVER REWRITE WORKING CODE** - Only modify broken or non-functional parts, make incremental changes only
 - **Rule 2: DATA INTEGRITY** - All data must come from authentic database sources, never use static/mock data
 - **Rule 3: CSV DATA SUPREMACY** - When a job is uploaded via CSV, ONLY information in that CSV file must be used. NO assumptions, fallbacks, or old stored data permitted. If CSV data missing, display "Data Missing from CSV" rather than assumptions.
+- **Rule 4: NO ASSUMPTIONS** - Never make assumptions about requirements, data, or functionality. When uncertain about any aspect of implementation, always clarify with the user first before proceeding.
 - Always verify what is currently working before making changes
 - These rules are mandatory and must be followed at all times to prevent regression and data corruption
 
