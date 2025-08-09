@@ -75,6 +75,13 @@ The application adopts a complete workflow system with distinct role-based inter
 - Payment tracking by location working correctly with £150/day rate (£18.75/hour) for James
 - System validates 1km proximity to work sites and enforces 7:45 AM - 5:00 PM working hours
 
+### Automatic Pay Calculation System Fixed (09/08/2025)
+- **RESOLVED**: Work sessions ending at 5:00 PM now automatically calculate totalHours
+- Fixed backend updateWorkSession method to compute hours from start/end times
+- Enhanced frontend payment calculation to parse totalHours from database string format
+- Permanent work session data stored: James worked 8.25 hours (8:45 AM - 5:00 PM) = £154.69 gross, £123.75 net after 20% CIS
+- All payment calculations now use authentic database sources following Data Integrity rules
+
 ## External Dependencies
 
 ### Database Services
