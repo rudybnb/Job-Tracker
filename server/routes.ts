@@ -133,58 +133,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
         jobsCount: "0"
       });
 
-      // Parse CSV
+      // Parse CSV manually to handle inconsistent structure
       const csvContent = req.file.buffer.toString();
-      const records: any[] = [];
+      const lines = csvContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
       
-      const parser = parse({
-        columns: true,
-        skip_empty_lines: true,
-        trim: true
-      });
+      try {
+        // Extract job info from CSV structure: Name, Address, Post code, Project Type
+        const jobInfo = {
+          name: "Data Missing from CSV",
+          address: "Data Missing from CSV", 
+          postcode: "Data Missing from CSV",
+          projectType: "Data Missing from CSV"
+        };
 
-      parser.on('data', (record) => {
-        records.push(record);
-      });
-
-      parser.on('error', async (error) => {
-        console.error("CSV parsing error:", error);
-        await storage.updateCsvUpload(csvUpload.id, { status: "failed" });
-        res.status(400).json({ error: "Failed to parse CSV file", details: error.message });
-      });
-
-      parser.on('end', async () => {
-        try {
-          const jobs = records.map(record => ({
-            title: record.title || record.job_title || record.name || "Untitled Job",
-            description: record.description || record.details || "",
-            location: record.location || record.address || "Unknown Location",
-            status: "pending" as const,
-            dueDate: record.due_date || record.deadline || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            notes: record.notes || "",
-            uploadId: csvUpload.id
-          }));
-
-          const createdJobs = await storage.createJobsFromCsv(jobs, csvUpload.id);
+        // Extract actual build phases from the CSV data  
+        const buildPhases: string[] = [];
+        
+        // Parse each line manually to extract information
+        for (const line of lines) {
+          const parts = line.split(',').map(part => part.trim());
           
-          await storage.updateCsvUpload(csvUpload.id, {
-            status: "processed",
-            jobsCount: createdJobs.length.toString()
-          });
-
-          res.json({
-            upload: await storage.getCsvUploads().then(uploads => uploads.find(u => u.id === csvUpload.id)),
-            jobsCreated: createdJobs.length
-          });
-        } catch (error) {
-          console.error("Error processing CSV jobs:", error);
-          await storage.updateCsvUpload(csvUpload.id, { status: "failed" });
-          res.status(500).json({ error: "Failed to process CSV jobs" });
+          if (parts.length >= 2) {
+            // Extract job details
+            if (parts[0] === 'Name') jobInfo.name = parts[1];
+            if (parts[0] === 'Address') jobInfo.address = parts[1];
+            if (parts[0] === 'Post code') jobInfo.postcode = parts[1];
+            if (parts[0] === 'Project Type') jobInfo.projectType = parts[1];
+            
+            // Extract build phases from item descriptions
+            if (parts[1] && typeof parts[1] === 'string') {
+              const description = parts[1];
+              if (description.includes('Masonry') && !buildPhases.includes('Masonry & Shell Work')) {
+                buildPhases.push('Masonry & Shell Work');
+              }
+              if (description.includes('Foundation') && !buildPhases.includes('Foundation Work')) {
+                buildPhases.push('Foundation Work');
+              }
+              if (description.includes('Roof') && !buildPhases.includes('Roof Structure')) {
+                buildPhases.push('Roof Structure');
+              }
+              if (description.includes('Ground Floor') && !buildPhases.includes('Ground Floor')) {
+                buildPhases.push('Ground Floor');
+              }
+              if (description.includes('Main Structure') && !buildPhases.includes('Main Structure')) {
+                buildPhases.push('Main Structure');
+              }
+            }
+          }
         }
-      });
 
-      parser.write(csvContent);
-      parser.end();
+        // Create job using ONLY CSV data - NO fallbacks allowed per MANDATORY RULE 3
+        const jobs = [{
+          title: jobInfo.name,
+          description: jobInfo.projectType, 
+          location: jobInfo.address !== "Data Missing from CSV" ? `${jobInfo.address}, ${jobInfo.postcode}` : "Data Missing from CSV",
+          status: "pending" as const,
+          dueDate: "Data Missing from CSV",
+          notes: `Project Type: ${jobInfo.projectType}`,
+          uploadId: csvUpload.id,
+          buildPhases: buildPhases.length > 0 ? buildPhases : ["Data Missing from CSV"]
+        }];
+
+        const createdJobs = await storage.createJobsFromCsv(jobs, csvUpload.id);
+        
+        await storage.updateCsvUpload(csvUpload.id, {
+          status: "processed",
+          jobsCount: createdJobs.length.toString()
+        });
+
+        res.json({
+          upload: await storage.getCsvUploads().then(uploads => uploads.find(u => u.id === csvUpload.id)),
+          jobsCreated: createdJobs.length
+        });
+      } catch (error) {
+        console.error("Error processing CSV jobs:", error);
+        await storage.updateCsvUpload(csvUpload.id, { status: "failed" });
+        res.status(500).json({ error: "Failed to process CSV jobs" });
+      }
     } catch (error) {
       console.error("Error uploading CSV:", error);
       res.status(500).json({ error: "Failed to upload CSV file" });
