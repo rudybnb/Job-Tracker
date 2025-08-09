@@ -468,11 +468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               { description: "Bathroom basin waste", quantity: 1, task: "Install basin waste connections" },
               { description: "Bathroom basin supply", quantity: 2, task: "Install basin hot and cold supplies" },
               { description: "Toilet waste connection", quantity: 1, task: "Install toilet waste pipe" },
-              { description: "Toilet cold water supply", quantity: 1, task: "Install toilet cold water connection" },
-              { description: "Shower waste preparation", quantity: 1, task: "Install shower waste pipe" },
-              { description: "Shower supply preparation", quantity: 2, task: "Install shower hot and cold supplies" },
-              { description: "Boiler gas supply", quantity: 1, task: "Install gas supply pipe to boiler" },
-              { description: "System pressure testing", quantity: 1, task: "Pressure test all plumbing systems" }
+              { description: "Boiler gas supply", quantity: 1, task: "Install gas supply pipe to boiler" }
             ],
             "Masonry Shell": [{
               description: "Data Missing from CSV",
