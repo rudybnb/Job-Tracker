@@ -351,15 +351,17 @@ export default function UploadCsv() {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[70vh]">
-              {/* Single Job Preview - Show only the first job */}
+              {/* Dynamic Job Preview - Show actual CSV data */}
               {csvPreview.jobPreview.length > 0 && (
                 <div className="mb-6">
                   {/* Detected Job Information Header */}
                   <div className="bg-slate-100 rounded-t-lg p-3">
-                    <h4 className="text-slate-700 font-semibold">Detected Job Information</h4>
+                    <h4 className="text-slate-700 font-semibold">
+                      Detected Job Information ({csvPreview.jobPreview.length} job{csvPreview.jobPreview.length > 1 ? 's' : ''})
+                    </h4>
                   </div>
 
-                  {/* Job Details Grid */}
+                  {/* Show first job details for preview */}
                   <div className="bg-white border border-slate-200 rounded-b-lg p-4">
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="flex items-center space-x-2">
@@ -368,7 +370,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Name: </span>
-                          <span className="text-slate-700">Xavier jones</span>
+                          <span className="text-slate-700">{csvPreview.jobPreview[0].name}</span>
                         </div>
                       </div>
                       
@@ -378,7 +380,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Postcode: </span>
-                          <span className="text-slate-700">DA7 6HJ</span>
+                          <span className="text-slate-700">{csvPreview.jobPreview[0].address}</span>
                         </div>
                       </div>
                       
@@ -388,7 +390,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Work Type: </span>
-                          <span className="text-slate-700">New Build</span>
+                          <span className="text-slate-700">{csvPreview.jobPreview[0].projectType}</span>
                         </div>
                       </div>
                       
@@ -406,20 +408,31 @@ export default function UploadCsv() {
                     {/* Work Phases Section */}
                     <div className="bg-blue-50 rounded-lg p-4">
                       <h5 className="text-blue-800 font-semibold mb-2">
-                        Extracted HBXL Work Phases (2)
+                        Extracted HBXL Work Phases ({csvPreview.jobPreview[0].buildPhases.length})
                       </h5>
                       <div className="flex flex-wrap gap-2 mb-3">
-                        <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm">
-                          Masonry Shell
-                        </span>
-                        <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm">
-                          Joinery 1st Fix
-                        </span>
+                        {csvPreview.jobPreview[0].buildPhases.map((phase, phaseIndex) => (
+                          <span key={phaseIndex} className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm">
+                            {phase}
+                          </span>
+                        ))}
                       </div>
                       <p className="text-blue-700 text-sm">
                         These real work phases will be available for time tracking once the job is approved and goes live.
                       </p>
                     </div>
+
+                    {/* Additional jobs indicator */}
+                    {csvPreview.jobPreview.length > 1 && (
+                      <div className="mt-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                        <p className="text-blue-800 text-sm font-medium">
+                          + {csvPreview.jobPreview.length - 1} more job{csvPreview.jobPreview.length > 2 ? 's' : ''} will be created from this CSV
+                        </p>
+                        <p className="text-blue-600 text-xs mt-1">
+                          All jobs will be saved to the database and persist after system reboot
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

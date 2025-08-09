@@ -38,6 +38,7 @@ export interface IStorage {
   getCsvUploads(): Promise<CsvUpload[]>;
   createCsvUpload(upload: InsertCsvUpload): Promise<CsvUpload>;
   updateCsvUpload(id: string, upload: Partial<CsvUpload>): Promise<CsvUpload | undefined>;
+  deleteCsvUpload(id: string): Promise<boolean>;
   
   // Job Assignment
   assignJob(assignment: JobAssignment): Promise<Job | undefined>;
@@ -201,6 +202,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(csvUploads.id, id))
       .returning();
     return upload;
+  }
+
+  async deleteCsvUpload(id: string): Promise<boolean> {
+    try {
+      await db.delete(csvUploads).where(eq(csvUploads.id, id));
+      console.log("🗑️ Deleted CSV upload:", id);
+      return true;
+    } catch (error) {
+      console.error("Error deleting CSV upload:", error);
+      return false;
+    }
   }
 
   async deleteCsvUpload(id: string): Promise<void> {
