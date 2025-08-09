@@ -464,6 +464,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Re-process HBXL CSV file to extract missing electrical tasks
+  app.post("/api/reprocess-hbxl-csv", async (req, res) => {
+    try {
+      console.log('🔄 Re-processing authentic HBXL CSV file to extract missing electrical tasks...');
+      
+      // Since the original CSV file content isn't stored, ask user to re-upload
+      // the complete HBXL file with all 21 electrical tasks
+      res.status(400).json({ 
+        error: "Original CSV content not stored. Please re-upload the complete 'Job 49 Flat2 1 Bedroom 1Smart Schedule Export.csv' file with all 21 electrical tasks.",
+        suggestion: "Use the CSV upload interface to upload the complete HBXL file again."
+      });
+      
+    } catch (error) {
+      console.error('❌ Error re-processing HBXL CSV:', error);
+      res.status(500).json({ error: 'Failed to re-process HBXL CSV file' });
+    }
+  });
+
   // Get uploaded jobs with detailed CSV task data - ENFORCING CSV DATA SUPREMACY
   app.get("/api/uploaded-jobs", async (req, res) => {
     try {
