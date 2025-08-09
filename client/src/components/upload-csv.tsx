@@ -22,9 +22,14 @@ interface UploadResponse {
 interface CSVPreviewData {
   headers: string[];
   rows: string[][];
+  rawData: {
+    headers: string[];
+    rows: string[][];
+  };
   jobPreview: Array<{
     name: string;
     address: string;
+    postcode: string;
     projectType: string;
     buildPhases: string[];
   }>;
@@ -187,14 +192,16 @@ export default function UploadCsv() {
 
       const realJobPreview = [{
         name: jobName,
-        address: jobPostcode,
+        address: jobAddress,
+        postcode: jobPostcode,
         projectType: jobType,
         buildPhases: phases.length > 0 ? phases : ["Data Missing from CSV"]
       }];
 
       return { 
         headers: mockRawData.headers, 
-        rows: mockRawData.rows, 
+        rows: mockRawData.rows,
+        rawData: mockRawData,
         jobPreview: realJobPreview 
       };
     } catch (error) {
@@ -424,7 +431,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Postcode: </span>
-                          <span className="text-slate-700">{csvPreview.jobPreview[0].address}</span>
+                          <span className="text-slate-700">{csvPreview.jobPreview[0].postcode}</span>
                         </div>
                       </div>
                       
