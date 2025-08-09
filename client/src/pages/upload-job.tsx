@@ -293,7 +293,7 @@ export default function UploadJob() {
           structuredData.metadata.dataRows++;
           
           // RULE 3: CSV DATA SUPREMACY - Extract phases EXACTLY from "Build Phase" column
-          let phase = 'Build Phase'; // Default phase
+          let phase = null; // No default - only use authentic CSV data
           
           // First priority: Use authentic "Build Phase" column data if it exists
           if (buildPhaseIndex !== -1 && row[buildPhaseIndex]) {
@@ -303,10 +303,15 @@ export default function UploadJob() {
           else if (isScheduleFormat) {
             // For schedule format, use the category directly as the phase (CSV authentic data)
             const category = row[categoryIndex] || '';
-            phase = category || 'Build Phase';
-          } else {
-            // Fallback: keep default phase if no authentic data found
-            console.log(`⚠️ No Build Phase column found, using default: "${phase}"`);
+            if (category) {
+              phase = category;
+            }
+          }
+          
+          // Skip rows with no valid phase data - follow CSV Data Supremacy
+          if (!phase) {
+            console.log(`⚠️ No phase data found for row, skipping: "${description}"`);
+            continue;
           }
 
           console.log(`Row ${i}: Code="${code}", Desc="${description}" -> Phase="${phase}"`);
