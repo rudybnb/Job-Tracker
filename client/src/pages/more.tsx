@@ -79,18 +79,35 @@ export default function More() {
   // Convert real work sessions to our format with proper payment calculation
   const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
     const hoursWorked = parseFloat(session.totalHours) || 0;
+    const startTime = new Date(session.startTime);
+    const startHour = startTime.getHours();
+    const startMinute = startTime.getMinutes();
+    const startTimeDecimal = startHour + startMinute / 60;
+    
+    // Check if started after 8:15 AM (8.25 in decimal)
+    const startedLate = startTimeDecimal > 8.25;
     
     // For full day (8+ hours), use daily rate. For partial days, calculate proportionally
     const isFullDay = hoursWorked >= 8;
-    const grossEarnings = isFullDay ? contractorInfo.dailyRate : (hoursWorked * contractorInfo.hourlyRate);
+    let grossEarnings = isFullDay ? contractorInfo.dailyRate : (hoursWorked * contractorInfo.hourlyRate);
     
-    console.log(`💰 Session ${session.id}: ${hoursWorked} hours ${isFullDay ? '(Full Day)' : ''} = £${grossEarnings.toFixed(2)}`);
+    // Apply deduction if started after 8:15 AM
+    if (startedLate && isFullDay) {
+      // Calculate deduction based on how late they started
+      const minutesLate = Math.max(0, (startTimeDecimal - 8.25) * 60);
+      const deductionRate = Math.min(minutesLate * 0.5, 50); // £0.50 per minute late, max £50
+      grossEarnings = Math.max(100, contractorInfo.dailyRate - deductionRate); // Minimum £100 per day
+    }
+    
+    const startTimeStr = startTime.toLocaleTimeString();
+    const lateStatus = startedLate ? ' (LATE)' : '';
+    console.log(`💰 Session ${session.id}: ${hoursWorked} hours, started ${startTimeStr}${lateStatus} = £${grossEarnings.toFixed(2)}`);
     
     return {
       id: session.id,
       location: session.jobSiteLocation || "Work Site",
       date: new Date(session.startTime).toISOString().split('T')[0],
-      startTime: new Date(session.startTime).toLocaleTimeString(),
+      startTime: startTimeStr,
       endTime: session.endTime ? new Date(session.endTime).toLocaleTimeString() : "In Progress",
       hoursWorked: hoursWorked,
       hourlyRate: contractorInfo.hourlyRate,

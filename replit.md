@@ -79,7 +79,9 @@ The application adopts a complete workflow system with distinct role-based inter
 - **RESOLVED**: Work sessions ending at 5:00 PM now automatically calculate totalHours
 - Fixed backend updateWorkSession method to compute hours from start/end times
 - Enhanced frontend payment calculation to parse totalHours from database string format
-- Permanent work session data stored: James worked 8.25 hours (8:45 AM - 5:00 PM) = £154.69 gross, £123.75 net after 20% CIS
+- **PUNCTUALITY DEDUCTIONS**: Implemented pay deduction system for late arrivals after 8:15 AM
+- Deduction rate: £0.50 per minute late, maximum £50 deduction, minimum £100 daily pay
+- Permanent work session data: James worked 8.25 hours (8:45 AM - 5:00 PM), started 30 minutes late = £135.00 gross, £108.00 net after CIS
 - All payment calculations now use authentic database sources following Data Integrity rules
 
 ## External Dependencies
