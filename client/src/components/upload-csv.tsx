@@ -208,7 +208,7 @@ export default function UploadCsv() {
       // Create raw data preview
       const rawData = {
         headers: ['Name', 'Address', 'Postcode', 'Project Type', 'Build Phases'],
-        rows: [[jobName, jobAddress, jobPostcode, jobType, buildPhasesStr]]
+        rows: [[jobName, jobAddress, jobPostcode, jobType, phases.join(', ')]]
       };
 
       const jobPreview = [{
