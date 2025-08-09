@@ -55,60 +55,82 @@ export default function CreateAssignment() {
   // Dynamic build phases will be loaded from CSV data
 
   useEffect(() => {
-    // Load uploaded jobs from localStorage (from real CSV uploads)
-    const savedJobs = localStorage.getItem('uploadedJobs');
-    console.log('=== LOADING JOBS DEBUG ===');
-    console.log('Raw localStorage data:', savedJobs);
+    // Load jobs from backend API (authentic CSV data only)
+    const loadJobsFromAPI = async () => {
+      console.log('=== LOADING JOBS FROM API ===');
+      try {
+        const response = await fetch('/api/jobs');
+        const apiJobs = await response.json();
+        console.log('✓ API Jobs loaded:', apiJobs.length);
+        
+        // Transform API jobs to match expected format for UI
+        const transformedJobs = apiJobs.map((job: any) => ({
+          id: job.id,
+          name: job.title,
+          location: job.location,
+          status: job.status,
+          uploadId: job.uploadId
+        }));
+        
+        setUploadedJobs(transformedJobs);
+        console.log('✓ Transformed jobs:', transformedJobs);
+      } catch (error) {
+        console.error('❌ Failed to load jobs from API:', error);
+        setUploadedJobs([]);
+      }
+      console.log('=== END LOADING DEBUG ===');
+    };
     
-    if (savedJobs) {
-      const jobs = JSON.parse(savedJobs);
-      setUploadedJobs(jobs);
-      console.log('✓ Loaded jobs count:', jobs.length);
-      console.log('✓ Jobs with phase data:', jobs.filter((job: any) => job.phaseData).length);
-      jobs.forEach((job: any, index: number) => {
-        console.log(`Job ${index + 1}:`, {
-          name: job.name,
-          hasPhaseData: !!job.phaseData,
-          phaseDataType: typeof job.phaseData,
-          phaseKeys: job.phaseData ? Object.keys(job.phaseData) : null
-        });
-      });
-    } else {
-      console.log('❌ No uploaded jobs found in localStorage');
-      setUploadedJobs([]);
-    }
-    console.log('=== END LOADING DEBUG ===');
+    loadJobsFromAPI();
   }, []);
 
   useEffect(() => {
-    // When HBXL job is selected, load available phases from CSV data
+    // When HBXL job is selected, load phases from CSV upload data
     if (selectedHbxlJob) {
-      console.log('=== PHASE EXTRACTION DEBUG ===');
+      console.log('=== PHASE EXTRACTION FROM CSV API ===');
       console.log('Selected HBXL Job:', selectedHbxlJob);
-      console.log('All uploaded jobs:', uploadedJobs);
       
-      const selectedJob = uploadedJobs.find(job => job.name === selectedHbxlJob);
-      console.log('Found selected job:', selectedJob);
-      
-      if (selectedJob) {
-        console.log('Job phase data exists:', !!selectedJob.phaseData);
-        console.log('Phase data type:', typeof selectedJob.phaseData);
-        console.log('Phase data content:', selectedJob.phaseData);
-        
-        if (selectedJob.phaseData && typeof selectedJob.phaseData === 'object' && selectedJob.phaseData !== null) {
-          const phases = Object.keys(selectedJob.phaseData);
-          setAvailablePhases(phases);
-          console.log('✓ Extracted phases:', phases);
-        } else {
-          console.log('❌ Phase data invalid or missing');
-          console.log('Selected job structure:', JSON.stringify(selectedJob, null, 2));
+      const loadPhasesFromCSV = async () => {
+        try {
+          const selectedJob = uploadedJobs.find(job => job.name === selectedHbxlJob);
+          if (!selectedJob?.uploadId) {
+            console.log('❌ No uploadId found for job:', selectedHbxlJob);
+            setAvailablePhases([]);
+            return;
+          }
+          
+          console.log('Loading CSV data for uploadId:', selectedJob.uploadId);
+          const response = await fetch(`/api/csv-uploads/${selectedJob.uploadId}`);
+          const csvData = await response.json();
+          
+          if (csvData.structuredData?.items) {
+            // CSV Data Supremacy: Extract unique build phases from CSV data only
+            const uniquePhases = new Set<string>();
+            
+            csvData.structuredData.items.forEach((item: any) => {
+              if (item.buildPhase && 
+                  item.buildPhase.trim() && 
+                  item.buildPhase !== 'Build Phase' && 
+                  item.buildPhase.toLowerCase() !== 'build phase') {
+                uniquePhases.add(item.buildPhase.trim());
+              }
+            });
+            
+            const phases = Array.from(uniquePhases);
+            setAvailablePhases(phases);
+            console.log('✓ Authentic CSV phases extracted:', phases);
+          } else {
+            console.log('❌ No CSV data found');
+            setAvailablePhases([]);
+          }
+        } catch (error) {
+          console.error('❌ Failed to load CSV phases:', error);
           setAvailablePhases([]);
         }
-      } else {
-        console.log('❌ No job found with name:', selectedHbxlJob);
-        setAvailablePhases([]);
-      }
-      console.log('=== END DEBUG ===');
+      };
+      
+      loadPhasesFromCSV();
+      console.log('=== END PHASE EXTRACTION ===');
     } else {
       setAvailablePhases([]);
     }
