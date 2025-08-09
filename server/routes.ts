@@ -282,6 +282,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single job assignment by ID
+  app.get("/api/job-assignments/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log("🔍 Fetching job assignment by ID:", id);
+      
+      const assignment = await storage.getJobAssignment(id);
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      console.log("📋 Found assignment:", assignment.id, assignment.contractorName);
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error fetching job assignment:", error);
+      res.status(500).json({ error: "Failed to fetch assignment" });
+    }
+  });
+
   // Delete job assignment
   app.delete("/api/job-assignments/:id", async (req, res) => {
     try {
