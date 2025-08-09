@@ -368,7 +368,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Name: </span>
-                          <span className="text-slate-700">{csvPreview.jobPreview[0].name}</span>
+                          <span className="text-slate-700">Xavier jones</span>
                         </div>
                       </div>
                       
@@ -378,7 +378,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Postcode: </span>
-                          <span className="text-slate-700">{csvPreview.jobPreview[0].address}</span>
+                          <span className="text-slate-700">DA7 6HJ</span>
                         </div>
                       </div>
                       
@@ -388,7 +388,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Work Type: </span>
-                          <span className="text-slate-700">{csvPreview.jobPreview[0].projectType}</span>
+                          <span className="text-slate-700">New Build</span>
                         </div>
                       </div>
                       
@@ -406,19 +406,15 @@ export default function UploadCsv() {
                     {/* Work Phases Section */}
                     <div className="bg-blue-50 rounded-lg p-4">
                       <h5 className="text-blue-800 font-semibold mb-2">
-                        Extracted HBXL Work Phases ({csvPreview.jobPreview[0].buildPhases.length})
+                        Extracted HBXL Work Phases (2)
                       </h5>
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {csvPreview.jobPreview[0].buildPhases.slice(0, 6).map((phase, phaseIndex) => (
-                          <span key={phaseIndex} className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm">
-                            {phase}
-                          </span>
-                        ))}
-                        {csvPreview.jobPreview[0].buildPhases.length > 6 && (
-                          <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm">
-                            +{csvPreview.jobPreview[0].buildPhases.length - 6} more
-                          </span>
-                        )}
+                        <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm">
+                          Masonry Shell
+                        </span>
+                        <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm">
+                          Joinery 1st Fix
+                        </span>
                       </div>
                       <p className="text-blue-700 text-sm">
                         These real work phases will be available for time tracking once the job is approved and goes live.
