@@ -186,6 +186,8 @@ export const jobAssignments = pgTable("job_assignments", {
   specialInstructions: text("special_instructions"),
   status: text("status").notNull().default("assigned"),
   sendTelegramNotification: boolean("send_telegram_notification").default(false),
+  latitude: text("latitude"), // GPS latitude for work site
+  longitude: text("longitude"), // GPS longitude for work site
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
