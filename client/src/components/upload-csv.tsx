@@ -135,74 +135,53 @@ export default function UploadCsv() {
         throw new Error('CSV must contain Name, Address, Post code, and Project Type headers');
       }
 
-      // Extract header information (first 4 lines) - following your specific CSV format
-      let jobName = "Data Missing from CSV";
-      let jobAddress = "Data Missing from CSV";
-      let jobPostcode = "Data Missing from CSV";
-      let jobType = "Data Missing from CSV";
-      let phases: string[] = [];
-
-      // Parse header lines (Name,value format)
-      for (let i = 0; i < Math.min(lines.length, 5); i++) {
-        const line = lines[i];
-        if (line.startsWith('Name,')) {
-          jobName = line.split(',')[1]?.trim() || "Data Missing from CSV";
-        } else if (line.startsWith('Address,')) {
-          jobAddress = line.split(',')[1]?.trim() || "Data Missing from CSV";
-        } else if (line.startsWith('Post code,')) {
-          jobPostcode = line.split(',')[1]?.trim()?.toUpperCase() || "Data Missing from CSV";
-        } else if (line.startsWith('Project Type,')) {
-          jobType = line.split(',')[1]?.trim() || "Data Missing from CSV";
-        }
+      // SIMPLE TABLE FORMAT: Name,Address,Postcode,ProjectType,BuildPhases
+      // First line = headers, Second line = data
+      if (lines.length < 2) {
+        throw new Error('CSV must have header and at least one data row');
       }
 
-      // Parse data section for build phases
-      const dataHeaderIndex = lines.findIndex(line => 
-        line.includes('Order Date') && line.includes('Build Phase')
-      );
+      const headerLine = lines[0];
+      const firstDataLine = lines[1];
       
-      if (dataHeaderIndex >= 0) {
-        const headers = lines[dataHeaderIndex].split(',').map(h => h.trim());
-        const phaseColumnIndex = headers.indexOf('Build Phase');
-        
-        if (phaseColumnIndex >= 0) {
-          for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
-            const values = lines[i].split(',').map(v => v.trim());
-            const phase = values[phaseColumnIndex];
-            if (phase && phase !== '' && !phases.includes(phase)) {
-              phases.push(phase);
-            }
-          }
-        }
-      }
+      // Split the first data row to get job info
+      const dataParts = firstDataLine.split(',');
+      
+      const jobName = dataParts[0]?.trim() || "Data Missing";
+      const jobAddress = dataParts[1]?.trim() || "Data Missing";
+      const jobPostcode = dataParts[2]?.trim()?.toUpperCase() || "Data Missing";
+      const jobType = dataParts[3]?.trim() || "Data Missing";
+      const buildPhasesStr = dataParts[4]?.trim().replace(/"/g, '') || "";
+      
+      const phases = buildPhasesStr ? buildPhasesStr.split(',').map(p => p.trim()).filter(p => p) : [];
 
-      console.log('🎯 Authentic CSV Data Extracted:', { 
+      console.log('✅ SIMPLE CSV Data Extracted:', { 
         jobName, 
-        jobAddress: `"${jobAddress}"`, // Show exact address with quotes
-        jobPostcode: `"${jobPostcode}"`, 
+        jobAddress, 
+        jobPostcode, 
         jobType, 
         phases 
       });
 
-      // Create raw data preview (first 5 lines)
-      const mockRawData = {
-        headers: ['Name', 'Address', 'Post code', 'Project Type'],
-        rows: [[jobName, jobAddress, jobPostcode, jobType]]
+      // Create raw data preview
+      const rawData = {
+        headers: ['Name', 'Address', 'Postcode', 'Project Type', 'Build Phases'],
+        rows: [[jobName, jobAddress, jobPostcode, jobType, buildPhasesStr]]
       };
 
-      const realJobPreview = [{
+      const jobPreview = [{
         name: jobName,
         address: jobAddress,
         postcode: jobPostcode,
         projectType: jobType,
-        buildPhases: phases.length > 0 ? phases : ["Data Missing from CSV"]
+        buildPhases: phases.length > 0 ? phases : ["No phases specified"]
       }];
 
       return { 
-        headers: mockRawData.headers, 
-        rows: mockRawData.rows,
-        rawData: mockRawData,
-        jobPreview: realJobPreview 
+        headers: rawData.headers, 
+        rows: rawData.rows,
+        rawData: rawData,
+        jobPreview: jobPreview 
       };
     } catch (error) {
       toast({
