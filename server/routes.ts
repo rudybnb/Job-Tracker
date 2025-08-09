@@ -481,8 +481,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasTaskData: !!job.phaseTaskData && job.phaseTaskData.trim() !== '{}' && job.phaseTaskData.trim() !== ''
       })));
       
+      // Priority: 1) Jobs with extracted task data, 2) The authentic HBXL job
       let csvUploadJob = storedJobs.find(job => job.phaseTaskData && job.phaseTaskData.trim() !== '{}' && job.phaseTaskData.trim() !== '');
       if (!csvUploadJob) {
+        // Use the authentic HBXL job "Job 49 Flat2 1 Bedroom 1Smart Schedule Export.csv"
         csvUploadJob = storedJobs.find(job => job.uploadId === 'f9126100-d429-4384-865f-55df43e9e8ec');
       }
       
