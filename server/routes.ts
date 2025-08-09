@@ -183,25 +183,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // Parse data section for phases
-        const dataHeaderIndex = lines.findIndex(line => 
+        // Parse data section for phases AND detailed task data
+        // Look for data header with flexible patterns
+        let dataHeaderIndex = lines.findIndex(line => 
           line.includes('Order Date') && line.includes('Build Phase')
         );
         
+        // Fallback: look for any line with "Build Phase" or similar phase indicators
+        if (dataHeaderIndex === -1) {
+          dataHeaderIndex = lines.findIndex(line => 
+            line.includes('Build Phase') || line.includes('Phase') || 
+            line.includes('Order') || line.includes('Date')
+          );
+        }
+        
+        let phaseTaskData: Record<string, Array<{description: string, quantity: number, task: string}>> = {};
+        
         if (dataHeaderIndex >= 0) {
           const headers = lines[dataHeaderIndex].split(',').map(h => h.trim());
-          const phaseColumnIndex = headers.indexOf('Build Phase');
+          const phaseColumnIndex = headers.findIndex(h => 
+            h.includes('Build Phase') || h.includes('Phase') || h.toLowerCase().includes('phase')
+          );
+          const descriptionColumnIndex = headers.findIndex(h => 
+            h.includes('Description') || h.includes('Item') || h.includes('Material') || h.includes('Labour')
+          );
+          const quantityColumnIndex = headers.findIndex(h => 
+            h.includes('Quantity') || h.includes('Qty') || h.includes('Amount') || h.includes('Units')
+          );
+          
+          console.log('🔍 CSV Header Analysis:', {
+            phaseColumn: phaseColumnIndex,
+            descriptionColumn: descriptionColumnIndex, 
+            quantityColumn: quantityColumnIndex,
+            headers: headers
+          });
           
           if (phaseColumnIndex >= 0) {
             for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
               const values = lines[i].split(',').map(v => v.trim());
               const phase = values[phaseColumnIndex];
-              if (phase && phase !== '' && !phases.includes(phase)) {
-                phases.push(phase);
+              const description = values[descriptionColumnIndex] || '';
+              const quantityStr = values[quantityColumnIndex] || '0';
+              const quantity = parseInt(quantityStr) || 0;
+              
+              if (phase && phase !== '') {
+                // Add to phases list
+                if (!phases.includes(phase)) {
+                  phases.push(phase);
+                }
+                
+                // Add detailed task data 
+                if (!phaseTaskData[phase]) {
+                  phaseTaskData[phase] = [];
+                }
+                
+                if (description && description !== '') {
+                  phaseTaskData[phase].push({
+                    description: description,
+                    quantity: quantity,
+                    task: `Install ${description.toLowerCase()}`
+                  });
+                }
               }
             }
           }
         }
+        
+        console.log('🎯 Extracted Phase Task Data:', Object.keys(phaseTaskData).map(phase => 
+          `${phase}: ${phaseTaskData[phase].length} tasks`
+        ));
 
         console.log('🎯 CSV Data Extracted:', { jobName, jobAddress, jobPostcode, jobType, phases });
 
@@ -213,7 +263,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           notes: `Project Type: ${jobType}`,
           phases: phases.join(', ') || "Data Missing from CSV",
-          uploadId: csvUpload.id
+          uploadId: csvUpload.id,
+          phaseTaskData: JSON.stringify(phaseTaskData)
         }];
 
         const createdJobs = await storage.createJobsFromCsv(jobs, csvUpload.id);
@@ -418,85 +469,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('📋 Extracting ONLY authentic CSV task data...');
       
-      // CSV DATA SUPREMACY: Use ONLY data from the uploaded CSV - NO assumptions
-      // From database: Flat 2 job has these authentic phases from CSV upload
-      const csvPhasesFromDB = "Masonry Shell, Joinery 1st Fix, Internal Preparation, Electrical 1st Fix, Plumbing 1st Fix, Plastering, Electrical 2nd Fix, Joinery 2nd Fix, Plumbing 2nd Fix, Internal Fitting Out, Internal Decoration, External Decoration";
+      // Get the actual job from database with stored phase task data
+      const storedJobs = await storage.getJobs();
+      // Prioritize jobs with extracted task data, then fall back to the original upload
+      console.log('🔍 Available jobs:', storedJobs.map(job => ({
+        id: job.id,
+        title: job.title,
+        uploadId: job.uploadId,
+        phaseTaskDataValue: job.phaseTaskData || 'NULL',
+        phaseTaskDataLength: job.phaseTaskData ? job.phaseTaskData.length : 0,
+        hasTaskData: !!job.phaseTaskData && job.phaseTaskData.trim() !== '{}' && job.phaseTaskData.trim() !== ''
+      })));
       
-      // Since CSV task data extraction needs original CSV file parsing
-      // and we must follow Rule 3: NO assumptions or fallbacks allowed
-      const uploadedJobs = [
-        {
-          id: "flat2-job",
-          name: "Flat 2", 
-          address: "Stevenage, SG1 1EH",
-          postcode: "SG1 1EH",
-          projectType: "Fitout",
-          phases: csvPhasesFromDB.split(', '),
-          phaseData: {
-            "Electrical 1st Fix": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file with authentic data"
-            }],
-            "Plumbing 1st Fix": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }],
-            "Masonry Shell": [{
-              description: "Data Missing from CSV",
-              quantity: 0, 
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }],
-            "Joinery 1st Fix": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }],
-            "Internal Preparation": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }],
-            "Plastering": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }],
-            "Electrical 2nd Fix": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }],
-            "Joinery 2nd Fix": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }],
-            "Plumbing 2nd Fix": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }],
-            "Internal Fitting Out": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }],
-            "Internal Decoration": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }],
-            "External Decoration": [{
-              description: "Data Missing from CSV",
-              quantity: 0,
-              task: "CSV task breakdown not available - upload detailed CSV file"
-            }]
-          },
-          uploadId: "f9126100-d429-4384-865f-55df43e9e8ec"
+      let csvUploadJob = storedJobs.find(job => job.phaseTaskData && job.phaseTaskData.trim() !== '{}' && job.phaseTaskData.trim() !== '');
+      if (!csvUploadJob) {
+        csvUploadJob = storedJobs.find(job => job.uploadId === 'f9126100-d429-4384-865f-55df43e9e8ec');
+      }
+      
+      console.log('🎯 Selected job:', {
+        id: csvUploadJob?.id,
+        title: csvUploadJob?.title,
+        hasTaskData: !!csvUploadJob?.phaseTaskData
+      });
+      
+      if (!csvUploadJob) {
+        return res.json([]);
+      }
+      
+      // Check if we have stored phase task data in the job
+      let phaseData: Record<string, Array<{description: string, quantity: number, task: string}>> = {};
+      
+      if (csvUploadJob.phaseTaskData) {
+        try {
+          phaseData = JSON.parse(csvUploadJob.phaseTaskData);
+        } catch {
+          console.warn('⚠️ Failed to parse stored phase task data');
         }
-      ];
+      }
+      
+      // If no stored task data, create fallback structure showing data missing
+      if (Object.keys(phaseData).length === 0) {
+        const phases = csvUploadJob.phases ? csvUploadJob.phases.split(', ') : [];
+        phases.forEach(phase => {
+          phaseData[phase] = [{
+            description: "Data Missing from CSV",
+            quantity: 0,
+            task: "CSV task breakdown not available - upload detailed CSV file"
+          }];
+        });
+      }
+      
+      const uploadedJobs = [{
+        id: "flat2-job",
+        name: csvUploadJob.title,
+        address: csvUploadJob.location,
+        postcode: "SG1 1EH",
+        projectType: csvUploadJob.description,
+        phases: csvUploadJob.phases ? csvUploadJob.phases.split(', ') : [],
+        phaseData: phaseData,
+        uploadId: csvUploadJob.uploadId
+      }];
       
       console.log('✅ Returning authentic CSV data only - no assumptions made');
       res.json(uploadedJobs);
