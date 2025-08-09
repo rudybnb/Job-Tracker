@@ -266,10 +266,10 @@ export default function UploadJob() {
           quantity = parseFloat(quantityIndex >= 0 ? row[quantityIndex] : row[6]) || 0;
           
           // Generate a pseudo-code for consistency
-          code = `${category.substring(0,2).toUpperCase()}${subcategory.substring(0,3).toUpperCase()}`;
+          code = `${buildPhaseValue.substring(0,2).toUpperCase()}${description.substring(0,3).toUpperCase()}`;
           
-          canProcess = !!(category && description && row.length >= 6);
-          console.log(`  Schedule format: Category="${category}", Type="${type}", Subcategory="${subcategory}", Desc="${description}", Quantity="${quantity}"`);
+          canProcess = !!(buildPhaseValue && description && row.length >= 6);
+          console.log(`  Schedule format: BuildPhase="${buildPhaseValue}", Desc="${description}", Quantity="${quantity}"`);
         } else {
           // Traditional code format
           code = row[codeIndex] || '';
@@ -289,56 +289,19 @@ export default function UploadJob() {
           console.log(`  ✓ Processing: Code="${code}", Desc="${description}"`);
           structuredData.metadata.dataRows++;
           
-          // Enhanced phase detection - adapt to CSV format
-          let phase = 'General Construction';
+          // CSV Data Supremacy: Read directly from "Build Phase" column only
+          let phase = 'Data Missing from CSV';
           
-          if (isScheduleFormat) {
-            // For schedule format, use the category directly as the phase
-            const category = row[categoryIndex] || '';
-            const subcategory = row[subcategoryIndex] || '';
-            
-            // Map schedule categories to logical construction phases
-            if (category.toLowerCase().includes('internal fitting') || category.toLowerCase().includes('fitting out')) {
-              if (subcategory.toLowerCase().includes('flooring')) {
-                phase = 'Flooring Installation';
-              } else if (subcategory.toLowerCase().includes('kitchen') || subcategory.toLowerCase().includes('appliance')) {
-                phase = 'Kitchen Fitout';
-              } else if (subcategory.toLowerCase().includes('bathroom') || subcategory.toLowerCase().includes('sanitary')) {
-                phase = 'Bathroom Installation';
-              } else if (subcategory.toLowerCase().includes('electrical')) {
-                phase = 'Electrical Installation';
-              } else if (subcategory.toLowerCase().includes('plumbing')) {
-                phase = 'Plumbing Installation';
-              } else {
-                phase = 'Internal Fitting Out';
-              }
-            } else if (category.toLowerCase().includes('internal decoration')) {
-              phase = 'Painting & Decorating';
-            } else if (category.toLowerCase().includes('external decoration')) {
-              phase = 'External Decoration';
-            } else if (category.toLowerCase().includes('structural')) {
-              phase = 'Structural Work';
-            } else if (category.toLowerCase().includes('foundation')) {
-              phase = 'Foundation Work';
-            } else if (category.toLowerCase().includes('roof')) {
-              phase = 'Roof Structure';
-            } else {
-              // No fallbacks per MANDATORY RULE 3
-              phase = 'Data Missing from CSV';
-            }
-          } else if (headers.includes('Build Phase')) {
-            // CSV Data Supremacy: Read directly from "Build Phase" column
+          if (headers.includes('Build Phase')) {
             const buildPhaseIndex = headers.indexOf('Build Phase');
             const buildPhaseValue = row[buildPhaseIndex];
-            if (buildPhaseValue && buildPhaseValue.trim() && buildPhaseValue !== 'Build Phase') {
+            if (buildPhaseValue && 
+                buildPhaseValue.trim() && 
+                buildPhaseValue !== 'Build Phase' && 
+                buildPhaseValue.toLowerCase() !== 'build phase') {
               console.log(`✓ CSV Data: Using Build Phase "${buildPhaseValue}" for row ${i}`);
               phase = buildPhaseValue.trim();
-            } else {
-              phase = 'Data Missing from CSV';
             }
-          } else {
-            // No CSV "Build Phase" column found - cannot determine phase per MANDATORY RULE 3
-            phase = 'Data Missing from CSV';
           }
 
           console.log(`Row ${i}: Code="${code}", Desc="${description}" -> Phase="${phase}"`);
