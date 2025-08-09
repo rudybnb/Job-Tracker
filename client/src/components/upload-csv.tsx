@@ -196,12 +196,10 @@ export default function UploadCsv() {
         }
       }
 
-      console.log('✅ SIMPLE CSV Data Extracted:', { 
-        jobName, 
-        jobAddress, 
-        jobPostcode, 
-        jobType, 
-        phases 
+      console.log('✅ CSV PARSING DEBUG:', {
+        isOriginalFormat,
+        rawLines: lines.slice(0, 5),
+        extracted: { jobName, jobAddress, jobPostcode, jobType, phases }
       });
 
       // Create raw data preview
