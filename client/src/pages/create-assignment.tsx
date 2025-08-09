@@ -358,6 +358,21 @@ export default function CreateAssignment() {
                   console.log('Job selection changed to:', e.target.value);
                   setSelectedHbxlJob(e.target.value);
                   setSelectedPhases([]);
+                  
+                  // Auto-populate work location with job's postcode
+                  if (e.target.value) {
+                    const selectedJob = uploadedJobs.find(job => job.name === e.target.value);
+                    if (selectedJob && selectedJob.location) {
+                      // Extract postcode from location (e.g., "Bexleyheath, BR9 &HJ" -> "BR9 &HJ")
+                      const locationParts = selectedJob.location.split(', ');
+                      const postcode = locationParts[locationParts.length - 1]; // Get last part as postcode
+                      setWorkLocation(postcode);
+                      console.log('✅ Auto-populated work location with postcode:', postcode);
+                    }
+                  } else {
+                    // Clear work location if no job selected
+                    setWorkLocation('');
+                  }
                 }}
                 className="w-full bg-slate-700 border border-yellow-500 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
               >
