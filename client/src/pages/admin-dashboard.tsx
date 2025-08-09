@@ -272,16 +272,7 @@ export default function AdminDashboard() {
                     Hybrid Planning System
                   </button>
                   
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/upload';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-cloud-upload-alt mr-3 w-4"></i>
-                    HBXL Job Upload & Approval
-                  </button>
+
                   
                   <button 
                     onClick={() => {
@@ -571,13 +562,6 @@ export default function AdminDashboard() {
           >
             <i className="fas fa-clock block mb-1"></i>
             <span className="text-xs">Time Tracking</span>
-          </button>
-          <button 
-            onClick={() => window.location.href = '/upload'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
-          >
-            <i className="fas fa-upload block mb-1"></i>
-            <span className="text-xs">Upload Job</span>
           </button>
         </div>
       </div>

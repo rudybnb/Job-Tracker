@@ -508,13 +508,7 @@ export default function CreateAssignment() {
             <i className="fas fa-user-cog block mb-1"></i>
             <span className="text-xs">Admin</span>
           </button>
-          <button 
-            onClick={() => window.location.href = '/upload'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
-          >
-            <i className="fas fa-upload block mb-1"></i>
-            <span className="text-xs">Upload Job</span>
-          </button>
+
         </div>
       </div>
       

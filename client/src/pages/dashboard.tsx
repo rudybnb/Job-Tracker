@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import StatsCards from "@/components/stats-cards";
-import UploadCsv from "@/components/upload-csv";
+
 import JobsTable from "@/components/jobs-table";
 import ContractorsOverview from "@/components/contractors-overview";
 import JobAssignmentModal from "@/components/job-assignment-modal";
@@ -77,16 +77,9 @@ export default function Dashboard() {
         {/* Stats Cards */}
         <StatsCards stats={stats} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* File Upload Section */}
-          <div className="lg:col-span-1">
-            <UploadCsv />
-          </div>
-
-          {/* Jobs Table */}
-          <div className="lg:col-span-2">
-            <JobsTable onAssignJob={handleAssignJob} />
-          </div>
+        {/* Jobs Table */}
+        <div className="mb-8">
+          <JobsTable onAssignJob={handleAssignJob} />
         </div>
 
         {/* Contractor Management Section */}
