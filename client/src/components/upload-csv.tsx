@@ -123,36 +123,75 @@ export default function UploadCsv() {
 
   const parseCSVPreview = async (file: File): Promise<CSVPreviewData | null> => {
     try {
-      const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
+      const csvContent = await file.text();
+      const lines = csvContent.split('\n').map(line => line.trim()).filter(line => line);
       
-      if (lines.length < 2) {
-        throw new Error('CSV must have headers and at least one data row');
+      if (lines.length < 4) {
+        throw new Error('CSV must contain Name, Address, Post code, and Project Type headers');
       }
 
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-      const rows = lines.slice(1, 6).map(line => // Preview first 5 rows
-        line.split(',').map(cell => cell.trim().replace(/"/g, ''))
+      // Extract header information (first 4 lines) - following your specific CSV format
+      let jobName = "Data Missing from CSV";
+      let jobAddress = "Data Missing from CSV";
+      let jobPostcode = "Data Missing from CSV";
+      let jobType = "Data Missing from CSV";
+      let phases: string[] = [];
+
+      // Parse header lines (Name,value format)
+      for (let i = 0; i < Math.min(lines.length, 5); i++) {
+        const line = lines[i];
+        if (line.startsWith('Name,')) {
+          jobName = line.split(',')[1]?.trim() || "Data Missing from CSV";
+        } else if (line.startsWith('Address,')) {
+          jobAddress = line.split(',')[1]?.trim() || "Data Missing from CSV";
+        } else if (line.startsWith('Post code,')) {
+          jobPostcode = line.split(',')[1]?.trim()?.toUpperCase() || "Data Missing from CSV";
+        } else if (line.startsWith('Project Type,')) {
+          jobType = line.split(',')[1]?.trim() || "Data Missing from CSV";
+        }
+      }
+
+      // Parse data section for build phases
+      const dataHeaderIndex = lines.findIndex(line => 
+        line.includes('Order Date') && line.includes('Build Phase')
       );
-
-      // Create job preview based on actual CSV structure
-      const jobPreview = rows.map(row => {
-        const name = row[0] || 'Unknown';
-        const address = row[1] || 'Unknown Address';
-        const projectType = row[2] || 'Unknown Project';
+      
+      if (dataHeaderIndex >= 0) {
+        const headers = lines[dataHeaderIndex].split(',').map(h => h.trim());
+        const phaseColumnIndex = headers.indexOf('Build Phase');
         
-        // Extract build phases from remaining columns
-        const buildPhases = row.slice(3).filter(phase => phase && phase.trim());
-        
-        return {
-          name,
-          address,
-          projectType,
-          buildPhases: buildPhases.length > 0 ? buildPhases : ['No phases specified']
-        };
-      });
+        if (phaseColumnIndex >= 0) {
+          for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            const phase = values[phaseColumnIndex];
+            if (phase && phase !== '' && !phases.includes(phase)) {
+              phases.push(phase);
+            }
+          }
+        }
+      }
 
-      return { headers, rows, jobPreview };
+      console.log('🎯 Authentic CSV Data Extracted:', { jobName, jobAddress, jobPostcode, jobType, phases });
+
+      // Create raw data preview (first 5 lines)
+      const mockRawData = {
+        headers: ['Name', 'Address', 'Post code', 'Project Type'],
+        rows: [[jobName, jobAddress, jobPostcode, jobType]]
+      };
+
+      const realJobPreview = [{
+        name: jobName,
+        address: jobPostcode,
+        projectType: jobType,
+        location: `${jobAddress}, ${jobPostcode}`,
+        buildPhases: phases.length > 0 ? phases : ["Data Missing from CSV"]
+      }];
+
+      return { 
+        headers: mockRawData.headers, 
+        rows: mockRawData.rows, 
+        jobPreview: realJobPreview 
+      };
     } catch (error) {
       toast({
         title: "CSV Parse Error",
