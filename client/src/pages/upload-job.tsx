@@ -70,26 +70,16 @@ export default function UploadJob() {
       const csvContent = e.target?.result as string;
       const lines = csvContent.split('\n').filter(line => line.trim());
       
-      // Extract client info from CSV header area (first few rows)
+      // RULE 3: CSV DATA SUPREMACY - Extract client info from CSV header area (first few rows)
       let clientInfo = {
         name: '',
         address: '',
         postCode: '',
-        projectType: 'Renovation' // Default to renovation, will be determined from phases
+        projectType: '' // NO DEFAULTS - only use authentic CSV data
       };
       
-      // For schedule format CSVs, try to extract client info from filename
-      if (hbxlFile.name.includes('Flat')) {
-        // Handle both "Flat 15" and "Flat15" patterns
-        const flatMatch = hbxlFile.name.match(/Flat\s*(\d+)/i);
-        if (flatMatch) {
-          const flatNumber = flatMatch[1];
-          clientInfo.name = `Flat ${flatNumber}`;
-          clientInfo.address = 'Stevenage'; // Default from user's data
-          clientInfo.postCode = 'SG1 1EH'; // Default from user's data
-          console.log(`✓ Extracted from filename: ${clientInfo.name}`);
-        }
-      }
+      // RULE 3: CSV DATA SUPREMACY - NO filename assumptions or artificial data
+      // Only use authentic CSV data, no fallbacks from filename
 
       let dataStartRow = 0;
       
