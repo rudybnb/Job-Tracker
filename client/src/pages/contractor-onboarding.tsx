@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import ContextualTooltip from "@/components/contextual-tooltip";
+import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
 
 function LogoutButton() {
   const handleLogout = () => {

@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import ContextualTooltip from "./contextual-tooltip";
+import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
 
 interface CsvUpload {
   id: string;
@@ -22,6 +24,9 @@ export default function UploadCsv() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Initialize workflow help for CSV upload process
+  const workflowHelp = useWorkflowHelp(WORKFLOW_CONFIGS.csvUpload);
 
   const uploadMutation = useMutation<UploadResponse, Error, File>({
     mutationFn: async (file: File) => {
@@ -42,6 +47,12 @@ export default function UploadCsv() {
       return response.json();
     },
     onSuccess: (data) => {
+      // Mark workflow steps as completed
+      workflowHelp.markStepCompleted('file-selection');
+      workflowHelp.markStepCompleted('file-validation');
+      workflowHelp.markStepCompleted('data-processing');
+      workflowHelp.markStepCompleted('job-creation');
+      
       toast({
         title: "CSV Upload Successful",
         description: `Created ${data.jobsCreated} job(s) from ${data.upload.filename}`,
@@ -122,7 +133,20 @@ export default function UploadCsv() {
   return (
     <div className="bg-white rounded-lg shadow-md border border-slate-200 p-6">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">Upload Job CSV File</h3>
+        <div className="flex items-center space-x-2 mb-2">
+          <h3 className="text-lg font-semibold text-slate-900">Upload Job CSV File</h3>
+          <ContextualTooltip
+            id="csv-upload-header"
+            title="CSV Upload Process"
+            content="Upload CSV files containing job data. The system validates format and creates jobs automatically. Only authentic CSV data is used - no assumptions made."
+            type="info"
+            placement="right"
+          >
+            <div className="text-blue-500 cursor-help">
+              <AlertCircle className="h-4 w-4" />
+            </div>
+          </ContextualTooltip>
+        </div>
         <p className="text-sm text-slate-600">
           Upload CSV files to create new jobs. File format: Name, Address, Project Type, Build Phase data.
         </p>
@@ -151,12 +175,20 @@ export default function UploadCsv() {
         {!selectedFile ? (
           <>
             <Upload className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-            <label
-              htmlFor="csv-upload"
-              className="cursor-pointer text-blue-600 hover:text-blue-500 font-medium"
+            <ContextualTooltip
+              id="file-selection-area"
+              title="File Selection"
+              content="Select a CSV file with required headers: Name, Address, Post code, Project Type, and Build Phase. Files must be under 10MB and contain authentic job data."
+              type="help"
+              placement="top"
             >
-              Click to upload
-            </label>
+              <label
+                htmlFor="csv-upload"
+                className="cursor-pointer text-blue-600 hover:text-blue-500 font-medium"
+              >
+                Click to upload
+              </label>
+            </ContextualTooltip>
             <span className="text-slate-500"> or drag and drop</span>
             <p className="text-sm text-slate-500 mt-2">CSV files only, up to 10MB</p>
           </>
@@ -182,23 +214,31 @@ export default function UploadCsv() {
             <span>{(selectedFile.size / 1024).toFixed(1)} KB</span>
           </div>
           
-          <Button
-            onClick={handleUpload}
-            disabled={uploadMutation.isPending}
-            className="bg-blue-600 hover:bg-blue-700"
+          <ContextualTooltip
+            id="upload-button"
+            title="Process CSV File"
+            content="Click to process the selected CSV file. The system will validate format, extract job data, and create jobs automatically. Processing may take a few seconds."
+            type="success"
+            placement="left"
           >
-            {uploadMutation.isPending ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload CSV
-              </>
-            )}
-          </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={uploadMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {uploadMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload CSV
+                </>
+              )}
+            </Button>
+          </ContextualTooltip>
         </div>
       )}
 

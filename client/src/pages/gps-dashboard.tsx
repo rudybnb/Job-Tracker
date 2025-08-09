@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import ContextualTooltip from "@/components/contextual-tooltip";
+import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
 
 // Active Assignment Component
 function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
@@ -93,6 +95,9 @@ export default function GPSDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const contractorName = "James"; // Using James as contractor name from screenshots
+  
+  // Initialize workflow help for GPS tracking
+  const workflowHelp = useWorkflowHelp(WORKFLOW_CONFIGS.gpsTracking);
   
   const [currentTime, setCurrentTime] = useState(() => {
     return localStorage.getItem('gps_timer_current') || "00:00:00";
@@ -649,9 +654,20 @@ export default function GPSDashboard() {
         {/* GPS Status Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
               <i className="fas fa-signal text-white mr-2"></i>
               <h3 className="text-lg font-semibold text-yellow-400">GPS Status</h3>
+              <ContextualTooltip
+                id="gps-status-indicator"
+                title="GPS Status Monitor"
+                content="Shows GPS connection quality and work site proximity. GPS must be 'Good' and within 1km of assigned work site to start tracking. Location automatically updates every few seconds."
+                type="info"
+                placement="right"
+              >
+                <div className="text-blue-400 cursor-help">
+                  <i className="fas fa-info-circle text-sm"></i>
+                </div>
+              </ContextualTooltip>
             </div>
             <div className="flex items-center space-x-2">
               <Badge className={getStatusColor(gpsStatus)}>{gpsStatus}</Badge>
@@ -760,25 +776,36 @@ export default function GPSDashboard() {
               </div>
             </div>
             
-            <Button 
-              onClick={handleStartWork}
-              disabled={!locationValidation.canSignIn && !isTracking}
-              className={`w-full py-3 text-white font-medium rounded-lg flex items-center justify-center ${
-                (!locationValidation.canSignIn && !isTracking)
-                  ? 'bg-red-600 cursor-not-allowed opacity-75'
-                  : isTracking 
-                    ? 'bg-red-600 hover:bg-red-700' 
-                    : 'bg-green-600 hover:bg-green-700'
-              }`}
-            >
-              <i className={`fas ${isTracking ? 'fa-stop' : !locationValidation.canSignIn ? 'fa-lock' : 'fa-play'} mr-2`}></i>
-              {isTracking 
-                ? 'Stop Work' 
-                : !locationValidation.canSignIn 
-                  ? 'GPS Check Required'
-                  : 'Start Work (GPS Verified)'
+            <ContextualTooltip
+              id="start-stop-work-button"
+              title="GPS Work Tracking"
+              content={isTracking 
+                ? "Click to stop work and save time session. GPS location will be recorded and pay calculated automatically. CIS deductions apply." 
+                : "Click to start GPS-verified time tracking. System validates you're within 1km of work site and during valid hours (7:45 AM - 5:00 PM). Late arrivals after 8:15 AM incur £0.50/minute deductions."
               }
-            </Button>
+              type={isTracking ? "warning" : "success"}
+              placement="top"
+            >
+              <Button 
+                onClick={handleStartWork}
+                disabled={!locationValidation.canSignIn && !isTracking}
+                className={`w-full py-3 text-white font-medium rounded-lg flex items-center justify-center ${
+                  (!locationValidation.canSignIn && !isTracking)
+                    ? 'bg-red-600 cursor-not-allowed opacity-75'
+                    : isTracking 
+                      ? 'bg-red-600 hover:bg-red-700' 
+                      : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                <i className={`fas ${isTracking ? 'fa-stop' : !locationValidation.canSignIn ? 'fa-lock' : 'fa-play'} mr-2`}></i>
+                {isTracking 
+                  ? 'Stop Work' 
+                  : !locationValidation.canSignIn 
+                    ? 'GPS Check Required'
+                    : 'Start Work (GPS Verified)'
+                }
+              </Button>
+            </ContextualTooltip>
           </div>
           
           <div className="text-center text-slate-400 text-sm mb-2">
