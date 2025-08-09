@@ -76,18 +76,25 @@ export default function More() {
     cisRate: jamesCisRate ? parseFloat(jamesCisRate.settingValue) : 20
   };
 
-  // Convert real work sessions to our format
-  const workSessions: WorkSession[] = realWorkSessions.map((session: any) => ({
-    id: session.id,
-    location: session.jobSiteLocation || "Work Site",
-    date: new Date(session.startTime).toISOString().split('T')[0],
-    startTime: new Date(session.startTime).toLocaleTimeString(),
-    endTime: session.endTime ? new Date(session.endTime).toLocaleTimeString() : "In Progress",
-    hoursWorked: session.totalHours || 0,
-    hourlyRate: contractorInfo.hourlyRate,
-    grossEarnings: (session.totalHours || 0) * contractorInfo.hourlyRate,
-    gpsVerified: true
-  }));
+  // Convert real work sessions to our format with proper payment calculation
+  const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
+    const hoursWorked = session.totalHours || 0;
+    const grossEarnings = hoursWorked * contractorInfo.hourlyRate;
+    
+    console.log(`💰 Session ${session.id}: ${hoursWorked} hours × £${contractorInfo.hourlyRate}/hour = £${grossEarnings.toFixed(2)}`);
+    
+    return {
+      id: session.id,
+      location: session.jobSiteLocation || "Work Site",
+      date: new Date(session.startTime).toISOString().split('T')[0],
+      startTime: new Date(session.startTime).toLocaleTimeString(),
+      endTime: session.endTime ? new Date(session.endTime).toLocaleTimeString() : "In Progress",
+      hoursWorked: hoursWorked,
+      hourlyRate: contractorInfo.hourlyRate,
+      grossEarnings: grossEarnings,
+      gpsVerified: true
+    };
+  });
 
   const calculateWeeklyEarnings = (): WeeklyEarnings => {
     const weekSessions = workSessions.filter(session => {
