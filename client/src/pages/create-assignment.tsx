@@ -55,29 +55,43 @@ export default function CreateAssignment() {
   // Dynamic build phases will be loaded from CSV data
 
   useEffect(() => {
-    // Load uploaded jobs from localStorage (from real CSV uploads)
-    const savedJobs = localStorage.getItem('uploadedJobs');
-    console.log('=== LOADING JOBS DEBUG ===');
-    console.log('Raw localStorage data:', savedJobs);
-    
-    if (savedJobs) {
-      const jobs = JSON.parse(savedJobs);
-      setUploadedJobs(jobs);
-      console.log('✓ Loaded jobs count:', jobs.length);
-      console.log('✓ Jobs with phase data:', jobs.filter((job: any) => job.phaseData).length);
-      jobs.forEach((job: any, index: number) => {
-        console.log(`Job ${index + 1}:`, {
-          name: job.name,
-          hasPhaseData: !!job.phaseData,
-          phaseDataType: typeof job.phaseData,
-          phaseKeys: job.phaseData ? Object.keys(job.phaseData) : null
+    // Load jobs from database instead of localStorage
+    const loadJobsFromDatabase = async () => {
+      try {
+        console.log('🔍 Loading jobs from database...');
+        const response = await fetch('/api/jobs');
+        if (!response.ok) {
+          throw new Error('Failed to fetch jobs');
+        }
+        const jobs = await response.json();
+        console.log('✅ Loaded jobs from database:', jobs.length);
+        
+        // Transform database jobs to match expected format
+        const transformedJobs = jobs.map((job: any) => ({
+          id: job.id,
+          name: job.title,
+          location: job.location,
+          status: job.status,
+          phases: job.phases ? job.phases.split(', ') : [],
+          phaseData: job.phases ? job.phases.split(', ').reduce((acc: any, phase: string) => {
+            acc[phase] = [];
+            return acc;
+          }, {}) : {}
+        }));
+        
+        setUploadedJobs(transformedJobs);
+        console.log('✅ Transformed jobs for dropdown:', transformedJobs.length);
+      } catch (error) {
+        console.error('❌ Error loading jobs:', error);
+        toast({
+          title: "Error Loading Jobs",
+          description: "Could not load jobs from database",
+          variant: "destructive",
         });
-      });
-    } else {
-      console.log('❌ No uploaded jobs found in localStorage');
-      setUploadedJobs([]);
-    }
-    console.log('=== END LOADING DEBUG ===');
+      }
+    };
+    
+    loadJobsFromDatabase();
   }, []);
 
   useEffect(() => {
