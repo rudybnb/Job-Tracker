@@ -13,7 +13,7 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
   });
 
   // Fetch uploaded jobs with detailed CSV task data
-  const { data: uploadedJobs = [] } = useQuery({
+  const { data: uploadedJobs = [] } = useQuery<any[]>({
     queryKey: ["/api/uploaded-jobs"],
   });
 
