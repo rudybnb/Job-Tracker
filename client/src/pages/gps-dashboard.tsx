@@ -189,17 +189,7 @@ export default function GPSDashboard() {
     retry: false,
   });
 
-  // Get James's CIS rate for tax deductions
-  const { data: jamesCisRate } = useQuery({
-    queryKey: ["/api/admin-settings/james_cis_rate"],
-    queryFn: async () => {
-      const response = await fetch("/api/admin-settings/james_cis_rate");
-      if (response.status === 404) return { settingValue: "20" }; // Default 20% for registered contractors
-      if (!response.ok) throw new Error('Failed to fetch James CIS rate');
-      return response.json();
-    },
-    retry: false,
-  });
+
 
   // State for location validation
   const [userLocation, setUserLocation] = useState<GPSPosition | null>(null);
@@ -773,44 +763,12 @@ export default function GPSDashboard() {
           <div className="text-center mb-6">
             <div className="text-4xl font-mono text-blue-400 mb-4">{currentTime}</div>
             
-            {jamesDayRate && jamesCisRate && (
-              <div className="mb-4 text-center">
-                {(() => {
-                  if (!currentTime || currentTime === "00:00:00") {
-                    return (
-                      <div>
-                        <div className="text-xl text-green-400 font-semibold">£0.00</div>
-                        <div className="text-slate-400 text-xs">Net Pay After CIS</div>
-                      </div>
-                    );
-                  }
-                  
-                  const [hours, minutes, seconds] = currentTime.split(':').map(Number);
-                  const totalHours = hours + minutes/60 + seconds/3600;
-                  const dailyRate = parseFloat(jamesDayRate.settingValue);
-                  const hourlyRate = dailyRate / 8; // 8 hour work day
-                  const grossEarnings = totalHours * hourlyRate;
-                  const cisRate = parseFloat(jamesCisRate.settingValue);
-                  const cisDeduction = grossEarnings * (cisRate / 100);
-                  const netEarnings = grossEarnings - cisDeduction;
-                  
-                  return (
-                    <div className="space-y-2">
-                      <div className="text-xl text-green-400 font-semibold">
-                        £{netEarnings.toFixed(2)}
-                      </div>
-                      <div className="text-slate-400 text-xs">
-                        Net Pay After CIS ({cisRate}% deduction)
-                      </div>
-                      <div className="text-xs text-slate-500 space-y-1">
-                        <div>Gross: £{grossEarnings.toFixed(2)} | CIS: £{cisDeduction.toFixed(2)}</div>
-                        <div>Rate: £{jamesDayRate.settingValue}/day ({hourlyRate.toFixed(2)}/hr)</div>
-                      </div>
-                    </div>
-                  );
-                })()}
+            <div className="mb-4 text-center">
+              <div className="text-xl text-green-400 font-semibold">GPS Timer Active</div>
+              <div className="text-slate-400 text-xs">
+                View earnings and CIS details on More page
               </div>
-            )}
+            </div>
             
             <Button 
               onClick={handleStartWork}
