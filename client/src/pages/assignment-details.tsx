@@ -153,7 +153,7 @@ export default function AssignmentDetails() {
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <h2 className="text-lg font-semibold text-yellow-400 mb-4">Build Phases Overview</h2>
           <div className="space-y-3">
-            {assignment.buildPhases && JSON.parse(assignment.buildPhases).map((phase: string, index: number) => (
+            {assignment.buildPhases && Array.isArray(assignment.buildPhases) && assignment.buildPhases.map((phase: string, index: number) => (
               <div key={index} className="bg-slate-700 rounded-lg p-3 border border-slate-600">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
