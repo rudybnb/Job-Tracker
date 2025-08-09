@@ -71,9 +71,10 @@ export default function UploadJob() {
     onSuccess: () => {
       toast({
         title: "Upload Deleted",
-        description: "CSV upload record has been successfully deleted",
+        description: "CSV upload record and all associated jobs have been successfully deleted",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/csv-uploads'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
     },
     onError: (error) => {
       toast({
@@ -85,7 +86,7 @@ export default function UploadJob() {
   });
 
   const handleDeleteUpload = (uploadId: string, filename: string) => {
-    if (confirm(`Are you sure you want to delete the upload record for "${filename}"? This action cannot be undone.`)) {
+    if (confirm(`Are you sure you want to delete the upload record for "${filename}"? This will also delete all jobs created from this upload. This action cannot be undone.`)) {
       deleteMutation.mutate(uploadId);
     }
   };

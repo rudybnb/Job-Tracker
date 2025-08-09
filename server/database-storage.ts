@@ -204,7 +204,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCsvUpload(id: string): Promise<void> {
+    // First check if there are any jobs associated with this upload
+    const associatedJobs = await db.select().from(jobs).where(eq(jobs.uploadId, id));
+    
+    if (associatedJobs.length > 0) {
+      // Delete associated jobs first to maintain referential integrity
+      await db.delete(jobs).where(eq(jobs.uploadId, id));
+      console.log(`🗑️ Deleted ${associatedJobs.length} jobs associated with upload ${id}`);
+    }
+    
+    // Now delete the CSV upload record
     await db.delete(csvUploads).where(eq(csvUploads.id, id));
+    console.log(`🗑️ Deleted CSV upload record ${id}`);
   }
 
   // Job Assignment
