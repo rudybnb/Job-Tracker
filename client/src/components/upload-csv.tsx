@@ -351,8 +351,9 @@ export default function UploadCsv() {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[70vh]">
-              {csvPreview.jobPreview.map((job, index) => (
-                <div key={index} className="mb-6">
+              {/* Single Job Preview - Show only the first job */}
+              {csvPreview.jobPreview.length > 0 && (
+                <div className="mb-6">
                   {/* Detected Job Information Header */}
                   <div className="bg-slate-100 rounded-t-lg p-3">
                     <h4 className="text-slate-700 font-semibold">Detected Job Information</h4>
@@ -367,7 +368,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Name: </span>
-                          <span className="text-slate-700">{job.name}</span>
+                          <span className="text-slate-700">{csvPreview.jobPreview[0].name}</span>
                         </div>
                       </div>
                       
@@ -377,7 +378,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Postcode: </span>
-                          <span className="text-slate-700">{job.address}</span>
+                          <span className="text-slate-700">{csvPreview.jobPreview[0].address}</span>
                         </div>
                       </div>
                       
@@ -387,7 +388,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Work Type: </span>
-                          <span className="text-slate-700">{job.projectType}</span>
+                          <span className="text-slate-700">{csvPreview.jobPreview[0].projectType}</span>
                         </div>
                       </div>
                       
@@ -405,17 +406,17 @@ export default function UploadCsv() {
                     {/* Work Phases Section */}
                     <div className="bg-blue-50 rounded-lg p-4">
                       <h5 className="text-blue-800 font-semibold mb-2">
-                        Extracted HBXL Work Phases ({job.buildPhases.length})
+                        Extracted HBXL Work Phases ({csvPreview.jobPreview[0].buildPhases.length})
                       </h5>
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {job.buildPhases.slice(0, 6).map((phase, phaseIndex) => (
+                        {csvPreview.jobPreview[0].buildPhases.slice(0, 6).map((phase, phaseIndex) => (
                           <span key={phaseIndex} className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm">
                             {phase}
                           </span>
                         ))}
-                        {job.buildPhases.length > 6 && (
+                        {csvPreview.jobPreview[0].buildPhases.length > 6 && (
                           <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm">
-                            +{job.buildPhases.length - 6} more
+                            +{csvPreview.jobPreview[0].buildPhases.length - 6} more
                           </span>
                         )}
                       </div>
@@ -425,7 +426,7 @@ export default function UploadCsv() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
 
             {/* Footer Buttons */}
