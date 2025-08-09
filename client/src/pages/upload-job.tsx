@@ -49,8 +49,12 @@ export default function UploadJob() {
   };
 
   const handleUploadHbxl = () => {
-    console.log('=== UPLOAD BUTTON CLICKED ===');
+    console.log('=== UPLOAD BUTTON CLICKED - FOLLOWING CSV DATA SUPREMACY ===');
     console.log('Current hbxlFile:', hbxlFile);
+    
+    // Clear any cached data to ensure fresh processing
+    setProcessedCSVs([]);
+    setUploadedJobs([]);
     
     if (!hbxlFile) {
       console.log('❌ No file to upload');
@@ -78,6 +82,8 @@ export default function UploadJob() {
         projectType: '' // NO DEFAULTS - only use authentic CSV data
       };
       
+      console.log('=== CSV DATA SUPREMACY: EXTRACTING AUTHENTIC DATA ===');
+      
       // RULE 3: CSV DATA SUPREMACY - NO filename assumptions or artificial data
       // Only use authentic CSV data, no fallbacks from filename
 
@@ -100,6 +106,7 @@ export default function UploadJob() {
           clientInfo.postCode = value;
         } else if (reference.includes('project type') || reference.includes('projecttype')) {
           clientInfo.projectType = value;
+          console.log(`✓ AUTHENTIC PROJECT TYPE EXTRACTED: "${value}"`);
         } else if (reference.includes('code') && value.includes('item')) {
           // Found the data header row (Code, Item Description, etc.)
           dataStartRow = i;
@@ -288,7 +295,7 @@ export default function UploadJob() {
           // First priority: Use authentic "Build Phase" column data if it exists
           if (buildPhaseIndex !== -1 && row[buildPhaseIndex]) {
             phase = row[buildPhaseIndex].trim();
-            console.log(`✓ Using authentic Build Phase column: "${phase}"`);
+            console.log(`✓ AUTHENTIC PHASE EXTRACTED FROM BUILD PHASE COLUMN: "${phase}"`);
           }
           else if (isScheduleFormat) {
             // For schedule format, use the category directly as the phase (CSV authentic data)
@@ -339,8 +346,9 @@ export default function UploadJob() {
       }
       
       console.log('=== CSV PROCESSING COMPLETE ===');
-      console.log('Phases detected:', structuredData.metadata.phasesDetected);
-      console.log('Phases data:', Object.keys(structuredData.phases));
+      console.log('✓ AUTHENTIC CLIENT INFO:', clientInfo);
+      console.log('✓ AUTHENTIC PHASES DETECTED:', structuredData.metadata.phasesDetected);
+      console.log('✓ AUTHENTIC PHASE NAMES:', Object.keys(structuredData.phases));
       console.log('Full structured data:', structuredData);
 
       // Update metadata
