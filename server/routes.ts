@@ -433,29 +433,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           projectType: "Fitout",
           phases: csvPhasesFromDB.split(', '),
           phaseData: {
-            "Electrical 1st Fix": [
-              { description: "Electrician (Hours)", quantity: 14, task: "Labour - Electrician work hours" },
-              { description: "Electrician & Mate (Hours)", quantity: 1, task: "Labour - Electrician & mate work hours" },
-              { description: "3 Core & Earth Cable 1mm (100m) (Each)", quantity: 1, task: "Install 3 core & earth cable 1mm" },
-              { description: "Back Box Metal 1G 16mm (Each)", quantity: 2, task: "Install back box metal 1G 16mm" },
-              { description: "Back Box Metal 1G 25mm (Each)", quantity: 2, task: "Install back box metal 1G 25mm" },
-              { description: "Back Box Metal 1G 47mm (Each)", quantity: 2, task: "Install back box metal 1G 47mm" },
-              { description: "Back Box Metal 2G 25mm (Each)", quantity: 13, task: "Install back box metal 2G 25mm" },
-              { description: "Back Box Metal 2G 47mm (Each)", quantity: 2, task: "Install back box metal 2G 47mm" },
-              { description: "Cable Clips 1mm (Pack of 100) (Each)", quantity: 1, task: "Install cable clips 1mm" },
-              { description: "Cable Clips 2.5mm (Pack of 100) (Each)", quantity: 0, task: "Install cable clips 2.5mm" },
-              { description: "Cable Clips 6mm (Pack of 100) (Each)", quantity: 0, task: "Install cable clips 6mm" },
-              { description: "Grommets 20mm (Pack of 100) (Each)", quantity: 0, task: "Install grommets 20mm" },
-              { description: "Sheathing Metal 12.5mm x 2m (Each)", quantity: 6, task: "Install sheathing metal 12.5mm" },
-              { description: "Sheathing Metal 25mm x 2m (Each)", quantity: 10, task: "Install sheathing metal 25mm" },
-              { description: "Twin & Earth Cable 1.5mm 50m (Each)", quantity: 1, task: "Install twin & earth cable 1.5mm 50m" },
-              { description: "Twin & Earth Cable 1mm (50m) (Each)", quantity: 0, task: "Install twin & earth cable 1mm 50m" },
-              { description: "Twin & Earth Cable 2.5mm (50m) (Each)", quantity: 2, task: "Install twin & earth cable 2.5mm 50m" },
-              { description: "Twin & Earth Cable 6mm (per m) (m)", quantity: 34, task: "Install twin & earth cable 6mm per meter" },
-              { description: "Jagged Plasterboard Nails Galvanised 40mm x 25kg (Each)", quantity: 0, task: "Install jagged plasterboard nails" },
-              { description: "Red Wall Plugs (Pack of 100) (Each)", quantity: 1, task: "Install red wall plugs" },
-              { description: "Wood Screws Steel CSK Twin Thread 8 x 1.5 Inch (Pack of 200) (Each)", quantity: 0, task: "Install wood screws steel CSK" }
-            ],
+            "Electrical 1st Fix": [{
+              description: "Data Missing from CSV",
+              quantity: 0,
+              task: "CSV task breakdown not available - upload detailed CSV file with authentic data"
+            }],
             "Plumbing 1st Fix": [{
               description: "Data Missing from CSV",
               quantity: 0,
