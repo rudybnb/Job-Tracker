@@ -47,7 +47,7 @@ The application features a dark navy background (`#1e293b`) with muted yellow-gr
 **Core Features**:
 - **GPS Security & Validation**: 1km proximity validation, enforced working hours (7:45 AM - 5:00 PM), automatic logout, and GPS coordinate extraction from CSV postcode data.
 - **Permanent Database Work Session Tracking**: `work_sessions` table stores GPS and time data; API endpoints for session management and synchronization.
-- **Saturday Overtime Admin Control**: `admin_settings` table allows admin control over Saturday work.
+- **Weekend Overtime Admin Control**: `admin_settings` table allows independent admin control over Saturday and Sunday work with separate toggle switches.
 - **Location-Aware Job Detection**: Multi-site detection identifies nearest job site, updating the Active Assignment.
 - **Contractor Onboarding**: A 6-step form captures personal, right-to-work, tax, banking, emergency contact, and trade information.
 - **Admin Management**: Admin Applications Dashboard for contractor review, CIS management, and pay rate administration.
@@ -59,6 +59,12 @@ The application features a dark navy background (`#1e293b`) with muted yellow-gr
 
 ### System Design Choices
 The application offers a complete workflow with distinct role-based interfaces for administrators and contractors. It manages operations from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize data persistence (PostgreSQL), security (GPS validation), and user experience.
+
+### Recent Technical Achievements (August 9, 2025)
+- **CSV Data Supremacy Implementation**: Successfully extracted authentic HBXL electrical task data, displaying 7 real tasks with quantities from actual construction CSV
+- **Weekend Overtime Extension**: Extended overtime control system to include both Saturday and Sunday with independent admin toggles
+- **Database Storage Enhancement**: Fixed `phaseTaskData` field retrieval ensuring authentic task information is properly stored and displayed
+- **GPS Validation Enhancement**: Updated working hours logic to support configurable weekend overtime with full location validation maintained
 
 ## External Dependencies
 

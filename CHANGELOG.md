@@ -37,6 +37,21 @@
 - Expected from HBXL: 21 electrical tasks (complete)
 - Solution: Re-upload complete HBXL CSV file for full task extraction
 
+#### 🌅 Weekend Overtime System Extension
+**Sunday Overtime Control Added**
+- ✅ Extended overtime system to include Sunday alongside existing Saturday control
+- ✅ Added independent Sunday overtime admin setting in database
+- ✅ Updated GPS validation logic to check both Saturday and Sunday overtime permissions
+- ✅ Created complete Sunday overtime control card in admin settings interface
+- ✅ Both weekend days work independently - admin can enable Saturday only, Sunday only, or both
+
+**Technical Implementation**
+- ✅ Added `sunday_overtime` admin setting with default 'false' value
+- ✅ Updated working hours validation function to support both weekend days
+- ✅ Added Sunday overtime query and mutation in GPS dashboard
+- ✅ Visual status indicators showing enabled/disabled states for both days
+- ✅ Same time restrictions apply: 7:45 AM - 5:00 PM with full GPS validation
+
 ---
 
 ### Version 1.3.3 - Automatic Logout & CSV Data Supremacy (August 8, 2025)
