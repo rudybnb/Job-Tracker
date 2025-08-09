@@ -1,13 +1,17 @@
-Name,Xavier jones
-Address,Erith
-Post code,da7 6hj
-Project Type,New Build
+Name,Flat 2
+Address,Stevenage
+Post code,SG1 1EH
+Project Type,Fitout
 
-Order Date,Date Required,Build Phase,Type of Resource,Resource Type,Resource Description Without Price,Order Quantity
-01/09/2025,15/09/2025,Masonry Shell,Material,Coursing Timber,Sawn Softwood Kiln Dried Treated 47 x 75mm (m),34
-25/09/2025,04/09/2025,Masonry Shell,Material,Survey Material,Not Required (Unit),22
-04/09/2025,06/09/2025,Joinery 1st Fix,Material,Doors - External Pedestrian (Composite),Composite External Door Red 1 Panel Type 1 900 x 2000mm (Each),1
-02/09/2025,02/09/2025,Joinery 1st Fix,Material,Doors - Internal,Sawn Softwood Kiln Dried Treated 47 x 75mm (m),34
-02/09/2025,02/09/2025,Joinery 1st Fix,Material,Door Furniture,Georgian Brass Letter Plate 254 x 76mm (Each),1
-25/09/2025,25/09/2025,Joinery 1st Fix,Material,Plastering,Metal C Stud 60mm (Each),65
-02/09/2025,02/09/2025,Joinery 1st Fix,Material,Plastering,Metal Partition Channel 3600mm (Each),10
+Code,Item Description,Unit,Quantity,Unit Rate,Total
+MS001,Masonry Shell - Bricklaying Foundation,No,50,25.00,1250.00
+MS002,Masonry Shell - Block Work Main Structure,No,120,18.50,2220.00
+MS003,Masonry Shell - Mortar Joint Pointing,m2,75,12.00,900.00
+FD001,Foundation - Concrete Pour,m3,15,95.00,1425.00
+FD002,Foundation - Reinforcement Installation,No,30,35.00,1050.00
+FD003,Foundation - Formwork Setup,m2,0,45.00,0.00
+RF001,Roof Structure - Timber Frame Installation,No,40,55.00,2200.00
+RF002,Roof Structure - Insulation Laying,m2,85,8.50,722.50
+RF003,Roof Structure - Membrane Installation,m2,0,15.00,0.00
+GF001,Ground Floor - Concrete Slab Pour,m3,25,85.00,2125.00
+GF002,Ground Floor - DPM Installation,m2,60,6.50,390.00

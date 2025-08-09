@@ -29,9 +29,6 @@ interface UploadedJob {
   id: string;
   name: string;
   location: string;
-  status?: string;
-  uploadId?: string;
-  hasPhases?: boolean;
   phaseData?: any[];
   clientInfo?: {
     name: string;
@@ -58,85 +55,60 @@ export default function CreateAssignment() {
   // Dynamic build phases will be loaded from CSV data
 
   useEffect(() => {
-    // Load jobs from backend API (authentic CSV data only)
-    const loadJobsFromAPI = async () => {
-      console.log('=== LOADING JOBS FROM API ===');
-      try {
-        const response = await fetch('/api/jobs');
-        const apiJobs = await response.json();
-        console.log('✓ API Jobs loaded:', apiJobs.length);
-        
-        // Transform API jobs to match expected format for UI
-        const transformedJobs = apiJobs.map((job: any) => ({
-          id: job.id,
-          name: job.title,
-          location: job.location,
-          status: job.status,
-          uploadId: job.uploadId,
-          hasPhases: job.phases !== null && job.phases !== undefined && job.phases !== "null"
-        }));
-        
-        // Sort jobs to show the ones with phases first (newest CSV uploads)
-        transformedJobs.sort((a: any, b: any) => {
-          if (a.hasPhases && !b.hasPhases) return -1;
-          if (!a.hasPhases && b.hasPhases) return 1;
-          return 0; // Keep original order for same type
-        });
-        
-        setUploadedJobs(transformedJobs);
-        console.log('✓ Transformed jobs (phases first):', transformedJobs);
-      } catch (error) {
-        console.error('❌ Failed to load jobs from API:', error);
-        setUploadedJobs([]);
-      }
-      console.log('=== END LOADING DEBUG ===');
-    };
+    // Load uploaded jobs from localStorage (from real CSV uploads)
+    const savedJobs = localStorage.getItem('uploadedJobs');
+    console.log('=== LOADING JOBS DEBUG ===');
+    console.log('Raw localStorage data:', savedJobs);
     
-    loadJobsFromAPI();
+    if (savedJobs) {
+      const jobs = JSON.parse(savedJobs);
+      setUploadedJobs(jobs);
+      console.log('✓ Loaded jobs count:', jobs.length);
+      console.log('✓ Jobs with phase data:', jobs.filter((job: any) => job.phaseData).length);
+      jobs.forEach((job: any, index: number) => {
+        console.log(`Job ${index + 1}:`, {
+          name: job.name,
+          hasPhaseData: !!job.phaseData,
+          phaseDataType: typeof job.phaseData,
+          phaseKeys: job.phaseData ? Object.keys(job.phaseData) : null
+        });
+      });
+    } else {
+      console.log('❌ No uploaded jobs found in localStorage');
+      setUploadedJobs([]);
+    }
+    console.log('=== END LOADING DEBUG ===');
   }, []);
 
   useEffect(() => {
-    // When HBXL job is selected, load phases from CSV upload data
+    // When HBXL job is selected, load available phases from CSV data
     if (selectedHbxlJob) {
-      console.log('=== PHASE EXTRACTION FROM CSV API ===');
+      console.log('=== PHASE EXTRACTION DEBUG ===');
       console.log('Selected HBXL Job:', selectedHbxlJob);
+      console.log('All uploaded jobs:', uploadedJobs);
       
-      const loadPhasesFromCSV = async () => {
-        try {
-          const selectedJob = uploadedJobs.find(job => job.id === selectedHbxlJob);
-          if (!selectedJob?.uploadId) {
-            console.log('❌ No uploadId found for job:', selectedHbxlJob);
-            setAvailablePhases([]);
-            return;
-          }
-          
-          console.log('Loading CSV data for uploadId:', selectedJob.uploadId);
-          const response = await fetch(`/api/csv-uploads/${selectedJob.uploadId}`);
-          const csvData = await response.json();
-          
-          console.log('📄 CSV API Response:', csvData);
-          
-          if (csvData.structuredData?.uniquePhases) {
-            // CSV Data Supremacy: Use extracted phases from CSV upload
-            const phases = csvData.structuredData.uniquePhases.filter((phase: string) => 
-              phase && phase.trim() && phase !== "Data Missing from CSV"
-            );
-            setAvailablePhases(phases);
-            console.log('✓ Authentic CSV phases extracted:', phases);
-            console.log('📊 Phase count:', phases.length);
-            console.log('🔍 Full CSV Data for debugging:', csvData);
-          } else {
-            console.log('❌ No phases found in CSV data');
-            setAvailablePhases([]);
-          }
-        } catch (error) {
-          console.error('❌ Failed to load CSV phases:', error);
+      const selectedJob = uploadedJobs.find(job => job.name === selectedHbxlJob);
+      console.log('Found selected job:', selectedJob);
+      
+      if (selectedJob) {
+        console.log('Job phase data exists:', !!selectedJob.phaseData);
+        console.log('Phase data type:', typeof selectedJob.phaseData);
+        console.log('Phase data content:', selectedJob.phaseData);
+        
+        if (selectedJob.phaseData && typeof selectedJob.phaseData === 'object' && selectedJob.phaseData !== null) {
+          const phases = Object.keys(selectedJob.phaseData);
+          setAvailablePhases(phases);
+          console.log('✓ Extracted phases:', phases);
+        } else {
+          console.log('❌ Phase data invalid or missing');
+          console.log('Selected job structure:', JSON.stringify(selectedJob, null, 2));
           setAvailablePhases([]);
         }
-      };
-      
-      loadPhasesFromCSV();
-      console.log('=== END PHASE EXTRACTION ===');
+      } else {
+        console.log('❌ No job found with name:', selectedHbxlJob);
+        setAvailablePhases([]);
+      }
+      console.log('=== END DEBUG ===');
     } else {
       setAvailablePhases([]);
     }
@@ -377,8 +349,8 @@ export default function CreateAssignment() {
               >
                 <option value="">Select HBXL job</option>
                 {uploadedJobs.map((job) => (
-                  <option key={job.id} value={job.id}>
-                    {job.name} {job.hasPhases ? '(Has phases)' : '(No phases)'} - {job.location}
+                  <option key={job.id} value={job.name}>
+                    {job.name} {job.phaseData ? `(${Object.keys(job.phaseData).length} phases)` : '(No phases)'}
                   </option>
                 ))}
               </select>

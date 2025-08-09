@@ -75,7 +75,7 @@ export default function UploadJob() {
         name: '',
         address: '',
         postCode: '',
-        projectType: 'Data Missing from CSV' // No defaults allowed per MANDATORY RULE 3
+        projectType: 'Renovation' // Default to renovation, will be determined from phases
       };
       
       // For schedule format CSVs, try to extract client info from filename
@@ -266,10 +266,10 @@ export default function UploadJob() {
           quantity = parseFloat(quantityIndex >= 0 ? row[quantityIndex] : row[6]) || 0;
           
           // Generate a pseudo-code for consistency
-          code = `CSV${i.toString().padStart(3, '0')}`;
+          code = `${category.substring(0,2).toUpperCase()}${subcategory.substring(0,3).toUpperCase()}`;
           
-          canProcess = !!(description && row.length >= 6);
-          console.log(`  Schedule format: Desc="${description}", Quantity="${quantity}"`);
+          canProcess = !!(category && description && row.length >= 6);
+          console.log(`  Schedule format: Category="${category}", Type="${type}", Subcategory="${subcategory}", Desc="${description}", Quantity="${quantity}"`);
         } else {
           // Traditional code format
           code = row[codeIndex] || '';
@@ -289,20 +289,136 @@ export default function UploadJob() {
           console.log(`  ✓ Processing: Code="${code}", Desc="${description}"`);
           structuredData.metadata.dataRows++;
           
-          // CSV Data Supremacy: Read directly from "Build Phase" column only
-          let phase = 'Data Missing from CSV';
+          // Enhanced phase detection - adapt to CSV format
+          let phase = 'General Construction';
           
-          if (headers.includes('Build Phase')) {
-            const buildPhaseIndex = headers.indexOf('Build Phase');
-            const buildPhaseValue = row[buildPhaseIndex];
-            if (buildPhaseValue && 
-                buildPhaseValue.trim() && 
-                buildPhaseValue !== 'Build Phase' && 
-                buildPhaseValue.toLowerCase() !== 'build phase') {
-              console.log(`✓ CSV Data: Using Build Phase "${buildPhaseValue}" for row ${i}`);
-              phase = buildPhaseValue.trim();
+          if (isScheduleFormat) {
+            // For schedule format, use the category directly as the phase
+            const category = row[categoryIndex] || '';
+            const subcategory = row[subcategoryIndex] || '';
+            
+            // Map schedule categories to logical construction phases
+            if (category.toLowerCase().includes('internal fitting') || category.toLowerCase().includes('fitting out')) {
+              if (subcategory.toLowerCase().includes('flooring')) {
+                phase = 'Flooring Installation';
+              } else if (subcategory.toLowerCase().includes('kitchen') || subcategory.toLowerCase().includes('appliance')) {
+                phase = 'Kitchen Fitout';
+              } else if (subcategory.toLowerCase().includes('bathroom') || subcategory.toLowerCase().includes('sanitary')) {
+                phase = 'Bathroom Installation';
+              } else if (subcategory.toLowerCase().includes('electrical')) {
+                phase = 'Electrical Installation';
+              } else if (subcategory.toLowerCase().includes('plumbing')) {
+                phase = 'Plumbing Installation';
+              } else {
+                phase = 'Internal Fitting Out';
+              }
+            } else if (category.toLowerCase().includes('internal decoration')) {
+              phase = 'Painting & Decorating';
+            } else if (category.toLowerCase().includes('external decoration')) {
+              phase = 'External Decoration';
+            } else if (category.toLowerCase().includes('structural')) {
+              phase = 'Structural Work';
+            } else if (category.toLowerCase().includes('foundation')) {
+              phase = 'Foundation Work';
+            } else if (category.toLowerCase().includes('roof')) {
+              phase = 'Roof Structure';
+            } else {
+              // Use category as phase name if no specific mapping
+              phase = category || 'General Construction';
             }
+          } else {
+            // Traditional code-based phase detection
+            const codeUpper = code.toUpperCase();
+            const descLower = description.toLowerCase();
+          
+            // Kitchen/Catering (most specific first)
+          if (codeUpper.includes('KIT') || codeUpper.includes('KITCHEN') ||
+              descLower.includes('kitchen') || descLower.includes('catering') || 
+              descLower.includes('cooker') || descLower.includes('sink') || 
+              descLower.includes('cupboard') || descLower.includes('worktop') ||
+              descLower.includes('appliance') || descLower.includes('extractor')) {
+            phase = 'Kitchen Fitout';
           }
+          // Bathroom/Sanitary
+          else if (codeUpper.includes('BATH') || codeUpper.includes('WC') ||
+                   descLower.includes('bathroom') || descLower.includes('toilet') || 
+                   descLower.includes('shower') || descLower.includes('basin') || 
+                   descLower.includes('wc') || descLower.includes('sanitary') ||
+                   descLower.includes('bath') || descLower.includes('cistern')) {
+            phase = 'Bathroom Installation';
+          }
+          // Electrical
+          else if (codeUpper.includes('ELEC') || codeUpper.includes('EL') ||
+                   descLower.includes('electrical') || descLower.includes('socket') || 
+                   descLower.includes('light') || descLower.includes('switch') || 
+                   descLower.includes('wire') || descLower.includes('cable') ||
+                   descLower.includes('circuit') || descLower.includes('consumer unit')) {
+            phase = 'Electrical Installation';
+          }
+          // Plumbing/Heating
+          else if (codeUpper.includes('PLUMB') || codeUpper.includes('PL') ||
+                   descLower.includes('plumbing') || descLower.includes('pipe') || 
+                   descLower.includes('water') || descLower.includes('heating') || 
+                   descLower.includes('boiler') || descLower.includes('radiator') ||
+                   descLower.includes('valve') || descLower.includes('tap')) {
+            phase = 'Plumbing Installation';
+          }
+          // Masonry/Brickwork
+          else if (codeUpper.includes('MS') || codeUpper.includes('MASON') ||
+                   descLower.includes('masonry') || descLower.includes('brick') || 
+                   descLower.includes('blockwork') || descLower.includes('mortar') ||
+                   descLower.includes('pointing') || descLower.includes('cavity')) {
+            phase = 'Masonry Shell';
+          }
+          // Foundation/Groundwork
+          else if (codeUpper.includes('FD') || codeUpper.includes('FOUND') ||
+                   descLower.includes('foundation') || descLower.includes('footing') || 
+                   descLower.includes('concrete') || descLower.includes('excavat') ||
+                   descLower.includes('groundwork') || descLower.includes('trench')) {
+            phase = 'Foundation Work';
+          }
+          // Roofing
+          else if (codeUpper.includes('RF') || codeUpper.includes('ROOF') ||
+                   descLower.includes('roof') || descLower.includes('tile') || 
+                   descLower.includes('slate') || descLower.includes('gutter') ||
+                   descLower.includes('fascia') || descLower.includes('ridge')) {
+            phase = 'Roof Structure';
+          }
+          // Flooring
+          else if (codeUpper.includes('FL') || codeUpper.includes('FLOOR') ||
+                   descLower.includes('floor') || descLower.includes('carpet') || 
+                   descLower.includes('tile') || descLower.includes('laminate') ||
+                   descLower.includes('vinyl') || descLower.includes('screed') ||
+                   descLower.includes('subfloor')) {
+            phase = 'Flooring Installation';
+          }
+          // Painting & Decorating
+          else if (codeUpper.includes('PT') || codeUpper.includes('PAINT') ||
+                   descLower.includes('paint') || descLower.includes('decor') || 
+                   descLower.includes('wallpaper') || descLower.includes('emulsion') ||
+                   descLower.includes('gloss') || descLower.includes('primer')) {
+            phase = 'Painting & Decorating';
+          }
+          // Structural/Carpentry
+          else if (codeUpper.includes('ST') || codeUpper.includes('STRUC') ||
+                   descLower.includes('timber') || descLower.includes('joist') || 
+                   descLower.includes('stud') || descLower.includes('frame') ||
+                   descLower.includes('beam') || descLower.includes('rafter')) {
+            phase = 'Structural Work';
+          }
+          // Doors & Windows
+          else if (descLower.includes('door') || descLower.includes('window') || 
+                   descLower.includes('frame') || descLower.includes('glazing') ||
+                   descLower.includes('sill') || descLower.includes('lintel')) {
+            phase = 'Doors & Windows';
+          }
+          // Ground Floor specific - match GF codes from CSV
+          else if (codeUpper.includes('GF') || codeUpper.includes('GROUND') ||
+                   descLower.includes('ground floor') || descLower.includes('slab') ||
+                   descLower.includes('dpm') || descLower.includes('membrane')) {
+            phase = 'Ground Floor';
+          }
+          } // Close the else block for traditional code-based detection
 
           console.log(`Row ${i}: Code="${code}", Desc="${description}" -> Phase="${phase}"`);
           
@@ -363,16 +479,17 @@ export default function UploadJob() {
         } else if (structuralWork && fittingWork) {
           return 'Extension';
         } else if (fittingWork && decorativeWork && !structuralWork) {
-          return 'Refurbishment';
+          return 'Renovation';
         } else if (fittingWork && !decorativeWork) {
           return 'Fitout';
         } else {
-          return 'Data Missing from CSV'; // No defaults allowed per MANDATORY RULE 3
+          return 'Renovation'; // Default for smaller projects
         }
       };
       
-      // ONLY use CSV data - do not override with phase detection per MANDATORY RULE 3
-      console.log(`✓ Using CSV project type: ${clientInfo.projectType} (phases detected: ${detectedPhases})`);
+      // Set the determined project type
+      clientInfo.projectType = determineProjectType(detectedPhases);
+      console.log(`✓ Project type determined as: ${clientInfo.projectType} based on phases:`, detectedPhases);
       
       // Convert to old format for compatibility
       const phaseData: Record<string, Array<{task: string, quantity: number, description: string, unit: string, code: string}>> = {};
@@ -461,7 +578,7 @@ export default function UploadJob() {
 
       // Determine job type from phases for proper classification
       const phaseNames = Object.keys(csvData.phaseData);
-      const jobType = csvData.clientInfo?.projectType || 'Data Missing from CSV';
+      const jobType = csvData.clientInfo?.projectType || 'Renovation';
       
       const newJob: UploadedJob & { phaseData?: any } = {
         id: Date.now().toString(),
@@ -472,7 +589,7 @@ export default function UploadJob() {
         dataType: "CSV Data", 
         uploadedAt: new Date().toLocaleDateString('en-GB'),
         phaseData: csvData.phaseData,
-
+        jobType: jobType,
         detectedPhases: phaseNames
       };
 

@@ -11,7 +11,6 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
 - **Rule 1: NEVER REWRITE WORKING CODE** - Only modify broken or non-functional parts, make incremental changes only
 - **Rule 2: DATA INTEGRITY** - All data must come from authentic database sources, never use static/mock data
 - **Rule 3: CSV DATA SUPREMACY** - When a job is uploaded via CSV, ONLY information in that CSV file must be used. NO assumptions, fallbacks, or old stored data permitted. If CSV data missing, display "Data Missing from CSV" rather than assumptions.
-- **Rule 4: NO ASSUMPTIONS** - Never make assumptions about requirements, data, or functionality. When uncertain about any aspect of implementation, always clarify with the user first before proceeding.
 - Always verify what is currently working before making changes
 - These rules are mandatory and must be followed at all times to prevent regression and data corruption
 
@@ -67,16 +66,6 @@ The application adopts a complete workflow system with distinct role-based inter
 - **USER ROLE**: Admin views reports and adds observations during site visits rather than task management
 - James's assignment (ID: d3603ec8-6c84-4805-9edc-65ea5c2d27d3) fully accessible via "View Assignment" button
 
-### CSV Data Supremacy Fixed (09/08/2025)
-- **CRITICAL FIX**: Completely rewrote CSV parsing to strictly follow MANDATORY RULE 3: CSV DATA SUPREMACY
-- **NO FALLBACKS**: System now displays "Data Missing from CSV" instead of assumptions when CSV data unavailable
-- **AUTHENTIC DATA ONLY**: CSV upload now correctly reads Name: "Xavier jones", Address: "Erith", Project Type: "New Build"
-- **BUILD PHASES**: Now correctly extracted from "Build Phase" column data (Masonry Shell, Joinery 1st Fix)
-- **PHASE PARSING FIX**: Corrected understanding that "Build Phase" is column header, not phase data
-- **FRONTEND FIX**: Eliminated all hardcoded phase detection logic from frontend that violated CSV Data Supremacy
-- **CACHE ISSUE**: Old cached data still shows incorrect phases - requires cache clearing for users to see correct 2 phases
-- **ZERO TOLERANCE**: Eliminated all hardcoded fallback values that violated data integrity rules
-
 ### GPS Clock-In System Fixed (09/08/2025)
 - **RESOLVED**: GPS coordinates issue preventing contractor clock-in functionality
 - Updated job_assignments schema to include latitude/longitude fields for work sites
@@ -85,15 +74,6 @@ The application adopts a complete workflow system with distinct role-based inter
 - Multi-site GPS detection system fully operational with automatic nearest job site selection
 - Payment tracking by location working correctly with £150/day rate (£18.75/hour) for James
 - System validates 1km proximity to work sites and enforces 7:45 AM - 5:00 PM working hours
-
-### CSV Phase Storage and API Complete (09/08/2025)
-- **RESOLVED**: Missing CSV upload API endpoint causing Create Assignment page to show "(No phases)"
-- **FIXED**: CSV upload now properly stores build phases as JSON string in database phases column
-- **ADDED**: API endpoint `/api/csv-uploads/:id` returns structured data with extracted phases
-- **WORKING**: Create Assignment page now displays authentic CSV phases ("Masonry Shell", "Joinery 1st Fix")
-- **CSV SUPREMACY**: System strictly follows MANDATORY RULE 3 - only CSV data used, no fallbacks
-- **AUTHENTIC DATA**: Latest CSV upload (4da013b5-8236-44d3-867b-d7676570e9a8) correctly stores and retrieves phases
-- **ZERO ASSUMPTIONS**: All phase data comes directly from uploaded CSV files, no hardcoded values
 
 ## External Dependencies
 
