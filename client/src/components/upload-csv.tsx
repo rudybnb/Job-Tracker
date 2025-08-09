@@ -171,7 +171,13 @@ export default function UploadCsv() {
         }
       }
 
-      console.log('🎯 Authentic CSV Data Extracted:', { jobName, jobAddress, jobPostcode, jobType, phases });
+      console.log('🎯 Authentic CSV Data Extracted:', { 
+        jobName, 
+        jobAddress: `"${jobAddress}"`, // Show exact address with quotes
+        jobPostcode: `"${jobPostcode}"`, 
+        jobType, 
+        phases 
+      });
 
       // Create raw data preview (first 5 lines)
       const mockRawData = {
@@ -183,7 +189,6 @@ export default function UploadCsv() {
         name: jobName,
         address: jobPostcode,
         projectType: jobType,
-        location: `${jobAddress}, ${jobPostcode}`,
         buildPhases: phases.length > 0 ? phases : ["Data Missing from CSV"]
       }];
 
@@ -439,7 +444,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Address: </span>
-                          <span className="text-slate-700">{csvPreview.jobPreview[0].location || 'Data Missing from CSV'}</span>
+                          <span className="text-slate-700">{csvPreview.rawData.rows[0]?.[1] || 'Data Missing from CSV'}</span>
                         </div>
                       </div>
                     </div>
