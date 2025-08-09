@@ -128,6 +128,9 @@ export default function UploadJob() {
       const rateIndex = headers.findIndex(h => h.toLowerCase().includes('rate') || h.toLowerCase().includes('price'));
       const totalIndex = headers.findIndex(h => h.toLowerCase().includes('total') || h.toLowerCase().includes('amount'));
       
+      // RULE 3: CSV Data Supremacy - Find the authentic "Build Phase" column
+      const buildPhaseIndex = headers.findIndex(h => h.toLowerCase().includes('build phase'));
+      
       // For schedule-style CSVs without code columns, use different approach
       let categoryIndex = -1, typeIndex = -1, subcategoryIndex = -1;
       if (codeIndex === -1) {
@@ -170,7 +173,7 @@ export default function UploadJob() {
       console.log('Column indices:');
       console.log('  Code:', codeIndex, 'Description:', descIndex, 'Unit:', unitIndex);
       console.log('  Quantity:', quantityIndex, 'Rate:', rateIndex, 'Total:', totalIndex);
-      console.log('  Category:', categoryIndex, 'Type:', typeIndex, 'Subcategory:', subcategoryIndex);
+      console.log('  Build Phase:', buildPhaseIndex, 'Category:', categoryIndex, 'Type:', typeIndex, 'Subcategory:', subcategoryIndex);
       
       // Enhanced schedule format detection
       const firstDataRow = lines[dataStartRow + 1]?.split(',')[0] || '';
@@ -289,38 +292,21 @@ export default function UploadJob() {
           console.log(`  ✓ Processing: Code="${code}", Desc="${description}"`);
           structuredData.metadata.dataRows++;
           
-          // RULE 3: CSV DATA SUPREMACY - Extract phases EXACTLY from CSV data
+          // RULE 3: CSV DATA SUPREMACY - Extract phases EXACTLY from "Build Phase" column
           let phase = 'Build Phase'; // Default phase
           
-          if (isScheduleFormat) {
+          // First priority: Use authentic "Build Phase" column data if it exists
+          if (buildPhaseIndex !== -1 && row[buildPhaseIndex]) {
+            phase = row[buildPhaseIndex].trim();
+            console.log(`✓ Using authentic Build Phase column: "${phase}"`);
+          }
+          else if (isScheduleFormat) {
             // For schedule format, use the category directly as the phase (CSV authentic data)
             const category = row[categoryIndex] || '';
             phase = category || 'Build Phase';
           } else {
-            // Extract phase from CSV Item Description - use authentic CSV data only
-            const codeUpper = code.toUpperCase();
-            const descLower = description.toLowerCase();
-          
-            // Use EXACT phases from CSV Item Description field - no artificial mapping
-            if (descLower.includes('masonry shell')) {
-              phase = 'Masonry Shell';
-            }
-            else if (descLower.includes('foundation')) {
-              phase = 'Foundation';
-            }
-            else if (descLower.includes('roof structure')) {
-              phase = 'Roof Structure';
-            }
-            else if (descLower.includes('ground floor')) {
-              phase = 'Ground Floor';
-            }
-            else if (descLower.includes('joinery') && descLower.includes('1st')) {
-              phase = 'Joinery 1st Fix';
-            }
-            else {
-              // If no specific phase found in description, keep as 'Build Phase'
-              phase = 'Build Phase';
-            }
+            // Fallback: keep default phase if no authentic data found
+            console.log(`⚠️ No Build Phase column found, using default: "${phase}"`);
           }
 
           console.log(`Row ${i}: Code="${code}", Desc="${description}" -> Phase="${phase}"`);
