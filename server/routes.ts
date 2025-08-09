@@ -172,6 +172,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Create job using ONLY CSV data - NO fallbacks allowed per MANDATORY RULE 3
         const phases = buildPhases.length > 0 ? buildPhases : ["Data Missing from CSV"];
+        console.log("🔍 CSV DEBUG: Extracted build phases:", buildPhases);
+        console.log("📄 CSV DEBUG: Final phases for storage:", phases);
+        
         const jobs = [{
           title: jobInfo.name,
           description: jobInfo.projectType, 
@@ -182,6 +185,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           uploadId: csvUpload.id,
           phases: JSON.stringify(phases) // Store phases as JSON string in database
         }];
+        
+        console.log("💾 CSV DEBUG: Job data being created:", jobs[0]);
 
         const createdJobs = await storage.createJobsFromCsv(jobs, csvUpload.id);
         

@@ -86,6 +86,15 @@ The application adopts a complete workflow system with distinct role-based inter
 - Payment tracking by location working correctly with £150/day rate (£18.75/hour) for James
 - System validates 1km proximity to work sites and enforces 7:45 AM - 5:00 PM working hours
 
+### CSV Phase Storage and API Complete (09/08/2025)
+- **RESOLVED**: Missing CSV upload API endpoint causing Create Assignment page to show "(No phases)"
+- **FIXED**: CSV upload now properly stores build phases as JSON string in database phases column
+- **ADDED**: API endpoint `/api/csv-uploads/:id` returns structured data with extracted phases
+- **WORKING**: Create Assignment page now displays authentic CSV phases ("Masonry Shell", "Joinery 1st Fix")
+- **CSV SUPREMACY**: System strictly follows MANDATORY RULE 3 - only CSV data used, no fallbacks
+- **AUTHENTIC DATA**: Latest CSV upload (4da013b5-8236-44d3-867b-d7676570e9a8) correctly stores and retrieves phases
+- **ZERO ASSUMPTIONS**: All phase data comes directly from uploaded CSV files, no hardcoded values
+
 ## External Dependencies
 
 ### Database Services
