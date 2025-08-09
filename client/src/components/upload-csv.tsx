@@ -351,13 +351,19 @@ export default function UploadCsv() {
               <p className="text-slate-600 mb-4">{selectedFile?.name}</p>
               
               <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                <p className="text-blue-800 font-medium mb-2">
+                <p className="text-blue-800 font-medium mb-3">
                   Will create {csvPreview.jobPreview.length} job(s):
                 </p>
-                <div className="space-y-1">
+                <div className="space-y-3">
                   {csvPreview.jobPreview.map((job, index) => (
-                    <div key={index} className="text-sm text-blue-700">
-                      {job.name} - {job.projectType}
+                    <div key={index} className="bg-white rounded p-3 border-l-4 border-blue-500">
+                      <div className="font-medium text-slate-900">{job.name}</div>
+                      <div className="text-sm text-slate-600">{job.address}</div>
+                      <div className="text-sm text-blue-700 font-medium">{job.projectType}</div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {job.buildPhases.length} phase(s): {job.buildPhases.slice(0, 2).join(', ')}
+                        {job.buildPhases.length > 2 && '...'}
+                      </div>
                     </div>
                   ))}
                 </div>
