@@ -324,6 +324,11 @@ export default function GPSDashboard() {
 
   // Validate location and time whenever user location or work site changes
   useEffect(() => {
+    console.log('🔍 GPS Validation Check:');
+    console.log('- User location:', userLocation);
+    console.log('- Work site location:', workSiteLocation);
+    console.log('- Assignments:', typedAssignments?.length || 0);
+    
     if (userLocation && workSiteLocation) {
       const distance = calculateDistance(
         userLocation.latitude,
@@ -335,6 +340,11 @@ export default function GPSDashboard() {
       const isWithinRange = distance <= 1; // 1km radius
       const isValidTime = isWithinWorkingHours(isTracking); // Allow clock out after hours
       const canSignIn = isWithinRange && isValidTime;
+      
+      console.log(`- Distance: ${distance.toFixed(2)}km`);
+      console.log(`- Within range (≤1km): ${isWithinRange}`);
+      console.log(`- Valid time: ${isValidTime}`);
+      console.log(`- Can sign in: ${canSignIn}`);
       
       let errorMessage = '';
       if (!isValidTime) {
@@ -353,6 +363,10 @@ export default function GPSDashboard() {
         errorMessage
       });
     } else {
+      console.log('❌ Missing location data');
+      console.log('- User location missing:', !userLocation);
+      console.log('- Work site location missing:', !workSiteLocation);
+      
       // No GPS location available - restrict access
       setLocationValidation({
         isWithinRange: false,
@@ -468,8 +482,15 @@ export default function GPSDashboard() {
   }, []); // Only run on initial mount
 
   const handleStartWork = () => {
+    console.log('🔴 handleStartWork called');
+    console.log('📍 Location validation:', locationValidation);
+    console.log('📍 User location:', userLocation);
+    console.log('📍 Work site location:', workSiteLocation);
+    console.log('📍 Nearest job:', nearestJob);
+    
     // Check location and time validation before allowing sign in
     if (!locationValidation.canSignIn) {
+      console.log('❌ Cannot sign in:', locationValidation.errorMessage);
       toast({
         title: "Cannot Sign In",
         description: locationValidation.errorMessage,
