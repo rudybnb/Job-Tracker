@@ -105,24 +105,15 @@ export default function CreateAssignment() {
           const response = await fetch(`/api/csv-uploads/${selectedJob.uploadId}`);
           const csvData = await response.json();
           
-          if (csvData.structuredData?.items) {
-            // CSV Data Supremacy: Extract unique build phases from CSV data only
-            const uniquePhases = new Set<string>();
-            
-            csvData.structuredData.items.forEach((item: any) => {
-              if (item.buildPhase && 
-                  item.buildPhase.trim() && 
-                  item.buildPhase !== 'Build Phase' && 
-                  item.buildPhase.toLowerCase() !== 'build phase') {
-                uniquePhases.add(item.buildPhase.trim());
-              }
-            });
-            
-            const phases = Array.from(uniquePhases);
+          if (csvData.structuredData?.uniquePhases) {
+            // CSV Data Supremacy: Use extracted phases from CSV upload
+            const phases = csvData.structuredData.uniquePhases.filter((phase: string) => 
+              phase && phase.trim() && phase !== "Data Missing from CSV"
+            );
             setAvailablePhases(phases);
             console.log('✓ Authentic CSV phases extracted:', phases);
           } else {
-            console.log('❌ No CSV data found');
+            console.log('❌ No phases found in CSV data');
             setAvailablePhases([]);
           }
         } catch (error) {

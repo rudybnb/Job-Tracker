@@ -171,6 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Create job using ONLY CSV data - NO fallbacks allowed per MANDATORY RULE 3
+        const phases = buildPhases.length > 0 ? buildPhases : ["Data Missing from CSV"];
         const jobs = [{
           title: jobInfo.name,
           description: jobInfo.projectType, 
@@ -179,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dueDate: "Data Missing from CSV",
           notes: `Project Type: ${jobInfo.projectType}`,
           uploadId: csvUpload.id,
-          buildPhases: buildPhases.length > 0 ? buildPhases : ["Data Missing from CSV"]
+          phases: JSON.stringify(phases) // Store phases as JSON string in database
         }];
 
         const createdJobs = await storage.createJobsFromCsv(jobs, csvUpload.id);
@@ -212,6 +213,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching uploads:", error);
       res.status(500).json({ error: "Failed to fetch uploads" });
+    }
+  });
+
+  // Get specific CSV upload with associated jobs and phases
+  app.get("/api/csv-uploads/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log("📄 Fetching CSV upload data for ID:", id);
+      
+      // Get jobs associated with this CSV upload
+      const jobs = await storage.getJobs();
+      const csvJobs = jobs.filter(job => job.uploadId === id);
+      
+      if (csvJobs.length === 0) {
+        return res.status(404).json({ error: "No jobs found for this CSV upload" });
+      }
+      
+      // Extract unique build phases from all jobs for this CSV upload
+      const allPhases = new Set<string>();
+      const items: any[] = [];
+      
+      csvJobs.forEach(job => {
+        if (job.phases) {
+          try {
+            const phases = JSON.parse(job.phases);
+            if (Array.isArray(phases)) {
+              phases.forEach(phase => {
+                if (phase && phase.trim() && phase !== "Data Missing from CSV") {
+                  allPhases.add(phase.trim());
+                  items.push({ buildPhase: phase.trim() });
+                }
+              });
+            }
+          } catch (e) {
+            console.log("Could not parse phases for job:", job.id);
+          }
+        }
+      });
+      
+      const structuredData = {
+        items: items,
+        uniquePhases: Array.from(allPhases)
+      };
+      
+      console.log("✓ Extracted phases for CSV:", Array.from(allPhases));
+      
+      res.json({
+        id: id,
+        structuredData: structuredData,
+        jobsCount: csvJobs.length
+      });
+    } catch (error) {
+      console.error("Error fetching CSV upload:", error);
+      res.status(500).json({ error: "Failed to fetch CSV upload data" });
     }
   });
 
