@@ -213,6 +213,10 @@ export default function UploadCsv() {
     });
   };
 
+  const handleCancelPreview = () => {
+    setShowPreview(false);
+  };
+
   const handleUpload = () => {
     if (selectedFile) {
       uploadMutation.mutate(selectedFile);
