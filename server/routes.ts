@@ -693,7 +693,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/work-sessions", async (req, res) => {
     try {
       console.log("🕐 Creating work session:", req.body);
-      const validatedSession = insertWorkSessionSchema.parse(req.body);
+      
+      // Convert string dates to Date objects for validation
+      const sessionData = {
+        ...req.body,
+        startTime: req.body.startTime ? new Date(req.body.startTime) : new Date(),
+        endTime: req.body.endTime ? new Date(req.body.endTime) : undefined
+      };
+      
+      const validatedSession = insertWorkSessionSchema.parse(sessionData);
       const session = await storage.createWorkSession(validatedSession);
       res.status(201).json(session);
     } catch (error) {
@@ -731,7 +739,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/work-sessions/:id", async (req, res) => {
     try {
       console.log("🕐 Updating work session:", req.params.id, req.body);
-      const session = await storage.updateWorkSession(req.params.id, req.body);
+      
+      // Convert string dates to Date objects if provided
+      const updateData = {
+        ...req.body,
+        startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
+        endTime: req.body.endTime ? new Date(req.body.endTime) : undefined
+      };
+      
+      const session = await storage.updateWorkSession(req.params.id, updateData);
       if (session) {
         res.json(session);
       } else {
