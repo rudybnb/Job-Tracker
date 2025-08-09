@@ -537,7 +537,7 @@ export default function AdminDashboard() {
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
-        <div className="grid grid-cols-4 text-center">
+        <div className="grid grid-cols-5 text-center">
           <button className="py-3 px-4 text-yellow-600">
             <i className="fas fa-home block mb-1"></i>
             <span className="text-xs">Dashboard</span>
@@ -562,6 +562,13 @@ export default function AdminDashboard() {
           >
             <i className="fas fa-clock block mb-1"></i>
             <span className="text-xs">Time Tracking</span>
+          </button>
+          <button 
+            onClick={() => window.location.href = '/upload'}
+            className="py-3 px-4 text-slate-400 hover:text-white"
+          >
+            <i className="fas fa-upload block mb-1"></i>
+            <span className="text-xs">Upload</span>
           </button>
         </div>
       </div>

@@ -7,6 +7,7 @@ import { lazy } from "react";
 import Dashboard from "@/pages/dashboard";
 import GPSDashboard from "@/pages/gps-dashboard";
 import Jobs from "@/pages/jobs";
+import UploadJob from "@/pages/upload-job";
 
 import AdminDashboard from "@/pages/admin-dashboard";
 import ContractorOnboarding from "@/pages/contractor-onboarding-clean";
@@ -52,6 +53,12 @@ function Router() {
         <Route path="/" component={() => (
           <ProtectedRoute>
             <RoleBased />
+          </ProtectedRoute>
+        )} />
+
+        <Route path="/upload" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <UploadJob />
           </ProtectedRoute>
         )} />
 
