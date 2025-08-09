@@ -232,6 +232,18 @@ export default function GPSDashboard() {
     retry: false,
   });
 
+  // Get Sunday overtime setting from admin settings
+  const { data: sundayOvertimeSetting } = useQuery({
+    queryKey: ["/api/admin-settings/sunday_overtime"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin-settings/sunday_overtime");
+      if (response.status === 404) return null; // Setting doesn't exist
+      if (!response.ok) throw new Error('Failed to fetch Sunday overtime setting');
+      return response.json();
+    },
+    retry: false,
+  });
+
 
 
 
@@ -265,7 +277,7 @@ export default function GPSDashboard() {
     return R * c;
   };
 
-  // Check if current time is within working hours (7:45am - 5pm) or Saturday overtime is allowed
+  // Check if current time is within working hours (7:45am - 5pm) or weekend overtime is allowed
   const isWithinWorkingHours = (allowClockOut = false): boolean => {
     const now = new Date();
     const hours = now.getHours();
@@ -276,9 +288,11 @@ export default function GPSDashboard() {
     const startTime = 7 + 45/60; // 7:45 AM
     const endTime = 17; // 5:00 PM
     
-    // Check if Saturday overtime is enabled and it's Saturday
+    // Check if weekend overtime is enabled
     const isSaturday = dayOfWeek === 6;
+    const isSunday = dayOfWeek === 0;
     const saturdayOvertimeEnabled = saturdayOvertimeSetting?.settingValue === 'true';
+    const sundayOvertimeEnabled = sundayOvertimeSetting?.settingValue === 'true';
     
     // If already tracking and trying to clock out, allow it even after hours
     if (allowClockOut && isTracking) {
@@ -293,8 +307,13 @@ export default function GPSDashboard() {
       return isRegularWorkingHours; // Same time restrictions but on Saturday
     }
     
-    // Sunday is never allowed
-    if (dayOfWeek === 0) {
+    // If it's Sunday and Sunday overtime is enabled, allow work
+    if (isSunday && sundayOvertimeEnabled) {
+      return isRegularWorkingHours; // Same time restrictions but on Sunday
+    }
+    
+    // Weekend work not allowed if overtime not enabled
+    if (isSaturday || isSunday) {
       return false;
     }
     

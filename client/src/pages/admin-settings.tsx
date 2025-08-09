@@ -22,6 +22,18 @@ export default function AdminSettings() {
     retry: false,
   });
 
+  // Get Sunday overtime setting
+  const { data: sundayOvertimeSetting, isLoading: sundayLoading } = useQuery({
+    queryKey: ["/api/admin-settings/sunday_overtime"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin-settings/sunday_overtime");
+      if (response.status === 404) return null; // Setting doesn't exist
+      if (!response.ok) throw new Error('Failed to fetch Sunday overtime setting');
+      return response.json();
+    },
+    retry: false,
+  });
+
   // Mutation to update Saturday overtime setting
   const updateSaturdayOvertimeMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -56,11 +68,50 @@ export default function AdminSettings() {
     }
   });
 
+  // Mutation to update Sunday overtime setting
+  const updateSundayOvertimeMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const settingData = {
+        settingKey: 'sunday_overtime',
+        settingValue: enabled.toString(),
+        description: 'Allow contractors to work overtime on Sundays',
+        updatedBy: 'Admin'
+      };
+
+      const response = await fetch('/api/admin-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settingData)
+      });
+      if (!response.ok) throw new Error('Failed to update Sunday overtime setting');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin-settings/sunday_overtime"] });
+      toast({
+        title: "Setting Updated",
+        description: "Sunday overtime setting has been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update Sunday overtime setting. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleToggleSaturdayOvertime = (enabled: boolean) => {
     updateSaturdayOvertimeMutation.mutate(enabled);
   };
 
-  const currentlyEnabled = saturdayOvertimeSetting?.settingValue === 'true';
+  const handleToggleSundayOvertime = (enabled: boolean) => {
+    updateSundayOvertimeMutation.mutate(enabled);
+  };
+
+  const saturdayCurrentlyEnabled = saturdayOvertimeSetting?.settingValue === 'true';
+  const sundayCurrentlyEnabled = sundayOvertimeSetting?.settingValue === 'true';
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4">
@@ -82,15 +133,15 @@ export default function AdminSettings() {
             <div>
               <CardTitle className="text-yellow-400 flex items-center space-x-2">
                 <span>Saturday Overtime</span>
-                {currentlyEnabled && <Badge className="bg-green-600 text-white">ENABLED</Badge>}
-                {!currentlyEnabled && <Badge className="bg-red-600 text-white">DISABLED</Badge>}
+                {saturdayCurrentlyEnabled && <Badge className="bg-green-600 text-white">ENABLED</Badge>}
+                {!saturdayCurrentlyEnabled && <Badge className="bg-red-600 text-white">DISABLED</Badge>}
               </CardTitle>
               <CardDescription className="text-slate-400">
                 Allow contractors to clock in and work overtime on Saturdays
               </CardDescription>
             </div>
             <Switch
-              checked={currentlyEnabled}
+              checked={saturdayCurrentlyEnabled}
               onCheckedChange={handleToggleSaturdayOvertime}
               disabled={isLoading || updateSaturdayOvertimeMutation.isPending}
               className="data-[state=checked]:bg-yellow-500"
@@ -103,13 +154,13 @@ export default function AdminSettings() {
               <div className="font-semibold text-yellow-400 mb-2">Current Configuration:</div>
               <ul className="space-y-1 text-slate-400">
                 <li>• Regular Hours: Monday-Friday, 7:45 AM - 5:00 PM</li>
-                <li>• Saturday Overtime: {currentlyEnabled ? 'Allowed' : 'Not Allowed'}</li>
-                <li>• Sunday Work: Always Disabled</li>
+                <li>• Saturday Overtime: {saturdayCurrentlyEnabled ? 'Allowed' : 'Not Allowed'}</li>
+                <li>• Sunday Overtime: {sundayCurrentlyEnabled ? 'Allowed' : 'Not Allowed'}</li>
                 <li>• GPS Validation: 1km radius required for all work sessions</li>
               </ul>
             </div>
 
-            {currentlyEnabled && (
+            {saturdayCurrentlyEnabled && (
               <div className="p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
                 <div className="text-yellow-400 font-semibold mb-1">⚠️ Saturday Overtime Active</div>
                 <div className="text-sm text-slate-300">
@@ -119,7 +170,7 @@ export default function AdminSettings() {
               </div>
             )}
 
-            {!currentlyEnabled && (
+            {!saturdayCurrentlyEnabled && (
               <div className="p-3 bg-slate-700/50 border border-slate-600 rounded-lg">
                 <div className="text-slate-400 text-sm">
                   Saturday work is currently disabled. Contractors cannot clock in on Saturdays.
@@ -136,20 +187,63 @@ export default function AdminSettings() {
         </CardContent>
       </Card>
 
-      {/* Future Settings Placeholder */}
-      <Card className="bg-slate-800 border-slate-700 mt-4 opacity-50">
+      {/* Sunday Overtime Setting Card */}
+      <Card className="bg-slate-800 border-slate-700 mt-4">
         <CardHeader>
-          <CardTitle className="text-slate-500">Additional Settings</CardTitle>
-          <CardDescription className="text-slate-600">
-            More admin controls will be available here in future updates
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-yellow-400 flex items-center space-x-2">
+                <span>Sunday Overtime</span>
+                {sundayCurrentlyEnabled && <Badge className="bg-green-600 text-white">ENABLED</Badge>}
+                {!sundayCurrentlyEnabled && <Badge className="bg-red-600 text-white">DISABLED</Badge>}
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Allow contractors to clock in and work overtime on Sundays
+              </CardDescription>
+            </div>
+            <Switch
+              checked={sundayCurrentlyEnabled}
+              onCheckedChange={handleToggleSundayOvertime}
+              disabled={sundayLoading || updateSundayOvertimeMutation.isPending}
+              className="data-[state=checked]:bg-yellow-500"
+            />
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 text-slate-600 text-sm">
-            <div>• Working hours adjustment</div>
-            <div>• GPS radius configuration</div>
-            <div>• Holiday schedule management</div>
-            <div>• Contractor notification settings</div>
+          <div className="space-y-4">
+            <div className="text-sm text-slate-300">
+              <div className="font-semibold text-yellow-400 mb-2">Current Configuration:</div>
+              <ul className="space-y-1 text-slate-400">
+                <li>• Regular Hours: Monday-Friday, 7:45 AM - 5:00 PM</li>
+                <li>• Saturday Overtime: {saturdayCurrentlyEnabled ? 'Allowed' : 'Not Allowed'}</li>
+                <li>• Sunday Overtime: {sundayCurrentlyEnabled ? 'Allowed' : 'Not Allowed'}</li>
+                <li>• GPS Validation: 1km radius required for all work sessions</li>
+              </ul>
+            </div>
+
+            {sundayCurrentlyEnabled && (
+              <div className="p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+                <div className="text-yellow-400 font-semibold mb-1">⚠️ Sunday Overtime Active</div>
+                <div className="text-sm text-slate-300">
+                  Contractors can now clock in on Sundays during regular hours (7:45 AM - 5:00 PM).
+                  All GPS and location validation rules still apply.
+                </div>
+              </div>
+            )}
+
+            {!sundayCurrentlyEnabled && (
+              <div className="p-3 bg-slate-700/50 border border-slate-600 rounded-lg">
+                <div className="text-slate-400 text-sm">
+                  Sunday work is currently disabled. Contractors cannot clock in on Sundays.
+                </div>
+              </div>
+            )}
+
+            {sundayOvertimeSetting?.updatedAt && (
+              <div className="text-xs text-slate-500">
+                Last updated: {new Date(sundayOvertimeSetting.updatedAt).toLocaleString()} by {sundayOvertimeSetting.updatedBy}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
