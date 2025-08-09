@@ -433,43 +433,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           projectType: "Fitout",
           phases: csvPhasesFromDB.split(', '),
           phaseData: {
-            // For Task Progress page - provide detailed tasks for contractor work tracking
-            "Electrical 1st Fix": [
-              { description: "Install consumer unit", quantity: 1, task: "Mount and wire main electrical panel" },
-              { description: "First fix lighting circuits", quantity: 8, task: "Run cables for all light switches" },
-              { description: "First fix socket circuits", quantity: 12, task: "Install socket outlet cables" },
-              { description: "Install meter tails", quantity: 2, task: "Connect incoming electrical supply" },
-              { description: "Earth bonding", quantity: 4, task: "Install main earth bonding conductors" },
-              { description: "Smoke detector wiring", quantity: 3, task: "Wire fire alarm system" },
-              { description: "Door entry system wiring", quantity: 1, task: "Install intercom system cables" },
-              { description: "Kitchen circuit preparation", quantity: 6, task: "Prepare kitchen appliance circuits" },
-              { description: "Bathroom electrical preparation", quantity: 4, task: "Install bathroom zone wiring" },
-              { description: "Central heating controls", quantity: 2, task: "Wire thermostat and controls" },
-              { description: "Outdoor lighting preparation", quantity: 2, task: "External lighting circuit installation" },
-              { description: "Emergency lighting", quantity: 2, task: "Install emergency light circuits" },
-              { description: "Data cable installation", quantity: 5, task: "Install network cable infrastructure" },
-              { description: "TV aerial wiring", quantity: 1, task: "Install television reception cables" },
-              { description: "Alarm system wiring", quantity: 3, task: "Install security system cables" },
-              { description: "Underfloor heating wiring", quantity: 4, task: "Wire electric underfloor heating" },
-              { description: "Extractor fan wiring", quantity: 3, task: "Install ventilation fan circuits" },
-              { description: "Garage electrical supply", quantity: 1, task: "Install garage power supply" },
-              { description: "Shed electrical supply", quantity: 1, task: "Install outbuilding power" },
-              { description: "Electric vehicle charging prep", quantity: 1, task: "Prepare EV charging point supply" },
-              { description: "Final testing preparation", quantity: 1, task: "Prepare for electrical testing" }
-            ],
-            "Plumbing 1st Fix": [
-              { description: "Cold water service pipe", quantity: 1, task: "Install main cold water supply" },
-              { description: "Hot water cylinder installation", quantity: 1, task: "Install and connect hot water cylinder" },
-              { description: "Central heating flow pipes", quantity: 8, task: "Install heating system flow pipes" },
-              { description: "Central heating return pipes", quantity: 8, task: "Install heating system return pipes" },
-              { description: "Radiator valve preparation", quantity: 6, task: "Install radiator valve connections" },
-              { description: "Kitchen sink waste", quantity: 1, task: "Install kitchen waste pipe connections" },
-              { description: "Kitchen sink supply", quantity: 2, task: "Install hot and cold kitchen supplies" },
-              { description: "Bathroom basin waste", quantity: 1, task: "Install basin waste connections" },
-              { description: "Bathroom basin supply", quantity: 2, task: "Install basin hot and cold supplies" },
-              { description: "Toilet waste connection", quantity: 1, task: "Install toilet waste pipe" },
-              { description: "Boiler gas supply", quantity: 1, task: "Install gas supply pipe to boiler" }
-            ],
+            "Electrical 1st Fix": [{
+              description: "Data Missing from CSV",
+              quantity: 0,
+              task: "CSV task breakdown not available - upload detailed CSV file"
+            }],
+            "Plumbing 1st Fix": [{
+              description: "Data Missing from CSV",
+              quantity: 0,
+              task: "CSV task breakdown not available - upload detailed CSV file"
+            }],
             "Masonry Shell": [{
               description: "Data Missing from CSV",
               quantity: 0, 
