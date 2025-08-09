@@ -31,6 +31,7 @@ interface UploadedJob {
   location: string;
   status?: string;
   uploadId?: string;
+  hasPhases?: boolean;
   phaseData?: any[];
   clientInfo?: {
     name: string;
@@ -76,7 +77,7 @@ export default function CreateAssignment() {
         }));
         
         // Sort jobs to show the ones with phases first (newest CSV uploads)
-        transformedJobs.sort((a, b) => {
+        transformedJobs.sort((a: any, b: any) => {
           if (a.hasPhases && !b.hasPhases) return -1;
           if (!a.hasPhases && b.hasPhases) return 1;
           return 0; // Keep original order for same type
@@ -113,6 +114,8 @@ export default function CreateAssignment() {
           const response = await fetch(`/api/csv-uploads/${selectedJob.uploadId}`);
           const csvData = await response.json();
           
+          console.log('📄 CSV API Response:', csvData);
+          
           if (csvData.structuredData?.uniquePhases) {
             // CSV Data Supremacy: Use extracted phases from CSV upload
             const phases = csvData.structuredData.uniquePhases.filter((phase: string) => 
@@ -120,6 +123,8 @@ export default function CreateAssignment() {
             );
             setAvailablePhases(phases);
             console.log('✓ Authentic CSV phases extracted:', phases);
+            console.log('📊 Phase count:', phases.length);
+            console.log('🔍 Full CSV Data for debugging:', csvData);
           } else {
             console.log('❌ No phases found in CSV data');
             setAvailablePhases([]);
