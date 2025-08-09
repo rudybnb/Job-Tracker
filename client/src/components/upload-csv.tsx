@@ -19,9 +19,22 @@ interface UploadResponse {
   jobsCreated: number;
 }
 
+interface CSVPreviewData {
+  headers: string[];
+  rows: string[][];
+  jobPreview: Array<{
+    name: string;
+    address: string;
+    projectType: string;
+    buildPhases: string[];
+  }>;
+}
+
 export default function UploadCsv() {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [csvPreview, setCsvPreview] = useState<CSVPreviewData | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -80,27 +93,9 @@ export default function UploadCsv() {
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (validateFile(file)) {
-        setSelectedFile(file);
-      }
-    }
-  };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (validateFile(file)) {
-        setSelectedFile(file);
-      }
-    }
-  };
+
+
 
   const validateFile = (file: File): boolean => {
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -122,6 +117,83 @@ export default function UploadCsv() {
     }
     
     return true;
+  };
+
+  const parseCSVPreview = async (file: File): Promise<CSVPreviewData | null> => {
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        throw new Error('CSV must have headers and at least one data row');
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const rows = lines.slice(1, 6).map(line => // Preview first 5 rows
+        line.split(',').map(cell => cell.trim().replace(/"/g, ''))
+      );
+
+      // Create job preview based on actual CSV structure
+      const jobPreview = rows.map(row => {
+        const name = row[0] || 'Unknown';
+        const address = row[1] || 'Unknown Address';
+        const projectType = row[2] || 'Unknown Project';
+        
+        // Extract build phases from remaining columns
+        const buildPhases = row.slice(3).filter(phase => phase && phase.trim());
+        
+        return {
+          name,
+          address,
+          projectType,
+          buildPhases: buildPhases.length > 0 ? buildPhases : ['No phases specified']
+        };
+      });
+
+      return { headers, rows, jobPreview };
+    } catch (error) {
+      toast({
+        title: "CSV Parse Error",
+        description: error instanceof Error ? error.message : "Failed to parse CSV file",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (validateFile(file)) {
+        setSelectedFile(file);
+        const preview = await parseCSVPreview(file);
+        setCsvPreview(preview);
+        if (preview) {
+          setShowPreview(true);
+          workflowHelp.markStepCompleted('file-selection');
+          workflowHelp.markStepCompleted('file-validation');
+        }
+      }
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (validateFile(file)) {
+        setSelectedFile(file);
+        const preview = await parseCSVPreview(file);
+        setCsvPreview(preview);
+        if (preview) {
+          setShowPreview(true);
+          workflowHelp.markStepCompleted('file-selection');
+          workflowHelp.markStepCompleted('file-validation');
+        }
+      }
+    }
   };
 
   const handleUpload = () => {
@@ -207,7 +279,7 @@ export default function UploadCsv() {
         )}
       </div>
 
-      {selectedFile && (
+      {selectedFile && !showPreview && (
         <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center space-x-2 text-sm text-slate-600">
             <FileText className="h-4 w-4" />
@@ -215,28 +287,18 @@ export default function UploadCsv() {
           </div>
           
           <ContextualTooltip
-            id="upload-button"
-            title="Process CSV File"
-            content="Click to process the selected CSV file. The system will validate format, extract job data, and create jobs automatically. Processing may take a few seconds."
-            type="success"
+            id="preview-button"
+            title="Preview CSV Data"
+            content="Click to preview the jobs that will be created from your CSV file. You can review all data before approving the upload."
+            type="info"
             placement="left"
           >
             <Button
-              onClick={handleUpload}
-              disabled={uploadMutation.isPending}
+              onClick={() => setShowPreview(true)}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {uploadMutation.isPending ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload CSV
-                </>
-              )}
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Preview Jobs
             </Button>
           </ContextualTooltip>
         </div>
@@ -246,6 +308,115 @@ export default function UploadCsv() {
         <div className="mt-4 flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
           <AlertCircle className="h-5 w-5" />
           <span className="text-sm">{uploadMutation.error.message}</span>
+        </div>
+      )}
+
+      {/* CSV Preview Modal */}
+      {showPreview && csvPreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">CSV Preview - {selectedFile?.name}</h3>
+                <button 
+                  onClick={handleCancelPreview}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <i className="fas fa-times text-xl"></i>
+                </button>
+              </div>
+              <p className="text-sm text-slate-600 mt-2">
+                Preview of jobs that will be created from your CSV file. Check the data before proceeding.
+              </p>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {/* Raw CSV Preview */}
+              <div className="mb-6">
+                <h4 className="text-md font-medium text-slate-900 mb-3">Raw CSV Data</h4>
+                <div className="bg-slate-50 rounded-lg p-4 text-sm font-mono overflow-x-auto">
+                  <div className="font-bold text-blue-600 mb-2">
+                    {csvPreview.headers.join(' | ')}
+                  </div>
+                  {csvPreview.rows.map((row, index) => (
+                    <div key={index} className="text-slate-700 border-t border-slate-200 pt-1">
+                      {row.join(' | ')}
+                    </div>
+                  ))}
+                  {csvPreview.rows.length === 5 && (
+                    <div className="text-slate-500 italic mt-2">... and more rows</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Job Preview */}
+              <div>
+                <h4 className="text-md font-medium text-slate-900 mb-3">Jobs to be Created</h4>
+                <div className="space-y-4">
+                  {csvPreview.jobPreview.map((job, index) => (
+                    <div key={index} className="border border-slate-200 rounded-lg p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <div className="font-medium text-slate-900">{job.name}</div>
+                          <div className="text-sm text-slate-600">{job.address}</div>
+                          <div className="text-sm text-blue-600 font-medium">{job.projectType}</div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-slate-700 font-medium mb-1">Build Phases:</div>
+                          {job.buildPhases.map((phase, phaseIndex) => (
+                            <div key={phaseIndex} className="text-sm text-slate-600">• {phase}</div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-200 flex items-center justify-between">
+              <div className="text-sm text-slate-600">
+                This will create {csvPreview.jobPreview.length} job(s) with authentic CSV data
+              </div>
+              <div className="flex space-x-3">
+                <Button 
+                  onClick={handleCancelPreview}
+                  variant="outline"
+                  className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </Button>
+                <ContextualTooltip
+                  id="approve-upload-button"
+                  title="Approve CSV Upload"
+                  content="Click to proceed with creating jobs from the previewed CSV data. This will process all rows and create job entries with GPS coordinates."
+                  type="success"
+                  placement="top"
+                >
+                  <Button 
+                    onClick={() => {
+                      setShowPreview(false);
+                      handleUpload();
+                    }}
+                    disabled={uploadMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {uploadMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Creating Jobs...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Approve & Create Jobs
+                      </>
+                    )}
+                  </Button>
+                </ContextualTooltip>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
