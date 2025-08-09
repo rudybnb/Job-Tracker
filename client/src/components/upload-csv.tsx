@@ -389,18 +389,18 @@ export default function UploadCsv() {
                           <span className="text-white text-xs">📋</span>
                         </div>
                         <div>
-                          <span className="text-yellow-600 font-medium">Work Type: </span>
+                          <span className="text-yellow-600 font-medium">Project Type: </span>
                           <span className="text-slate-700">{csvPreview.jobPreview[0].projectType}</span>
                         </div>
                       </div>
                       
                       <div className="flex items-center space-x-2">
                         <div className="w-4 h-4 bg-green-600 rounded-sm flex items-center justify-center">
-                          <span className="text-white text-xs">💷</span>
+                          <span className="text-white text-xs">📍</span>
                         </div>
                         <div>
-                          <span className="text-yellow-600 font-medium">Estimated Value: </span>
-                          <span className="text-slate-700">£1</span>
+                          <span className="text-yellow-600 font-medium">Address: </span>
+                          <span className="text-slate-700">{csvPreview.jobPreview[0].location || 'Data Missing from CSV'}</span>
                         </div>
                       </div>
                     </div>
