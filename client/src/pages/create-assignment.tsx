@@ -103,7 +103,7 @@ export default function CreateAssignment() {
       
       const loadPhasesFromCSV = async () => {
         try {
-          const selectedJob = uploadedJobs.find(job => job.name === selectedHbxlJob);
+          const selectedJob = uploadedJobs.find(job => job.id === selectedHbxlJob);
           if (!selectedJob?.uploadId) {
             console.log('❌ No uploadId found for job:', selectedHbxlJob);
             setAvailablePhases([]);
@@ -377,8 +377,8 @@ export default function CreateAssignment() {
               >
                 <option value="">Select HBXL job</option>
                 {uploadedJobs.map((job) => (
-                  <option key={job.id} value={job.name}>
-                    {job.name} {job.hasPhases ? '(Has phases)' : '(No phases)'}
+                  <option key={job.id} value={job.id}>
+                    {job.name} {job.hasPhases ? '(Has phases)' : '(No phases)'} - {job.location}
                   </option>
                 ))}
               </select>
