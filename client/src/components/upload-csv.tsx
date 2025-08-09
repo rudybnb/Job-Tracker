@@ -341,109 +341,56 @@ export default function UploadCsv() {
         </div>
       )}
 
-      {/* CSV Preview Modal */}
+      {/* Simplified CSV Preview Modal */}
       {showPreview && csvPreview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900">CSV Preview - {selectedFile?.name}</h3>
-                <button 
-                  onClick={handleCancelPreview}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  <i className="fas fa-times text-xl"></i>
-                </button>
-              </div>
-              <p className="text-sm text-slate-600 mt-2">
-                Preview of jobs that will be created from your CSV file. Check the data before proceeding.
-              </p>
-            </div>
-
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
-              {/* Raw CSV Preview */}
-              <div className="mb-6">
-                <h4 className="text-md font-medium text-slate-900 mb-3">Raw CSV Data</h4>
-                <div className="bg-slate-50 rounded-lg p-4 text-sm font-mono overflow-x-auto">
-                  <div className="font-bold text-blue-600 mb-2">
-                    {csvPreview.headers.join(' | ')}
-                  </div>
-                  {csvPreview.rows.map((row, index) => (
-                    <div key={index} className="text-slate-700 border-t border-slate-200 pt-1">
-                      {row.join(' | ')}
-                    </div>
-                  ))}
-                  {csvPreview.rows.length === 5 && (
-                    <div className="text-slate-500 italic mt-2">... and more rows</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Job Preview */}
-              <div>
-                <h4 className="text-md font-medium text-slate-900 mb-3">Jobs to be Created</h4>
-                <div className="space-y-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+            <div className="p-6 text-center">
+              <FileText className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">Ready to Upload</h3>
+              <p className="text-slate-600 mb-4">{selectedFile?.name}</p>
+              
+              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <p className="text-blue-800 font-medium mb-2">
+                  Will create {csvPreview.jobPreview.length} job(s):
+                </p>
+                <div className="space-y-1">
                   {csvPreview.jobPreview.map((job, index) => (
-                    <div key={index} className="border border-slate-200 rounded-lg p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className="font-medium text-slate-900">{job.name}</div>
-                          <div className="text-sm text-slate-600">{job.address}</div>
-                          <div className="text-sm text-blue-600 font-medium">{job.projectType}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-slate-700 font-medium mb-1">Build Phases:</div>
-                          {job.buildPhases.map((phase, phaseIndex) => (
-                            <div key={phaseIndex} className="text-sm text-slate-600">• {phase}</div>
-                          ))}
-                        </div>
-                      </div>
+                    <div key={index} className="text-sm text-blue-700">
+                      {job.name} - {job.projectType}
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
 
-            <div className="p-6 border-t border-slate-200 flex items-center justify-between">
-              <div className="text-sm text-slate-600">
-                This will create {csvPreview.jobPreview.length} job(s) with authentic CSV data
-              </div>
-              <div className="flex space-x-3">
+              <div className="flex space-x-4">
                 <Button 
                   onClick={handleCancelPreview}
                   variant="outline"
-                  className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                  className="flex-1"
                 >
                   Cancel
                 </Button>
-                <ContextualTooltip
-                  id="approve-upload-button"
-                  title="Approve CSV Upload"
-                  content="Click to proceed with creating jobs from the previewed CSV data. This will process all rows and create job entries with GPS coordinates."
-                  type="success"
-                  placement="top"
+                <Button 
+                  onClick={() => {
+                    setShowPreview(false);
+                    handleUpload();
+                  }}
+                  disabled={uploadMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
                 >
-                  <Button 
-                    onClick={() => {
-                      setShowPreview(false);
-                      handleUpload();
-                    }}
-                    disabled={uploadMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    {uploadMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                        Creating Jobs...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Approve & Create Jobs
-                      </>
-                    )}
-                  </Button>
-                </ContextualTooltip>
+                  {uploadMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Create Jobs
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
