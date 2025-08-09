@@ -44,7 +44,7 @@ export default function Jobs() {
         </div>
       </div>
 
-      <div className="p-4">
+      <div className="p-3">
         {assignments.length === 0 ? (
           /* Empty State */
           <div className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center">
@@ -55,24 +55,21 @@ export default function Jobs() {
             <p className="text-slate-400 mb-6">You don't have any job assignments yet.</p>
           </div>
         ) : (
-          /* Assignments List */
-          <div className="space-y-4">
+          /* Compact Assignments List */
+          <div className="space-y-2">
             {assignments.map((assignment) => (
-              <div key={assignment.id} className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-briefcase text-white"></i>
+              <div key={assignment.id} className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                      <i className="fas fa-briefcase text-white text-sm"></i>
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-yellow-400">{assignment.title}</h3>
-                      <p className="text-slate-400 text-sm">Location: {assignment.location}</p>
-                      <p className="text-slate-400 text-xs">
-                        {assignment.startDate} → {assignment.dueDate}
-                      </p>
+                      <h3 className="text-base font-semibold text-yellow-400">{assignment.title}</h3>
+                      <p className="text-slate-400 text-xs">{assignment.location}</p>
                     </div>
                   </div>
-                  <Badge className={`text-xs px-3 py-1 ${
+                  <Badge className={`text-xs px-2 py-0.5 ${
                     assignment.status === 'assigned' 
                       ? 'bg-yellow-500 text-black' 
                       : assignment.status === 'completed'
@@ -83,27 +80,28 @@ export default function Jobs() {
                   </Badge>
                 </div>
                 
-                <div className="space-y-2 text-sm mb-4">
+                <div className="space-y-1 text-xs mb-2">
                   <div className="flex items-center text-slate-300">
-                    <i className="fas fa-user text-slate-400 mr-2 w-4"></i>
-                    <span>Assigned to: James</span>
-                  </div>
-                  <div className="flex items-center text-slate-300">
-                    <i className="fas fa-clock text-slate-400 mr-2 w-4"></i>
-                    <span>{assignment.startDate} - {assignment.dueDate}</span>
+                    <i className="fas fa-clock text-slate-400 mr-1 w-3"></i>
+                    <span>{assignment.startDate} → {assignment.dueDate}</span>
                   </div>
                   {assignment.phases && (
                     <div className="flex items-start text-slate-300">
-                      <i className="fas fa-tasks text-slate-400 mr-2 w-4 mt-0.5"></i>
+                      <i className="fas fa-tasks text-slate-400 mr-1 w-3 mt-0.5"></i>
                       <div className="flex flex-wrap gap-1">
-                        {JSON.parse(assignment.phases).map((phase: string, idx: number) => (
+                        {JSON.parse(assignment.phases).slice(0, 2).map((phase: string, idx: number) => (
                           <span 
                             key={idx}
-                            className="bg-blue-600 text-white text-xs px-2 py-1 rounded"
+                            className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded"
                           >
                             {phase}
                           </span>
                         ))}
+                        {JSON.parse(assignment.phases).length > 2 && (
+                          <span className="text-slate-400 text-xs">
+                            +{JSON.parse(assignment.phases).length - 2} more
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
@@ -112,17 +110,16 @@ export default function Jobs() {
                 <div className="flex space-x-2">
                   <Button 
                     size="sm" 
-                    className="bg-yellow-600 hover:bg-yellow-700 text-black flex-1"
+                    className="bg-yellow-600 hover:bg-yellow-700 text-black flex-1 h-8 text-xs"
                     onClick={() => window.location.href = `/task-progress?jobId=${assignment.id}&location=${encodeURIComponent(assignment.location)}`}
                   >
                     Continue Work
                   </Button>
                   <Button 
                     size="sm" 
-                    className="bg-red-600 hover:bg-red-700 text-white px-4"
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 h-8 text-xs"
                   >
-                    <i className="fas fa-exclamation-triangle mr-1"></i>
-                    Report Issue
+                    <i className="fas fa-exclamation-triangle"></i>
                   </Button>
                 </div>
               </div>
