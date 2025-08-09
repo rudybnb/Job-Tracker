@@ -89,15 +89,20 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
                             {phaseTasks.length} task{phaseTasks.length !== 1 ? 's' : ''}:
                           </div>
                           <div className="max-h-24 overflow-y-auto space-y-1">
-                            {phaseTasks.slice(0, 5).map((task: any, taskIndex: number) => (
-                              <div key={taskIndex} className="text-slate-200 text-xs flex items-center">
-                                <span className="w-1 h-1 bg-yellow-400 rounded-full mr-2"></span>
-                                <span className="flex-1">{task.description || task.task || `Task ${taskIndex + 1}`}</span>
-                                {task.quantity && (
-                                  <span className="text-slate-400 ml-2">({task.quantity})</span>
-                                )}
-                              </div>
-                            ))}
+                            {phaseTasks.slice(0, 5).map((task: any, taskIndex: number) => {
+                              // Extract quantity from Column G - this is what you track with +/- buttons
+                              const quantityFromColumnG = parseInt(task.quantity) || parseInt(task.qty) || 1;
+                              
+                              return (
+                                <div key={taskIndex} className="text-slate-200 text-xs flex items-center">
+                                  <span className="w-1 h-1 bg-yellow-400 rounded-full mr-2"></span>
+                                  <span className="flex-1">{task.description || task.task || `Task ${taskIndex + 1}`}</span>
+                                  <span className="text-yellow-400 ml-2 font-medium">
+                                    Qty: {quantityFromColumnG}
+                                  </span>
+                                </div>
+                              );
+                            })}
                             {phaseTasks.length > 5 && (
                               <div className="text-slate-400 text-xs">
                                 ... and {phaseTasks.length - 5} more tasks

@@ -22,7 +22,7 @@ export default function TaskProgress() {
   });
 
   // Get the first (active) assignment
-  const activeAssignment = assignments[0];
+  const activeAssignment = (assignments as any[])[0];
   
   // Update current project based on assignment data
   const [currentProject, setCurrentProject] = useState("Loading...");
@@ -73,17 +73,20 @@ export default function TaskProgress() {
         if (matchingJob && matchingJob.phaseData) {
           let taskId = 1;
           
-          // Create tasks from real CSV data for each assigned phase
+          // Create tasks from real CSV data for each assigned phase - Column G contains quantities
           activeAssignment.buildPhases.forEach((phase: string) => {
             if (matchingJob.phaseData[phase]) {
-              // Use actual CSV items for this phase
+              // Use actual CSV items for this phase with Column G quantities
               matchingJob.phaseData[phase].forEach((item: any) => {
+                // Extract quantity from Column G - this is what contractors track with +/- buttons
+                const quantityFromColumnG = parseInt(item.quantity) || parseInt(item.qty) || 1;
+                
                 newTasks.push({
                   id: (taskId++).toString(),
-                  title: item.itemDescription || `${item.code} - Task`,
-                  description: item.itemDescription || '',
+                  title: item.description || item.task || item.itemDescription || `${item.code || item.id} - Task`,
+                  description: item.description || item.task || item.itemDescription || '',
                   area: phase,
-                  totalItems: parseInt(item.quantity) || 1,
+                  totalItems: quantityFromColumnG, // Column G quantity - key for progress tracking
                   completedItems: 0,
                   status: "not started" as const
                 });
@@ -204,8 +207,8 @@ export default function TaskProgress() {
     
     setTasks(updatedTasks);
     
-    // Save progress to localStorage with job-specific key
-    const storageKey = `task_progress_${jobId || locationFromUrl || 'default'}`;
+    // Save progress to localStorage with assignment-specific key
+    const storageKey = `task_progress_${activeAssignment?.id || 'default'}`;
     localStorage.setItem(storageKey, JSON.stringify(updatedTasks));
     
     toast({
