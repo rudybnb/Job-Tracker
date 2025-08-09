@@ -12,6 +12,11 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
     queryKey: ["/api/contractor-assignments/James"], // Using James as the contractor name from screenshots
   });
 
+  // Fetch uploaded jobs with detailed CSV task data
+  const { data: uploadedJobs = [] } = useQuery({
+    queryKey: ["/api/uploaded-jobs"],
+  });
+
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -60,14 +65,54 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
           </div>
           <div className="flex items-start text-slate-300">
             <i className="fas fa-tools text-slate-400 mr-2 w-4 mt-0.5"></i>
-            <div>
-              <span className="text-slate-400">Assigned Phases:</span>
-              <div className="mt-1">
-                {activeAssignment.buildPhases?.map((phase: string, index: number) => (
-                  <div key={index} className="text-yellow-400 text-xs">
-                    • {phase}
-                  </div>
-                ))}
+            <div className="w-full">
+              <span className="text-slate-400">Assigned Phases & Tasks:</span>
+              <div className="mt-2 space-y-3">
+                {activeAssignment.buildPhases?.map((phase: string, index: number) => {
+                  // Find matching CSV job data
+                  const matchingJob = uploadedJobs.find((job: any) => 
+                    job.name === activeAssignment.hbxlJob || 
+                    job.name.includes(activeAssignment.hbxlJob.split(' - ')[0])
+                  );
+                  
+                  // Get sub-tasks for this phase from CSV data
+                  const phaseTasks = matchingJob?.phaseData?.[phase] || [];
+                  
+                  return (
+                    <div key={index} className="bg-slate-600 rounded-lg p-3">
+                      <div className="text-yellow-400 text-sm font-medium mb-2">
+                        📋 {phase}
+                      </div>
+                      {phaseTasks.length > 0 ? (
+                        <div className="space-y-1">
+                          <div className="text-slate-300 text-xs">
+                            {phaseTasks.length} task{phaseTasks.length !== 1 ? 's' : ''}:
+                          </div>
+                          <div className="max-h-24 overflow-y-auto space-y-1">
+                            {phaseTasks.slice(0, 5).map((task: any, taskIndex: number) => (
+                              <div key={taskIndex} className="text-slate-200 text-xs flex items-center">
+                                <span className="w-1 h-1 bg-yellow-400 rounded-full mr-2"></span>
+                                <span className="flex-1">{task.description || task.task || `Task ${taskIndex + 1}`}</span>
+                                {task.quantity && (
+                                  <span className="text-slate-400 ml-2">({task.quantity})</span>
+                                )}
+                              </div>
+                            ))}
+                            {phaseTasks.length > 5 && (
+                              <div className="text-slate-400 text-xs">
+                                ... and {phaseTasks.length - 5} more tasks
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-slate-400 text-xs">
+                          • Basic {phase} work (no detailed tasks available)
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
