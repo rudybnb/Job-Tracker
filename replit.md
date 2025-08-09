@@ -66,6 +66,13 @@ The application adopts a complete workflow system with distinct role-based inter
 - **USER ROLE**: Admin views reports and adds observations during site visits rather than task management
 - James's assignment (ID: d3603ec8-6c84-4805-9edc-65ea5c2d27d3) fully accessible via "View Assignment" button
 
+### CSV Data Supremacy Fixed (09/08/2025)
+- **CRITICAL FIX**: Completely rewrote CSV parsing to strictly follow MANDATORY RULE 3: CSV DATA SUPREMACY
+- **NO FALLBACKS**: System now displays "Data Missing from CSV" instead of assumptions when CSV data unavailable
+- **AUTHENTIC DATA ONLY**: CSV upload now correctly reads Name: "Xavier Jones", Address: "Erith", Project Type: "New Build"
+- **BUILD PHASES**: Extracted from actual CSV item descriptions (Masonry & Shell Work, Foundation Work)
+- **ZERO TOLERANCE**: Eliminated all hardcoded fallback values that violated data integrity rules
+
 ### GPS Clock-In System Fixed (09/08/2025)
 - **RESOLVED**: GPS coordinates issue preventing contractor clock-in functionality
 - Updated job_assignments schema to include latitude/longitude fields for work sites
