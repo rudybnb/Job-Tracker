@@ -177,17 +177,7 @@ export default function GPSDashboard() {
     retry: false,
   });
 
-  // Get James's daily rate for earnings calculation
-  const { data: jamesDayRate } = useQuery({
-    queryKey: ["/api/admin-settings/james_day_rate"],
-    queryFn: async () => {
-      const response = await fetch("/api/admin-settings/james_day_rate");
-      if (response.status === 404) return null;
-      if (!response.ok) throw new Error('Failed to fetch James day rate');
-      return response.json();
-    },
-    retry: false,
-  });
+
 
 
 

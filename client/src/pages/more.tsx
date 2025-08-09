@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 interface WorkSession {
   id: string;
@@ -32,17 +33,61 @@ export default function More() {
   const [selectedWeek, setSelectedWeek] = useState("2025-02-08"); // Current week
   const { toast } = useToast();
 
-  // Contractor details (would come from database)
+  // Get James's payment rates and CIS data from database
+  const { data: jamesDayRate } = useQuery({
+    queryKey: ["/api/admin-settings/james_day_rate"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin-settings/james_day_rate");
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error('Failed to fetch James day rate');
+      return response.json();
+    },
+    retry: false,
+  });
+
+  const { data: jamesCisRate } = useQuery({
+    queryKey: ["/api/admin-settings/james_cis_rate"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin-settings/james_cis_rate");
+      if (response.status === 404) return { settingValue: "20" }; // Default 20% for registered contractors
+      if (!response.ok) throw new Error('Failed to fetch James CIS rate');
+      return response.json();
+    },
+    retry: false,
+  });
+
+  // Get real work sessions from database
+  const { data: realWorkSessions = [] } = useQuery({
+    queryKey: ["/api/work-sessions/James"],
+    queryFn: async () => {
+      const response = await fetch("/api/work-sessions/James");
+      if (!response.ok) throw new Error('Failed to fetch work sessions');
+      return response.json();
+    },
+  });
+
+  // Contractor details with real data
   const contractorInfo = {
-    name: "Contractor",
-    email: "",
-    cisRegistered: false,
-    hourlyRate: 0,
-    cisRate: 30 // Default to 30% for non-registered
+    name: "James",
+    email: "james@contractor.com",
+    cisRegistered: true, // James is CIS registered (20% rate)
+    dailyRate: jamesDayRate ? parseFloat(jamesDayRate.settingValue) : 150,
+    hourlyRate: jamesDayRate ? parseFloat(jamesDayRate.settingValue) / 8 : 18.75,
+    cisRate: jamesCisRate ? parseFloat(jamesCisRate.settingValue) : 20
   };
 
-  // Empty work sessions - will be populated with real GPS tracking data
-  const [workSessions] = useState<WorkSession[]>([]);
+  // Convert real work sessions to our format
+  const workSessions: WorkSession[] = realWorkSessions.map((session: any) => ({
+    id: session.id,
+    location: session.jobSiteLocation || "Work Site",
+    date: new Date(session.startTime).toISOString().split('T')[0],
+    startTime: new Date(session.startTime).toLocaleTimeString(),
+    endTime: session.endTime ? new Date(session.endTime).toLocaleTimeString() : "In Progress",
+    hoursWorked: session.totalHours || 0,
+    hourlyRate: contractorInfo.hourlyRate,
+    grossEarnings: (session.totalHours || 0) * contractorInfo.hourlyRate,
+    gpsVerified: true
+  }));
 
   const calculateWeeklyEarnings = (): WeeklyEarnings => {
     const weekSessions = workSessions.filter(session => {
