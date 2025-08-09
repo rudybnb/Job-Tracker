@@ -161,17 +161,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let jobType = "Data Missing from CSV";
         let phases: string[] = [];
 
-        // Parse header lines - FIXED TO MATCH FRONTEND LOGIC
+        // LOCKED DOWN PARSING LOGIC - DO NOT CHANGE THIS EVER
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
           if (line.startsWith('Name,')) {
-            jobName = line.substring(5).trim() || "Data Missing from CSV";
+            // Extract everything after "Name," and remove trailing commas
+            const extracted = line.substring(5).replace(/,+$/, '').trim();
+            jobName = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
-            jobAddress = line.substring(line.indexOf(',') + 1).trim() || "Data Missing from CSV";
+            // Extract everything after first comma and remove trailing commas
+            const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
+            jobAddress = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Post code,')) {
-            jobPostcode = line.substring(10).trim()?.toUpperCase() || "Data Missing from CSV";
+            // Extract everything after "Post code," and remove trailing commas
+            const extracted = line.substring(10).replace(/,+$/, '').trim().toUpperCase();
+            jobPostcode = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Project Type,')) {
-            jobType = line.substring(13).trim() || "Data Missing from CSV";
+            // Extract everything after "Project Type," and remove trailing commas
+            const extracted = line.substring(13).replace(/,+$/, '').trim();
+            jobType = extracted || "Data Missing from CSV";
           }
         }
 
