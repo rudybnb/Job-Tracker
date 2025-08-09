@@ -105,6 +105,14 @@ The application adopts a complete workflow system with distinct role-based inter
 - **ZERO ASSUMPTIONS**: Preview shows exactly what will be created - no fallback data or assumptions, following CSV Data Supremacy rules
 - **CONTEXTUAL HELP**: Integrated tooltips guide users through file selection, validation, preview, and approval process
 
+### CSV Address Field Display Fixed (09/08/2025)
+- **CRITICAL ISSUE RESOLVED**: Fixed "Data Missing from CSV" error in Address field display
+- **ROOT CAUSE**: Address field was referencing wrong data source in preview component
+- **SOLUTION**: Updated preview to display authentic address data from parsed CSV jobPreview object
+- **DATA INTEGRITY**: Address now correctly shows "Erith" instead of fallback error message
+- **CSV DATA SUPREMACY MAINTAINED**: All display fields now use authentic parsed CSV data
+- **ZERO REGRESSION**: Fix applied without touching working CSV parsing logic
+
 ### CSV Clear Data & Delete Functionality Added (09/08/2025)
 - **USER REQUEST FULFILLED**: Added clear data functionality and delete buttons for CSV uploads
 - **CLEAR DATA FEATURE**: Added clear button to remove selected file and reset all preview data with contextual tooltip guidance

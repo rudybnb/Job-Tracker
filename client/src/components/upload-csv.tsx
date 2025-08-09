@@ -451,7 +451,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Address: </span>
-                          <span className="text-slate-700">{csvPreview.rawData.rows[0]?.[1] || 'Data Missing from CSV'}</span>
+                          <span className="text-slate-700">{csvPreview.jobPreview[0].address}</span>
                         </div>
                       </div>
                     </div>
