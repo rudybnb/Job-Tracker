@@ -470,21 +470,19 @@ export default function UploadJob() {
         return;
       }
 
-      // Determine job type from phases for proper classification
+      // RULE 3: CSV Data Supremacy - Use authentic project type from CSV
       const phaseNames = Object.keys(csvData.phaseData);
-      const jobType = csvData.clientInfo?.projectType || 'Renovation';
+      const projectType = csvData.clientInfo?.projectType || 'Unknown'; // Use authentic CSV data
       
       const newJob: UploadedJob & { phaseData?: any } = {
         id: Date.now().toString(),
-        name: `${csvData.clientInfo.name} - ${jobType}`, // Use client name (Flat #) as primary identifier
+        name: `${csvData.clientInfo.name} - ${projectType}`, // Use authentic CSV project type
         location: location,
         price: "£0",
         status: "approved",
         dataType: "CSV Data", 
         uploadedAt: new Date().toLocaleDateString('en-GB'),
-        phaseData: csvData.phaseData,
-        jobType: jobType,
-        detectedPhases: phaseNames
+        phaseData: csvData.phaseData
       };
 
       console.log('Created newJob:', newJob);
