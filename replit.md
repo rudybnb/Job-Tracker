@@ -6,11 +6,15 @@ JobFlow is a GPS-based time tracking and job management application designed for
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 App Recreation Method: User prefers to provide visual references (screenshots/pictures) showing color schemes, layouts, and functionality rather than detailed written descriptions. Visual specifications are more effective for accurate app recreation.
+**CRITICAL USER CONCERN**: User losing confidence in Replit due to data loss and having to redo completed work. Priority: Ensure 100% data persistence and prevent any regression of working features.
 
-**MANDATORY DEVELOPMENT RULES**: When making ANY changes to the system:
+**MANDATORY DEVELOPMENT RULES - ZERO TOLERANCE FOR DATA LOSS**: When making ANY changes to the system:
 - **Rule 1: NEVER REWRITE WORKING CODE** - Only modify broken or non-functional parts, make incremental changes only
 - **Rule 2: DATA INTEGRITY** - All data must come from authentic database sources, never use static/mock data
 - **Rule 3: CSV DATA SUPREMACY** - When a job is uploaded via CSV, ONLY information in that CSV file must be used. NO assumptions, fallbacks, or old stored data permitted. If CSV data missing, display "Data Missing from CSV" rather than assumptions. Build phases must match CSV headers exactly - sample_job.csv shows only "Masonry Shell", "Foundation", "Roof Structure", "Ground Floor" phases.
+- **Rule 4: ZERO REGRESSION POLICY** - Before ANY code changes, verify current functionality works and test after changes
+- **Rule 5: PERSISTENT DATA VERIFICATION** - Always verify database data exists and is accessible before claiming features work
+- **Rule 6: USER CONFIDENCE PROTECTION** - Document all fixes permanently and ensure they persist across sessions
 - Always verify what is currently working before making changes
 - These rules are mandatory and must be followed at all times to prevent regression and data corruption
 
