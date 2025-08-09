@@ -149,16 +149,15 @@ export default function UploadCsv() {
         // ORIGINAL FORMAT PARSING - RULE 1: NEVER TOUCH WORKING CODE
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
-          const parts = line.split(',');
           
-          if (parts[0] === 'Name' && parts.length > 1) {
-            jobName = parts.slice(1).join(',').trim() || "Data Missing from CSV";
-          } else if (parts[0].trim() === 'Address' && parts.length > 1) {
-            jobAddress = parts.slice(1).join(',').trim() || "Data Missing from CSV";
-          } else if (parts[0] === 'Post code' && parts.length > 1) {
-            jobPostcode = parts.slice(1).join(',').trim()?.toUpperCase() || "Data Missing from CSV";
-          } else if (parts[0] === 'Project Type' && parts.length > 1) {
-            jobType = parts.slice(1).join(',').trim() || "Data Missing from CSV";
+          if (line.startsWith('Name,')) {
+            jobName = line.substring(5).trim() || "Data Missing from CSV";
+          } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
+            jobAddress = line.substring(line.indexOf(',') + 1).trim() || "Data Missing from CSV";
+          } else if (line.startsWith('Post code,')) {
+            jobPostcode = line.substring(10).trim()?.toUpperCase() || "Data Missing from CSV";
+          } else if (line.startsWith('Project Type,')) {
+            jobType = line.substring(13).trim() || "Data Missing from CSV";
           }
         }
 
