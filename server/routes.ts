@@ -161,17 +161,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let jobType = "Data Missing from CSV";
         let phases: string[] = [];
 
-        // Parse header lines
+        // Parse header lines - FIXED TO MATCH FRONTEND LOGIC
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
           if (line.startsWith('Name,')) {
-            jobName = line.split(',')[1]?.trim() || "Data Missing from CSV";
-          } else if (line.startsWith('Address,')) {
-            jobAddress = line.split(',')[1]?.trim() || "Data Missing from CSV";
+            jobName = line.substring(5).trim() || "Data Missing from CSV";
+          } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
+            jobAddress = line.substring(line.indexOf(',') + 1).trim() || "Data Missing from CSV";
           } else if (line.startsWith('Post code,')) {
-            jobPostcode = line.split(',')[1]?.trim() || "Data Missing from CSV";
+            jobPostcode = line.substring(10).trim()?.toUpperCase() || "Data Missing from CSV";
           } else if (line.startsWith('Project Type,')) {
-            jobType = line.split(',')[1]?.trim() || "Data Missing from CSV";
+            jobType = line.substring(13).trim() || "Data Missing from CSV";
           }
         }
 
