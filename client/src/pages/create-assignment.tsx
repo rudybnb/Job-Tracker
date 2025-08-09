@@ -71,11 +71,19 @@ export default function CreateAssignment() {
           name: job.title,
           location: job.location,
           status: job.status,
-          uploadId: job.uploadId
+          uploadId: job.uploadId,
+          hasPhases: job.phases !== null && job.phases !== undefined && job.phases !== "null"
         }));
         
+        // Sort jobs to show the ones with phases first (newest CSV uploads)
+        transformedJobs.sort((a, b) => {
+          if (a.hasPhases && !b.hasPhases) return -1;
+          if (!a.hasPhases && b.hasPhases) return 1;
+          return 0; // Keep original order for same type
+        });
+        
         setUploadedJobs(transformedJobs);
-        console.log('✓ Transformed jobs:', transformedJobs);
+        console.log('✓ Transformed jobs (phases first):', transformedJobs);
       } catch (error) {
         console.error('❌ Failed to load jobs from API:', error);
         setUploadedJobs([]);
@@ -365,7 +373,7 @@ export default function CreateAssignment() {
                 <option value="">Select HBXL job</option>
                 {uploadedJobs.map((job) => (
                   <option key={job.id} value={job.name}>
-                    {job.name} {job.phaseData ? `(${Object.keys(job.phaseData).length} phases)` : '(No phases)'}
+                    {job.name} {job.hasPhases ? '(Has phases)' : '(No phases)'}
                   </option>
                 ))}
               </select>
