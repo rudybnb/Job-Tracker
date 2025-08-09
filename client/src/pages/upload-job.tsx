@@ -266,10 +266,10 @@ export default function UploadJob() {
           quantity = parseFloat(quantityIndex >= 0 ? row[quantityIndex] : row[6]) || 0;
           
           // Generate a pseudo-code for consistency
-          code = `${buildPhaseValue.substring(0,2).toUpperCase()}${description.substring(0,3).toUpperCase()}`;
+          code = `CSV${i.toString().padStart(3, '0')}`;
           
-          canProcess = !!(buildPhaseValue && description && row.length >= 6);
-          console.log(`  Schedule format: BuildPhase="${buildPhaseValue}", Desc="${description}", Quantity="${quantity}"`);
+          canProcess = !!(description && row.length >= 6);
+          console.log(`  Schedule format: Desc="${description}", Quantity="${quantity}"`);
         } else {
           // Traditional code format
           code = row[codeIndex] || '';
@@ -472,7 +472,7 @@ export default function UploadJob() {
         dataType: "CSV Data", 
         uploadedAt: new Date().toLocaleDateString('en-GB'),
         phaseData: csvData.phaseData,
-        projectType: jobType,
+
         detectedPhases: phaseNames
       };
 
