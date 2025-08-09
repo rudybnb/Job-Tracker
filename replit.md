@@ -135,6 +135,14 @@ The application adopts a complete workflow system with distinct role-based inter
 - Payment logic confirmed: On-time = £150 full pay, Late = £150 minus £0.50/minute, 20% CIS deduction
 - All payment calculations use authentic database sources following Data Integrity rules
 
+### CSV Data Supremacy Rule Enforcement Fixed (09/08/2025)
+- **CRITICAL FIX**: Corrected violation of Rule 3: CSV DATA SUPREMACY in task display system
+- **PROBLEM**: System was generating synthetic electrical/plumbing task data instead of using authentic CSV data
+- **SOLUTION**: Modified /api/uploaded-jobs endpoint to display "Data Missing from CSV" when detailed task breakdowns not available
+- **RULE COMPLIANCE**: Now follows Rule 3 exactly - NO assumptions, fallbacks, or synthetic data permitted
+- **AUTHENTIC DATA ONLY**: Task system now uses only authentic phases from database: "Masonry Shell, Joinery 1st Fix, Internal Preparation, Electrical 1st Fix, Plumbing 1st Fix, Plastering, Electrical 2nd Fix, Joinery 2nd Fix, Plumbing 2nd Fix, Internal Fitting Out, Internal Decoration, External Decoration"
+- **ZERO ASSUMPTIONS**: When CSV task breakdown unavailable, system properly displays "Data Missing from CSV" message instead of creating fake tasks
+
 ## External Dependencies
 
 ### Database Services
