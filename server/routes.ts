@@ -160,23 +160,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (parts[0] === 'Post code') jobInfo.postcode = parts[1];
             if (parts[0] === 'Project Type') jobInfo.projectType = parts[1];
             
-            // Extract build phases from item descriptions
-            if (parts[1] && typeof parts[1] === 'string') {
-              const description = parts[1];
-              if (description.includes('Masonry') && !buildPhases.includes('Masonry & Shell Work')) {
-                buildPhases.push('Masonry & Shell Work');
-              }
-              if (description.includes('Foundation') && !buildPhases.includes('Foundation Work')) {
-                buildPhases.push('Foundation Work');
-              }
-              if (description.includes('Roof') && !buildPhases.includes('Roof Structure')) {
-                buildPhases.push('Roof Structure');
-              }
-              if (description.includes('Ground Floor') && !buildPhases.includes('Ground Floor')) {
-                buildPhases.push('Ground Floor');
-              }
-              if (description.includes('Main Structure') && !buildPhases.includes('Main Structure')) {
-                buildPhases.push('Main Structure');
+            // Extract build phases from "Build Phase" column (column 3 in the data rows)
+            if (parts[2] && typeof parts[2] === 'string') {
+              const buildPhase = parts[2].trim();
+              if (buildPhase && buildPhase !== 'Build Phase' && !buildPhases.includes(buildPhase)) {
+                buildPhases.push(buildPhase);
               }
             }
           }
