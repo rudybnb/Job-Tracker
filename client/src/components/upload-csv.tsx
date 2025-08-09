@@ -142,17 +142,19 @@ export default function UploadCsv() {
       let jobType = "Data Missing from CSV";
       let phases: string[] = [];
 
-      // Check if it's the original format (Name,Xavier jones)
-      const isOriginalFormat = lines.some(line => line.startsWith('Name,') && !line.includes('Address,Postcode'));
+      // Check if it's the original format (Name,Xavier jones or name,Flat1)
+      const isOriginalFormat = lines.some(line => 
+        (line.startsWith('Name,') || line.startsWith('name,')) && !line.includes('Address,Postcode')
+      );
       
       if (isOriginalFormat) {
         // LOCKED DOWN PARSING LOGIC - NEVER CHANGE THIS SECTION
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
           
-          if (line.startsWith('Name,')) {
-            // Extract everything after "Name," and remove trailing commas
-            const extracted = line.substring(5).replace(/,+$/, '').trim();
+          if (line.startsWith('Name,') || line.startsWith('name,')) {
+            // Extract everything after "Name," or "name," and remove trailing commas
+            const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobName = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
             // Extract everything after first comma and remove trailing commas  

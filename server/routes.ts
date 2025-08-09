@@ -164,9 +164,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // LOCKED DOWN PARSING LOGIC - DO NOT CHANGE THIS EVER
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
-          if (line.startsWith('Name,')) {
-            // Extract everything after "Name," and remove trailing commas
-            const extracted = line.substring(5).replace(/,+$/, '').trim();
+          if (line.startsWith('Name,') || line.startsWith('name,')) {
+            // Extract everything after "Name," or "name," and remove trailing commas
+            const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobName = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
             // Extract everything after first comma and remove trailing commas
