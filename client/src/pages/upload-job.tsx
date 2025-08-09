@@ -1,6 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import UploadCsv from "@/components/upload-csv";
-import { FileText, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { FileText, Clock, CheckCircle, XCircle, AlertCircle, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
 
 interface CsvUpload {
   id: string;
@@ -50,9 +53,42 @@ function getStatusColor(status: string) {
 }
 
 export default function UploadJob() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const { data: uploads = [] } = useQuery<CsvUpload[]>({
     queryKey: ['/api/csv-uploads'],
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (uploadId: string) => {
+      const response = await apiRequest('DELETE', `/api/csv-uploads/${uploadId}`);
+      if (!response.ok) {
+        throw new Error('Failed to delete upload record');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Upload Deleted",
+        description: "CSV upload record has been successfully deleted",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/csv-uploads'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete Failed",
+        description: error instanceof Error ? error.message : "Failed to delete upload",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteUpload = (uploadId: string, filename: string) => {
+    if (confirm(`Are you sure you want to delete the upload record for "${filename}"? This action cannot be undone.`)) {
+      deleteMutation.mutate(uploadId);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -116,15 +152,31 @@ export default function UploadJob() {
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(upload.status)}
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                          upload.status
-                        )}`}
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(upload.status)}
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                            upload.status
+                          )}`}
+                        >
+                          {getStatusText(upload.status)}
+                        </span>
+                      </div>
+                      <Button
+                        onClick={() => handleDeleteUpload(upload.id, upload.filename)}
+                        disabled={deleteMutation.isPending}
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1 h-8 w-8"
+                        title="Delete upload record"
                       >
-                        {getStatusText(upload.status)}
-                      </span>
+                        {deleteMutation.isPending ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
                   </div>
                 ))}

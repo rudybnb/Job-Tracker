@@ -203,6 +203,10 @@ export class DatabaseStorage implements IStorage {
     return upload;
   }
 
+  async deleteCsvUpload(id: string): Promise<void> {
+    await db.delete(csvUploads).where(eq(csvUploads.id, id));
+  }
+
   // Job Assignment
   async assignJob(assignment: JobAssignment): Promise<Job | undefined> {
     const job = await this.getJob(assignment.jobId);

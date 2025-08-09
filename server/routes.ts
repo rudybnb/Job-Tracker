@@ -120,6 +120,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete CSV upload record
+  app.delete("/api/csv-uploads/:id", async (req, res) => {
+    try {
+      const uploadId = req.params.id;
+      await storage.deleteCsvUpload(uploadId);
+      res.json({ success: true, message: "Upload record deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting CSV upload:", error);
+      res.status(500).json({ error: "Failed to delete upload record" });
+    }
+  });
+
   // CSV Upload endpoint
   app.post("/api/upload-csv", upload.single('csvFile'), async (req: MulterRequest, res) => {
     try {

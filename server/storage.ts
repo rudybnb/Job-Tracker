@@ -22,6 +22,7 @@ export interface IStorage {
   getCsvUploads(): Promise<CsvUpload[]>;
   createCsvUpload(upload: InsertCsvUpload): Promise<CsvUpload>;
   updateCsvUpload(id: string, upload: Partial<CsvUpload>): Promise<CsvUpload | undefined>;
+  deleteCsvUpload(id: string): Promise<void>;
   
   // Job Assignment
   assignJob(assignment: JobAssignment): Promise<Job | undefined>;

@@ -72,7 +72,9 @@ export default function UploadCsv() {
       });
       queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/csv-uploads'] });
-      setSelectedFile(null);
+      
+      // Clear all form data after successful upload
+      handleClearData();
     },
     onError: (error) => {
       toast({
@@ -196,6 +198,21 @@ export default function UploadCsv() {
     }
   };
 
+  const handleClearData = () => {
+    setSelectedFile(null);
+    setCsvPreview(null);
+    setShowPreview(false);
+    // Clear the file input
+    const fileInput = document.getElementById('csv-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+    toast({
+      title: "Data Cleared",
+      description: "Selected file and preview data have been cleared",
+    });
+  };
+
   const handleUpload = () => {
     if (selectedFile) {
       uploadMutation.mutate(selectedFile);
@@ -265,16 +282,25 @@ export default function UploadCsv() {
             <p className="text-sm text-slate-500 mt-2">CSV files only, up to 10MB</p>
           </>
         ) : (
-          <div className="flex items-center justify-center space-x-2">
+          <div className="flex items-center justify-center space-x-3">
             <FileText className="h-8 w-8 text-green-600" />
             <span className="text-slate-900 font-medium">{selectedFile.name}</span>
-            <button
-              onClick={() => setSelectedFile(null)}
-              className="text-red-500 hover:text-red-700"
-              disabled={uploadMutation.isPending}
+            <ContextualTooltip
+              id="clear-file-button"
+              title="Clear Selected File"
+              content="Remove the selected file and clear all data. You can then select a different file."
+              type="warning"
+              placement="top"
             >
-              ×
-            </button>
+              <button
+                onClick={handleClearData}
+                className="flex items-center space-x-1 px-2 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                disabled={uploadMutation.isPending}
+              >
+                <i className="fas fa-times text-sm"></i>
+                <span className="text-xs">Clear</span>
+              </button>
+            </ContextualTooltip>
           </div>
         )}
       </div>
