@@ -75,7 +75,7 @@ export default function UploadJob() {
         name: '',
         address: '',
         postCode: '',
-        projectType: 'Renovation' // Default to renovation, will be determined from phases
+        projectType: 'Data Missing from CSV' // No defaults allowed per MANDATORY RULE 3
       };
       
       // For schedule format CSVs, try to extract client info from filename
@@ -479,17 +479,16 @@ export default function UploadJob() {
         } else if (structuralWork && fittingWork) {
           return 'Extension';
         } else if (fittingWork && decorativeWork && !structuralWork) {
-          return 'Renovation';
+          return 'Refurbishment';
         } else if (fittingWork && !decorativeWork) {
           return 'Fitout';
         } else {
-          return 'Renovation'; // Default for smaller projects
+          return 'Data Missing from CSV'; // No defaults allowed per MANDATORY RULE 3
         }
       };
       
-      // Set the determined project type
-      clientInfo.projectType = determineProjectType(detectedPhases);
-      console.log(`✓ Project type determined as: ${clientInfo.projectType} based on phases:`, detectedPhases);
+      // ONLY use CSV data - do not override with phase detection per MANDATORY RULE 3
+      console.log(`✓ Using CSV project type: ${clientInfo.projectType} (phases detected: ${detectedPhases})`);
       
       // Convert to old format for compatibility
       const phaseData: Record<string, Array<{task: string, quantity: number, description: string, unit: string, code: string}>> = {};
@@ -578,7 +577,7 @@ export default function UploadJob() {
 
       // Determine job type from phases for proper classification
       const phaseNames = Object.keys(csvData.phaseData);
-      const jobType = csvData.clientInfo?.projectType || 'Renovation';
+      const jobType = csvData.clientInfo?.projectType || 'Data Missing from CSV';
       
       const newJob: UploadedJob & { phaseData?: any } = {
         id: Date.now().toString(),
@@ -589,7 +588,7 @@ export default function UploadJob() {
         dataType: "CSV Data", 
         uploadedAt: new Date().toLocaleDateString('en-GB'),
         phaseData: csvData.phaseData,
-        jobType: jobType,
+        projectType: jobType,
         detectedPhases: phaseNames
       };
 
