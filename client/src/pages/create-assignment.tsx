@@ -29,6 +29,8 @@ interface UploadedJob {
   id: string;
   name: string;
   location: string;
+  status?: string;
+  uploadId?: string;
   phaseData?: any[];
   clientInfo?: {
     name: string;
