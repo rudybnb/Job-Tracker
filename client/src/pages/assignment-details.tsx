@@ -85,8 +85,8 @@ export default function AssignmentDetails() {
               <i className="fas fa-arrow-left mr-2"></i>
               Back to Assignments
             </button>
-            <h1 className="text-xl font-bold text-white mb-1">{assignment.title}</h1>
-            <p className="text-slate-400 text-sm">Assignment Progress Tracking</p>
+            <h1 className="text-xl font-bold text-white mb-1">{assignment.hbxlJob}</h1>
+            <p className="text-slate-400 text-sm">Admin Site Reporting & Progress Monitoring</p>
           </div>
           <Badge className={`${
             assignment.status === 'assigned' 
@@ -149,92 +149,138 @@ export default function AssignmentDetails() {
           </div>
         </div>
 
-        {/* Progress Tracking */}
+        {/* Build Phases Status */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-yellow-400">Build Phases Progress</h2>
-            <div className="text-sm text-slate-400">
-              {taskProgress.filter(task => task.completed).length} of {taskProgress.length} completed
-            </div>
-          </div>
-
+          <h2 className="text-lg font-semibold text-yellow-400 mb-4">Build Phases Overview</h2>
           <div className="space-y-3">
-            {taskProgress.map((task, index) => (
+            {assignment.buildPhases && JSON.parse(assignment.buildPhases).map((phase: string, index: number) => (
               <div key={index} className="bg-slate-700 rounded-lg p-3 border border-slate-600">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                      task.completed 
-                        ? 'bg-green-600 text-white' 
-                        : 'bg-slate-600 text-slate-400'
-                    }`}>
-                      {task.completed ? (
-                        <i className="fas fa-check text-xs"></i>
-                      ) : (
-                        <span className="text-xs">{index + 1}</span>
-                      )}
+                    <div className="w-6 h-6 bg-slate-600 text-slate-400 rounded-full flex items-center justify-center">
+                      <span className="text-xs">{index + 1}</span>
                     </div>
-                    <div>
-                      <h3 className="text-white font-medium">{task.phase}</h3>
-                      {task.startTime && (
-                        <p className="text-xs text-slate-400">
-                          Started: {new Date(task.startTime).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
+                    <span className="text-white font-medium">{phase}</span>
                   </div>
-                  <Badge className={`text-xs ${
-                    task.completed 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-slate-600 text-slate-300'
-                  }`}>
-                    {task.completed ? 'Completed' : 'Pending'}
+                  <Badge className="bg-slate-600 text-slate-300 text-xs">
+                    Assigned
                   </Badge>
                 </div>
-
-                {task.endTime && (
-                  <div className="text-xs text-slate-400 ml-9">
-                    Completed: {new Date(task.endTime).toLocaleString()}
-                  </div>
-                )}
-
-                {task.notes && (
-                  <div className="ml-9 mt-2">
-                    <div className="text-xs text-slate-400">Notes:</div>
-                    <div className="text-sm text-slate-300">{task.notes}</div>
-                  </div>
-                )}
               </div>
             ))}
           </div>
+        </div>
 
-          <div className="mt-4 pt-4 border-t border-slate-600">
-            <div className="flex space-x-3">
-              <Button 
-                className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
-                onClick={() => window.location.href = `/task-progress?assignment=${assignment.id}`}
-              >
-                <i className="fas fa-play mr-2"></i>
-                Start/Continue Work
+        {/* Site Report Form */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
+            <i className="fas fa-camera mr-2"></i>
+            Site Visit Report
+          </h2>
+          
+          <div className="space-y-4">
+            {/* Photo Upload Section */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Site Photos
+              </label>
+              <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-slate-500 transition-colors">
+                <div className="space-y-3">
+                  <i className="fas fa-camera text-slate-400 text-3xl"></i>
+                  <div>
+                    <p className="text-slate-400">Click to upload photos from site visit</p>
+                    <p className="text-xs text-slate-500">Support: JPG, PNG, HEIC. Max 10MB per photo</p>
+                  </div>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <i className="fas fa-plus mr-2"></i>
+                    Add Photos
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Progress Comments */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Progress Comments
+              </label>
+              <textarea
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+                rows={4}
+                placeholder="Enter observations about work progress, quality, and any issues..."
+              />
+            </div>
+
+            {/* Site Conditions */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Weather Conditions
+                </label>
+                <select className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500">
+                  <option>Select weather...</option>
+                  <option>Clear/Sunny</option>
+                  <option>Cloudy</option>
+                  <option>Light Rain</option>
+                  <option>Heavy Rain</option>
+                  <option>Snow</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Work Quality Rating
+                </label>
+                <select className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500">
+                  <option>Rate quality...</option>
+                  <option>Excellent</option>
+                  <option>Good</option>
+                  <option>Satisfactory</option>
+                  <option>Needs Improvement</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Safety & Compliance */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Safety & Compliance Notes
+              </label>
+              <textarea
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+                rows={3}
+                placeholder="Note any safety concerns, compliance issues, or recommendations..."
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex space-x-3 pt-4">
+              <Button className="bg-green-600 hover:bg-green-700 text-white flex-1">
+                <i className="fas fa-save mr-2"></i>
+                Save Report
               </Button>
-              <Button 
-                className="bg-slate-600 hover:bg-slate-700 text-white px-4"
-                onClick={() => window.location.href = `/assignment-edit/${assignment.id}`}
-              >
-                <i className="fas fa-edit mr-2"></i>
-                Edit
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white flex-1">
+                <i className="fas fa-paper-plane mr-2"></i>
+                Submit & Notify
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Notes Section */}
-        {assignment.notes && (
-          <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-            <h2 className="text-lg font-semibold text-yellow-400 mb-3">Assignment Notes</h2>
-            <div className="text-slate-300">{assignment.notes}</div>
+        {/* Previous Reports */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
+            <i className="fas fa-history mr-2"></i>
+            Previous Site Reports
+          </h2>
+          
+          <div className="text-center py-8">
+            <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              <i className="fas fa-file-alt text-slate-500 text-3xl"></i>
+            </div>
+            <p className="text-slate-400 text-sm">No previous reports submitted yet</p>
+            <p className="text-slate-500 text-xs mt-1">Reports will appear here after site visits</p>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Bottom Navigation */}
