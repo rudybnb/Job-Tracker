@@ -77,6 +77,11 @@ The application offers a complete workflow with distinct role-based interfaces f
 - **Technical Fix**: Enhanced job matching to handle "Flat 2" assignments matching "Xavier jones" jobs through postcode correlation (SG1 1EH, DA7 6HJ)
 - **Data Integrity Restored**: Authentic CSV task data now displaying correctly with Column G quantities for progress tracking
 
+### Latest Updates (August 10, 2025 - 4:00 PM)
+- **✅ MULTI-CONTRACTOR DROPDOWN**: Added team assignment capability to create assignment form with contractor selection dropdown
+- **✅ CONTRACTOR DATA CORRECTION**: Fixed Dalwayne Diedericks phone number (07984591436 - personal, 07931400436 - emergency contact Emma Saltmarsh)
+- **Team Assignment Features**: Multiple contractor selection, auto-filled contact details, team notification system, visual badges for selected contractors
+
 ## External Dependencies
 
 ### Database Services
