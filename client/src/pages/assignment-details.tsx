@@ -196,11 +196,11 @@ export default function AssignmentDetails() {
         {/* Quick Report Section */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
-            📝 Quick Report
+            📝 Admin Review Report
           </h2>
           
           <p className="text-slate-400 text-sm mb-4">
-            Report any materials missing from site or request clarification - keep it simple!
+            Report on your review of this assignment - record findings, issues, or observations from your inspection.
           </p>
 
           {!showQuickReport ? (
@@ -208,7 +208,7 @@ export default function AssignmentDetails() {
               onClick={() => setShowQuickReport(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white w-full"
             >
-              📝 Quick Report
+              📝 Submit Review Report
             </Button>
           ) : (
             <div className="space-y-4">
@@ -217,7 +217,7 @@ export default function AssignmentDetails() {
                 onChange={(e) => setReportText(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
                 rows={3}
-                placeholder="What materials are missing or what clarification do you need?"
+                placeholder="What did you observe during your review? Record findings, issues, or recommendations..."
               />
               
               <div className="flex space-x-3">
@@ -234,7 +234,7 @@ export default function AssignmentDetails() {
                   disabled={!reportText.trim() || createReportMutation.isPending}
                   className="bg-green-600 hover:bg-green-700 text-white flex-1"
                 >
-                  {createReportMutation.isPending ? "Sending..." : "Send Report"}
+                  {createReportMutation.isPending ? "Submitting..." : "Submit Review"}
                 </Button>
                 <Button 
                   onClick={() => {
