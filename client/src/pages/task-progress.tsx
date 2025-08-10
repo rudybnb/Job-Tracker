@@ -214,12 +214,21 @@ export default function TaskProgress() {
     // CRITICAL: Trigger progress monitoring for 50% inspection notifications
     if (activeAssignment) {
       const overallProgress = getOverallProgress();
+      console.log(`🔍 Task progress updated: ${overallProgress}%`);
+      
+      // Check for inspection triggers at 50% and 100% milestones
       if (overallProgress >= 50) {
-        // Call the progress monitoring endpoint to check for inspection triggers
+        console.log(`🚨 Triggering inspection check for ${overallProgress}% completion`);
         fetch(`/api/check-progress/${activeAssignment.id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
-        }).catch(error => console.error('Progress monitoring failed:', error));
+        }).then(response => {
+          if (response.ok) {
+            console.log(`✅ Progress monitoring triggered successfully for ${overallProgress}%`);
+          } else {
+            console.error(`❌ Progress monitoring failed: ${response.status}`);
+          }
+        }).catch(error => console.error('❌ Progress monitoring failed:', error));
       }
     }
     

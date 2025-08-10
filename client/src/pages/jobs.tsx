@@ -117,10 +117,7 @@ export default function Jobs() {
                     size="sm"
                     className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-3 py-1 h-7 flex-1"
                     onClick={() => {
-                      const report = prompt("Quick report - type anything (missing materials, questions, problems):");
-                      if (report && report.trim()) {
-                        alert("Report sent to admin.");
-                      }
+                      window.location.href = `/assignment/${assignment.id}`;
                     }}
                   >
                     <i className="fas fa-comment mr-1"></i>
