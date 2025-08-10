@@ -3,7 +3,18 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+
+interface PendingInspection {
+  id: string;
+  assignmentId: string;
+  contractorName: string;
+  notificationType: string;
+  jobTitle: string;
+  jobLocation: string;
+  createdAt: string;
+  inspectionType: string;
+}
 
 interface GPSPosition {
   latitude: number;
@@ -42,6 +53,33 @@ export default function AdminDashboard() {
   const [gpsStatus, setGpsStatus] = useState<"Good" | "Poor" | "Unavailable">("Good");
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const { toast } = useToast();
+
+  // Fetch pending inspections
+  const { data: pendingInspections = [] } = useQuery<PendingInspection[]>({
+    queryKey: ["/api/pending-inspections"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const completeInspectionMutation = useMutation({
+    mutationFn: async (notificationId: string) => {
+      const response = await apiRequest("POST", `/api/complete-inspection/${notificationId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pending-inspections"] });
+      toast({
+        title: "Inspection Completed",
+        description: "The inspection has been marked as completed.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to complete inspection",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Send onboarding form mutation
   const sendOnboardingFormMutation = useMutation({
@@ -514,24 +552,86 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Overdue Projects Card */}
+        {/* Site Inspections Required Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center mb-4">
-            <i className="fas fa-calendar-times text-yellow-600 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-600">Overdue Projects</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <i className="fas fa-clipboard-check text-yellow-600 mr-2"></i>
+              <h3 className="text-lg font-semibold text-yellow-600">Site Inspections Required</h3>
+            </div>
+            {pendingInspections.length > 0 && (
+              <Badge className="bg-red-600 text-white">
+                {pendingInspections.length}
+              </Badge>
+            )}
           </div>
           
-          <div className="text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="w-16 h-16 flex items-center justify-center">
-                <i className="fas fa-calendar-times text-green-400 text-4xl"></i>
+          {pendingInspections.length === 0 ? (
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 flex items-center justify-center">
+                  <i className="fas fa-check-circle text-green-400 text-4xl"></i>
+                </div>
+              </div>
+              <div className="text-slate-400 text-sm">
+                No pending site inspections. All milestones up to date.
               </div>
             </div>
-            
-            <div className="text-slate-400 text-sm">
-              No overdue projects at this time.
+          ) : (
+            <div className="space-y-3">
+              {pendingInspections.slice(0, 3).map((inspection) => (
+                <div key={inspection.id} className="bg-slate-700 rounded-lg p-3 border border-slate-600">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge className={`text-xs ${
+                          inspection.notificationType === '50_percent_ready' 
+                            ? 'bg-yellow-600' 
+                            : 'bg-green-600'
+                        }`}>
+                          {inspection.notificationType === '50_percent_ready' ? '50%' : '100%'}
+                        </Badge>
+                        <span className="text-slate-200 font-medium text-sm">
+                          {inspection.jobTitle}
+                        </span>
+                      </div>
+                      <div className="text-slate-400 text-xs">
+                        {inspection.contractorName} • {inspection.jobLocation}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 ml-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs px-2 py-1 border-slate-500 text-slate-200 hover:bg-slate-600"
+                        onClick={() => window.open(`/assignment/${inspection.assignmentId}`, '_blank')}
+                      >
+                        Inspect
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700"
+                        onClick={() => completeInspectionMutation.mutate(inspection.id)}
+                        disabled={completeInspectionMutation.isPending}
+                      >
+                        ✓
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {pendingInspections.length > 3 && (
+                <Button
+                  variant="outline"
+                  className="w-full text-sm border-slate-500 text-slate-200 hover:bg-slate-600"
+                  onClick={() => window.location.href = '/admin-inspections'}
+                >
+                  View All {pendingInspections.length} Inspections
+                </Button>
+              )}
             </div>
-          </div>
+          )}
         </div>
       </div>
 

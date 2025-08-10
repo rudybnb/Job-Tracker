@@ -66,6 +66,8 @@ The application offers a complete workflow with distinct role-based interfaces f
 - **Assignment Details Page**: Enhanced with contractor Quick Report functionality and admin inspection forms, maintaining "here to work not paperwork" philosophy for contractors
 - **Field Mapping Resolution**: Fixed assignment details display issues (hbxlJob vs title, workLocation vs location) ensuring proper data flow from job assignments
 - **Reporting API Integration**: Created complete CRUD operations for both contractor reports and admin inspections with proper error handling and validation
+- **Progressive Inspection System**: Implemented automatic admin inspection notifications at 50% and 100% job completion milestones, integrated into admin dashboard "Site Inspections Required" section (formerly "Overdue Projects")
+- **Inspection Dashboard Integration**: Replaced the basic "Overdue Projects" tab with intelligent inspection notifications showing pending milestone inspections, with direct links to assignment details and one-click completion marking
 
 ## External Dependencies
 
