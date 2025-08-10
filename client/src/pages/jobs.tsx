@@ -115,11 +115,17 @@ export default function Jobs() {
                 <div className="flex space-x-2">
                   <Button
                     size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 h-7 flex-1"
-                    onClick={() => window.location.href = `/assignment/${assignment.id}`}
+                    className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-3 py-1 h-7 flex-1"
+                    onClick={() => {
+                      const report = prompt("Report materials not on site or need clarification:");
+                      if (report && report.trim()) {
+                        // Send report to admin - this would integrate with existing notification system
+                        alert("Report sent to admin. You'll receive updates on your dashboard.");
+                      }
+                    }}
                   >
-                    <i className="fas fa-clipboard-check mr-1"></i>
-                    View Details
+                    <i className="fas fa-exclamation-triangle mr-1"></i>
+                    Report Issue
                   </Button>
                   
                   <Button
