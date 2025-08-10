@@ -62,6 +62,12 @@ export default function AdminDashboard() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
+  // Fetch contractor reports for priority issues
+  const { data: contractorReports = [] } = useQuery<any[]>({
+    queryKey: ["/api/contractor-reports"],
+    refetchInterval: 30000, // Check for new reports every 30 seconds
+  });
+
   const completeInspectionMutation = useMutation({
     mutationFn: async (notificationId: string) => {
       const response = await apiRequest("POST", `/api/complete-inspection/${notificationId}`);
@@ -539,18 +545,65 @@ export default function AdminDashboard() {
           <div className="flex items-center mb-4">
             <i className="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
             <h3 className="text-lg font-semibold text-yellow-600">Priority Issues</h3>
+            {contractorReports.length > 0 && (
+              <Badge className="ml-2 bg-red-600 text-white">
+                {contractorReports.length}
+              </Badge>
+            )}
           </div>
           
-          <div className="text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="w-16 h-16 flex items-center justify-center">
-                <i className="fas fa-check-circle text-green-400 text-4xl"></i>
+          {contractorReports.length > 0 ? (
+            <div className="space-y-3">
+              {contractorReports.slice(0, 3).map((report: any) => (
+                <div key={report.id} className="bg-slate-700 rounded-lg p-3 border border-red-600/30">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge className="text-xs bg-red-600">
+                          URGENT
+                        </Badge>
+                        <span className="text-slate-400 text-xs">
+                          {new Date(report.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="text-white font-medium text-sm mb-1">
+                        {report.contractorName} - {report.assignmentId}
+                      </div>
+                      <div className="text-slate-200 text-sm mb-2">
+                        {report.reportText}
+                      </div>
+                      <div className="text-yellow-400 text-xs font-medium">
+                        ⚠️ Requires Admin Action
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {contractorReports.length > 3 && (
+                <div className="text-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-red-500 text-red-400 hover:bg-red-600/10"
+                  >
+                    View All {contractorReports.length} Reports
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 flex items-center justify-center">
+                  <i className="fas fa-check-circle text-green-400 text-4xl"></i>
+                </div>
+              </div>
+              <div className="text-slate-400 text-sm">
+                No urgent issues reported. All systems running smoothly.
               </div>
             </div>
-            <div className="text-slate-400 text-sm">
-              No urgent issues reported. All systems running smoothly.
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Site Inspections Required Card */}
