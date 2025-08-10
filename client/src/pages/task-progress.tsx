@@ -27,14 +27,22 @@ export default function TaskProgress() {
   // Get the first (active) assignment
   const activeAssignment = (assignments as any[])[0];
   
+  // Debug logging
+  console.log('🔍 Task Progress Debug - contractorFirstName:', contractorFirstName);
+  console.log('🔍 Task Progress Debug - assignments:', assignments);
+  console.log('🔍 Task Progress Debug - activeAssignment:', activeAssignment);
+  console.log('🔍 Task Progress Debug - isLoading:', isLoading);
+  
   // Update current project based on assignment data
   const [currentProject, setCurrentProject] = useState("Loading...");
 
   // Update project title when assignment is loaded
   useEffect(() => {
     if (activeAssignment) {
+      console.log('✅ Setting current project:', `${activeAssignment.hbxlJob} - ${activeAssignment.workLocation}`);
       setCurrentProject(`${activeAssignment.hbxlJob} - ${activeAssignment.workLocation}`);
     } else {
+      console.log('❌ No active assignment found');
       setCurrentProject("No Active Assignment");
     }
   }, [activeAssignment]);
@@ -53,7 +61,14 @@ export default function TaskProgress() {
 
   // Load saved progress and update tasks when assignment is loaded
   useEffect(() => {
-    if (!activeAssignment || !activeAssignment.buildPhases) return;
+    console.log('🔄 loadTasksFromCSV effect triggered');
+    console.log('🔄 activeAssignment:', activeAssignment);
+    console.log('🔄 buildPhases:', activeAssignment?.buildPhases);
+    
+    if (!activeAssignment || !activeAssignment.buildPhases) {
+      console.log('❌ No active assignment or build phases, skipping task loading');
+      return;
+    }
     
     const loadTasksFromCSV = async () => {
       const storageKey = `task_progress_${activeAssignment.id}`;

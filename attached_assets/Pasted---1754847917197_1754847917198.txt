@@ -1,0 +1,65 @@
+
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+_app-2981e4d7aa5be5d9.js:13 [LaunchDarkly] LaunchDarkly client initialized
+/~:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+7JobDispatch:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was receivedUnderstand this error
+58Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.Understand this error
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'ambient-light-sensor'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'battery'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'execution-while-not-rendered'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'execution-while-out-of-viewport'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'layout-animations'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'legacy-image-formats'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'navigation-override'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'oversized-images'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'publickey-credentials'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'speaker-selection'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'unoptimized-images'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'unsized-media'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Unrecognized feature: 'pointer-lock'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Allow attribute will take precedence over 'allowfullscreen'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+framework-fc3d6289511ec16b.js:1 Allow attribute will take precedence over 'allowpaymentrequest'.
+_ @ framework-fc3d6289511ec16b.js:1Understand this warning
+_app-2981e4d7aa5be5d9.js:13 onClick is deprecated, please use onPress
+(anonymous) @ _app-2981e4d7aa5be5d9.js:13Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'battery'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.Understand this warning
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.Understand this warning
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.
