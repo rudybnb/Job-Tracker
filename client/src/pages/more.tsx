@@ -301,6 +301,26 @@ export default function More() {
           </select>
         </div>
 
+        {/* Rate Information Card */}
+        <div className="bg-slate-800 border border-slate-600 rounded-lg p-4 mb-6">
+          <div className="flex items-center mb-3">
+            <i className="fas fa-calculator text-yellow-400 mr-2"></i>
+            <h3 className="text-lg font-semibold text-yellow-400">Current Pay Rates</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-slate-400 text-sm">Daily Rate</div>
+              <div className="text-white font-bold text-xl">£{contractorInfo.dailyRate}</div>
+              <div className="text-slate-400 text-xs">8-hour day</div>
+            </div>
+            <div>
+              <div className="text-slate-400 text-sm">Hourly Rate</div>
+              <div className="text-white font-bold text-xl">£{contractorInfo.hourlyRate.toFixed(2)}</div>
+              <div className="text-slate-400 text-xs">partial day work</div>
+            </div>
+          </div>
+        </div>
+
         {/* CIS Status Banner */}
         <div className="bg-slate-800 border-l-4 border-green-500 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">
@@ -308,7 +328,7 @@ export default function More() {
               <i className="fas fa-shield-alt text-green-500 mr-3"></i>
               <div>
                 <div className="text-white font-semibold">CIS Registered</div>
-                <div className="text-slate-400 text-sm">20% tax deduction applied</div>
+                <div className="text-slate-400 text-sm">{contractorInfo.cisRate}% tax deduction applied</div>
               </div>
             </div>
             <Badge variant="default" className="bg-green-600">
