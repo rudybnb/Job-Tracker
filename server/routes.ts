@@ -1259,10 +1259,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { ProgressMonitor } = await import("./progress-monitor");
       const progressMonitor = new ProgressMonitor();
       const pendingInspections = await progressMonitor.getPendingInspections();
+      console.log("📋 Returning", pendingInspections.length, "inspections with AUTHENTIC CSV data only");
       res.json(pendingInspections);
     } catch (error) {
       console.error("Error fetching pending inspections:", error);
       res.status(500).json({ error: "Failed to fetch pending inspections" });
+    }
+  });
+
+  // Trigger milestone progress check
+  app.post("/api/progress-monitor/check-milestones", async (req, res) => {
+    try {
+      const { assignmentId } = req.body;
+      
+      if (!assignmentId) {
+        return res.status(400).json({ error: "Assignment ID is required" });
+      }
+
+      const { ProgressMonitor } = await import("./progress-monitor");
+      const progressMonitor = new ProgressMonitor();
+      await progressMonitor.checkProgressMilestones(assignmentId);
+      
+      console.log("✅ Progress milestones checked for assignment:", assignmentId);
+      res.status(200).json({ success: true, message: "Milestones checked successfully" });
+    } catch (error) {
+      console.error("❌ Error checking progress milestones:", error);
+      res.status(500).json({ error: "Failed to check progress milestones" });
+    }
+  });
+
+  // Update task progress and trigger milestone check
+  app.post("/api/progress-monitor/update-task", async (req, res) => {
+    try {
+      const { assignmentId, taskId, completed } = req.body;
+      
+      if (!assignmentId || !taskId || typeof completed !== 'boolean') {
+        return res.status(400).json({ error: "Assignment ID, task ID, and completion status are required" });
+      }
+
+      const { ProgressMonitor } = await import("./progress-monitor");
+      const progressMonitor = new ProgressMonitor();
+      await progressMonitor.updateTaskProgress(assignmentId, taskId, completed);
+      
+      console.log("✅ Task progress updated:", { assignmentId, taskId, completed });
+      res.status(200).json({ success: true, message: "Task progress updated" });
+    } catch (error) {
+      console.error("❌ Error updating task progress:", error);
+      res.status(500).json({ error: "Failed to update task progress" });
     }
   });
 

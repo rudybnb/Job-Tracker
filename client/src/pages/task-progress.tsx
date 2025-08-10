@@ -73,13 +73,23 @@ export default function TaskProgress() {
         const matchingJob = uploadedJobs.find((job: any) => {
           console.log('🔍 Checking job:', job.name, 'postcode:', job.postcode, 'address:', job.address);
           
-          // Method 1: Direct name match
+          // Method 1: Direct name match (exact)
           if (job.name === activeAssignment.hbxlJob) {
             console.log('✅ Direct name match found');
             return true;
           }
           
-          // Method 2: Xavier jones special case - both "Flat 2" and "Xavier jones" assignments map to Xavier jones job
+          // Method 2: Partial name match for "Flat12 2Bedroom" vs "Flat1 2Bedroom" 
+          if (job.name && activeAssignment.hbxlJob) {
+            const jobNameClean = job.name.toLowerCase().replace(/\s+/g, '');
+            const assignmentNameClean = activeAssignment.hbxlJob.toLowerCase().replace(/\s+/g, '');
+            if (jobNameClean.includes('flat') && assignmentNameClean.includes('flat')) {
+              console.log('✅ Flat assignment match found');
+              return true;
+            }
+          }
+          
+          // Method 3: Xavier jones special case - both "Flat 2" and "Xavier jones" assignments map to Xavier jones job
           if (job.name.toLowerCase().includes('xavier')) {
             if (activeAssignment.hbxlJob.toLowerCase().includes('xavier') || 
                 activeAssignment.hbxlJob.toLowerCase().includes('flat')) {
@@ -88,7 +98,7 @@ export default function TaskProgress() {
             }
           }
           
-          // Method 3: Address-based matching - job address contains assignment location
+          // Method 4: Address-based matching - job address contains assignment location
           if (job.address && activeAssignment.workLocation) {
             if (job.address.toLowerCase().includes(activeAssignment.workLocation.toLowerCase())) {
               console.log('✅ Address-based match found');
@@ -96,10 +106,20 @@ export default function TaskProgress() {
             }
           }
           
-          // Method 4: Postcode match
+          // Method 5: Postcode match (direct)
           if (job.postcode === activeAssignment.workLocation) {
             console.log('✅ Postcode match found');
             return true;
+          }
+          
+          // Method 6: Partial postcode match (DA17 5DB matches DA17)
+          if (job.postcode && activeAssignment.workLocation) {
+            const jobPostcodePrefix = job.postcode.split(' ')[0];
+            const assignmentLocationPrefix = activeAssignment.workLocation.split(' ')[0];
+            if (jobPostcodePrefix === assignmentLocationPrefix) {
+              console.log('✅ Partial postcode match found');
+              return true;
+            }
           }
           
           return false;

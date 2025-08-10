@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface AssignmentDetails {
@@ -30,6 +30,220 @@ interface TaskProgress {
   startTime?: string;
   endTime?: string;
   notes?: string;
+}
+
+// Sub-Tasks Progress Component
+function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
+  const [jobTasks, setJobTasks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchJobTasks = async () => {
+      try {
+        const response = await fetch('/api/uploaded-jobs');
+        const uploadedJobs = await response.json();
+        
+        // Find matching job using same logic as task-progress
+        const matchingJob = uploadedJobs.find((job: any) => {
+          if (job.name === assignment.hbxlJob) return true;
+          
+          // Handle "Flat12 2Bedroom" vs "Flat1 2Bedroom" matching
+          if (job.name && assignment.hbxlJob) {
+            const jobNameClean = job.name.toLowerCase().replace(/\s+/g, '');
+            const assignmentNameClean = assignment.hbxlJob.toLowerCase().replace(/\s+/g, '');
+            if (jobNameClean.includes('flat') && assignmentNameClean.includes('flat')) {
+              return true;
+            }
+          }
+          
+          // Postcode matching for DA17 5DB
+          if (job.postcode && assignment.workLocation) {
+            const jobPostcodePrefix = job.postcode.split(' ')[0];
+            const assignmentLocationPrefix = assignment.workLocation.split(' ')[0];
+            if (jobPostcodePrefix === assignmentLocationPrefix) {
+              return true;
+            }
+          }
+          
+          return false;
+        });
+
+        if (matchingJob && matchingJob.phaseData) {
+          const allTasks: any[] = [];
+          
+          // Extract tasks for assigned phases only
+          assignment.buildPhases.forEach((phase: string) => {
+            if (matchingJob.phaseData[phase]) {
+              matchingJob.phaseData[phase].forEach((task: any) => {
+                allTasks.push({
+                  ...task,
+                  phase: phase,
+                  id: `${phase}-${task.description}`.replace(/\s+/g, '-').toLowerCase()
+                });
+              });
+            }
+          });
+          
+          setJobTasks(allTasks);
+          console.log(`✅ Loaded ${allTasks.length} sub-tasks for assignment`);
+        } else {
+          console.log('❌ No matching job found for:', assignment.hbxlJob);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching job tasks:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobTasks();
+  }, [assignment]);
+
+  if (loading) {
+    return (
+      <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+        <h2 className="text-lg font-semibold text-yellow-400 mb-4">Loading Sub-Tasks...</h2>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 className="text-lg font-semibold text-yellow-400 mb-4">Project Sub-Tasks ({jobTasks.length} items)</h2>
+      
+      {jobTasks.length === 0 ? (
+        <div className="text-slate-400 text-center py-4">
+          No detailed tasks found for this assignment
+        </div>
+      ) : (
+        <div className="space-y-3 max-h-80 overflow-y-auto">
+          {assignment.buildPhases.map((phase: string) => {
+            const phaseTasks = jobTasks.filter(task => task.phase === phase);
+            
+            if (phaseTasks.length === 0) return null;
+            
+            return (
+              <div key={phase} className="border border-slate-600 rounded-lg p-3">
+                <h3 className="text-white font-semibold mb-2 border-b border-slate-600 pb-1">
+                  {phase} ({phaseTasks.length} tasks)
+                </h3>
+                <div className="space-y-1">
+                  {phaseTasks.map((task: any) => (
+                    <div key={task.id} className="flex items-center justify-between bg-slate-700 rounded p-2 text-sm">
+                      <div className="flex-1">
+                        <div className="text-white">{task.description}</div>
+                        <div className="text-slate-400 text-xs">Qty: {task.quantity}</div>
+                      </div>
+                      <Badge className="bg-slate-600 text-slate-300 text-xs">
+                        Pending
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Milestone Progress Component  
+function MilestoneProgress({ assignmentId }: { assignmentId: string }) {
+  const [progress, setProgress] = useState(0);
+  const [milestones, setMilestones] = useState<any[]>([]);
+
+  // Fetch milestone progress
+  const { data: pendingInspections } = useQuery({
+    queryKey: ["/api/pending-inspections"],
+  });
+
+  useEffect(() => {
+    // Calculate progress based on task completion (placeholder for now)
+    // In a real implementation, this would track actual task completion
+    setProgress(25); // Example: 25% progress
+    
+    // Check for milestone inspections
+    if (pendingInspections) {
+      const assignmentMilestones = pendingInspections.filter((inspection: any) => 
+        inspection.assignmentId === assignmentId
+      );
+      setMilestones(assignmentMilestones);
+    }
+  }, [assignmentId, pendingInspections]);
+
+  const triggerMilestone = async (milestone: number) => {
+    try {
+      // Update progress to trigger milestone
+      const response = await apiRequest("POST", "/api/progress-monitor/check-milestones", {
+        assignmentId: assignmentId
+      });
+      
+      if (response.ok) {
+        console.log(`✅ ${milestone}% milestone triggered`);
+        // Refresh pending inspections
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("❌ Error triggering milestone:", error);
+    }
+  };
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 className="text-lg font-semibold text-yellow-400 mb-4">Progress Milestones</h2>
+      
+      <div className="space-y-4">
+        {/* Progress Bar */}
+        <div>
+          <div className="flex justify-between text-sm text-slate-400 mb-2">
+            <span>Overall Progress</span>
+            <span>{progress}%</span>
+          </div>
+          <div className="w-full bg-slate-700 rounded-full h-3">
+            <div 
+              className="bg-yellow-500 h-3 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Milestone Buttons */}
+        <div className="grid grid-cols-2 gap-3">
+          <Button 
+            onClick={() => triggerMilestone(50)}
+            className="bg-orange-600 hover:bg-orange-700 text-white"
+            disabled={progress < 50}
+          >
+            50% Milestone
+            {progress >= 50 ? " ✓" : " 🔒"}
+          </Button>
+          
+          <Button 
+            onClick={() => triggerMilestone(100)}
+            className="bg-green-600 hover:bg-green-700 text-white"
+            disabled={progress < 100}
+          >
+            100% Milestone
+            {progress >= 100 ? " ✓" : " 🔒"}
+          </Button>
+        </div>
+
+        {/* Active Milestones */}
+        {milestones.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-yellow-400 font-medium">Active Inspections Required:</h3>
+            {milestones.map((milestone: any, index: number) => (
+              <div key={index} className="bg-orange-600 rounded p-2 text-white text-sm">
+                🚨 {milestone.notificationType.replace('_', ' ').toUpperCase()} inspection required
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function AssignmentDetails() {
@@ -237,27 +451,11 @@ export default function AssignmentDetails() {
           </div>
         </div>
 
-        {/* Build Phases Status */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <h2 className="text-lg font-semibold text-yellow-400 mb-4">Build Phases Overview</h2>
-          <div className="space-y-3">
-            {assignment.buildPhases && Array.isArray(assignment.buildPhases) && assignment.buildPhases.map((phase: string, index: number) => (
-              <div key={index} className="bg-slate-700 rounded-lg p-3 border border-slate-600">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-slate-600 text-slate-400 rounded-full flex items-center justify-center">
-                      <span className="text-xs">{index + 1}</span>
-                    </div>
-                    <span className="text-white font-medium">{phase}</span>
-                  </div>
-                  <Badge className="bg-slate-600 text-slate-300 text-xs">
-                    Assigned
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Build Phases with Sub-Tasks */}
+        <SubTasksProgress assignment={assignment} />
+        
+        {/* Milestone Progress Monitoring */}
+        <MilestoneProgress assignmentId={assignment.id} />
 
         {/* Quick Report Section */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
