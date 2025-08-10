@@ -20,6 +20,11 @@ export default function TaskProgress() {
   const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
   const contractorFirstName = contractorName.split(' ')[0];
   
+  // Log immediately when component loads
+  console.log('🚀 TaskProgress component loaded');
+  console.log('🚀 contractorName from localStorage:', contractorName);
+  console.log('🚀 contractorFirstName:', contractorFirstName);
+  
   const { data: assignments = [], isLoading } = useQuery({
     queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
   });
@@ -27,7 +32,7 @@ export default function TaskProgress() {
   // Get the first (active) assignment
   const activeAssignment = (assignments as any[])[0];
   
-  // Debug logging
+  // Debug logging - these should show up in console
   console.log('🔍 Task Progress Debug - contractorFirstName:', contractorFirstName);
   console.log('🔍 Task Progress Debug - assignments:', assignments);
   console.log('🔍 Task Progress Debug - activeAssignment:', activeAssignment);

@@ -1,0 +1,46 @@
+✓ SessionStorage cleared
+VM210 eruda.js:2 ✓ SessionStorage cleared
+VM315 eruda.js:2 🔍 GPS Validation Check:
+VM315 eruda.js:2 - User location: null
+VM315 eruda.js:2 - Work site location: null
+VM315 eruda.js:2 - Assignments: 0
+VM315 eruda.js:2 ❌ Missing location data
+VM315 eruda.js:2 - User location missing: true
+VM315 eruda.js:2 - Work site location missing: true
+VM315 eruda.js:2 🔍 GPS Validation Check:
+VM315 eruda.js:2 - User location: {latitude: 51.4912091, longitude: 0.1477404, accuracy: 13.577}
+VM315 eruda.js:2 - Work site location: null
+VM315 eruda.js:2 - Assignments: 1
+VM315 eruda.js:2 ❌ Missing location data
+VM315 eruda.js:2 - User location missing: false
+VM315 eruda.js:2 - Work site location missing: true
+VM315 eruda.js:2  GET https://3ea69149-eb50-4887-9984-6e6eaf9900ae-00-1za3f2ke5oajn.spock.replit.dev/api/work-sessions/Dalwayne/active 404 (Not Found)
+window.fetch @ VM315 eruda.js:2
+apply @ VM316 injected.js:253
+queryFn @ VM357 gps-dashboard.tsx:305
+fetchFn @ VM348 @tanstack_react-query.js:840
+run @ VM348 @tanstack_react-query.js:494
+start @ VM348 @tanstack_react-query.js:536
+fetch @ VM348 @tanstack_react-query.js:926
+executeFetch_fn @ VM348 @tanstack_react-query.js:2211
+onSubscribe @ VM348 @tanstack_react-query.js:1898
+subscribe @ VM348 @tanstack_react-query.js:24
+(anonymous) @ VM348 @tanstack_react-query.js:3022
+subscribeToStore @ VM343 chunk-WERSD76P.js:11984
+commitHookEffectListMount @ VM343 chunk-WERSD76P.js:16915
+commitPassiveMountOnFiber @ VM343 chunk-WERSD76P.js:18156
+commitPassiveMountEffects_complete @ VM343 chunk-WERSD76P.js:18129
+commitPassiveMountEffects_begin @ VM343 chunk-WERSD76P.js:18119
+commitPassiveMountEffects @ VM343 chunk-WERSD76P.js:18109
+flushPassiveEffectsImpl @ VM343 chunk-WERSD76P.js:19490
+flushPassiveEffects @ VM343 chunk-WERSD76P.js:19447
+performSyncWorkOnRoot @ VM343 chunk-WERSD76P.js:18868
+flushSyncCallbacks @ VM343 chunk-WERSD76P.js:9119
+commitRootImpl @ VM343 chunk-WERSD76P.js:19432
+commitRoot @ VM343 chunk-WERSD76P.js:19277
+finishConcurrentRender @ VM343 chunk-WERSD76P.js:18805
+performConcurrentWorkOnRoot @ VM343 chunk-WERSD76P.js:18718
+workLoop @ VM343 chunk-WERSD76P.js:197
+flushWork @ VM343 chunk-WERSD76P.js:176
+performWorkUntilDeadline @ VM343 chunk-WERSD76P.js:384Understand this error
+VM315 eruda.js:2 ✓ SessionStorage cleared
