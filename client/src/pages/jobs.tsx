@@ -5,13 +5,14 @@ import { Badge } from "@/components/ui/badge";
 interface ContractorAssignment {
   id: string;
   contractorName: string;
-  location: string;
-  title: string;
-  phases: string;
+  workLocation: string;
+  hbxlJob: string;
+  buildPhases: string[];
   startDate: string;
-  dueDate: string;
+  endDate: string;
   status: string;
   createdAt: string;
+  specialInstructions?: string;
 }
 
 export default function Jobs() {
@@ -69,8 +70,8 @@ export default function Jobs() {
                       }`}></i>
                     </div>
                     <div>
-                      <h3 className="text-base font-semibold text-yellow-400">{assignment.title || 'Untitled Job'}</h3>
-                      <p className="text-slate-400 text-xs">{assignment.location || 'Location not set'}</p>
+                      <h3 className="text-base font-semibold text-yellow-400">{assignment.hbxlJob || 'Untitled Job'}</h3>
+                      <p className="text-slate-400 text-xs">{assignment.workLocation || 'Location not set'}</p>
                     </div>
                   </div>
                   <Badge className={`text-xs px-2 py-0.5 ${
@@ -87,13 +88,13 @@ export default function Jobs() {
                 <div className="space-y-1 text-xs mb-2">
                   <div className="flex items-center text-slate-300">
                     <i className="fas fa-clock text-slate-400 mr-1 w-3"></i>
-                    <span>{assignment.startDate} → {assignment.dueDate}</span>
+                    <span>{assignment.startDate} → {assignment.endDate}</span>
                   </div>
-                  {assignment.phases && (
+                  {assignment.buildPhases && assignment.buildPhases.length > 0 && (
                     <div className="flex items-start text-slate-300">
                       <i className="fas fa-tasks text-slate-400 mr-1 w-3 mt-0.5"></i>
                       <div className="flex flex-wrap gap-1">
-                        {JSON.parse(assignment.phases).slice(0, 2).map((phase: string, idx: number) => (
+                        {assignment.buildPhases.slice(0, 2).map((phase: string, idx: number) => (
                           <span 
                             key={idx}
                             className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded"
@@ -101,9 +102,9 @@ export default function Jobs() {
                             {phase}
                           </span>
                         ))}
-                        {JSON.parse(assignment.phases).length > 2 && (
+                        {assignment.buildPhases.length > 2 && (
                           <span className="text-slate-400 text-xs">
-                            +{JSON.parse(assignment.phases).length - 2} more
+                            +{assignment.buildPhases.length - 2} more
                           </span>
                         )}
                       </div>
