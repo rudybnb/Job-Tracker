@@ -92,6 +92,10 @@ export const contractorApplications = pgTable("contractor_applications", {
   adminPayRate: text("admin_pay_rate"), // Admin sets pay rate
   adminNotes: text("admin_notes"), // Admin internal notes
   
+  // Login credentials (set by admin when approving contractor)
+  username: text("username"), // Unique login username
+  password: text("password"), // Hashed password
+  
   // Metadata
   status: text("status").notNull().default("pending"),
   submittedAt: timestamp("submitted_at").defaultNow(),

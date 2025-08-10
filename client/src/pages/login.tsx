@@ -10,10 +10,10 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Check credentials and redirect accordingly
+    // Check admin credentials first
     if (username === "admin" && password === "admin123") {
       localStorage.setItem('userRole', 'admin');
       localStorage.setItem('isLoggedIn', 'true');
@@ -22,18 +22,53 @@ export default function Login() {
         title: "Login Successful",
         description: "Welcome back, Admin!",
       });
-    } else if (username === "contractor" && password === "contractor123") {
-      localStorage.setItem('userRole', 'contractor');
-      localStorage.setItem('isLoggedIn', 'true');
-      window.location.href = '/';
-      toast({
-        title: "Login Successful",
-        description: "Welcome back, James!",
+      return;
+    }
+    
+    // Check contractor credentials from database
+    try {
+      const response = await fetch('/api/contractor-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
       });
-    } else {
+      
+      if (response.ok) {
+        const contractor = await response.json();
+        localStorage.setItem('userRole', 'contractor');
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('contractorName', `${contractor.firstName} ${contractor.lastName}`);
+        window.location.href = '/';
+        toast({
+          title: "Login Successful",
+          description: `Welcome back, ${contractor.firstName}!`,
+        });
+      } else {
+        // Fallback to legacy contractor login
+        if (username === "contractor" && password === "contractor123") {
+          localStorage.setItem('userRole', 'contractor');
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('contractorName', 'James Wilson');
+          window.location.href = '/';
+          toast({
+            title: "Login Successful",
+            description: "Welcome back, James!",
+          });
+        } else {
+          toast({
+            title: "Login Failed",
+            description: "Invalid username or password",
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Login Failed",
-        description: "Invalid username or password",
+        description: "Unable to connect to server",
         variant: "destructive",
       });
     }
@@ -56,7 +91,7 @@ export default function Login() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="border-2 border-yellow-400 focus:border-yellow-500"
-                placeholder="admin"
+                placeholder="admin or dalwayne"
                 required
               />
             </div>

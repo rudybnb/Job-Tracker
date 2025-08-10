@@ -888,6 +888,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contractor login endpoint
+  app.post("/api/contractor-login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password required" });
+      }
+      
+      // Find contractor by username and password
+      const applications = await storage.getContractorApplications();
+      const contractor = applications.find(app => 
+        app.username === username && 
+        app.password === password &&
+        app.status === "approved"
+      );
+      
+      if (contractor) {
+        // Remove sensitive data before sending response
+        const { password: _, ...contractorData } = contractor;
+        res.json(contractorData);
+      } else {
+        res.status(401).json({ error: "Invalid credentials" });
+      }
+    } catch (error) {
+      console.error("Error during contractor login:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Contractor Application endpoints
   app.get("/api/contractor-applications", async (req, res) => {
     try {

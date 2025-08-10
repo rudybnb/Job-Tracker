@@ -84,6 +84,8 @@ The application offers a complete workflow with distinct role-based interfaces f
   - Telegram ID: 8016744652 (corrected from wrong ID 7617462316)
 - **Team Assignment Features**: Multiple contractor selection, auto-filled contact details, team notification system, visual badges for selected contractors
 - **Telegram Notification Fix**: Updated job assignment notifications to use contractor's correct Telegram ID from database
+- **Individual Contractor Login**: Created personalized login credentials for Dalwayne (username: dalwayne, password: dalwayne123)
+- **Database Authentication**: Enhanced login system to authenticate contractors against database credentials with fallback support
 
 ## External Dependencies
 
