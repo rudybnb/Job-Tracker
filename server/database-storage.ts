@@ -18,9 +18,11 @@ import {
   type ContractorReport,
   type InsertContractorReport,
   type AdminInspection,
-  type InsertAdminInspection
+  type InsertAdminInspection,
+  type InspectionNotification,
+  type InsertInspectionNotification
 } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -543,6 +545,49 @@ export class DatabaseStorage implements IStorage {
       .returning();
     console.log("📋 Updated admin inspection:", id);
     return inspection;
+  }
+
+  // Inspection Notifications for milestone triggers
+  async createInspectionNotification(insertNotification: InsertInspectionNotification): Promise<InspectionNotification> {
+    const [notification] = await db.insert(inspectionNotifications).values(insertNotification).returning();
+    console.log("🚨 Inspection notification created:", notification.notificationType, "for", notification.contractorName);
+    return notification;
+  }
+
+  async getInspectionNotifications(): Promise<InspectionNotification[]> {
+    return db.select().from(inspectionNotifications).orderBy(desc(inspectionNotifications.createdAt));
+  }
+
+  async getPendingInspectionNotifications(): Promise<InspectionNotification[]> {
+    return db.select().from(inspectionNotifications)
+      .where(and(
+        eq(inspectionNotifications.inspectionCompleted, false),
+        eq(inspectionNotifications.notificationSent, true)
+      ))
+      .orderBy(desc(inspectionNotifications.createdAt));
+  }
+
+  async completeInspectionNotification(id: string): Promise<InspectionNotification | undefined> {
+    const [notification] = await db
+      .update(inspectionNotifications)
+      .set({ 
+        inspectionCompleted: true,
+        completedAt: new Date()
+      })
+      .where(eq(inspectionNotifications.id, id))
+      .returning();
+    console.log("✅ Inspection notification completed:", id);
+    return notification;
+  }
+
+  // Check if inspection notification already exists for milestone
+  async getInspectionNotificationByAssignmentAndType(assignmentId: string, notificationType: string): Promise<InspectionNotification | undefined> {
+    const [notification] = await db.select().from(inspectionNotifications)
+      .where(and(
+        eq(inspectionNotifications.assignmentId, assignmentId),
+        eq(inspectionNotifications.notificationType, notificationType)
+      ));
+    return notification;
   }
 }
 

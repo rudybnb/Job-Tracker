@@ -219,6 +219,7 @@ export const adminInspections = pgTable("admin_inspections", {
   id: text("id").primaryKey().default(sql`gen_random_uuid()`),
   assignmentId: text("assignment_id").notNull(),
   inspectorName: text("inspector_name").notNull(),
+  inspectionType: text("inspection_type").notNull(), // "50_percent" or "100_percent"
   workQualityRating: text("work_quality_rating").notNull(),
   weatherConditions: text("weather_conditions").notNull(),
   progressComments: text("progress_comments").notNull(),
@@ -230,7 +231,24 @@ export const adminInspections = pgTable("admin_inspections", {
   status: text("status").default("draft").notNull(), // draft, submitted, contractor_viewed
 });
 
+// Inspection notifications to track when admin visits are needed
+export const inspectionNotifications = pgTable("inspection_notifications", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  assignmentId: text("assignment_id").notNull(),
+  contractorName: text("contractor_name").notNull(),
+  notificationType: text("notification_type").notNull(), // "50_percent_ready" or "100_percent_ready"
+  notificationSent: boolean("notification_sent").default(false).notNull(),
+  inspectionCompleted: boolean("inspection_completed").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
 export const insertAdminInspectionSchema = createInsertSchema(adminInspections).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInspectionNotificationSchema = createInsertSchema(inspectionNotifications).omit({
   id: true,
   createdAt: true,
 });
@@ -256,6 +274,8 @@ export type InsertContractorReport = z.infer<typeof insertContractorReportSchema
 export type ContractorReport = typeof contractorReports.$inferSelect;
 export type InsertAdminInspection = z.infer<typeof insertAdminInspectionSchema>;
 export type AdminInspection = typeof adminInspections.$inferSelect;
+export type InsertInspectionNotification = z.infer<typeof insertInspectionNotificationSchema>;
+export type InspectionNotification = typeof inspectionNotifications.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;

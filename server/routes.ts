@@ -1125,6 +1125,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Inspection Notification endpoints
+  app.get("/api/pending-inspections", async (req, res) => {
+    try {
+      const { progressMonitor } = await import("./progress-monitor");
+      const pendingInspections = await progressMonitor.getPendingInspections();
+      res.json(pendingInspections);
+    } catch (error) {
+      console.error("Error fetching pending inspections:", error);
+      res.status(500).json({ error: "Failed to fetch pending inspections" });
+    }
+  });
+
+  app.post("/api/trigger-progress-check/:assignmentId", async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const { progressMonitor } = await import("./progress-monitor");
+      await progressMonitor.checkProgressMilestones(assignmentId);
+      res.json({ success: true, message: "Progress check completed" });
+    } catch (error) {
+      console.error("Error triggering progress check:", error);
+      res.status(500).json({ error: "Failed to trigger progress check" });
+    }
+  });
+
+  app.post("/api/complete-inspection/:notificationId", async (req, res) => {
+    try {
+      const { notificationId } = req.params;
+      const notification = await storage.completeInspectionNotification(notificationId);
+      if (notification) {
+        res.json({ success: true, notification });
+      } else {
+        res.status(404).json({ error: "Notification not found" });
+      }
+    } catch (error) {
+      console.error("Error completing inspection:", error);
+      res.status(500).json({ error: "Failed to complete inspection" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
