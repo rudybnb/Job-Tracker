@@ -334,17 +334,17 @@ export default function More() {
         </div>
 
         {/* CIS Status Banner */}
-        <div className="bg-slate-800 border-l-4 border-green-500 rounded-lg p-4 mb-6">
+        <div className="bg-slate-800 border-l-4 border-orange-500 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <i className="fas fa-shield-alt text-green-500 mr-3"></i>
+              <i className="fas fa-exclamation-triangle text-orange-500 mr-3"></i>
               <div>
-                <div className="text-white font-semibold">CIS Registered</div>
-                <div className="text-slate-400 text-sm">{contractorInfo.cisRate}% tax deduction applied</div>
+                <div className="text-white font-semibold">Not CIS Registered</div>
+                <div className="text-slate-400 text-sm">30% tax deduction applied</div>
               </div>
             </div>
-            <Badge variant="default" className="bg-green-600">
-              Compliant
+            <Badge variant="default" className="bg-orange-600">
+              Non-CIS
             </Badge>
           </div>
         </div>
