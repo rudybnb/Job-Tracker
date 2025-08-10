@@ -8,7 +8,7 @@ import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
 
 // Quick Reports Component for Contractors
 function QuickReportsForContractor() {
-  const { data: contractorReports = [] } = useQuery({
+  const { data: contractorReports = [] } = useQuery<any[]>({
     queryKey: ["/api/contractor-reports"],
     refetchInterval: 30000, // Check for new reports every 30 seconds
   });
