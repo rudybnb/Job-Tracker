@@ -48,14 +48,21 @@ export default function AssignmentDetails() {
   // Quick Report mutation
   const createReportMutation = useMutation({
     mutationFn: async (reportData: { contractorName: string; assignmentId: string; reportText: string }) => {
+      console.log("📝 Submitting Quick Report:", reportData);
       const response = await apiRequest("POST", "/api/contractor-reports", reportData);
-      return response.json();
+      const result = await response.json();
+      console.log("✅ Quick Report submitted successfully:", result);
+      return result;
     },
     onSuccess: () => {
+      console.log("✅ Quick Report mutation successful");
       setReportText("");
       setShowQuickReport(false);
       // Refresh reports if needed
       queryClient.invalidateQueries({ queryKey: ["/api/contractor-reports"] });
+    },
+    onError: (error) => {
+      console.error("❌ Quick Report failed:", error);
     },
   });
 
