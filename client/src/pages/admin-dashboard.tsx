@@ -5,75 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-// Quick Reports Component for Priority Issues
-function QuickReportsSection() {
-  const { data: contractorReports = [] } = useQuery({
-    queryKey: ["/api/contractor-reports"],
-    refetchInterval: 30000, // Check for new reports every 30 seconds
-  });
 
-  if (contractorReports.length === 0) {
-    return (
-      <div className="text-center space-y-4">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 flex items-center justify-center">
-            <i className="fas fa-check-circle text-green-400 text-4xl"></i>
-          </div>
-        </div>
-        <div className="text-slate-400 text-sm">
-          No urgent issues reported. All systems running smoothly.
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {contractorReports.slice(0, 3).map((report: any) => (
-        <div key={report.id} className="bg-slate-700 rounded-lg p-3 border border-slate-600">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Badge className="text-xs bg-red-600">
-                  Quick Report
-                </Badge>
-                <span className="text-slate-200 font-medium text-sm">
-                  {report.contractorName}
-                </span>
-              </div>
-              <div className="text-slate-300 text-sm mb-1">
-                {report.reportText}
-              </div>
-              <div className="text-slate-400 text-xs">
-                {new Date(report.createdAt).toLocaleDateString()} • {new Date(report.createdAt).toLocaleTimeString()}
-              </div>
-            </div>
-            <div className="flex gap-2 ml-3">
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs px-2 py-1 border-slate-500 text-slate-200 hover:bg-slate-600"
-                onClick={() => window.open(`/assignment/${report.assignmentId}`, '_blank')}
-              >
-                View Job
-              </Button>
-            </div>
-          </div>
-        </div>
-      ))}
-      
-      {contractorReports.length > 3 && (
-        <Button
-          variant="outline"
-          className="w-full text-sm border-slate-500 text-slate-200 hover:bg-slate-600"
-          onClick={() => window.location.href = '/admin-reports'}
-        >
-          View All {contractorReports.length} Reports
-        </Button>
-      )}
-    </div>
-  );
-}
 
 interface PendingInspection {
   id: string;
@@ -602,14 +534,23 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Priority Issues Card - Shows Quick Reports */}
+        {/* Priority Issues Card - Admin reports problems */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <div className="flex items-center mb-4">
             <i className="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
             <h3 className="text-lg font-semibold text-yellow-600">Priority Issues</h3>
           </div>
           
-          <QuickReportsSection />
+          <div className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 flex items-center justify-center">
+                <i className="fas fa-check-circle text-green-400 text-4xl"></i>
+              </div>
+            </div>
+            <div className="text-slate-400 text-sm">
+              No urgent issues reported. All systems running smoothly.
+            </div>
+          </div>
         </div>
 
         {/* Site Inspections Required Card */}
