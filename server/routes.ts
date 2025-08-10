@@ -372,18 +372,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const assignments = await storage.getContractorAssignments(contractorName);
       
-      // Add GPS coordinates to assignments that don't have them
+      // Add GPS coordinates to assignments that don't have them OR update with current coordinates
       const updatedAssignments = assignments.map(assignment => {
-        if (!assignment.latitude || !assignment.longitude) {
-          const coordinates = getPostcodeCoordinates(assignment.workLocation || '');
-          if (coordinates) {
-            console.log(`📍 Adding GPS coordinates to assignment ${assignment.id} for ${assignment.workLocation}: ${coordinates.latitude}, ${coordinates.longitude}`);
-            return {
-              ...assignment,
-              latitude: coordinates.latitude,
-              longitude: coordinates.longitude
-            };
-          }
+        const coordinates = getPostcodeCoordinates(assignment.workLocation || '');
+        if (coordinates) {
+          // Always update coordinates to ensure they're current
+          console.log(`📍 Setting GPS coordinates for assignment ${assignment.id} at ${assignment.workLocation}: ${coordinates.latitude}, ${coordinates.longitude}`);
+          return {
+            ...assignment,
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude
+          };
         }
         return assignment;
       });
@@ -413,8 +412,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function getPostcodeCoordinates(postcode: string): { latitude: string; longitude: string } | null {
     // Simple postcode-to-GPS lookup for common UK postcodes
     const postcodeMap: { [key: string]: { latitude: string; longitude: string } } = {
-      'DA17 5DB': { latitude: '51.4712', longitude: '0.1478' },
-      'DA17': { latitude: '51.4712', longitude: '0.1478' },
+      'DA17 5DB': { latitude: '51.4851', longitude: '0.1540' },
+      'DA17': { latitude: '51.4851', longitude: '0.1540' },
       'BR9': { latitude: '51.4612', longitude: '0.1388' },
       'SE9': { latitude: '51.4629', longitude: '0.0789' },
       'DA8': { latitude: '51.4891', longitude: '0.2245' },
