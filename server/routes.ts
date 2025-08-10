@@ -296,43 +296,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             phaseTaskDataKeys: Object.keys(phaseTaskData),
             totalTasks: Object.values(phaseTaskData).reduce((sum, tasks) => sum + tasks.length, 0)
           });
-          
-          console.log('🔍 CSV Header Analysis:', {
-            phaseColumn: phaseColumnIndex,
-            descriptionColumn: descriptionColumnIndex, 
-            quantityColumn: quantityColumnIndex,
-            headers: headers
-          });
-          
-          if (phaseColumnIndex >= 0) {
-            for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
-              const values = lines[i].split(',').map(v => v.trim());
-              const phase = values[phaseColumnIndex];
-              const description = values[descriptionColumnIndex] || '';
-              const quantityStr = values[quantityColumnIndex] || '0';
-              const quantity = parseInt(quantityStr) || 0;
-              
-              if (phase && phase !== '') {
-                // Add to phases list
-                if (!phases.includes(phase)) {
-                  phases.push(phase);
-                }
-                
-                // Add detailed task data 
-                if (!phaseTaskData[phase]) {
-                  phaseTaskData[phase] = [];
-                }
-                
-                if (description && description !== '') {
-                  phaseTaskData[phase].push({
-                    description: description,
-                    quantity: quantity,
-                    task: `Install ${description.toLowerCase()}`
-                  });
-                }
-              }
-            }
-          }
         }
         
         console.log('🎯 Extracted Phase Task Data:', Object.keys(phaseTaskData).map(phase => 
