@@ -22,6 +22,8 @@ export default function ContractorForm() {
     hasRightToWork: false,
     passportNumber: "",
     passportPhotoUploaded: false,
+    passportPhotoFile: null, // Store the actual file
+    passportPhotoName: "", // Store the file name
     utrNumber: "",
     isCisRegistered: null, // null means not selected yet
     hasPublicLiability: false,
@@ -386,10 +388,29 @@ export default function ContractorForm() {
                     <label className="block text-yellow-400 text-sm font-medium mb-2">Passport Photo</label>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*,application/pdf"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          // Basic file validation
+                          if (file.size > 10 * 1024 * 1024) { // 10MB limit
+                            toast({
+                              title: "File too large",
+                              description: "Please select a file smaller than 10MB",
+                              variant: "destructive"
+                            });
+                            return;
+                          }
+                          
+                          // Store file information
                           updateFormData("passportPhotoUploaded", true);
+                          updateFormData("passportPhotoFile", file);
+                          updateFormData("passportPhotoName", file.name);
+                          
+                          toast({
+                            title: "Photo uploaded",
+                            description: `Successfully uploaded ${file.name}`,
+                          });
                         }
                       }}
                       className="hidden"
@@ -400,14 +421,24 @@ export default function ContractorForm() {
                       className="bg-yellow-500 hover:bg-yellow-600 text-black font-medium px-6 py-2 rounded-lg flex items-center space-x-2 cursor-pointer inline-flex"
                     >
                       <Upload className="w-4 h-4" />
-                      <span>Upload Passport Photo</span>
+                      <span>{formData.passportPhotoUploaded ? "Change Photo" : "Upload Passport Photo"}</span>
                     </label>
                     {formData.passportPhotoUploaded && (
-                      <div className="mt-2 flex items-center space-x-2 text-green-400">
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="text-sm">Photo uploaded successfully</span>
+                      <div className="mt-2 space-y-1">
+                        <div className="flex items-center space-x-2 text-green-400">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-sm">Photo uploaded successfully</span>
+                        </div>
+                        {formData.passportPhotoName && (
+                          <div className="text-xs text-slate-400">
+                            File: {formData.passportPhotoName}
+                          </div>
+                        )}
                       </div>
                     )}
+                    <div className="mt-2 text-xs text-slate-400">
+                      Accepted formats: JPG, PNG, PDF (max 10MB)
+                    </div>
                   </div>
                 </CardContent>
               </Card>
