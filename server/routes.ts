@@ -124,11 +124,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/csv-uploads/:id", async (req, res) => {
     try {
       const uploadId = req.params.id;
+      console.log("🗑️ COMPLETE CLEANUP starting for upload:", uploadId);
+      
+      // MANDATORY RULE 3: CSV DATA SUPREMACY - When CSV deleted, ALL job data must be removed
+      // Only GPS coordinates and contractor rates should persist per user requirement
+      
+      // 1. Delete all jobs created from this CSV upload
+      const jobs = await storage.getJobs();
+      const jobsToDelete = jobs.filter(job => job.uploadId === uploadId);
+      console.log(`🗑️ Found ${jobsToDelete.length} jobs to delete for upload: ${uploadId}`);
+      
+      for (const job of jobsToDelete) {
+        console.log(`🗑️ Deleting job: ${job.id} (${job.title})`);
+        await storage.deleteJob(job.id);
+      }
+      
+      // 2. Delete ALL job assignments (contractor dashboard should be empty)
+      const allAssignments = await storage.getAllJobAssignments();
+      console.log(`🗑️ Found ${allAssignments.length} total assignments to check`);
+      
+      for (const assignment of allAssignments) {
+        console.log(`🗑️ Deleting assignment: ${assignment.id} for contractor: ${assignment.contractorName}`);
+        await storage.deleteJobAssignment(assignment.id);
+      }
+      
+      // 3. Delete ALL inspection notifications (site inspections should disappear)
+      await storage.deleteAllInspectionNotifications();
+      console.log("🗑️ Deleted all inspection notifications");
+      
+      // 4. Delete ALL contractor reports related to assignments
+      await storage.deleteAllContractorReports();
+      console.log("🗑️ Deleted all contractor reports");
+      
+      // 5. Delete ALL admin inspections
+      await storage.deleteAllAdminInspections();
+      console.log("🗑️ Deleted all admin inspections");
+      
+      // 6. Finally delete the CSV upload record
       await storage.deleteCsvUpload(uploadId);
-      res.json({ success: true, message: "Upload record deleted successfully" });
+      console.log("🗑️ Deleted CSV upload record");
+      
+      console.log("✅ COMPLETE CLEANUP finished - Only GPS coordinates and contractor rates remain");
+      res.json({ 
+        success: true, 
+        message: "Complete cleanup successful - all job data permanently removed",
+        preserved: "GPS coordinates and contractor rates maintained"
+      });
     } catch (error) {
-      console.error("Error deleting CSV upload:", error);
-      res.status(500).json({ error: "Failed to delete upload record" });
+      console.error("Error in complete cleanup:", error);
+      res.status(500).json({ error: "Failed to complete cleanup" });
     }
   });
 

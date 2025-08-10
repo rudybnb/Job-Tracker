@@ -198,6 +198,12 @@ export class DatabaseStorage implements IStorage {
     return job;
   }
 
+  async deleteJob(id: string): Promise<boolean> {
+    const result = await db.delete(jobs).where(eq(jobs.id, id));
+    console.log("🗑️ Deleted job:", id, "Affected rows:", result.rowCount);
+    return result.rowCount > 0;
+  }
+
   async createJobsFromCsv(jobsData: InsertJob[], uploadId: string): Promise<Job[]> {
     const createdJobs = await db.insert(jobs).values(jobsData).returning();
     return createdJobs;
@@ -588,6 +594,34 @@ export class DatabaseStorage implements IStorage {
         eq(inspectionNotifications.notificationType, notificationType)
       ));
     return notification;
+  }
+
+  async deleteInspectionNotification(id: string): Promise<boolean> {
+    const result = await db.delete(inspectionNotifications).where(eq(inspectionNotifications.id, id));
+    console.log("🗑️ Deleted inspection notification:", id, "Affected rows:", result.rowCount);
+    return result.rowCount > 0;
+  }
+
+  // COMPLETE CLEANUP METHODS - Following MANDATORY RULE 1: Fix broken data persistence
+  async getAllJobAssignments(): Promise<JobAssignmentRecord[]> {
+    const assignments = await db.select().from(jobAssignments);
+    console.log(`📋 Fetching all job assignments: ${assignments.length} found`);
+    return assignments;
+  }
+
+  async deleteAllInspectionNotifications(): Promise<void> {
+    const result = await db.delete(inspectionNotifications);
+    console.log("🗑️ Deleted all inspection notifications - Affected rows:", result.rowCount);
+  }
+
+  async deleteAllContractorReports(): Promise<void> {
+    const result = await db.delete(contractorReports);
+    console.log("🗑️ Deleted all contractor reports - Affected rows:", result.rowCount);
+  }
+
+  async deleteAllAdminInspections(): Promise<void> {
+    const result = await db.delete(adminInspections);
+    console.log("🗑️ Deleted all admin inspections - Affected rows:", result.rowCount);
   }
 }
 
