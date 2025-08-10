@@ -404,6 +404,7 @@ Looking forward to today's assignments! 💪`;
     email: string;
     primaryTrade: string;
     adminPayRate?: string;
+    telegramId?: string;
   }) {
     try {
       console.log('📱 Sending approval notification to contractor...');
@@ -413,7 +414,8 @@ Looking forward to today's assignments! 💪`;
         return { success: true, simulated: true };
       }
 
-      const chatId = '7617462316';
+      // Use contractor's actual Telegram ID if available, otherwise use known Dalwayne's ID
+      const chatId = contractorData.telegramId || '8016744652'; // Dalwayne's actual chat ID
       
       const payRateInfo = contractorData.adminPayRate 
         ? `💰 <b>Pay Rate:</b> £${contractorData.adminPayRate}/hour`
