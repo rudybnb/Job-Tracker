@@ -139,6 +139,11 @@ function Router() {
             <AdminSettings />
           </ProtectedRoute>
         )} />
+        <Route path="/admin-site-reporting" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AssignmentDetails />
+          </ProtectedRoute>
+        )} />
         <Route component={NotFound} />
       </Switch>
     </div>

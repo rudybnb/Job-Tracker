@@ -115,35 +115,20 @@ export default function Jobs() {
                 <div className="flex space-x-2">
                   <Button
                     size="sm"
-                    className="bg-yellow-500 hover:bg-yellow-600 text-black text-xs px-3 py-1 h-7"
-                    onClick={() => window.location.href = '/task-progress'}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 h-7 flex-1"
+                    onClick={() => window.location.href = `/admin-site-reporting?assignmentId=${assignment.id}`}
                   >
-                    <i className="fas fa-tasks mr-1"></i>
-                    View Tasks
+                    <i className="fas fa-clipboard-check mr-1"></i>
+                    Inspect & Report
                   </Button>
                   
                   <Button
                     size="sm"
-                    variant="outline"
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700 text-xs px-3 py-1 h-7"
-                    onClick={() => window.location.href = '/'}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-black text-xs px-3 py-1 h-7"
+                    onClick={() => window.location.href = '/task-progress'}
                   >
-                    <i className="fas fa-map-marker-alt mr-1"></i>
-                    GPS Tracker
-                  </Button>
-                </div>
-                  <Button 
-                    size="sm" 
-                    className="bg-yellow-600 hover:bg-yellow-700 text-black flex-1 h-8 text-xs"
-                    onClick={() => window.location.href = `/task-progress?jobId=${assignment.id}&location=${encodeURIComponent(assignment.location)}`}
-                  >
-                    Continue Work
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 h-8 text-xs"
-                  >
-                    <i className="fas fa-exclamation-triangle"></i>
+                    <i className="fas fa-tasks mr-1"></i>
+                    Tasks
                   </Button>
                 </div>
               </div>
