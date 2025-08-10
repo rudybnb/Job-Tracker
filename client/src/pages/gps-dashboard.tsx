@@ -41,25 +41,39 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
     );
   }
 
-  // Use assignments directly - data integrity is enforced at the API level
+  // FIXED: Display ALL assignments, not just the first one
   const validAssignments = assignments as any[];
 
-  const activeAssignment = validAssignments[0];
-
   return (
-    <div className="bg-slate-700 rounded-lg p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <i className="fas fa-map-marker-alt text-yellow-400"></i>
-          <div>
-            <div className="text-white font-medium text-lg">{activeAssignment.workLocation}</div>
-            <div className="text-slate-400 text-sm">{activeAssignment.hbxlJob}</div>
+    <div className="space-y-3">
+      {validAssignments.map((assignment: any, index: number) => (
+        <div key={assignment.id} className="bg-slate-700 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <i className="fas fa-map-marker-alt text-yellow-400"></i>
+              <div>
+                <div className="text-white font-medium text-lg">{assignment.workLocation}</div>
+                <div className="text-slate-400 text-sm">{assignment.hbxlJob}</div>
+              </div>
+            </div>
+            <Badge className="bg-yellow-500 text-black text-xs px-2 py-1">
+              active
+            </Badge>
           </div>
+          {assignment.buildPhases && assignment.buildPhases.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {assignment.buildPhases.map((phase: string, idx: number) => (
+                <span 
+                  key={idx}
+                  className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded"
+                >
+                  {phase}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-        <Badge className="bg-yellow-500 text-black text-xs px-2 py-1">
-          active
-        </Badge>
-      </div>
+      ))}
     </div>
   );
 }

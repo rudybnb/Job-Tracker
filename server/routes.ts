@@ -443,6 +443,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update job assignment
+  app.put("/api/job-assignments/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log("📝 Updating job assignment:", id, "with:", req.body);
+      
+      const updated = await storage.updateJobAssignment(id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      res.status(200).json(updated);
+    } catch (error) {
+      console.error("Error updating job assignment:", error);
+      res.status(500).json({ error: "Failed to update job assignment" });
+    }
+  });
+
   // Delete job assignment
   app.delete("/api/job-assignments/:id", async (req, res) => {
     try {

@@ -285,6 +285,16 @@ export class DatabaseStorage implements IStorage {
     return assignment;
   }
 
+  async updateJobAssignment(id: string, updates: Partial<JobAssignmentRecord>): Promise<JobAssignmentRecord | undefined> {
+    const [assignment] = await db
+      .update(jobAssignments)
+      .set(updates)
+      .where(eq(jobAssignments.id, id))
+      .returning();
+    console.log("📝 Updated job assignment:", id);
+    return assignment;
+  }
+
   async deleteJobAssignment(id: string): Promise<boolean> {
     const result = await db.delete(jobAssignments).where(eq(jobAssignments.id, id));
     console.log("🗑️ Deleted job assignment:", id, "Affected rows:", result.rowCount);
