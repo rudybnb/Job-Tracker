@@ -60,11 +60,11 @@ The application features a dark navy background (`#1e293b`) with muted yellow-gr
 ### System Design Choices
 The application offers a complete workflow with distinct role-based interfaces for administrators and contractors. It manages operations from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize data persistence (PostgreSQL), security (GPS validation), and user experience.
 
-### Recent Technical Achievements (August 9, 2025)
-- **CSV Data Supremacy Implementation**: Successfully extracted authentic HBXL electrical task data, displaying 7 real tasks with quantities from actual construction CSV
-- **Weekend Overtime Extension**: Extended overtime control system to include both Saturday and Sunday with independent admin toggles
-- **Database Storage Enhancement**: Fixed `phaseTaskData` field retrieval ensuring authentic task information is properly stored and displayed
-- **GPS Validation Enhancement**: Updated working hours logic to support configurable weekend overtime with full location validation maintained
+### Recent Technical Achievements (August 10, 2025)
+- **Jobs Page Interactive Functionality**: Added "View Details" and "Tasks" buttons to job assignments, enabling contractors to inspect assignments and access task progress
+- **Assignment Details Access**: Fixed field mapping issues (hbxlJob vs title, workLocation vs location) so job assignments display correctly as "Flat 2" at "DA17 5DB"
+- **Contractor Assignment Workflow**: Contractors can now view detailed assignment information including phases, dates, and site reporting features through `/assignment/:id` route
+- **Database Synchronization**: Resolved duplicate function issues in database storage ensuring consistent data retrieval for contractor assignments
 
 ## External Dependencies
 

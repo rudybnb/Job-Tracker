@@ -116,10 +116,10 @@ export default function Jobs() {
                   <Button
                     size="sm"
                     className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 h-7 flex-1"
-                    onClick={() => window.location.href = `/admin-site-reporting?assignmentId=${assignment.id}`}
+                    onClick={() => window.location.href = `/assignment/${assignment.id}`}
                   >
                     <i className="fas fa-clipboard-check mr-1"></i>
-                    Inspect & Report
+                    View Details
                   </Button>
                   
                   <Button
