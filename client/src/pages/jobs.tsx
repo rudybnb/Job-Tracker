@@ -113,6 +113,25 @@ export default function Jobs() {
                 </div>
                 
                 <div className="flex space-x-2">
+                  <Button
+                    size="sm"
+                    className="bg-yellow-500 hover:bg-yellow-600 text-black text-xs px-3 py-1 h-7"
+                    onClick={() => window.location.href = '/task-progress'}
+                  >
+                    <i className="fas fa-tasks mr-1"></i>
+                    View Tasks
+                  </Button>
+                  
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700 text-xs px-3 py-1 h-7"
+                    onClick={() => window.location.href = '/'}
+                  >
+                    <i className="fas fa-map-marker-alt mr-1"></i>
+                    GPS Tracker
+                  </Button>
+                </div>
                   <Button 
                     size="sm" 
                     className="bg-yellow-600 hover:bg-yellow-700 text-black flex-1 h-8 text-xs"
