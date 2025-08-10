@@ -422,6 +422,19 @@ export default function TaskProgress() {
           <div className="text-slate-400 text-sm">Project</div>
           <div className="text-white font-medium">{currentProject}</div>
           <div className="text-slate-400 text-sm mt-1">Category</div>
+          
+          {/* Admin Notes Section */}
+          {activeAssignment?.specialInstructions && (
+            <div className="mt-3 bg-yellow-900/30 border border-yellow-700 rounded-lg p-3">
+              <div className="flex items-start">
+                <i className="fas fa-sticky-note text-yellow-400 mr-2 mt-0.5"></i>
+                <div>
+                  <div className="text-yellow-400 font-medium text-sm mb-1">Admin Notes:</div>
+                  <div className="text-white text-sm">{activeAssignment.specialInstructions}</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Overall Progress Card */}

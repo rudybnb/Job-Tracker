@@ -113,6 +113,15 @@ export default function Jobs() {
                       </div>
                     </div>
                   )}
+                  {assignment.specialInstructions && (
+                    <div className="flex items-start text-slate-300 mt-1">
+                      <i className="fas fa-sticky-note text-yellow-400 mr-1 w-3 mt-0.5"></i>
+                      <div className="bg-yellow-900/30 border border-yellow-700 rounded px-2 py-1 text-xs">
+                        <span className="text-yellow-400 font-medium">Note: </span>
+                        <span>{assignment.specialInstructions}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex space-x-2">
