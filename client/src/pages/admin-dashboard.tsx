@@ -389,12 +389,12 @@ export default function AdminDashboard() {
                   <button 
                     onClick={() => {
                       setShowAvatarDropdown(false);
-                      toast({ title: "Quality Control", description: "Opening work inspection & quality control..." });
+                      window.location.href = '/admin-site-inspections';
                     }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-red-400 bg-red-900/20"
                   >
                     <i className="fas fa-clipboard-check mr-3 w-4"></i>
-                    Work Inspection & Quality Control
+                    🔍 Admin Site Inspections 🔍
                   </button>
                   
                   <button 

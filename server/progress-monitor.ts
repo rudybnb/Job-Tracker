@@ -13,9 +13,25 @@ export class ProgressMonitor {
         return 0;
       }
 
-      // Find the uploaded job that matches this assignment
+      // Find the uploaded job that matches this assignment - FIXED JOB MATCHING
       const uploadedJobs = await storage.getJobs();
-      const job = uploadedJobs.find((j: any) => j.name === assignment.hbxlJob);
+      const job = uploadedJobs.find((j: any) => {
+        // Method 1: Direct name match
+        if (j.name === assignment.hbxlJob) return true;
+        
+        // Method 2: Xavier jones special case (assignment may be "Flat 2" or "Xavier jones")
+        if (j.name.toLowerCase().includes('xavier') && 
+           (assignment.hbxlJob.toLowerCase().includes('xavier') || assignment.hbxlJob.toLowerCase().includes('flat'))) {
+          return true;
+        }
+        
+        // Method 3: Postcode/address match
+        if (j.postcode === assignment.workLocation || j.address?.includes(assignment.workLocation)) {
+          return true;
+        }
+        
+        return false;
+      });
       if (!job || !job.phaseTaskData) {
         console.log("⚠️ No task data found for job:", assignment.hbxlJob);
         return 0;

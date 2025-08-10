@@ -145,6 +145,11 @@ function Router() {
             <AdminInspections />
           </ProtectedRoute>
         )} />
+        <Route path="/admin-site-inspections" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            {lazy(() => import("@/pages/admin-site-inspections")).default}
+          </ProtectedRoute>
+        )} />
         <Route path="/admin-site-reporting" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AssignmentDetails />
