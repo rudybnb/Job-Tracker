@@ -16,9 +16,11 @@ import {
   type JobAssignmentRecord,
   type InsertJobAssignment,
   type ContractorReport,
-  type InsertContractorReport
+  type InsertContractorReport,
+  type AdminInspection,
+  type InsertAdminInspection
 } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -71,6 +73,12 @@ export interface IStorage {
   // Contractor Reports
   createContractorReport(report: InsertContractorReport): Promise<ContractorReport>;
   getContractorReports(): Promise<ContractorReport[]>;
+  
+  // Admin Inspections
+  createAdminInspection(inspection: InsertAdminInspection): Promise<AdminInspection>;
+  getAdminInspections(): Promise<AdminInspection[]>;
+  getAdminInspectionsByAssignment(assignmentId: string): Promise<AdminInspection[]>;
+  updateAdminInspection(id: string, inspection: Partial<AdminInspection>): Promise<AdminInspection | undefined>;
   
   // Stats
   getStats(): Promise<{
@@ -508,6 +516,33 @@ export class DatabaseStorage implements IStorage {
 
   async getContractorReports(): Promise<ContractorReport[]> {
     return db.select().from(contractorReports).orderBy(desc(contractorReports.createdAt));
+  }
+
+  // Admin Inspections
+  async createAdminInspection(insertInspection: InsertAdminInspection): Promise<AdminInspection> {
+    const [inspection] = await db.insert(adminInspections).values(insertInspection).returning();
+    console.log("📋 Created admin inspection:", inspection.id, "by", inspection.inspectorName);
+    return inspection;
+  }
+
+  async getAdminInspections(): Promise<AdminInspection[]> {
+    return db.select().from(adminInspections).orderBy(desc(adminInspections.createdAt));
+  }
+
+  async getAdminInspectionsByAssignment(assignmentId: string): Promise<AdminInspection[]> {
+    return db.select().from(adminInspections)
+      .where(eq(adminInspections.assignmentId, assignmentId))
+      .orderBy(desc(adminInspections.createdAt));
+  }
+
+  async updateAdminInspection(id: string, updates: Partial<AdminInspection>): Promise<AdminInspection | undefined> {
+    const [inspection] = await db
+      .update(adminInspections)
+      .set(updates)
+      .where(eq(adminInspections.id, id))
+      .returning();
+    console.log("📋 Updated admin inspection:", id);
+    return inspection;
   }
 }
 

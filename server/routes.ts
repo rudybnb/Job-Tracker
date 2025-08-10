@@ -1079,6 +1079,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Inspection endpoints
+  app.post("/api/admin-inspections", async (req, res) => {
+    try {
+      const inspectionData = {
+        assignmentId: req.body.assignmentId,
+        inspectorName: req.body.inspectorName,
+        workQualityRating: req.body.workQualityRating,
+        weatherConditions: req.body.weatherConditions,
+        progressComments: req.body.progressComments,
+        safetyNotes: req.body.safetyNotes || "",
+        materialsIssues: req.body.materialsIssues || "",
+        nextActions: req.body.nextActions || "",
+        photoUrls: req.body.photoUrls || [],
+        status: req.body.status || "draft"
+      };
+
+      const inspection = await storage.createAdminInspection(inspectionData);
+      console.log("📋 Admin inspection created successfully");
+      res.status(201).json(inspection);
+    } catch (error) {
+      console.error("Error creating admin inspection:", error);
+      res.status(500).json({ error: "Failed to create admin inspection" });
+    }
+  });
+
+  app.get("/api/admin-inspections", async (req, res) => {
+    try {
+      const inspections = await storage.getAdminInspections();
+      res.json(inspections);
+    } catch (error) {
+      console.error("Error fetching admin inspections:", error);
+      res.status(500).json({ error: "Failed to fetch admin inspections" });
+    }
+  });
+
+  app.get("/api/admin-inspections/assignment/:assignmentId", async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const inspections = await storage.getAdminInspectionsByAssignment(assignmentId);
+      res.json(inspections);
+    } catch (error) {
+      console.error("Error fetching inspections for assignment:", error);
+      res.status(500).json({ error: "Failed to fetch inspections for assignment" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

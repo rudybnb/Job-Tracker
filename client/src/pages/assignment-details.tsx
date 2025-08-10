@@ -250,13 +250,130 @@ export default function AssignmentDetails() {
           )}
         </div>
 
-        {/* Admin Reports Section */}
+        {/* Admin Site Inspection Form */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
-            📋 Admin Reports
+            📷 Admin Site Inspection
+          </h2>
+          
+          <div className="space-y-4">
+            {/* Photo Upload Section */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Site Photos
+              </label>
+              <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-slate-500 transition-colors">
+                <div className="space-y-3">
+                  <div className="text-slate-400 text-3xl">📷</div>
+                  <div>
+                    <p className="text-slate-400">Upload photos from site visit</p>
+                    <p className="text-xs text-slate-500">Support: JPG, PNG, HEIC. Max 10MB per photo</p>
+                  </div>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    Add Photos
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Progress Assessment */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Progress Comments
+              </label>
+              <textarea
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+                rows={4}
+                placeholder="Enter detailed observations about work progress, quality, and any issues..."
+              />
+            </div>
+
+            {/* Quality Assessment */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Work Quality Rating
+                </label>
+                <select className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500">
+                  <option>Rate quality...</option>
+                  <option>Excellent</option>
+                  <option>Good</option>
+                  <option>Satisfactory</option>
+                  <option>Needs Improvement</option>
+                  <option>Unsatisfactory</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Weather Conditions
+                </label>
+                <select className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500">
+                  <option>Select weather...</option>
+                  <option>Clear/Sunny</option>
+                  <option>Cloudy</option>
+                  <option>Light Rain</option>
+                  <option>Heavy Rain</option>
+                  <option>Snow</option>
+                  <option>Windy</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Safety & Compliance */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Safety & Compliance Notes
+              </label>
+              <textarea
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+                rows={3}
+                placeholder="Note any safety concerns, compliance issues, or recommendations..."
+              />
+            </div>
+
+            {/* Materials & Issues */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Materials & Issues
+              </label>
+              <textarea
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+                rows={3}
+                placeholder="List any missing materials, delivery issues, or equipment problems..."
+              />
+            </div>
+
+            {/* Next Actions */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Next Actions Required
+              </label>
+              <textarea
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+                rows={2}
+                placeholder="Specify any follow-up actions, deliveries, or corrections needed..."
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex space-x-3 pt-4">
+              <Button className="bg-green-600 hover:bg-green-700 text-white flex-1">
+                Save Inspection Report
+              </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white flex-1">
+                Submit & Notify Contractor
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Previous Admin Reports */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
+            📋 Previous Site Inspections
           </h2>
           <p className="text-slate-400 text-sm">
-            Admin inspection reports and feedback will appear here when site visits are completed.
+            Previous admin inspection reports will appear here with photos and detailed assessments.
           </p>
           
           <div className="text-center py-8">

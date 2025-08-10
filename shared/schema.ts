@@ -214,6 +214,27 @@ export const insertContractorReportSchema = createInsertSchema(contractorReports
   createdAt: true,
 });
 
+// Admin Site Inspections table for detailed admin reports with photos
+export const adminInspections = pgTable("admin_inspections", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  assignmentId: text("assignment_id").notNull(),
+  inspectorName: text("inspector_name").notNull(),
+  workQualityRating: text("work_quality_rating").notNull(),
+  weatherConditions: text("weather_conditions").notNull(),
+  progressComments: text("progress_comments").notNull(),
+  safetyNotes: text("safety_notes"),
+  materialsIssues: text("materials_issues"),
+  nextActions: text("next_actions"),
+  photoUrls: text("photo_urls").array(), // Array of photo URLs
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  status: text("status").default("draft").notNull(), // draft, submitted, contractor_viewed
+});
+
+export const insertAdminInspectionSchema = createInsertSchema(adminInspections).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertContractor = z.infer<typeof insertContractorSchema>;
 export type Contractor = typeof contractors.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
@@ -233,6 +254,8 @@ export type InsertJobAssignment = z.infer<typeof insertJobAssignmentSchema>;
 export type JobAssignmentRecord = typeof jobAssignments.$inferSelect;
 export type InsertContractorReport = z.infer<typeof insertContractorReportSchema>;
 export type ContractorReport = typeof contractorReports.$inferSelect;
+export type InsertAdminInspection = z.infer<typeof insertAdminInspectionSchema>;
+export type AdminInspection = typeof adminInspections.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;
