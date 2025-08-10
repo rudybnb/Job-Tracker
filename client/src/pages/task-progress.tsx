@@ -81,14 +81,19 @@ export default function TaskProgress() {
           
           // Use the correct phase data structure - CSV data is already parsed
           const phaseData = matchingJob.phaseData;
+          console.log('🔍 Phase data found:', Object.keys(phaseData));
+          console.log('🔍 Assignment phases:', activeAssignment.buildPhases);
           
           // Create tasks from real CSV data for each assigned phase - Column G contains quantities
           activeAssignment.buildPhases.forEach((phase: string) => {
+            console.log(`🔍 Processing phase: ${phase}`);
             if (phaseData[phase]) {
+              console.log(`✅ Found data for phase ${phase}:`, phaseData[phase].length, 'items');
               // Use actual CSV items for this phase with Column G quantities
-              phaseData[phase].forEach((item: any) => {
+              phaseData[phase].forEach((item: any, index: number) => {
                 // Extract quantity from Column G - this is what contractors track with +/- buttons
                 const quantityFromColumnG = parseInt(item.quantity) || 1;
+                console.log(`📝 Adding task ${index + 1}:`, item.description, 'Qty:', quantityFromColumnG);
                 
                 newTasks.push({
                   id: `${phase}-${taskId++}`, // Phase-specific ID to prevent cross-contamination
@@ -101,6 +106,7 @@ export default function TaskProgress() {
                 });
               });
             } else {
+              console.log(`❌ No CSV data found for phase: ${phase}`);
               // If no CSV data for this phase, create a basic task
               newTasks.push({
                 id: `${phase}-${taskId++}`, // Phase-specific ID
@@ -113,6 +119,8 @@ export default function TaskProgress() {
               });
             }
           });
+          
+          console.log('📊 Total tasks created:', newTasks.length);
         } else {
           // Fallback: create basic tasks if no CSV data found
           let taskId = 1;
