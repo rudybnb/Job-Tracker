@@ -24,7 +24,7 @@ import {
 } from "@shared/schema";
 import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or, like } from "drizzle-orm";
 
 export interface IStorage {
   // Contractors
@@ -304,9 +304,13 @@ export class DatabaseStorage implements IStorage {
 
   async getContractorAssignments(contractorName: string): Promise<JobAssignmentRecord[]> {
     try {
-      // Use simplified approach to fetch assignments
+      // Handle both full name and first name matches
+      // If searching for "Dalwayne", find "Dalwayne Diedericks" 
       const assignments = await db.query.jobAssignments.findMany({
-        where: eq(jobAssignments.contractorName, contractorName)
+        where: or(
+          eq(jobAssignments.contractorName, contractorName),
+          like(jobAssignments.contractorName, `${contractorName}%`)
+        )
       });
       
       console.log(`📋 Found ${assignments.length} assignments for contractor: ${contractorName}`);
