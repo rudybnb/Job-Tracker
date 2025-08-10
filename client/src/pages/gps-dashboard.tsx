@@ -47,88 +47,18 @@ function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
   const activeAssignment = validAssignments[0];
 
   return (
-    <div className="space-y-3">
-      <div className="bg-slate-700 rounded-lg p-4">
-        <div className="flex items-start justify-between mb-3">
+    <div className="bg-slate-700 rounded-lg p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <i className="fas fa-map-marker-alt text-yellow-400"></i>
           <div>
-            <h4 className="text-white font-medium">{activeAssignment.workLocation || activeAssignment.hbxlJob}</h4>
-            <p className="text-slate-400 text-sm">{activeAssignment.hbxlJob}</p>
+            <div className="text-white font-medium text-lg">{activeAssignment.workLocation}</div>
+            <div className="text-slate-400 text-sm">{activeAssignment.hbxlJob}</div>
           </div>
-          <Badge className="bg-yellow-500 text-black text-xs px-2 py-1">
-            active
-          </Badge>
         </div>
-        
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center text-slate-300">
-            <i className="fas fa-calendar text-slate-400 mr-2 w-4"></i>
-            <span>{activeAssignment.startDate} - {activeAssignment.endDate}</span>
-          </div>
-          <div className="flex items-start text-slate-300">
-            <i className="fas fa-tools text-slate-400 mr-2 w-4 mt-0.5"></i>
-            <div className="w-full">
-              <span className="text-slate-400">Assigned Phases & Tasks:</span>
-              <div className="mt-2 space-y-3">
-                {activeAssignment.buildPhases?.map((phase: string, index: number) => {
-                  // Find matching CSV job data
-                  const matchingJob = uploadedJobs.find((job: any) => 
-                    job.name === activeAssignment.hbxlJob || 
-                    job.name.includes(activeAssignment.hbxlJob.split(' - ')[0])
-                  );
-                  
-                  // Get sub-tasks for this phase from CSV data
-                  const phaseTasks = matchingJob?.phaseData?.[phase] || [];
-                  
-                  return (
-                    <div key={index} className="bg-slate-600 rounded-lg p-3">
-                      <div className="text-yellow-400 text-sm font-medium mb-2">
-                        📋 {phase}
-                      </div>
-                      {phaseTasks.length > 0 ? (
-                        <div className="space-y-1">
-                          <div className="text-slate-300 text-xs">
-                            {phaseTasks.length} task{phaseTasks.length !== 1 ? 's' : ''}:
-                          </div>
-                          <div className="max-h-24 overflow-y-auto space-y-1">
-                            {phaseTasks.slice(0, 5).map((task: any, taskIndex: number) => {
-                              // Extract quantity from Column G - this is what you track with +/- buttons
-                              const quantityFromColumnG = parseInt(task.quantity) || parseInt(task.qty) || 1;
-                              
-                              return (
-                                <div key={taskIndex} className="text-slate-200 text-xs flex items-center">
-                                  <span className="w-1 h-1 bg-yellow-400 rounded-full mr-2"></span>
-                                  <span className="flex-1">{task.description || task.task || `Task ${taskIndex + 1}`}</span>
-                                  <span className="text-yellow-400 ml-2 font-medium">
-                                    Qty: {quantityFromColumnG}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                            {phaseTasks.length > 5 && (
-                              <div className="text-slate-400 text-xs">
-                                ... and {phaseTasks.length - 5} more tasks
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-slate-400 text-xs">
-                          • Basic {phase} work (no detailed tasks available)
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          {activeAssignment.specialInstructions && (
-            <div className="flex items-start text-slate-300">
-              <i className="fas fa-sticky-note text-slate-400 mr-2 w-4 mt-0.5"></i>
-              <span>{activeAssignment.specialInstructions}</span>
-            </div>
-          )}
-        </div>
+        <Badge className="bg-yellow-500 text-black text-xs px-2 py-1">
+          active
+        </Badge>
       </div>
     </div>
   );
