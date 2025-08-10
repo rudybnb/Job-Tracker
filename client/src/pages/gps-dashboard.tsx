@@ -335,9 +335,20 @@ export default function GPSDashboard() {
         (error) => {
           console.log("Geolocation error:", error);
           setGpsStatus("Unavailable");
+          
+          // Provide specific GPS troubleshooting for DA17 5DB location
+          let errorMessage = "Unable to access your location.";
+          if (error.code === 1) {
+            errorMessage = "GPS permission denied. Please allow location access in your browser settings.";
+          } else if (error.code === 2) {
+            errorMessage = "GPS signal unavailable. Try moving to an open area with clear sky view.";
+          } else if (error.code === 3) {
+            errorMessage = "GPS timeout. Please refresh the page and try again.";
+          }
+          
           toast({
-            title: "GPS Error",
-            description: "Unable to access your location. Please enable GPS and try again.",
+            title: "GPS Error - DA17 5DB",
+            description: `${errorMessage} For DA17 5DB area, ensure GPS is enabled and location services are allowed.`,
             variant: "destructive"
           });
         }
@@ -380,7 +391,7 @@ export default function GPSDashboard() {
       } else {
         setWorkSiteLocation(null);
         setNearestJob(null);
-        setGpsStatus("No GPS coordinates available for assignments");
+        setGpsStatus("⚠️ Work site GPS coordinates missing - Contact admin to add location data for DA17 5DB");
       }
     } else {
       setWorkSiteLocation(null);
