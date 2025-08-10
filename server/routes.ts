@@ -950,7 +950,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/work-sessions/:id", async (req, res) => {
     try {
-      console.log("🕐 Updating work session:", req.params.id, req.body);
+      console.log("🕐 Updating work session with GPS and money tracking:", req.params.id);
+      console.log("📍 GPS Data:", { 
+        startLat: req.body.startLatitude, 
+        startLng: req.body.startLongitude,
+        endLat: req.body.endLatitude, 
+        endLng: req.body.endLongitude 
+      });
       
       // Convert string dates to Date objects if provided
       const updateData = {
@@ -959,8 +965,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endTime: req.body.endTime ? new Date(req.body.endTime) : undefined
       };
       
+      // Calculate GPS distance if both coordinates provided
+      if (updateData.startLatitude && updateData.startLongitude && 
+          updateData.endLatitude && updateData.endLongitude) {
+        const distance = calculateGPSDistance(
+          parseFloat(updateData.startLatitude),
+          parseFloat(updateData.startLongitude),
+          parseFloat(updateData.endLatitude),
+          parseFloat(updateData.endLongitude)
+        );
+        console.log(`📍 GPS Movement: ${distance.toFixed(0)}m during work session`);
+      }
+      
       const session = await storage.updateWorkSession(req.params.id, updateData);
       if (session) {
+        console.log("✅ Work session completed with full GPS and money tracking");
         res.json(session);
       } else {
         res.status(404).json({ error: "Work session not found" });
@@ -970,6 +989,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(400).json({ error: "Failed to update work session" });
     }
   });
+
+  // Helper function to calculate GPS distance
+  function calculateGPSDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in meters
+  }
 
   // Admin Settings endpoints
   app.get("/api/admin-settings", async (req, res) => {

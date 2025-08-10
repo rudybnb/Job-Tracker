@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import ContextualTooltip from "@/components/contextual-tooltip";
 import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
+import { EarningsTracker } from "@/components/earnings-tracker";
 
 // Active Assignment Component
 function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
@@ -809,6 +810,24 @@ export default function GPSDashboard() {
             </>
           )}
         </div>
+
+        {/* Earnings Tracker Component */}
+        <EarningsTracker
+          isTracking={isTracking}
+          startTime={startTime}
+          currentTime={currentTime}
+          gpsValidated={locationValidation.canSignIn}
+          distanceFromSite={locationValidation.distance * 1000} // Convert km to meters
+          isWeekendWork={(() => {
+            const now = new Date();
+            const dayOfWeek = now.getDay();
+            const isSaturday = dayOfWeek === 6;
+            const isSunday = dayOfWeek === 0;
+            const saturdayEnabled = saturdayOvertimeSetting?.settingValue === 'true';
+            const sundayEnabled = sundayOvertimeSetting?.settingValue === 'true';
+            return (isSaturday && saturdayEnabled) || (isSunday && sundayEnabled);
+          })()}
+        />
 
         {/* GPS Time Tracker Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">

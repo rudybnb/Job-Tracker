@@ -346,13 +346,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateWorkSession(id: string, updates: Partial<WorkSession>): Promise<WorkSession | undefined> {
-    // If ending a session (endTime provided), calculate totalHours automatically
+    // If ending a session (endTime provided), calculate totalHours and money tracking
     if (updates.endTime && updates.startTime) {
       const startTime = new Date(updates.startTime);
       const endTime = new Date(updates.endTime);
       const diffMs = endTime.getTime() - startTime.getTime();
-      updates.totalHours = (diffMs / (1000 * 60 * 60)).toFixed(2); // Convert to hours with 2 decimal places as string
-      console.log(`💰 Calculated totalHours: ${updates.totalHours} hours`);
+      const hoursWorked = diffMs / (1000 * 60 * 60);
+      updates.totalHours = hoursWorked.toFixed(2); // Convert to hours with 2 decimal places as string
+      
+      // Calculate money and GPS tracking data
+      const moneyTrackingData = this.calculateEarnings(startTime, endTime, hoursWorked);
+      console.log(`💰 Session Summary: ${updates.totalHours}h worked, £${moneyTrackingData.netEarnings} earned`);
+      console.log(`📍 GPS Distance: ${updates.endLatitude && updates.startLatitude ? 'Tracked' : 'Missing'}`);
+      
     } else if (updates.endTime) {
       // If only endTime provided, get the existing session to calculate from startTime
       const existingSession = await db.select().from(workSessions).where(eq(workSessions.id, id)).limit(1);
@@ -360,8 +366,12 @@ export class DatabaseStorage implements IStorage {
         const startTime = new Date(existingSession[0].startTime);
         const endTime = new Date(updates.endTime);
         const diffMs = endTime.getTime() - startTime.getTime();
-        updates.totalHours = (diffMs / (1000 * 60 * 60)).toFixed(2);
-        console.log(`💰 Calculated totalHours from existing startTime: ${updates.totalHours} hours`);
+        const hoursWorked = diffMs / (1000 * 60 * 60);
+        updates.totalHours = hoursWorked.toFixed(2);
+        
+        // Calculate money and GPS tracking data
+        const moneyTrackingData = this.calculateEarnings(startTime, endTime, hoursWorked);
+        console.log(`💰 Session Complete: ${updates.totalHours}h, £${moneyTrackingData.netEarnings} earned`);
       }
     }
 
@@ -371,6 +381,55 @@ export class DatabaseStorage implements IStorage {
       .where(eq(workSessions.id, id))
       .returning();
     return session;
+  }
+
+  // Money and GPS calculation helper method
+  private calculateEarnings(startTime: Date, endTime: Date, hoursWorked: number) {
+    const baseRate = 25.00; // £25/hour standard rate
+    
+    // Check if weekend work for overtime calculation
+    const dayOfWeek = startTime.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+    const overtimeMultiplier = isWeekend ? 1.5 : 1.0;
+    const hourlyRate = baseRate * overtimeMultiplier;
+    
+    // Calculate gross earnings
+    const grossEarnings = hoursWorked * hourlyRate;
+    
+    // Calculate punctuality deduction (£0.50/minute after 8:15 AM, max £50)
+    const startHour = startTime.getHours();
+    const startMinute = startTime.getMinutes();
+    const clockInTime = startHour + startMinute / 60;
+    const lateThreshold = 8 + 15/60; // 8:15 AM
+    
+    let punctualityDeduction = 0;
+    if (clockInTime > lateThreshold) {
+      const lateMinutes = (clockInTime - lateThreshold) * 60;
+      punctualityDeduction = Math.min(lateMinutes * 0.50, 50); // Max £50 deduction
+    }
+    
+    // Calculate CIS deduction (20%)
+    const cisDeduction = grossEarnings * 0.20;
+    
+    // Calculate net earnings (minimum £100 daily pay)
+    const beforeMinimum = grossEarnings - punctualityDeduction - cisDeduction;
+    const netEarnings = Math.max(beforeMinimum, 100); // Minimum £100 daily pay
+    
+    console.log(`💰 Earnings Breakdown:`);
+    console.log(`   - Hours: ${hoursWorked.toFixed(2)}h at £${hourlyRate.toFixed(2)}/h${isWeekend ? ' (weekend overtime)' : ''}`);
+    console.log(`   - Gross: £${grossEarnings.toFixed(2)}`);
+    console.log(`   - Punctuality deduction: £${punctualityDeduction.toFixed(2)}`);
+    console.log(`   - CIS deduction: £${cisDeduction.toFixed(2)}`);
+    console.log(`   - Net earnings: £${netEarnings.toFixed(2)}`);
+    
+    return {
+      hourlyRate: hourlyRate.toFixed(2),
+      grossEarnings: grossEarnings.toFixed(2),
+      punctualityDeduction: punctualityDeduction.toFixed(2),
+      cisDeduction: cisDeduction.toFixed(2),
+      netEarnings: netEarnings.toFixed(2),
+      isWeekendWork: isWeekend
+    };
   }
 
   // Admin Settings Methods
