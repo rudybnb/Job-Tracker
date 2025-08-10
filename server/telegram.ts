@@ -5,10 +5,11 @@ export class TelegramService {
   private baseUrl: string;
 
   constructor() {
-    this.botToken = process.env.TELEGRAM_BOT_TOKEN || '';
+    this.botToken = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
     this.baseUrl = `https://api.telegram.org/bot${this.botToken}`;
     
     console.log('🤖 Telegram Service initialized with token:', this.botToken ? 'Available' : 'Missing');
+    console.log('🔗 Base URL:', this.baseUrl);
   }
 
   // Send job assignment notification
@@ -178,7 +179,7 @@ ${contractorPhone ? `📱 Phone: ${contractorPhone}` : ''}
 📋 <b>Please complete your contractor onboarding form:</b>
 👆 Click the link below to access your personalized form
 
-🔗 <a href="https://${process.env.REPL_SLUG || 'jobflow'}.${process.env.REPLIT_DEV_DOMAIN || 'replit.dev'}/contractor-form?id=${contractorId}">Complete Onboarding Form</a>
+🔗 <a href="https://${process.env.REPLIT_DEV_DOMAIN || 'replit.dev'}/contractor-onboarding?id=${contractorId}">Complete Onboarding Form</a>
 
 ⚠️ <b>Important:</b>
 • Fill out all 6 steps completely
@@ -188,7 +189,12 @@ ${contractorPhone ? `📱 Phone: ${contractorPhone}` : ''}
 
 Need help? Reply to this message! 💬`;
       
-      const response = await fetch(`${this.baseUrl}/sendMessage`, {
+      const url = `${this.baseUrl}/sendMessage`;
+      console.log('📱 Onboarding URL:', url);
+      console.log('📱 Chat ID:', chatId);
+      console.log('📱 Message length:', message.length);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
