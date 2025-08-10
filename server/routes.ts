@@ -1288,6 +1288,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Force create inspection for testing (DEV ONLY)
+  app.post("/api/force-create-inspection", async (req, res) => {
+    try {
+      const { assignmentId, contractorName, notificationType } = req.body;
+      
+      const inspection = await storage.createInspectionNotification({
+        assignmentId: assignmentId || "test-assignment",
+        contractorName: contractorName || "Test Contractor", 
+        notificationType: notificationType || "50_percent_ready",
+        notificationSent: true,
+        inspectionCompleted: false
+      });
+      
+      console.log(`🚨 FORCE CREATED inspection notification:`, inspection);
+      res.json({ success: true, inspection });
+    } catch (error) {
+      console.error("Error force creating inspection:", error);
+      res.status(500).json({ error: "Failed to create inspection" });
+    }
+  });
+
   // Alternative route name for progress checks
   app.post("/api/check-progress/:assignmentId", async (req, res) => {
     try {
