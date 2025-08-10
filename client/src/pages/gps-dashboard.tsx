@@ -13,9 +13,12 @@ function QuickReportsForContractor() {
     refetchInterval: 30000, // Check for new reports every 30 seconds
   });
 
-  // Filter reports for current contractor (James) - ONLY Quick Reports, NOT admin inspection reports
+  // Get contractor name from localStorage 
+  const loggedInContractor = localStorage.getItem('contractorName') || 'James Wilson';
+  
+  // Filter reports for current contractor - ONLY Quick Reports, NOT admin inspection reports
   const myReports = contractorReports.filter((report: any) => 
-    report.contractorName === 'James' && 
+    report.contractorName === loggedInContractor.split(' ')[0] && 
     report.reportType === 'quick_report' &&
     !report.isAdminInspection
   );
@@ -79,8 +82,12 @@ function QuickReportsForContractor() {
 
 // Active Assignment Component
 function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
+  // Get contractor name from localStorage
+  const loggedInContractor = localStorage.getItem('contractorName') || 'James Wilson';
+  const contractorFirstName = loggedInContractor.split(' ')[0];
+  
   const { data: assignments = [], isLoading } = useQuery({
-    queryKey: ["/api/contractor-assignments/James"], // Using James as the contractor name from screenshots
+    queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
   });
 
   // Fetch uploaded jobs with detailed CSV task data
@@ -159,7 +166,14 @@ interface GPSPosition {
 export default function GPSDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const contractorName = "James"; // Using James as contractor name from screenshots
+  
+  // Get contractor name from localStorage (set during login)
+  const contractorName = localStorage.getItem('contractorName') || 'James Wilson';
+  
+  // Generate initials from contractor name
+  const getContractorInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
   
   // Initialize workflow help for GPS tracking
   const workflowHelp = useWorkflowHelp(WORKFLOW_CONFIGS.gpsTracking);
@@ -182,9 +196,9 @@ export default function GPSDashboard() {
 
   // Check for existing active session on load
   const { data: activeSession } = useQuery({
-    queryKey: [`/api/work-sessions/${contractorName}/active`],
+    queryKey: [`/api/work-sessions/${contractorFirstName}/active`],
     queryFn: async () => {
-      const response = await fetch(`/api/work-sessions/${contractorName}/active`);
+      const response = await fetch(`/api/work-sessions/${contractorFirstName}/active`);
       if (response.status === 404) return null; // No active session
       if (!response.ok) throw new Error('Failed to fetch active session');
       return response.json();
@@ -205,7 +219,7 @@ export default function GPSDashboard() {
     },
     onSuccess: (session) => {
       setActiveSessionId(session.id);
-      queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorName}/active`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorFirstName}/active`] });
       console.log('✅ Work session started in database:', session.id);
     }
   });
@@ -222,14 +236,15 @@ export default function GPSDashboard() {
     },
     onSuccess: (session) => {
       setActiveSessionId(null);
-      queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorName}/active`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorFirstName}/active`] });
       console.log('✅ Work session ended in database:', session.totalHours);
     }
   });
 
   // Get current assignment data for GPS coordinates
+  const contractorFirstName = contractorName.split(' ')[0]; // Extract first name for API calls
   const { data: assignments = [] } = useQuery({
-    queryKey: ["/api/contractor-assignments/James"],
+    queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
   });
   
   // Type guard for assignments
@@ -690,14 +705,14 @@ export default function GPSDashboard() {
               onClick={() => setContractorDropdownOpen(!contractorDropdownOpen)}
               className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4 hover:bg-yellow-700 transition-colors"
             >
-              <span className="text-white font-bold text-sm">JC</span>
+              <span className="text-white font-bold text-sm">{getContractorInitials(contractorName)}</span>
             </button>
             
             {contractorDropdownOpen && (
               <div className="absolute right-0 top-10 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50">
                 {/* Contractor Info Header */}
                 <div className="px-4 py-3 border-b border-slate-600">
-                  <div className="text-yellow-400 font-semibold">James Carpenter</div>
+                  <div className="text-yellow-400 font-semibold">{contractorName}</div>
                   <div className="text-slate-400 text-sm">james@contractor.com</div>
                   <div className="flex items-center mt-1">
                     <i className="fas fa-id-card text-blue-400 mr-2"></i>
