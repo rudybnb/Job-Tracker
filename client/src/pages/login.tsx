@@ -14,13 +14,15 @@ export default function Login() {
     e.preventDefault();
     
     // Check admin credentials first
-    if (username === "admin" && password === "admin123") {
+    if ((username === "admin" && password === "admin123") || 
+        (username === "earl.johnson" && password === "EarlAdmin2025!")) {
       localStorage.setItem('userRole', 'admin');
       localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('adminName', username === "earl.johnson" ? "Earl Johnson" : "Admin");
       window.location.href = '/admin';
       toast({
         title: "Login Successful",
-        description: "Welcome back, Admin!",
+        description: username === "earl.johnson" ? "Welcome back, Earl!" : "Welcome back, Admin!",
       });
       return;
     }
@@ -116,10 +118,14 @@ export default function Login() {
           
           {/* Test Credentials Info */}
           <div className="mt-6 p-4 bg-slate-100 rounded-lg">
-            <h4 className="font-medium text-slate-700 mb-2">Admin Login:</h4>
+            <h4 className="font-medium text-slate-700 mb-2">Admin Login Options:</h4>
             <div className="text-sm text-slate-600 mb-3">
-              <div><strong>Username:</strong> admin</div>
-              <div><strong>Password:</strong> admin123</div>
+              <div><strong>Earl Johnson:</strong></div>
+              <div className="ml-4">Username: earl.johnson</div>
+              <div className="ml-4">Password: EarlAdmin2025!</div>
+              <div className="mt-2"><strong>General Admin:</strong></div>
+              <div className="ml-4">Username: admin</div>
+              <div className="ml-4">Password: admin123</div>
             </div>
             
             <h4 className="font-medium text-slate-700 mb-2">Contractor Login:</h4>
