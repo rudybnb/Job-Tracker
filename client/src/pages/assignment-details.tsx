@@ -38,6 +38,65 @@ export default function AssignmentDetails() {
   const queryClient = useQueryClient();
   const [reportText, setReportText] = useState("");
   const [showQuickReport, setShowQuickReport] = useState(false);
+  
+  // Admin inspection form state
+  const [adminInspection, setAdminInspection] = useState({
+    progressComments: '',
+    workQualityRating: '',
+    weatherConditions: '',
+    safetyNotes: '',
+    materialsIssues: '',
+    nextActions: ''
+  });
+  
+  // Admin inspection submission
+  const handleAdminInspectionSubmit = async () => {
+    try {
+      const inspectionData = {
+        assignmentId: assignmentId,
+        inspectorName: "Admin",
+        inspectionType: "site_inspection",
+        workQualityRating: adminInspection.workQualityRating,
+        weatherConditions: adminInspection.weatherConditions,
+        progressComments: adminInspection.progressComments,
+        safetyNotes: adminInspection.safetyNotes,
+        materialsIssues: adminInspection.materialsIssues,
+        nextActions: adminInspection.nextActions,
+        photoUrls: [],
+        status: "completed"
+      };
+      
+      const response = await apiRequest("POST", "/api/admin-inspections", inspectionData);
+      const result = await response.json();
+      
+      // Create contractor report based on admin findings
+      if (adminInspection.materialsIssues || adminInspection.nextActions) {
+        const contractorReportData = {
+          contractorName: assignment?.contractorName || '',
+          assignmentId: assignmentId || '',
+          reportText: `Admin Inspection Findings: ${adminInspection.materialsIssues ? 'Materials: ' + adminInspection.materialsIssues + '. ' : ''}${adminInspection.nextActions ? 'Actions Required: ' + adminInspection.nextActions : ''}`
+        };
+        
+        await apiRequest("POST", "/api/contractor-reports", contractorReportData);
+      }
+      
+      // Reset form and show success
+      setAdminInspection({
+        progressComments: '',
+        workQualityRating: '',
+        weatherConditions: '',
+        safetyNotes: '',
+        materialsIssues: '',
+        nextActions: ''
+      });
+      
+      alert("Inspection submitted successfully and contractor notified!");
+      
+    } catch (error) {
+      console.error("Error submitting admin inspection:", error);
+      alert("Failed to submit inspection. Please try again.");
+    }
+  };
 
   // Get assignment details
   const { data: assignment, isLoading } = useQuery<AssignmentDetails>({
@@ -292,6 +351,8 @@ export default function AssignmentDetails() {
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
                 rows={4}
                 placeholder="Enter detailed observations about work progress, quality, and any issues..."
+                value={adminInspection.progressComments}
+                onChange={(e) => setAdminInspection({...adminInspection, progressComments: e.target.value})}
               />
             </div>
 
@@ -301,27 +362,35 @@ export default function AssignmentDetails() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Work Quality Rating
                 </label>
-                <select className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500">
-                  <option>Rate quality...</option>
-                  <option>Excellent</option>
-                  <option>Good</option>
-                  <option>Satisfactory</option>
-                  <option>Needs Improvement</option>
-                  <option>Unsatisfactory</option>
+                <select 
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500"
+                  value={adminInspection.workQualityRating}
+                  onChange={(e) => setAdminInspection({...adminInspection, workQualityRating: e.target.value})}
+                >
+                  <option value="">Rate quality...</option>
+                  <option value="Excellent">Excellent</option>
+                  <option value="Good">Good</option>
+                  <option value="Satisfactory">Satisfactory</option>
+                  <option value="Needs Improvement">Needs Improvement</option>
+                  <option value="Unsatisfactory">Unsatisfactory</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Weather Conditions
                 </label>
-                <select className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500">
-                  <option>Select weather...</option>
-                  <option>Clear/Sunny</option>
-                  <option>Cloudy</option>
-                  <option>Light Rain</option>
-                  <option>Heavy Rain</option>
-                  <option>Snow</option>
-                  <option>Windy</option>
+                <select 
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500"
+                  value={adminInspection.weatherConditions}
+                  onChange={(e) => setAdminInspection({...adminInspection, weatherConditions: e.target.value})}
+                >
+                  <option value="">Select weather...</option>
+                  <option value="Clear/Sunny">Clear/Sunny</option>
+                  <option value="Cloudy">Cloudy</option>
+                  <option value="Light Rain">Light Rain</option>
+                  <option value="Heavy Rain">Heavy Rain</option>
+                  <option value="Snow">Snow</option>
+                  <option value="Windy">Windy</option>
                 </select>
               </div>
             </div>
@@ -335,6 +404,8 @@ export default function AssignmentDetails() {
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
                 rows={3}
                 placeholder="Note any safety concerns, compliance issues, or recommendations..."
+                value={adminInspection.safetyNotes}
+                onChange={(e) => setAdminInspection({...adminInspection, safetyNotes: e.target.value})}
               />
             </div>
 
@@ -347,6 +418,8 @@ export default function AssignmentDetails() {
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
                 rows={3}
                 placeholder="List any missing materials, delivery issues, or equipment problems..."
+                value={adminInspection.materialsIssues}
+                onChange={(e) => setAdminInspection({...adminInspection, materialsIssues: e.target.value})}
               />
             </div>
 
@@ -359,6 +432,8 @@ export default function AssignmentDetails() {
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
                 rows={2}
                 placeholder="Specify any follow-up actions, deliveries, or corrections needed..."
+                value={adminInspection.nextActions}
+                onChange={(e) => setAdminInspection({...adminInspection, nextActions: e.target.value})}
               />
             </div>
 
@@ -367,7 +442,10 @@ export default function AssignmentDetails() {
               <Button className="bg-green-600 hover:bg-green-700 text-white flex-1">
                 Save Inspection Report
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white flex-1">
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+                onClick={handleAdminInspectionSubmit}
+              >
                 Submit & Notify Contractor
               </Button>
             </div>

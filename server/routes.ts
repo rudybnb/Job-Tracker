@@ -414,6 +414,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const postcodeMap: { [key: string]: { latitude: string; longitude: string } } = {
       'DA17 5DB': { latitude: '51.4851', longitude: '0.1540' },
       'DA17': { latitude: '51.4851', longitude: '0.1540' },
+      'DA7 6HJ': { latitude: '51.4851', longitude: '0.1540' }, // Xavier Jones location
+      'DA7': { latitude: '51.4851', longitude: '0.1540' },
       'BR9': { latitude: '51.4612', longitude: '0.1388' },
       'SE9': { latitude: '51.4629', longitude: '0.0789' },
       'DA8': { latitude: '51.4891', longitude: '0.2245' },
@@ -1205,6 +1207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const inspectionData = {
         assignmentId: req.body.assignmentId,
         inspectorName: req.body.inspectorName,
+        inspectionType: req.body.inspectionType || "admin_inspection",
         workQualityRating: req.body.workQualityRating,
         weatherConditions: req.body.weatherConditions,
         progressComments: req.body.progressComments,

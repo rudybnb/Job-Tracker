@@ -658,7 +658,7 @@ export default function AdminDashboard() {
                         size="sm"
                         variant="outline"
                         className="text-xs px-2 py-1 border-slate-500 text-slate-200 hover:bg-slate-600"
-                        onClick={() => window.open(`/assignment/${inspection.assignmentId}`, '_blank')}
+                        onClick={() => window.location.href = `/assignment-details?id=${inspection.assignmentId}&admin=true`}
                       >
                         Inspect
                       </Button>
