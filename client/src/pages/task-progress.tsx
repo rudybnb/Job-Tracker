@@ -65,16 +65,22 @@ export default function TaskProgress() {
         const uploadedJobs = await jobsResponse.json();
         
         // Find the job that matches this assignment
+        console.log('🔍 Looking for job:', activeAssignment.hbxlJob);
+        console.log('🔍 Available jobs:', uploadedJobs.map((j: any) => j.name));
+        
         const matchingJob = uploadedJobs.find((job: any) => 
           job.name === activeAssignment.hbxlJob || 
-          job.name.includes(activeAssignment.hbxlJob.split(' - ')[0])
+          job.name.includes(activeAssignment.hbxlJob.split(' - ')[0]) ||
+          activeAssignment.hbxlJob.includes(job.name)
         );
         
-        if (matchingJob && matchingJob.phaseTaskDataValue) {
+        console.log('🔍 Found matching job:', matchingJob?.name);
+        
+        if (matchingJob && matchingJob.phaseData) {
           let taskId = 1;
           
-          // Parse the correct phase task data 
-          const phaseData = JSON.parse(matchingJob.phaseTaskDataValue);
+          // Use the correct phase data structure - CSV data is already parsed
+          const phaseData = matchingJob.phaseData;
           
           // Create tasks from real CSV data for each assigned phase - Column G contains quantities
           activeAssignment.buildPhases.forEach((phase: string) => {
