@@ -371,9 +371,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("🔍 Fetching assignments for contractor:", contractorName);
       
       const assignments = await storage.getContractorAssignments(contractorName);
-      console.log("📋 Found assignments:", assignments.length);
       
-      res.json(assignments);
+      // Add GPS coordinates to assignments that don't have them
+      const updatedAssignments = assignments.map(assignment => {
+        if (!assignment.latitude || !assignment.longitude) {
+          const coordinates = getPostcodeCoordinates(assignment.workLocation || '');
+          if (coordinates) {
+            console.log(`📍 Adding GPS coordinates to assignment ${assignment.id} for ${assignment.workLocation}: ${coordinates.latitude}, ${coordinates.longitude}`);
+            return {
+              ...assignment,
+              latitude: coordinates.latitude,
+              longitude: coordinates.longitude
+            };
+          }
+        }
+        return assignment;
+      });
+      
+      console.log("📋 Found assignments:", updatedAssignments.length);
+      res.json(updatedAssignments);
     } catch (error) {
       console.error("Error fetching contractor assignments:", error);
       res.status(500).json({ error: "Failed to fetch assignments" });
@@ -393,9 +409,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to get GPS coordinates from UK postcode
+  function getPostcodeCoordinates(postcode: string): { latitude: string; longitude: string } | null {
+    // Simple postcode-to-GPS lookup for common UK postcodes
+    const postcodeMap: { [key: string]: { latitude: string; longitude: string } } = {
+      'DA17 5DB': { latitude: '51.4712', longitude: '0.1478' },
+      'DA17': { latitude: '51.4712', longitude: '0.1478' },
+      'BR9': { latitude: '51.4612', longitude: '0.1388' },
+      'SE9': { latitude: '51.4629', longitude: '0.0789' },
+      'DA8': { latitude: '51.4891', longitude: '0.2245' },
+      'DA1': { latitude: '51.4417', longitude: '0.2056' },
+      'SG1 1EH': { latitude: '51.8721', longitude: '-0.2015' },
+      'SG1': { latitude: '51.8721', longitude: '-0.2015' },
+      // Add more as needed
+    };
+    
+    // Try exact match first, then partial matches
+    const upperPostcode = postcode.toUpperCase().trim();
+    if (postcodeMap[upperPostcode]) {
+      return postcodeMap[upperPostcode];
+    }
+    
+    // Try partial matches (first part before space)
+    const postcodePrefix = upperPostcode.split(' ')[0];
+    if (postcodeMap[postcodePrefix]) {
+      return postcodeMap[postcodePrefix];
+    }
+    
+    return null;
+  }
+
   app.post("/api/job-assignments", async (req, res) => {
     try {
       console.log("📋 Creating job assignment:", req.body);
+      
+      // Add GPS coordinates based on workLocation (postcode)
+      if (req.body.workLocation) {
+        const coordinates = getPostcodeCoordinates(req.body.workLocation);
+        if (coordinates) {
+          req.body.latitude = coordinates.latitude;
+          req.body.longitude = coordinates.longitude;
+          console.log(`📍 Added GPS coordinates for ${req.body.workLocation}: ${coordinates.latitude}, ${coordinates.longitude}`);
+        } else {
+          console.log(`⚠️ No GPS coordinates found for postcode: ${req.body.workLocation}`);
+        }
+      }
+      
       const validatedAssignment = insertJobAssignmentSchema.parse(req.body);
       const assignment = await storage.createJobAssignment(validatedAssignment);
       
