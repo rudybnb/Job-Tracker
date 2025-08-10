@@ -64,15 +64,25 @@ export default function TaskProgress() {
         const jobsResponse = await fetch('/api/uploaded-jobs');
         const uploadedJobs = await jobsResponse.json();
         
-        // Find the job that matches this assignment
+        // Find the job that matches this assignment - RESTORED WORKING LOGIC
         console.log('🔍 Looking for job:', activeAssignment.hbxlJob);
         console.log('🔍 Available jobs:', uploadedJobs.map((j: any) => j.name));
         
-        const matchingJob = uploadedJobs.find((job: any) => 
-          job.name === activeAssignment.hbxlJob || 
-          job.name.includes(activeAssignment.hbxlJob.split(' - ')[0]) ||
-          activeAssignment.hbxlJob.includes(job.name)
-        );
+        // FIXED: Job matching logic - "Flat 2" assignment should match "Xavier jones" job
+        // Assignment: "Flat 2" at "SG1 1EH", Job: "Xavier jones" with postcode "SG1 1EH"
+        const matchingJob = uploadedJobs.find((job: any) => {
+          // Method 1: Direct name match
+          if (job.name === activeAssignment.hbxlJob) return true;
+          
+          // Method 2: Postcode match (assignment postcode matches job postcode)
+          if (job.postcode === activeAssignment.workLocation) return true;
+          
+          // Method 3: Partial name match
+          if (job.name.toLowerCase().includes(activeAssignment.hbxlJob.toLowerCase())) return true;
+          if (activeAssignment.hbxlJob.toLowerCase().includes(job.name.toLowerCase())) return true;
+          
+          return false;
+        });
         
         console.log('🔍 Found matching job:', matchingJob?.name);
         
@@ -151,20 +161,6 @@ export default function TaskProgress() {
             status: "not started" as const
           });
         });
-      }
-      
-      // If we have saved progress for this job, restore it
-      if (savedProgress) {
-        try {
-          const savedTasks = JSON.parse(savedProgress) as ProgressTask[];
-          // Merge saved progress with current tasks
-          newTasks = newTasks.map(task => {
-            const savedTask = savedTasks.find(saved => saved.id === task.id || saved.title === task.title);
-            return savedTask ? { ...task, completedItems: savedTask.completedItems, status: savedTask.status } : task;
-          });
-        } catch (error) {
-          console.error('Failed to load saved progress:', error);
-        }
       }
       
       // If we have saved progress for this job, restore it
