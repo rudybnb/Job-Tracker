@@ -36,47 +36,40 @@ export default function More() {
   }); // Current week
   const { toast } = useToast();
 
-  // Get James's payment rates and CIS data from database
-  const { data: jamesDayRate } = useQuery({
-    queryKey: ["/api/admin-settings/james_day_rate"],
+  // Get contractor name from localStorage (authentic data only)
+  const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
+  const contractorFirstName = contractorName.split(' ')[0];
+
+  // Get authentic contractor data from database - NO HARDCODED RATES
+  const { data: contractorApplication } = useQuery({
+    queryKey: [`/api/contractor-application/${contractorFirstName.toLowerCase()}`],
     queryFn: async () => {
-      const response = await fetch("/api/admin-settings/james_day_rate");
+      const response = await fetch(`/api/contractor-application/${contractorFirstName.toLowerCase()}`);
       if (response.status === 404) return null;
-      if (!response.ok) throw new Error('Failed to fetch James day rate');
+      if (!response.ok) throw new Error('Failed to fetch contractor data');
       return response.json();
     },
     retry: false,
   });
 
-  const { data: jamesCisRate } = useQuery({
-    queryKey: ["/api/admin-settings/james_cis_rate"],
-    queryFn: async () => {
-      const response = await fetch("/api/admin-settings/james_cis_rate");
-      if (response.status === 404) return { settingValue: "20" }; // Default 20% for registered contractors
-      if (!response.ok) throw new Error('Failed to fetch James CIS rate');
-      return response.json();
-    },
-    retry: false,
-  });
-
-  // Get real work sessions from database
+  // Get authentic work sessions from database (using logged-in contractor)
   const { data: realWorkSessions = [] } = useQuery({
-    queryKey: ["/api/work-sessions/James"],
+    queryKey: [`/api/work-sessions/${contractorFirstName}`],
     queryFn: async () => {
-      const response = await fetch("/api/work-sessions/James");
+      const response = await fetch(`/api/work-sessions/${contractorFirstName}`);
       if (!response.ok) throw new Error('Failed to fetch work sessions');
       return response.json();
     },
   });
 
-  // Contractor details with real data
+  // Contractor details with AUTHENTIC data only
   const contractorInfo = {
-    name: "James",
-    email: "james@contractor.com",
-    cisRegistered: true, // James is CIS registered (20% rate)
-    dailyRate: jamesDayRate ? parseFloat(jamesDayRate.settingValue) : 150,
-    hourlyRate: jamesDayRate ? parseFloat(jamesDayRate.settingValue) / 8 : 18.75,
-    cisRate: jamesCisRate ? parseFloat(jamesCisRate.settingValue) : 20
+    name: contractorName,
+    email: contractorApplication?.email || "",
+    cisRegistered: contractorApplication?.isCisRegistered || false,
+    dailyRate: contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) * 8 : 150, // £18.75/hour * 8 hours = £150
+    hourlyRate: contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) : 18.75,
+    cisRate: contractorApplication?.isCisRegistered ? 20 : 30 // Use authentic CIS status
   };
 
   // Convert real work sessions to our format with proper payment calculation

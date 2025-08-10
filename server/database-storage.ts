@@ -322,6 +322,12 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(contractorApplications).orderBy(desc(contractorApplications.submittedAt));
   }
 
+  async getContractorApplicationByUsername(username: string): Promise<ContractorApplication | undefined> {
+    const [application] = await db.select().from(contractorApplications)
+      .where(eq(contractorApplications.username, username));
+    return application;
+  }
+
   async getContractorApplication(id: string): Promise<ContractorApplication | undefined> {
     const [application] = await db.select().from(contractorApplications).where(eq(contractorApplications.id, id));
     return application;

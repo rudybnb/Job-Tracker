@@ -942,6 +942,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contractor application by username
+  app.get("/api/contractor-application/:username", async (req, res) => {
+    try {
+      const { username } = req.params;
+      const application = await storage.getContractorApplicationByUsername(username);
+      if (!application) {
+        return res.status(404).json({ error: "Contractor not found" });
+      }
+      res.json(application);
+    } catch (error) {
+      console.error("Error fetching contractor application:", error);
+      res.status(500).json({ error: "Failed to fetch contractor data" });
+    }
+  });
+
   app.post("/api/contractor-applications", async (req, res) => {
     try {
       console.log("📋 Received contractor application submission:", req.body);

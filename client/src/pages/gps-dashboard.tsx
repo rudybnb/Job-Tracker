@@ -168,7 +168,7 @@ export default function GPSDashboard() {
   const queryClient = useQueryClient();
   
   // Get contractor name from localStorage (set during login)
-  const contractorName = localStorage.getItem('contractorName') || 'James Wilson';
+  const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
   const contractorFirstName = contractorName.split(' ')[0]; // Extract first name for API calls
   
   // Generate initials from contractor name
