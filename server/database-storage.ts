@@ -354,9 +354,7 @@ export class DatabaseStorage implements IStorage {
       const hoursWorked = diffMs / (1000 * 60 * 60);
       updates.totalHours = hoursWorked.toFixed(2); // Convert to hours with 2 decimal places as string
       
-      // Calculate money and GPS tracking data
-      const moneyTrackingData = this.calculateEarnings(startTime, endTime, hoursWorked);
-      console.log(`💰 Session Summary: ${updates.totalHours}h worked, £${moneyTrackingData.netEarnings} earned`);
+      console.log(`🕐 Session Summary: ${updates.totalHours}h worked`);
       console.log(`📍 GPS Distance: ${updates.endLatitude && updates.startLatitude ? 'Tracked' : 'Missing'}`);
       
     } else if (updates.endTime) {
@@ -369,9 +367,7 @@ export class DatabaseStorage implements IStorage {
         const hoursWorked = diffMs / (1000 * 60 * 60);
         updates.totalHours = hoursWorked.toFixed(2);
         
-        // Calculate money and GPS tracking data
-        const moneyTrackingData = this.calculateEarnings(startTime, endTime, hoursWorked);
-        console.log(`💰 Session Complete: ${updates.totalHours}h, £${moneyTrackingData.netEarnings} earned`);
+        console.log(`🕐 Session Complete: ${updates.totalHours}h worked`);
       }
     }
 

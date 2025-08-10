@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import ContextualTooltip from "@/components/contextual-tooltip";
 import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
-import { EarningsTracker } from "@/components/earnings-tracker";
+
 
 // Active Assignment Component
 function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
@@ -822,24 +822,6 @@ export default function GPSDashboard() {
           )}
         </div>
 
-        {/* Earnings Tracker Component */}
-        <EarningsTracker
-          isTracking={isTracking}
-          startTime={startTime}
-          currentTime={currentTime}
-          gpsValidated={locationValidation.canSignIn}
-          distanceFromSite={locationValidation.distance * 1000} // Convert km to meters
-          isWeekendWork={(() => {
-            const now = new Date();
-            const dayOfWeek = now.getDay();
-            const isSaturday = dayOfWeek === 6;
-            const isSunday = dayOfWeek === 0;
-            const saturdayEnabled = saturdayOvertimeSetting?.settingValue === 'true';
-            const sundayEnabled = sundayOvertimeSetting?.settingValue === 'true';
-            return (isSaturday && saturdayEnabled) || (isSunday && sundayEnabled);
-          })()}
-        />
-
         {/* GPS Time Tracker Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <div className="flex items-center mb-4">
@@ -871,7 +853,7 @@ export default function GPSDashboard() {
             <div className="mb-4 text-center">
               <div className="text-xl text-green-400 font-semibold">GPS Timer Active</div>
               <div className="text-slate-400 text-xs">
-                View earnings and CIS details on More page
+                Location verified - Time tracking in progress
               </div>
             </div>
             
@@ -879,8 +861,8 @@ export default function GPSDashboard() {
               id="start-stop-work-button"
               title="GPS Work Tracking"
               content={isTracking 
-                ? "Click to stop work and save time session. GPS location will be recorded and pay calculated automatically. CIS deductions apply." 
-                : "Click to start GPS-verified time tracking. System validates you're within 1km of work site and during valid hours (7:45 AM - 5:00 PM). Late arrivals after 8:15 AM incur £0.50/minute deductions."
+                ? "Click to stop work and save time session. GPS location will be recorded for verification." 
+                : "Click to start GPS-verified time tracking. System validates you're within 1km of work site and during valid hours (7:45 AM - 5:00 PM)."
               }
               type={isTracking ? "warning" : "success"}
               placement="top"

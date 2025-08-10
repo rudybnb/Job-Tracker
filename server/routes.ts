@@ -950,7 +950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/work-sessions/:id", async (req, res) => {
     try {
-      console.log("🕐 Updating work session with GPS and money tracking:", req.params.id);
+      console.log("🕐 Updating work session with GPS tracking:", req.params.id);
       console.log("📍 GPS Data:", { 
         startLat: req.body.startLatitude, 
         startLng: req.body.startLongitude,
@@ -979,7 +979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const session = await storage.updateWorkSession(req.params.id, updateData);
       if (session) {
-        console.log("✅ Work session completed with full GPS and money tracking");
+        console.log("✅ Work session completed with GPS tracking");
         res.json(session);
       } else {
         res.status(404).json({ error: "Work session not found" });
