@@ -13,10 +13,11 @@ export class ProgressMonitor {
         return 0;
       }
 
-      // Get the job details to access phase task data
-      const job = await storage.getJob(assignment.jobId);
+      // Find the uploaded job that matches this assignment
+      const uploadedJobs = await storage.getUploadedJobs();
+      const job = uploadedJobs.find(j => j.name === assignment.hbxlJob);
       if (!job || !job.phaseTaskData) {
-        console.log("⚠️ No task data found for job:", assignment.jobId);
+        console.log("⚠️ No task data found for job:", assignment.hbxlJob);
         return 0;
       }
 

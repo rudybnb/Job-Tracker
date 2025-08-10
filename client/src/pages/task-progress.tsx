@@ -211,6 +211,18 @@ export default function TaskProgress() {
     const storageKey = `task_progress_${activeAssignment?.id || 'default'}`;
     localStorage.setItem(storageKey, JSON.stringify(updatedTasks));
     
+    // CRITICAL: Trigger progress monitoring for 50% inspection notifications
+    if (activeAssignment) {
+      const overallProgress = getOverallProgress();
+      if (overallProgress >= 50) {
+        // Call the progress monitoring endpoint to check for inspection triggers
+        fetch(`/api/check-progress/${activeAssignment.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(error => console.error('Progress monitoring failed:', error));
+      }
+    }
+    
     toast({
       title: "Progress Updated",
       description: `Task progress ${increment > 0 ? 'increased' : 'decreased'}`,

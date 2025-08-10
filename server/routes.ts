@@ -1190,7 +1190,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Inspection Notification endpoints
   app.get("/api/pending-inspections", async (req, res) => {
     try {
-      const { progressMonitor } = await import("./progress-monitor");
+      const { ProgressMonitor } = await import("./progress-monitor");
+      const progressMonitor = new ProgressMonitor();
       const pendingInspections = await progressMonitor.getPendingInspections();
       res.json(pendingInspections);
     } catch (error) {
@@ -1199,10 +1200,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // CRITICAL: Task progress update endpoint that triggers 50% inspection
+  app.post("/api/check-progress/:assignmentId", async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const { ProgressMonitor } = await import("./progress-monitor");
+      const progressMonitor = new ProgressMonitor();
+      await progressMonitor.checkProgressMilestones(assignmentId);
+      res.json({ success: true, message: "Progress milestones checked" });
+    } catch (error) {
+      console.error("Error checking progress milestones:", error);
+      res.status(500).json({ error: "Failed to check progress milestones" });
+    }
+  });
+
   app.post("/api/trigger-progress-check/:assignmentId", async (req, res) => {
     try {
       const { assignmentId } = req.params;
-      const { progressMonitor } = await import("./progress-monitor");
+      const { ProgressMonitor } = await import("./progress-monitor");
+      const progressMonitor = new ProgressMonitor();
       await progressMonitor.checkProgressMilestones(assignmentId);
       res.json({ success: true, message: "Progress check completed" });
     } catch (error) {

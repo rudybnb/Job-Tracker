@@ -125,6 +125,10 @@ export default function ContractorsOverview({ onAssignJob }: ContractorsOverview
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => {
+                      // Navigate to contractor details page
+                      window.location.href = `/contractor/${contractor.name}`;
+                    }}
                     className="px-3 py-2 text-slate-600 hover:text-slate-900"
                   >
                     <i className="fas fa-eye"></i>
