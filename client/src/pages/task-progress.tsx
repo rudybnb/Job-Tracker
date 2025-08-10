@@ -68,21 +68,39 @@ export default function TaskProgress() {
         console.log('🔍 Looking for job:', activeAssignment.hbxlJob);
         console.log('🔍 Available jobs:', uploadedJobs.map((j: any) => j.name));
         
-        // FIXED: Job matching logic - Assignment "Flat 2" or "Xavier jones" both match the "Xavier jones" job
-        // This covers both assignment naming conventions in the system
+        // FIXED: Job matching logic - Handle all assignment-to-job mapping scenarios
+        console.log('🔍 Matching logic - Assignment:', activeAssignment.hbxlJob, 'at', activeAssignment.workLocation);
         const matchingJob = uploadedJobs.find((job: any) => {
+          console.log('🔍 Checking job:', job.name, 'postcode:', job.postcode, 'address:', job.address);
+          
           // Method 1: Direct name match
-          if (job.name === activeAssignment.hbxlJob) return true;
+          if (job.name === activeAssignment.hbxlJob) {
+            console.log('✅ Direct name match found');
+            return true;
+          }
           
-          // Method 2: Postcode match (assignment postcode matches job postcode)
-          if (job.postcode === activeAssignment.workLocation) return true;
+          // Method 2: Xavier jones special case - both "Flat 2" and "Xavier jones" assignments map to Xavier jones job
+          if (job.name.toLowerCase().includes('xavier')) {
+            if (activeAssignment.hbxlJob.toLowerCase().includes('xavier') || 
+                activeAssignment.hbxlJob.toLowerCase().includes('flat')) {
+              console.log('✅ Xavier jones special case match');
+              return true;
+            }
+          }
           
-          // Method 3: Client name appears in either direction (covers Xavier jones cases)
-          if (job.name.toLowerCase().includes('xavier') && activeAssignment.hbxlJob.toLowerCase().includes('xavier')) return true;
-          if (job.name.toLowerCase().includes('xavier') && activeAssignment.hbxlJob.toLowerCase().includes('flat')) return true;
+          // Method 3: Address-based matching - job address contains assignment location
+          if (job.address && activeAssignment.workLocation) {
+            if (job.address.toLowerCase().includes(activeAssignment.workLocation.toLowerCase())) {
+              console.log('✅ Address-based match found');
+              return true;
+            }
+          }
           
-          // Method 4: Fallback - use the first available job if postcodes match
-          if (job.postcode === activeAssignment.workLocation || job.address?.includes(activeAssignment.workLocation)) return true;
+          // Method 4: Postcode match
+          if (job.postcode === activeAssignment.workLocation) {
+            console.log('✅ Postcode match found');
+            return true;
+          }
           
           return false;
         });
