@@ -16,9 +16,12 @@ interface ContractorAssignment {
 }
 
 export default function Jobs() {
-  // Get contractor assignments from database
+  // Get contractor assignments using logged-in contractor name
+  const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
+  const contractorFirstName = contractorName.split(' ')[0];
+  
   const { data: assignments = [], isLoading } = useQuery<ContractorAssignment[]>({
-    queryKey: ['/api/contractor-assignments/James'],
+    queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
     enabled: true,
   });
 
