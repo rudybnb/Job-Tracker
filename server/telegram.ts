@@ -29,8 +29,13 @@ export class TelegramService {
         return { success: true, simulated: true };
       }
 
-      // Use Rudy's actual Chat ID for job notifications
-      const chatId = '7617462316';
+      // Get contractor's Telegram ID from database
+      const { DatabaseStorage } = await import('./database-storage');
+      const storage = new DatabaseStorage();
+      
+      // Find contractor by name to get their Telegram ID
+      const contractor = await storage.getContractorByName(params.contractorName);
+      const chatId = contractor?.telegramId || '8016744652'; // Dalwayne's correct ID
       
       const message = this.formatJobAssignmentMessage(params);
       

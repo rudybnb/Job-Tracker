@@ -79,8 +79,11 @@ The application offers a complete workflow with distinct role-based interfaces f
 
 ### Latest Updates (August 10, 2025 - 4:00 PM)
 - **✅ MULTI-CONTRACTOR DROPDOWN**: Added team assignment capability to create assignment form with contractor selection dropdown
-- **✅ CONTRACTOR DATA CORRECTION**: Fixed Dalwayne Diedericks phone number (07984591436 - personal, 07931400436 - emergency contact Emma Saltmarsh)
+- **✅ CONTRACTOR DATA CORRECTION**: Fixed Dalwayne Diedericks contact information:
+  - Phone: 07984591436 (personal), Emergency: 07931400436 (Emma Saltmarsh)
+  - Telegram ID: 8016744652 (corrected from wrong ID 7617462316)
 - **Team Assignment Features**: Multiple contractor selection, auto-filled contact details, team notification system, visual badges for selected contractors
+- **Telegram Notification Fix**: Updated job assignment notifications to use contractor's correct Telegram ID from database
 
 ## External Dependencies
 

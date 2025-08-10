@@ -326,6 +326,18 @@ export class DatabaseStorage implements IStorage {
     return application;
   }
 
+  async getContractorByName(name: string): Promise<ContractorApplication | undefined> {
+    const [firstName, lastName] = name.split(' ');
+    const [contractor] = await db.select().from(contractorApplications)
+      .where(
+        and(
+          eq(contractorApplications.firstName, firstName),
+          eq(contractorApplications.lastName, lastName || '')
+        )
+      );
+    return contractor;
+  }
+
   async createContractorApplication(insertApplication: InsertContractorApplication): Promise<ContractorApplication> {
     const [application] = await db.insert(contractorApplications).values(insertApplication).returning();
     return application;
