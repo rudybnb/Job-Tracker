@@ -79,11 +79,6 @@ export default function DirectJobAssignments() {
               <div className="absolute right-0 top-10 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50">
                 <div className="px-4 py-3 border-b border-slate-600">
                   <div className="text-yellow-400 font-semibold">Dalwayne Diedericks</div>
-                  <div className="text-slate-400 text-sm">dalwayne.diedericks@gmail.com</div>
-                  <div className="flex items-center mt-2">
-                    <i className="fas fa-hard-hat text-yellow-400 mr-2"></i>
-                    <span className="text-yellow-400 text-sm">Contractor</span>
-                  </div>
                 </div>
                 
                 <div className="py-2">
