@@ -169,6 +169,7 @@ export default function GPSDashboard() {
   
   // Get contractor name from localStorage (set during login)
   const contractorName = localStorage.getItem('contractorName') || 'James Wilson';
+  const contractorFirstName = contractorName.split(' ')[0]; // Extract first name for API calls
   
   // Generate initials from contractor name
   const getContractorInitials = (name: string) => {
@@ -242,7 +243,6 @@ export default function GPSDashboard() {
   });
 
   // Get current assignment data for GPS coordinates
-  const contractorFirstName = contractorName.split(' ')[0]; // Extract first name for API calls
   const { data: assignments = [] } = useQuery({
     queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
   });

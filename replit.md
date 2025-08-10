@@ -16,6 +16,7 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
 - **Rule 5: PERSISTENT DATA VERIFICATION** - Always verify database data exists and is accessible before claiming features work
 - **Rule 6: USER CONFIDENCE PROTECTION** - Document all fixes permanently and ensure they persist across sessions
 - **Rule 7: LOCKED CSV PARSING** - The CSV parsing logic in both frontend and backend is now locked down with regex to remove trailing commas. DO NOT MODIFY the parsing sections marked "LOCKED DOWN" or "NEVER CHANGE THIS"
+- **Rule 8: LIVE DATA ONLY** - System now uses live production data exclusively. No temporary, test, or placeholder data permitted. All backup information must be correct and retained.
 - Always verify what is currently working before making changes
 - These rules are mandatory and must be followed at all times to prevent regression and data corruption
 
@@ -77,7 +78,7 @@ The application offers a complete workflow with distinct role-based interfaces f
 - **Technical Fix**: Enhanced job matching to handle "Flat 2" assignments matching "Xavier jones" jobs through postcode correlation (SG1 1EH, DA7 6HJ)
 - **Data Integrity Restored**: Authentic CSV task data now displaying correctly with Column G quantities for progress tracking
 
-### Latest Updates (August 10, 2025 - 4:00 PM)
+### Latest Updates (August 10, 2025 - 4:50 PM)
 - **✅ MULTI-CONTRACTOR DROPDOWN**: Added team assignment capability to create assignment form with contractor selection dropdown
 - **✅ CONTRACTOR DATA CORRECTION**: Fixed Dalwayne Diedericks contact information:
   - Phone: 07984591436 (personal), Emergency: 07931400436 (Emma Saltmarsh)
@@ -86,6 +87,8 @@ The application offers a complete workflow with distinct role-based interfaces f
 - **Telegram Notification Fix**: Updated job assignment notifications to use contractor's correct Telegram ID from database
 - **Individual Contractor Login**: Created personalized login credentials for Dalwayne (username: dalwayne, password: dalwayne123)
 - **Database Authentication**: Enhanced login system to authenticate contractors against database credentials with fallback support
+- **✅ AVATAR FIX**: Fixed contractor avatar display to show correct initials (DD for Dalwayne Diedericks) dynamically based on logged-in user
+- **✅ LIVE DATA ENFORCEMENT**: System now operates exclusively with live production data - no test, temporary or placeholder data permitted
 
 ## External Dependencies
 
