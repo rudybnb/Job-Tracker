@@ -30,7 +30,10 @@ interface WeeklyEarnings {
 
 export default function More() {
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
-  const [selectedWeek, setSelectedWeek] = useState("2025-02-08"); // Current week
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    // Default to current week ending (today)
+    return new Date().toISOString().split('T')[0];
+  }); // Current week
   const { toast } = useToast();
 
   // Get James's payment rates and CIS data from database
@@ -296,9 +299,25 @@ export default function More() {
             onChange={(e) => setSelectedWeek(e.target.value)}
             className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1 text-white text-sm"
           >
-            <option value="2025-02-08">Feb 8</option>
-            <option value="2025-02-01">Feb 1</option>
-            <option value="2025-01-25">Jan 25</option>
+            {(() => {
+              // Generate last 8 weeks from current date
+              const weeks = [];
+              const today = new Date();
+              for (let i = 0; i < 8; i++) {
+                const weekEnd = new Date(today.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
+                const weekEndStr = weekEnd.toISOString().split('T')[0];
+                const displayDate = weekEnd.toLocaleDateString('en-GB', { 
+                  month: 'short', 
+                  day: 'numeric' 
+                });
+                weeks.push(
+                  <option key={weekEndStr} value={weekEndStr}>
+                    Week ending {displayDate}
+                  </option>
+                );
+              }
+              return weeks;
+            })()}
           </select>
         </div>
 
