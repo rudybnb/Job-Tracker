@@ -1,6 +1,48 @@
 # JobFlow - GPS Time Tracking & Job Management System
 ## Changelog
 
+### Version 1.3.6 - System Reset & Sub-Task Display Issue (August 10, 2025)
+
+#### 🗑️ Complete System Data Cleanup
+**All Production Data Cleared**
+- ✅ All job assignments deleted (James's 2 assignments cleared)
+- ✅ All CSV uploads removed (f39c24a8-b700-422c-9138-63a5a168d3d8 and 786a3ddf-cd6c-42bd-9b15-b95610ee137e)
+- ✅ All contractor reports cleared
+- ✅ All admin inspections removed
+- ✅ All inspection notifications deleted
+- ✅ Complete database cleanup - only GPS coordinates and contractor rates remain
+- ✅ System ready for fresh data upload and testing
+
+#### ❌ Critical Regression - Sub-Task Display Broken
+**Mandatory Rule Violations Identified**
+- ❌ **Rule 1 Violation**: Working sub-task display functionality was lost during modifications
+- ❌ **Rule 3 Violation**: CSV Data Supremacy not being enforced - no authentic task data displaying
+- ❌ **Rule 4 Violation**: Regression occurred without verification of working functionality
+- ❌ Progress buttons show but give errors when clicked (user reported same issue persists)
+
+**Root Cause Analysis**
+- Issue: Job matching logic changed but authentic CSV data no longer populating
+- Previous Working State: System displayed authentic HBXL plumbing tasks (16 Plumber Hours, 2 Copper valves, etc.)
+- Current State: No sub-tasks displaying despite CSV data being available
+- Error: Task Progress page not finding matching jobs even with postcode matching logic
+
+**Recovery Required**
+- Need to restore working implementation from CHANGELOG Version 1.3.4 specifications
+- Must follow CHANGELOG technical implementation exactly as documented
+- CSV data extraction working but task display pipeline broken
+- Progress tracking functionality needs restoration to working state
+
+#### 🔧 Technical Fixes Attempted
+- ✅ Fixed server restart issue (port 5000 conflict resolved)
+- ✅ Corrected data structure usage (phaseData vs phaseTaskDataValue)
+- ✅ Enhanced job matching with postcode logic
+- ✅ Added comprehensive debugging for job discovery
+- ❌ Sub-task display still not working despite technical fixes
+
+**Status**: CRITICAL - Core functionality broken, violates mandatory development rules
+
+---
+
 ### Version 1.3.5 - GPS DA17 5DB Location Fix (August 10, 2025)
 
 #### 🔧 GPS Location Issue Resolution

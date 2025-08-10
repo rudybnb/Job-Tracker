@@ -69,6 +69,12 @@ The application offers a complete workflow with distinct role-based interfaces f
 - **Progressive Inspection System**: Implemented automatic admin inspection notifications at 50% and 100% job completion milestones, integrated into admin dashboard "Site Inspections Required" section (formerly "Overdue Projects")
 - **Inspection Dashboard Integration**: Replaced the basic "Overdue Projects" tab with intelligent inspection notifications showing pending milestone inspections, with direct links to assignment details and one-click completion marking
 
+### Critical Issues (August 10, 2025)
+- **URGENT - Sub-Task Display Broken**: Core functionality lost - authentic CSV task data not displaying in Task Progress page despite working previously
+- **URGENT - Mandatory Rule Violations**: Rules 1, 3, and 4 violated during recent modifications causing regression of working features
+- **System Reset**: Complete data cleanup performed - all assignments, uploads, and reports cleared for fresh testing
+- **Recovery Priority**: Must restore working sub-task display from CHANGELOG Version 1.3.4 implementation
+
 ## External Dependencies
 
 ### Database Services
