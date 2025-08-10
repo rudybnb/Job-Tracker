@@ -50,11 +50,11 @@ export default function Login() {
         if (username === "contractor" && password === "contractor123") {
           localStorage.setItem('userRole', 'contractor');
           localStorage.setItem('isLoggedIn', 'true');
-          localStorage.setItem('contractorName', 'James Wilson');
+          localStorage.setItem('contractorName', 'Dalwayne Diedericks');
           window.location.href = '/';
           toast({
             title: "Login Successful",
-            description: "Welcome back, James!",
+            description: "Welcome back, Dalwayne!",
           });
         } else {
           toast({
