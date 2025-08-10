@@ -16,9 +16,12 @@ interface ProgressTask {
 }
 
 export default function TaskProgress() {
-  // Get contractor assignments (since we have assignments for James)
+  // Get contractor assignments using logged-in contractor name
+  const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
+  const contractorFirstName = contractorName.split(' ')[0];
+  
   const { data: assignments = [], isLoading } = useQuery({
-    queryKey: ["/api/contractor-assignments/James"],
+    queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
   });
 
   // Get the first (active) assignment
