@@ -1,22 +1,27 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { apiRequest } from "@/lib/queryClient";
 
 interface AssignmentDetails {
   id: string;
-  title: string;
-  description: string | null;
-  location: string;
-  status: string;
   contractorName: string;
-  contractorId: string;
-  phases: string;
+  email: string;
+  phone: string;
+  workLocation: string;
+  hbxlJob: string;
+  buildPhases: string[];
   startDate: string;
-  dueDate: string;
-  notes: string | null;
-  telegramNotified: string;
+  endDate: string;
+  specialInstructions: string | null;
+  status: string;
+  sendTelegramNotification: boolean;
+  latitude: string | null;
+  longitude: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 interface TaskProgress {
@@ -30,6 +35,9 @@ interface TaskProgress {
 export default function AssignmentDetails() {
   const params = useParams();
   const assignmentId = params.id;
+  const queryClient = useQueryClient();
+  const [reportText, setReportText] = useState("");
+  const [showQuickReport, setShowQuickReport] = useState(false);
 
   // Get assignment details
   const { data: assignment, isLoading } = useQuery<AssignmentDetails>({
@@ -37,9 +45,23 @@ export default function AssignmentDetails() {
     enabled: !!assignmentId,
   });
 
+  // Quick Report mutation
+  const createReportMutation = useMutation({
+    mutationFn: async (reportData: { contractorName: string; assignmentId: string; reportText: string }) => {
+      const response = await apiRequest("POST", "/api/contractor-reports", reportData);
+      return response.json();
+    },
+    onSuccess: () => {
+      setReportText("");
+      setShowQuickReport(false);
+      // Refresh reports if needed
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor-reports"] });
+    },
+  });
+
   // Mock progress data for now - this would come from database
-  const taskProgress: TaskProgress[] = assignment?.phases ? 
-    JSON.parse(assignment.phases).map((phase: string) => ({
+  const taskProgress: TaskProgress[] = assignment?.buildPhases ? 
+    assignment.buildPhases.map((phase: string) => ({
       phase,
       completed: false,
       startTime: undefined,
@@ -112,7 +134,7 @@ export default function AssignmentDetails() {
             </div>
             <div>
               <div className="text-xs text-slate-400">Location</div>
-              <div className="text-white">{assignment.location}</div>
+              <div className="text-white">{assignment.workLocation}</div>
             </div>
             <div>
               <div className="text-xs text-slate-400">Start Date</div>
@@ -120,14 +142,14 @@ export default function AssignmentDetails() {
             </div>
             <div>
               <div className="text-xs text-slate-400">Due Date</div>
-              <div className="text-white">{assignment.dueDate}</div>
+              <div className="text-white">{assignment.endDate}</div>
             </div>
           </div>
 
-          {assignment.description && (
+          {assignment.specialInstructions && (
             <div className="mb-4">
-              <div className="text-xs text-slate-400">Description</div>
-              <div className="text-white">{assignment.description}</div>
+              <div className="text-xs text-slate-400">Special Instructions</div>
+              <div className="text-white">{assignment.specialInstructions}</div>
             </div>
           )}
 
@@ -135,7 +157,7 @@ export default function AssignmentDetails() {
             <div>
               <div className="text-xs text-slate-400">Telegram Notification</div>
               <div className="text-white">
-                {assignment.telegramNotified === 'true' ? (
+                {assignment.sendTelegramNotification ? (
                   <span className="text-green-400">✓ Sent</span>
                 ) : (
                   <span className="text-red-400">Not sent</span>
@@ -171,107 +193,71 @@ export default function AssignmentDetails() {
           </div>
         </div>
 
-        {/* Site Report Form */}
+        {/* Quick Report Section */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
-            <i className="fas fa-camera mr-2"></i>
-            Site Visit Report
+            📝 Quick Report
           </h2>
           
-          <div className="space-y-4">
-            {/* Photo Upload Section */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Site Photos
-              </label>
-              <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-slate-500 transition-colors">
-                <div className="space-y-3">
-                  <i className="fas fa-camera text-slate-400 text-3xl"></i>
-                  <div>
-                    <p className="text-slate-400">Click to upload photos from site visit</p>
-                    <p className="text-xs text-slate-500">Support: JPG, PNG, HEIC. Max 10MB per photo</p>
-                  </div>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                    <i className="fas fa-plus mr-2"></i>
-                    Add Photos
-                  </Button>
-                </div>
-              </div>
-            </div>
+          <p className="text-slate-400 text-sm mb-4">
+            Report any materials missing from site or request clarification - keep it simple!
+          </p>
 
-            {/* Progress Comments */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Progress Comments
-              </label>
+          {!showQuickReport ? (
+            <Button 
+              onClick={() => setShowQuickReport(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+            >
+              📝 Quick Report
+            </Button>
+          ) : (
+            <div className="space-y-4">
               <textarea
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
-                rows={4}
-                placeholder="Enter observations about work progress, quality, and any issues..."
-              />
-            </div>
-
-            {/* Site Conditions */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Weather Conditions
-                </label>
-                <select className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500">
-                  <option>Select weather...</option>
-                  <option>Clear/Sunny</option>
-                  <option>Cloudy</option>
-                  <option>Light Rain</option>
-                  <option>Heavy Rain</option>
-                  <option>Snow</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Work Quality Rating
-                </label>
-                <select className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500">
-                  <option>Rate quality...</option>
-                  <option>Excellent</option>
-                  <option>Good</option>
-                  <option>Satisfactory</option>
-                  <option>Needs Improvement</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Safety & Compliance */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Safety & Compliance Notes
-              </label>
-              <textarea
+                value={reportText}
+                onChange={(e) => setReportText(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
                 rows={3}
-                placeholder="Note any safety concerns, compliance issues, or recommendations..."
+                placeholder="What materials are missing or what clarification do you need?"
               />
+              
+              <div className="flex space-x-3">
+                <Button 
+                  onClick={() => {
+                    if (reportText.trim() && assignment) {
+                      createReportMutation.mutate({
+                        contractorName: assignment.contractorName,
+                        assignmentId: assignment.id,
+                        reportText: reportText.trim()
+                      });
+                    }
+                  }}
+                  disabled={!reportText.trim() || createReportMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                >
+                  {createReportMutation.isPending ? "Sending..." : "Send Report"}
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setShowQuickReport(false);
+                    setReportText("");
+                  }}
+                  className="bg-slate-600 hover:bg-slate-500 text-white"
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
-
-            {/* Action Buttons */}
-            <div className="flex space-x-3 pt-4">
-              <Button className="bg-green-600 hover:bg-green-700 text-white flex-1">
-                <i className="fas fa-save mr-2"></i>
-                Save Report
-              </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white flex-1">
-                <i className="fas fa-paper-plane mr-2"></i>
-                Submit & Notify
-              </Button>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Previous Reports */}
+        {/* Admin Reports Section */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
-            <i className="fas fa-history mr-2"></i>
-            Previous Site Reports
+            📋 Admin Reports
           </h2>
+          <p className="text-slate-400 text-sm">
+            Admin inspection reports and feedback will appear here when site visits are completed.
+          </p>
           
           <div className="text-center py-8">
             <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">

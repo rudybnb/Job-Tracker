@@ -14,9 +14,11 @@ import {
   type AdminSetting,
   type InsertAdminSetting,
   type JobAssignmentRecord,
-  type InsertJobAssignment
+  type InsertJobAssignment,
+  type ContractorReport,
+  type InsertContractorReport
 } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -65,6 +67,10 @@ export interface IStorage {
   getAdminSetting(key: string): Promise<AdminSetting | undefined>;
   setAdminSetting(setting: InsertAdminSetting): Promise<AdminSetting>;
   updateAdminSetting(key: string, value: string, updatedBy: string): Promise<AdminSetting | undefined>;
+  
+  // Contractor Reports
+  createContractorReport(report: InsertContractorReport): Promise<ContractorReport>;
+  getContractorReports(): Promise<ContractorReport[]>;
   
   // Stats
   getStats(): Promise<{
@@ -491,6 +497,17 @@ export class DatabaseStorage implements IStorage {
         contractor.status === "available" || contractor.status === "busy"
       ).length
     };
+  }
+
+  // Contractor Reports
+  async createContractorReport(insertReport: InsertContractorReport): Promise<ContractorReport> {
+    const [report] = await db.insert(contractorReports).values(insertReport).returning();
+    console.log("📝 Created contractor report:", report.id, "by", report.contractorName);
+    return report;
+  }
+
+  async getContractorReports(): Promise<ContractorReport[]> {
+    return db.select().from(contractorReports).orderBy(desc(contractorReports.createdAt));
   }
 }
 

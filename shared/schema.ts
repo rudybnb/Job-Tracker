@@ -199,6 +199,21 @@ export const insertJobAssignmentSchema = createInsertSchema(jobAssignments).omit
   updatedAt: true,
 });
 
+// Contractor Reports table for simple issue reporting
+export const contractorReports = pgTable("contractor_reports", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorName: text("contractor_name").notNull(),
+  assignmentId: text("assignment_id").notNull(),
+  reportText: text("report_text").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  status: text("status").default("pending").notNull(), // pending, viewed, resolved
+});
+
+export const insertContractorReportSchema = createInsertSchema(contractorReports).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertContractor = z.infer<typeof insertContractorSchema>;
 export type Contractor = typeof contractors.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
@@ -216,6 +231,8 @@ export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
 export type AdminSetting = typeof adminSettings.$inferSelect;
 export type InsertJobAssignment = z.infer<typeof insertJobAssignmentSchema>;
 export type JobAssignmentRecord = typeof jobAssignments.$inferSelect;
+export type InsertContractorReport = z.infer<typeof insertContractorReportSchema>;
+export type ContractorReport = typeof contractorReports.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;

@@ -1002,6 +1002,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return R * c; // Distance in meters
   }
 
+  // Contractor Reports endpoints
+  app.post("/api/contractor-reports", async (req, res) => {
+    try {
+      console.log("📝 Creating contractor report:", req.body);
+      const report = await storage.createContractorReport(req.body);
+      res.json(report);
+    } catch (error) {
+      console.error("Error creating contractor report:", error);
+      res.status(500).json({ error: "Failed to create report" });
+    }
+  });
+
+  app.get("/api/contractor-reports", async (req, res) => {
+    try {
+      const reports = await storage.getContractorReports();
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching contractor reports:", error);
+      res.status(500).json({ error: "Failed to fetch reports" });
+    }
+  });
+
   // Admin Settings endpoints
   app.get("/api/admin-settings", async (req, res) => {
     try {
