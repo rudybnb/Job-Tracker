@@ -115,7 +115,7 @@ export class ProgressMonitor {
     }
   }
 
-  // Get all pending inspections for admin dashboard
+  // Get all pending inspections for admin dashboard - AUTHENTIC CSV DATA ONLY
   async getPendingInspections(): Promise<any[]> {
     try {
       const notifications = await storage.getPendingInspectionNotifications();
@@ -123,22 +123,30 @@ export class ProgressMonitor {
       const inspectionsWithDetails = await Promise.all(
         notifications.map(async (notification) => {
           const assignment = await storage.getJobAssignment(notification.assignmentId);
-          const job = assignment ? await storage.getJob(assignment.jobId) : null;
-          
+          if (!assignment) {
+            console.warn(`❌ Assignment not found for inspection: ${notification.assignmentId}`);
+            return null;
+          }
+
+          // MANDATORY RULE 3: CSV DATA SUPREMACY - Use ONLY authentic CSV data from assignment
+          // Assignment contains authentic CSV data: hbxlJob (job title) and workLocation (job address)
           return {
             id: notification.id,
             assignmentId: notification.assignmentId,
             contractorName: notification.contractorName,
             notificationType: notification.notificationType,
-            jobTitle: job?.title || 'Unknown Job',
-            jobLocation: job?.location || 'Unknown Location',
+            jobTitle: assignment.hbxlJob || 'Data Missing from CSV',
+            jobLocation: assignment.workLocation || 'Data Missing from CSV',
             createdAt: notification.createdAt,
-            inspectionType: notification.notificationType === '50_percent_ready' ? '50% Progress Inspection' : 'Final Completion Inspection'
+            inspectionType: notification.notificationType === '50_percent_ready' ? '50% Progress Check' : '100% Final Inspection'
           };
         })
       );
 
-      return inspectionsWithDetails;
+      // Filter out null entries (missing authentic data)
+      const validInspections = inspectionsWithDetails.filter(inspection => inspection !== null);
+      console.log(`📋 Returning ${validInspections.length} inspections with AUTHENTIC CSV data only`);
+      return validInspections;
     } catch (error) {
       console.error("❌ Error getting pending inspections:", error);
       return [];
