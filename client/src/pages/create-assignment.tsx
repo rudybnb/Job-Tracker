@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 function LogoutButton() {
@@ -38,11 +40,21 @@ interface UploadedJob {
   };
 }
 
+interface Contractor {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  primaryTrade: string;
+}
+
 export default function CreateAssignment() {
-  const [contractorName, setContractorName] = useState("James");
-  const [email, setEmail] = useState("james@gmail.com");
-  const [phone, setPhone] = useState("07534251548");
-  const [workLocation, setWorkLocation] = useState("DA17 5DB");
+  const [selectedContractors, setSelectedContractors] = useState<string[]>([]);
+  const [contractorName, setContractorName] = useState(""); // This will be auto-filled from selection
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [workLocation, setWorkLocation] = useState("");
   const [selectedHbxlJob, setSelectedHbxlJob] = useState("");
   const [startDate, setStartDate] = useState("06/08/2025");
   const [endDate, setEndDate] = useState("13/08/2025");
@@ -51,6 +63,22 @@ export default function CreateAssignment() {
   const [selectedPhases, setSelectedPhases] = useState<string[]>([]);
   const [availablePhases, setAvailablePhases] = useState<string[]>([]);
   const { toast } = useToast();
+
+  // Fetch approved contractors
+  const { data: approvedContractors = [] } = useQuery<Contractor[]>({
+    queryKey: ["/api/contractor-applications"],
+    select: (data: any[]) => 
+      data
+        .filter(contractor => contractor.status === 'approved')
+        .map(contractor => ({
+          id: contractor.id,
+          firstName: contractor.firstName,
+          lastName: contractor.lastName,
+          email: contractor.email,
+          phone: contractor.phone,
+          primaryTrade: contractor.primaryTrade
+        }))
+  });
 
   // Dynamic build phases will be loaded from CSV data
 
@@ -174,10 +202,19 @@ export default function CreateAssignment() {
 
   const handleCreateAssignment = async () => {
     // Validate required fields
-    if (!contractorName || !email || !workLocation || !selectedHbxlJob) {
+    if (selectedContractors.length === 0) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please select at least one contractor",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!workLocation || !selectedHbxlJob) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in work location and select an HBXL job",
         variant: "destructive"
       });
       return;
@@ -193,42 +230,64 @@ export default function CreateAssignment() {
     }
 
     try {
-      // Create assignment object
-      const assignment = {
-        contractorName,
-        email,
-        phone,
-        workLocation,
-        hbxlJob: selectedHbxlJob,
-        buildPhases: selectedPhases,
-        startDate,
-        endDate,
-        specialInstructions,
-        status: "assigned",
-        sendTelegramNotification: true
-      };
+      const assignments = [];
+      
+      // Create assignments for each selected contractor
+      for (const contractorId of selectedContractors) {
+        const contractor = approvedContractors.find(c => c.id === contractorId);
+        if (!contractor) continue;
 
-      console.log('📋 Saving assignment to database:', assignment);
+        const assignment = {
+          contractorName: `${contractor.firstName} ${contractor.lastName}`,
+          email: contractor.email,
+          phone: contractor.phone,
+          workLocation,
+          hbxlJob: selectedHbxlJob,
+          buildPhases: selectedPhases,
+          startDate,
+          endDate,
+          specialInstructions: selectedContractors.length > 1 
+            ? `TEAM ASSIGNMENT: Working with ${selectedContractors.length} contractors. ${specialInstructions}`.trim()
+            : specialInstructions,
+          status: "assigned",
+          sendTelegramNotification: true,
+          teamAssignment: selectedContractors.length > 1,
+          teamMembers: selectedContractors.length > 1 ? selectedContractors.map(id => {
+            const c = approvedContractors.find(contractor => contractor.id === id);
+            return c ? `${c.firstName} ${c.lastName}` : '';
+          }).filter(Boolean) : undefined
+        };
 
-      // Save assignment to database using the new API
-      const response = await fetch('/api/job-assignments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(assignment),
-      });
+        console.log(`📋 Creating assignment for ${contractor.firstName} ${contractor.lastName}:`, assignment);
 
-      if (!response.ok) {
-        throw new Error(`Failed to create assignment: ${response.status}`);
+        // Save assignment to database
+        const response = await fetch('/api/job-assignments', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(assignment),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to create assignment for ${contractor.firstName}: ${response.status}`);
+        }
+
+        const savedAssignment = await response.json();
+        assignments.push(savedAssignment);
+        console.log(`✅ Assignment saved for ${contractor.firstName} ${contractor.lastName}`);
       }
 
-      const savedAssignment = await response.json();
-      console.log('✅ Assignment saved to database:', savedAssignment);
+      const contractorNames = selectedContractors.map(id => {
+        const c = approvedContractors.find(contractor => contractor.id === id);
+        return c ? `${c.firstName} ${c.lastName}` : '';
+      }).filter(Boolean).join(', ');
 
       toast({
-        title: "Assignment Created",
-        description: `Job assigned to ${contractorName} and saved to database. Telegram notification sent.`,
+        title: "Assignments Created",
+        description: selectedContractors.length > 1 
+          ? `Team assignment created for ${selectedContractors.length} contractors: ${contractorNames}. Telegram notifications sent to each.`
+          : `Job assigned to ${contractorNames}. Telegram notification sent.`,
       });
 
       // Navigate back to job assignments
@@ -291,47 +350,163 @@ export default function CreateAssignment() {
           </div>
           
           <div className="space-y-4">
-            {/* Contractor Name */}
+            {/* Contractor Selection (Multiple) */}
             <div>
               <label className="block text-yellow-400 text-sm font-medium mb-2">
-                Contractor Name *
+                Select Contractors *
+                <span className="text-slate-400 text-xs ml-2">(Can select multiple for team work)</span>
               </label>
-              <input
-                type="text"
-                value={contractorName}
-                onChange={(e) => setContractorName(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                placeholder="Enter contractor name"
-              />
+              
+              {/* Contractor Dropdown */}
+              <div className="relative mb-3">
+                <select
+                  onChange={(e) => {
+                    const contractorId = e.target.value;
+                    if (contractorId && !selectedContractors.includes(contractorId)) {
+                      const newSelected = [...selectedContractors, contractorId];
+                      setSelectedContractors(newSelected);
+                      
+                      // Auto-fill contact details from first selected contractor
+                      if (newSelected.length === 1) {
+                        const contractor = approvedContractors.find(c => c.id === contractorId);
+                        if (contractor) {
+                          setContractorName(`${contractor.firstName} ${contractor.lastName}`);
+                          setEmail(contractor.email);
+                          setPhone(contractor.phone);
+                        }
+                      } else {
+                        // For multiple contractors, use combined names
+                        const names = newSelected.map(id => {
+                          const contractor = approvedContractors.find(c => c.id === id);
+                          return contractor ? `${contractor.firstName} ${contractor.lastName}` : '';
+                        }).filter(Boolean);
+                        setContractorName(names.join(', '));
+                        setEmail(''); // Clear email for multiple contractors
+                        setPhone(''); // Clear phone for multiple contractors
+                      }
+                      
+                      // Reset dropdown
+                      e.target.value = '';
+                    }
+                  }}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="">Choose contractors...</option>
+                  {approvedContractors.map((contractor) => (
+                    <option 
+                      key={contractor.id} 
+                      value={contractor.id}
+                      disabled={selectedContractors.includes(contractor.id)}
+                    >
+                      {contractor.firstName} {contractor.lastName} - {contractor.primaryTrade}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Selected Contractors Display */}
+              {selectedContractors.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-400">Selected Contractors:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedContractors.map((contractorId) => {
+                      const contractor = approvedContractors.find(c => c.id === contractorId);
+                      if (!contractor) return null;
+                      
+                      return (
+                        <Badge 
+                          key={contractorId}
+                          className="bg-blue-600 text-white px-3 py-1 flex items-center gap-2"
+                        >
+                          <span>{contractor.firstName} {contractor.lastName}</span>
+                          <span className="text-blue-200 text-xs">({contractor.primaryTrade})</span>
+                          <button
+                            onClick={() => {
+                              const newSelected = selectedContractors.filter(id => id !== contractorId);
+                              setSelectedContractors(newSelected);
+                              
+                              // Update contact details based on remaining selection
+                              if (newSelected.length === 0) {
+                                setContractorName('');
+                                setEmail('');
+                                setPhone('');
+                              } else if (newSelected.length === 1) {
+                                const remaining = approvedContractors.find(c => c.id === newSelected[0]);
+                                if (remaining) {
+                                  setContractorName(`${remaining.firstName} ${remaining.lastName}`);
+                                  setEmail(remaining.email);
+                                  setPhone(remaining.phone);
+                                }
+                              } else {
+                                const names = newSelected.map(id => {
+                                  const contractor = approvedContractors.find(c => c.id === id);
+                                  return contractor ? `${contractor.firstName} ${contractor.lastName}` : '';
+                                }).filter(Boolean);
+                                setContractorName(names.join(', '));
+                                setEmail('');
+                                setPhone('');
+                              }
+                            }}
+                            className="text-blue-200 hover:text-white ml-1"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                  
+                  {selectedContractors.length > 1 && (
+                    <div className="text-xs text-green-400 bg-green-900/20 border border-green-700 rounded p-2">
+                      ✓ Team Assignment: {selectedContractors.length} contractors will work together on this job
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-yellow-400 text-sm font-medium mb-2">
-                Email *
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                placeholder="Enter email address"
-              />
-            </div>
+            {/* Contact Information (Auto-filled from contractor selection) */}
+            {selectedContractors.length === 1 && (
+              <>
+                {/* Email */}
+                <div>
+                  <label className="block text-yellow-400 text-sm font-medium mb-2">
+                    Email * <span className="text-slate-400 text-xs">(Auto-filled from contractor profile)</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                    placeholder="Enter email address"
+                  />
+                </div>
 
-            {/* Phone */}
-            <div>
-              <label className="block text-yellow-400 text-sm font-medium mb-2">
-                Phone
-              </label>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                placeholder="Enter phone number"
-              />
-            </div>
+                {/* Phone */}
+                <div>
+                  <label className="block text-yellow-400 text-sm font-medium mb-2">
+                    Phone <span className="text-slate-400 text-xs">(Auto-filled from contractor profile)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+              </>
+            )}
+            
+            {selectedContractors.length > 1 && (
+              <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+                <div className="text-yellow-400 font-medium mb-2">Team Assignment Mode</div>
+                <div className="text-slate-300 text-sm">
+                  For team assignments with multiple contractors, notifications will be sent to each contractor individually. 
+                  Contact details are managed through their individual profiles.
+                </div>
+              </div>
+            )}
 
             {/* Work Location */}
             <div>
