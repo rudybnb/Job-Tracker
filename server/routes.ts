@@ -1164,6 +1164,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Demo endpoint to simulate job progress milestones for testing
+  app.post("/api/demo-trigger-inspection/:assignmentId/:percentage", async (req, res) => {
+    try {
+      const { assignmentId, percentage } = req.params;
+      const assignment = await storage.getJobAssignment(assignmentId);
+      
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+
+      const progressPercentage = parseInt(percentage);
+      let notificationType = "";
+      
+      if (progressPercentage >= 50 && progressPercentage < 100) {
+        notificationType = "50_percent_ready";
+      } else if (progressPercentage >= 100) {
+        notificationType = "100_percent_ready";
+      } else {
+        return res.json({ message: "No inspection needed for this progress level" });
+      }
+
+      // Check if notification already exists
+      const existing = await storage.getInspectionNotificationByAssignmentAndType(assignmentId, notificationType);
+      if (existing) {
+        return res.json({ message: "Inspection notification already exists", existing });
+      }
+
+      // Create inspection notification
+      const notification = await storage.createInspectionNotification({
+        assignmentId,
+        contractorName: assignment.contractorName,
+        notificationType,
+        notificationSent: true,
+        inspectionCompleted: false
+      });
+
+      console.log(`🚨 DEMO: ${notificationType.replace('_', ' ')} inspection triggered for ${assignment.contractorName}`);
+      res.json({ 
+        success: true, 
+        message: `${notificationType.replace('_', ' ')} inspection notification created`,
+        notification 
+      });
+    } catch (error) {
+      console.error("Error in demo trigger:", error);
+      res.status(500).json({ error: "Failed to trigger demo inspection" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

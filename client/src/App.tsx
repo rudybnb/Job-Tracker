@@ -27,6 +27,7 @@ import AdminTimeTracking from "@/pages/admin-time-tracking";
 import AssignmentDetails from "@/pages/assignment-details";
 import ContractorIdCapture from "@/pages/contractor-id-capture";
 import AdminSettings from "@/pages/admin-settings";
+import AdminInspections from "@/pages/admin-inspections";
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -137,6 +138,11 @@ function Router() {
         <Route path="/admin-settings" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AdminSettings />
+          </ProtectedRoute>
+        )} />
+        <Route path="/admin-inspections" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminInspections />
           </ProtectedRoute>
         )} />
         <Route path="/admin-site-reporting" component={() => (
