@@ -228,9 +228,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Parse data section for phases AND detailed task data
-        // Look for data header with flexible patterns
+        // NEW IMPROVED PARSING for cleaner CSV format
+        // Look for "Build Phase" line which indicates start of data section
         let dataHeaderIndex = lines.findIndex(line => 
-          line.includes('Order Date') && line.includes('Build Phase')
+          line.includes('Build Phase') && (line.includes('Order Quantity') || line.split(',').length >= 3)
         );
         
         // Fallback: look for any line with "Build Phase" or similar phase indicators
@@ -244,16 +245,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let phaseTaskData: Record<string, Array<{description: string, quantity: number, task: string}>> = {};
         
         if (dataHeaderIndex >= 0) {
-          const headers = lines[dataHeaderIndex].split(',').map(h => h.trim());
-          const phaseColumnIndex = headers.findIndex(h => 
-            h.includes('Build Phase') || h.includes('Phase') || h.toLowerCase().includes('phase')
-          );
-          const descriptionColumnIndex = headers.findIndex(h => 
-            h.includes('Description') || h.includes('Item') || h.includes('Material') || h.includes('Labour')
-          );
-          const quantityColumnIndex = headers.findIndex(h => 
-            h.includes('Quantity') || h.includes('Qty') || h.includes('Amount') || h.includes('Units')
-          );
+          // NEW IMPROVED PARSING: Handle the cleaner CSV structure
+          // Column structure: [Empty, Phase/Task Description, Empty, Quantity]
+          console.log('🎯 Using IMPROVED CSV parsing for cleaner format');
+          
+          let currentPhase = "";
+          
+          // Process lines after the "Build Phase" header
+          for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line || line.trim() === '') continue;
+            
+            const columns = line.split(',').map(col => col.trim());
+            
+            // Skip lines with less than 3 columns
+            if (columns.length < 3) continue;
+            
+            const col1 = columns[0] || ''; // Usually empty for tasks
+            const col2 = columns[1] || ''; // Phase name or task description 
+            const col3 = columns[2] || ''; // Task description (if col2 is phase)
+            const col4 = columns[3] || '0'; // Quantity
+            
+            // Check if this is a phase line (col2 has phase name, col3 is empty)
+            if (col2 && !col3 && col1 === '') {
+              currentPhase = col2;
+              if (!phases.includes(currentPhase)) {
+                phases.push(currentPhase);
+              }
+              if (!phaseTaskData[currentPhase]) {
+                phaseTaskData[currentPhase] = [];
+              }
+            } 
+            // Check if this is a task line (col3 has task description)
+            else if (col3 && currentPhase) {
+              const taskDescription = col3.replace(/"/g, '').trim(); // Clean quotes
+              const quantity = parseInt(col4) || 0;
+              
+              if (taskDescription && taskDescription !== '') {
+                phaseTaskData[currentPhase].push({
+                  description: taskDescription,
+                  quantity: quantity,
+                  task: `Install ${taskDescription.toLowerCase()}`
+                });
+              }
+            }
+          }
+          
+          console.log('🎯 IMPROVED parsing results:', {
+            phases: phases,
+            phaseTaskDataKeys: Object.keys(phaseTaskData),
+            totalTasks: Object.values(phaseTaskData).reduce((sum, tasks) => sum + tasks.length, 0)
+          });
           
           console.log('🔍 CSV Header Analysis:', {
             phaseColumn: phaseColumnIndex,
