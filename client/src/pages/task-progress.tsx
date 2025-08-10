@@ -70,21 +70,24 @@ export default function TaskProgress() {
           job.name.includes(activeAssignment.hbxlJob.split(' - ')[0])
         );
         
-        if (matchingJob && matchingJob.phaseData) {
+        if (matchingJob && matchingJob.phaseTaskDataValue) {
           let taskId = 1;
+          
+          // Parse the correct phase task data 
+          const phaseData = JSON.parse(matchingJob.phaseTaskDataValue);
           
           // Create tasks from real CSV data for each assigned phase - Column G contains quantities
           activeAssignment.buildPhases.forEach((phase: string) => {
-            if (matchingJob.phaseData[phase]) {
+            if (phaseData[phase]) {
               // Use actual CSV items for this phase with Column G quantities
-              matchingJob.phaseData[phase].forEach((item: any) => {
+              phaseData[phase].forEach((item: any) => {
                 // Extract quantity from Column G - this is what contractors track with +/- buttons
-                const quantityFromColumnG = parseInt(item.quantity) || parseInt(item.qty) || 1;
+                const quantityFromColumnG = parseInt(item.quantity) || 1;
                 
                 newTasks.push({
-                  id: (taskId++).toString(),
-                  title: item.description || item.task || item.itemDescription || `${item.code || item.id} - Task`,
-                  description: item.description || item.task || item.itemDescription || '',
+                  id: `${phase}-${taskId++}`, // Phase-specific ID to prevent cross-contamination
+                  title: item.description || item.task || `${phase} Task`,
+                  description: item.description || item.task || '',
                   area: phase,
                   totalItems: quantityFromColumnG, // Column G quantity - key for progress tracking
                   completedItems: 0,
@@ -94,7 +97,7 @@ export default function TaskProgress() {
             } else {
               // If no CSV data for this phase, create a basic task
               newTasks.push({
-                id: (taskId++).toString(),
+                id: `${phase}-${taskId++}`, // Phase-specific ID
                 title: phase,
                 description: `Complete ${phase} work`,
                 area: phase,
@@ -211,20 +214,29 @@ export default function TaskProgress() {
     const storageKey = `task_progress_${activeAssignment?.id || 'default'}`;
     localStorage.setItem(storageKey, JSON.stringify(updatedTasks));
     
+    // CRITICAL FIX: Only calculate progress for the current assignment, not affecting other phases
+    const progressForCurrentTasks = updatedTasks.filter(task => 
+      activeAssignment?.buildPhases.includes(task.area)
+    );
+    
     // CRITICAL: Trigger progress monitoring for 50% inspection notifications
     if (activeAssignment) {
-      const overallProgress = getOverallProgress();
-      console.log(`🔍 Task progress updated: ${overallProgress}%`);
+      // Calculate progress only for current assignment tasks
+      const totalForAssignment = progressForCurrentTasks.reduce((sum, task) => sum + task.totalItems, 0);
+      const completedForAssignment = progressForCurrentTasks.reduce((sum, task) => sum + task.completedItems, 0);
+      const assignmentProgress = totalForAssignment > 0 ? Math.round((completedForAssignment / totalForAssignment) * 100) : 0;
+      
+      console.log(`🔍 Task progress updated for ${activeAssignment.hbxlJob}: ${assignmentProgress}%`);
       
       // Check for inspection triggers at 50% and 100% milestones
-      if (overallProgress >= 50) {
-        console.log(`🚨 Triggering inspection check for ${overallProgress}% completion`);
-        fetch(`/api/check-progress/${activeAssignment.id}`, {
+      if (assignmentProgress >= 50) {
+        console.log(`🚨 Triggering inspection check for ${assignmentProgress}% completion`);
+        fetch(`/api/trigger-progress-check/${activeAssignment.id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         }).then(response => {
           if (response.ok) {
-            console.log(`✅ Progress monitoring triggered successfully for ${overallProgress}%`);
+            console.log(`✅ Progress monitoring triggered successfully for ${assignmentProgress}%`);
           } else {
             console.error(`❌ Progress monitoring failed: ${response.status}`);
           }

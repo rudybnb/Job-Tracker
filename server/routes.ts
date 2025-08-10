@@ -1288,6 +1288,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Alternative route name for progress checks
+  app.post("/api/check-progress/:assignmentId", async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const { ProgressMonitor } = await import("./progress-monitor");
+      const progressMonitor = new ProgressMonitor();
+      await progressMonitor.checkProgressMilestones(assignmentId);
+      res.json({ success: true, message: "Progress check completed" });
+    } catch (error) {
+      console.error("Error triggering progress check:", error);
+      res.status(500).json({ error: "Failed to trigger progress check" });
+    }
+  });
+
   app.post("/api/complete-inspection/:notificationId", async (req, res) => {
     try {
       const { notificationId } = req.params;

@@ -13,8 +13,12 @@ function QuickReportsForContractor() {
     refetchInterval: 30000, // Check for new reports every 30 seconds
   });
 
-  // Filter reports for current contractor (James)
-  const myReports = contractorReports.filter((report: any) => report.contractorName === 'James');
+  // Filter reports for current contractor (James) - ONLY reports created by contractor, NOT admin reports
+  const myReports = contractorReports.filter((report: any) => 
+    report.contractorName === 'James' && 
+    report.reportType !== 'admin_inspection' && 
+    !report.reportText.includes('Admin Inspection Findings')
+  );
 
   if (myReports.length === 0) {
     return (

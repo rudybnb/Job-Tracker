@@ -14,8 +14,8 @@ export class ProgressMonitor {
       }
 
       // Find the uploaded job that matches this assignment
-      const uploadedJobs = await storage.getUploadedJobs();
-      const job = uploadedJobs.find(j => j.name === assignment.hbxlJob);
+      const uploadedJobs = await storage.getJobs();
+      const job = uploadedJobs.find((j: any) => j.name === assignment.hbxlJob);
       if (!job || !job.phaseTaskData) {
         console.log("⚠️ No task data found for job:", assignment.hbxlJob);
         return 0;
