@@ -699,7 +699,11 @@ export default function GPSDashboard() {
                 <div className="px-4 py-3 border-b border-slate-600">
                   <div className="text-yellow-400 font-semibold">James Carpenter</div>
                   <div className="text-slate-400 text-sm">james@contractor.com</div>
-                  <div className="flex items-center mt-2">
+                  <div className="flex items-center mt-1">
+                    <i className="fas fa-id-card text-blue-400 mr-2"></i>
+                    <span className="text-blue-400 text-sm font-mono">CTR-2025-JC001</span>
+                  </div>
+                  <div className="flex items-center mt-1">
                     <i className="fas fa-hard-hat text-yellow-400 mr-2"></i>
                     <span className="text-yellow-400 text-sm">Contractor</span>
                   </div>
