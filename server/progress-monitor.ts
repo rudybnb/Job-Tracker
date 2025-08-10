@@ -15,18 +15,22 @@ export class ProgressMonitor {
 
       // Find the uploaded job that matches this assignment - FIXED JOB MATCHING
       const uploadedJobs = await storage.getJobs();
+      console.log(`🔍 Looking for job match for assignment: ${assignment.hbxlJob} at ${assignment.workLocation}`);
+      console.log(`🔍 Available uploaded jobs:`, uploadedJobs.map((j: any) => ({ name: j.name, postcode: j.postcode, address: j.address })));
+      
       const job = uploadedJobs.find((j: any) => {
         // Method 1: Direct name match
         if (j.name === assignment.hbxlJob) return true;
         
         // Method 2: Xavier jones special case (assignment may be "Flat 2" or "Xavier jones")
-        if (j.name.toLowerCase().includes('xavier') && 
-           (assignment.hbxlJob.toLowerCase().includes('xavier') || assignment.hbxlJob.toLowerCase().includes('flat'))) {
+        if (j.name && j.name.toLowerCase().includes('xavier') && 
+           assignment.hbxlJob && (assignment.hbxlJob.toLowerCase().includes('xavier') || assignment.hbxlJob.toLowerCase().includes('flat'))) {
           return true;
         }
         
-        // Method 3: Postcode/address match
-        if (j.postcode === assignment.workLocation || j.address?.includes(assignment.workLocation)) {
+        // Method 3: Postcode/address match  
+        if ((j.postcode && j.postcode === assignment.workLocation) || 
+            (j.address && assignment.workLocation && j.address.includes(assignment.workLocation))) {
           return true;
         }
         

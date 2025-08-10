@@ -1391,6 +1391,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Progress update endpoint - triggers 50%/100% inspection milestones
+  app.post("/api/progress-update", async (req, res) => {
+    try {
+      const { assignmentId, completedTasks, totalTasks, percentage } = req.body;
+      
+      console.log(`📊 Progress update received: ${completedTasks}/${totalTasks} tasks (${percentage}%) for assignment ${assignmentId}`);
+      
+      // Import and use ProgressMonitor
+      const { ProgressMonitor } = await import('./progress-monitor');
+      const progressMonitor = new ProgressMonitor();
+      
+      // Manually trigger milestone check with provided percentage
+      if (percentage >= 50) {
+        console.log(`🎯 50% milestone reached (${percentage}%) - triggering inspection`);
+        await progressMonitor.checkProgressMilestones(assignmentId);
+      }
+      
+      if (percentage >= 100) {
+        console.log(`🎯 100% milestone reached (${percentage}%) - triggering inspection`);
+        await progressMonitor.checkProgressMilestones(assignmentId);
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Progress updated: ${percentage}%`,
+        milestonesChecked: percentage >= 50 
+      });
+    } catch (error) {
+      console.error("❌ Error updating progress:", error);
+      res.status(500).json({ error: "Failed to update progress" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
