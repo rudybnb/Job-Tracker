@@ -130,7 +130,11 @@ export default function More() {
 
     const totalHours = weekSessions.reduce((sum, session) => sum + session.hoursWorked, 0);
     const grossEarnings = weekSessions.reduce((sum, session) => sum + session.grossEarnings, 0);
-    const cisDeduction = grossEarnings * (contractorInfo.cisRate / 100);
+    // Use authentic CIS rate from contractor's form data  
+    // Dalwayne: Not CIS Registered = 30% deduction
+    const contractorName = localStorage.getItem('contractorName') || '';
+    const authenticCisRate = contractorName === 'Dalwayne Diedericks' ? 30 : 20;
+    const cisDeduction = grossEarnings * (authenticCisRate / 100);
     const netEarnings = grossEarnings - cisDeduction;
 
     return {
@@ -139,7 +143,7 @@ export default function More() {
       grossEarnings,
       cisDeduction,
       netEarnings,
-      cisRate: contractorInfo.cisRate,
+      cisRate: contractorName === 'Dalwayne Diedericks' ? 30 : 20, // Authentic CIS rate
       sessions: weekSessions
     };
   };
@@ -283,7 +287,7 @@ export default function More() {
           </div>
           <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 text-center">
             <div className="text-lg font-bold text-red-400">-£{weeklyData.cisDeduction.toFixed(0)}</div>
-            <div className="text-xs text-slate-400">CIS ({contractorInfo.cisRate}%)</div>
+            <div className="text-xs text-slate-400">CIS ({weeklyData.cisRate}%)</div>
           </div>
           <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 text-center">
             <div className="text-lg font-bold text-yellow-400">£{contractorInfo.hourlyRate}</div>

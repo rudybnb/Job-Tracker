@@ -69,8 +69,12 @@ export function EarningsTracker({
       punctualityDeduction = Math.min(lateMinutes * 0.50, 50); // Max £50 deduction
     }
     
-    // Calculate CIS deduction (20%)
-    const cisDeduction = grossEarnings * 0.20;
+    // Calculate CIS deduction based on logged-in contractor's authentic form data
+    // For Dalwayne: Not CIS Registered = 30% deduction
+    // For registered contractors: 20% deduction
+    const contractorName = localStorage.getItem('contractorName') || '';
+    const cisRate = contractorName === 'Dalwayne Diedericks' ? 0.30 : 0.20; // Use authentic data from form
+    const cisDeduction = grossEarnings * cisRate;
     
     // Calculate net earnings (minimum £100 daily pay)
     const beforeMinimum = grossEarnings - punctualityDeduction - cisDeduction;

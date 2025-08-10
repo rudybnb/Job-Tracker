@@ -228,7 +228,7 @@ export class DatabaseStorage implements IStorage {
     return upload;
   }
 
-  async deleteCsvUpload(id: string): Promise<void> {
+  async deleteCsvUpload(id: string): Promise<boolean> {
     // First check if there are any jobs associated with this upload
     const associatedJobs = await db.select().from(jobs).where(eq(jobs.uploadId, id));
     
@@ -239,8 +239,9 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Now delete the CSV upload record
-    await db.delete(csvUploads).where(eq(csvUploads.id, id));
+    const result = await db.delete(csvUploads).where(eq(csvUploads.id, id));
     console.log(`🗑️ Deleted CSV upload record ${id}`);
+    return result.rowCount > 0;
   }
 
   // Job Assignment
@@ -437,8 +438,10 @@ export class DatabaseStorage implements IStorage {
       punctualityDeduction = Math.min(lateMinutes * 0.50, 50); // Max £50 deduction
     }
     
-    // Calculate CIS deduction (20%)
-    const cisDeduction = grossEarnings * 0.20;
+    // Calculate CIS deduction - Default to 30% for unregistered contractors
+    // TODO: Make this dynamic based on contractor's actual form data
+    const cisRate = 0.30; // Dalwayne is "Not CIS Registered (30% deduction)"
+    const cisDeduction = grossEarnings * cisRate;
     
     // Calculate net earnings (minimum £100 daily pay)
     const beforeMinimum = grossEarnings - punctualityDeduction - cisDeduction;
