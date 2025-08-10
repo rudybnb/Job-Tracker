@@ -44,132 +44,174 @@ function ApplicationCard({ application, onStatusUpdate, onAdminUpdate }: Applica
   };
 
   return (
-    <Card className="mb-4">
-      <CardHeader className="pb-3">
+    <Card className="mb-4 bg-white border border-slate-200 shadow-lg">
+      <CardHeader className="pb-6 bg-slate-50 border-b">
         <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <User className="w-5 h-5" />
-              {application.firstName} {application.lastName}
-            </CardTitle>
-            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-              <span className="flex items-center gap-1">
-                <Mail className="w-4 h-4" />
-                {application.email}
-              </span>
-              <span className="flex items-center gap-1">
-                <Phone className="w-4 h-4" />
-                {application.phone}
-              </span>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center">
+              <User className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-xl font-semibold text-slate-800">
+                {application.firstName} {application.lastName}
+              </CardTitle>
+              <div className="flex items-center gap-4 mt-1 text-sm text-slate-600">
+                <span className="flex items-center gap-1">
+                  <Mail className="w-4 h-4" />
+                  {application.email}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Phone className="w-4 h-4" />
+                  {application.phone}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-sm text-slate-600">
+                <MapPin className="w-4 h-4" />
+                <span>{application.city}, {application.postcode}</span>
+              </div>
+              <div className="text-sm text-slate-600 mt-1">
+                {application.yearsExperience} years experience
+              </div>
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
             {getStatusBadge(application.status)}
-            <span className="text-xs text-gray-500 flex items-center gap-1">
+            <span className="text-xs text-slate-500 flex items-center gap-1">
               <Calendar className="w-3 h-3" />
               {application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : 'N/A'}
             </span>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="bg-slate-200 px-2 py-1 rounded text-slate-700 font-medium">
+                {application.primaryTrade}
+              </span>
+            </div>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">{application.city}, {application.postcode}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Building className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">{application.primaryTrade}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">{application.yearsExperience} experience</span>
-          </div>
-        </div>
+      <CardContent className="pt-6">{/* Remove the redundant info grid */}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <h4 className="font-medium mb-2">Tax & CIS Information</h4>
-            <ul className="space-y-1 text-gray-600">
-              <li>• CIS Status: {application.cisStatus}</li>
-              <li>• UTR: {application.utrNumberDetails}</li>
-              <li>• CIS Registered: {application.isCisRegistered === "true" ? "Yes" : "No"}</li>
-              <li>• Valid CSCS: {application.hasValidCscs === "true" ? "Yes" : "No"}</li>
-            </ul>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-sm">
+          {/* Tax & CIS Information */}
+          <div className="bg-slate-50 p-4 rounded-lg border">
+            <h4 className="font-semibold mb-3 text-slate-800 text-base">Tax & CIS Information</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-600">• CIS Status:</span>
+                <span className="font-medium text-slate-800">
+                  {application.cisStatus || "Not CIS Registered"} {!application.isCisRegistered || application.isCisRegistered === "false" ? "(30% deduction)" : ""}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">• UTR:</span>
+                <span className="font-medium text-slate-800">{application.utrNumberDetails || "Not provided"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">• CIS Registered:</span>
+                <span className="font-medium text-slate-800">{application.isCisRegistered === "true" ? "Yes" : "No"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">• Valid CSCS:</span>
+                <span className="font-medium text-slate-800">{application.hasValidCscs === "true" ? "Yes" : "No"}</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <h4 className="font-medium mb-2">Work Details</h4>
-            <ul className="space-y-1 text-gray-600">
-              <li>• Right to Work: {application.hasRightToWork === "true" ? "Yes" : "No"}</li>
-              <li>• Public Liability: {application.hasPublicLiability === "true" ? "Yes" : "No"}</li>
-              <li>• Own Tools: {application.hasOwnTools === "true" ? "Yes" : "No"}</li>
-              <li>• Passport Photo: {application.passportPhotoUploaded === "true" ? "Uploaded" : "Not uploaded"}</li>
-            </ul>
+
+          {/* Work Details */}
+          <div className="bg-slate-50 p-4 rounded-lg border">
+            <h4 className="font-semibold mb-3 text-slate-800 text-base">Work Details</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-600">• Right to Work:</span>
+                <span className="font-medium text-slate-800">{application.hasRightToWork === "true" ? "Yes" : "No"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">• Public Liability:</span>
+                <span className="font-medium text-slate-800">{application.hasPublicLiability === "true" ? "Yes" : "No"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">• Own Tools:</span>
+                <span className="font-medium text-slate-800">{application.hasOwnTools === "true" ? "Yes" : "No"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">• Passport Photo:</span>
+                <span className="font-medium text-slate-800">{application.passportPhotoUploaded === "true" ? "Uploaded" : "Not uploaded"}</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <h4 className="font-medium mb-2 flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Admin Details
+
+          {/* Admin Details */}
+          <div className="bg-slate-50 p-4 rounded-lg border">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-semibold text-slate-800 text-base flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Admin Details
+              </h4>
               <Button 
                 size="sm" 
                 variant="outline" 
                 onClick={() => setIsEditingAdmin(!isEditingAdmin)}
-                className="ml-auto h-6 px-2 text-xs"
+                className="h-6 px-2 text-xs border-slate-300 hover:bg-slate-100"
               >
                 {isEditingAdmin ? "Cancel" : "Edit"}
               </Button>
-            </h4>
+            </div>
             {isEditingAdmin ? (
               <div className="space-y-3">
                 <div>
-                  <Label htmlFor="cisVerification" className="text-xs">CIS Verification</Label>
+                  <Label htmlFor="cisVerification" className="text-xs font-medium text-slate-700">CIS Verification</Label>
                   <Input
                     id="cisVerification"
                     value={adminFields.adminCisVerification}
                     onChange={(e) => setAdminFields(prev => ({...prev, adminCisVerification: e.target.value}))}
                     placeholder="Admin CIS verification details"
-                    className="h-8 text-xs"
+                    className="h-8 text-xs mt-1"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="payRate" className="text-xs">Pay Rate (£/hour)</Label>
+                  <Label htmlFor="payRate" className="text-xs font-medium text-slate-700">Pay Rate (£/hour)</Label>
                   <Input
                     id="payRate"
                     value={adminFields.adminPayRate}
                     onChange={(e) => setAdminFields(prev => ({...prev, adminPayRate: e.target.value}))}
                     placeholder="e.g. 22.50"
-                    className="h-8 text-xs"
+                    className="h-8 text-xs mt-1"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="adminNotes" className="text-xs">Admin Notes</Label>
+                  <Label htmlFor="adminNotes" className="text-xs font-medium text-slate-700">Admin Notes</Label>
                   <Textarea
                     id="adminNotes"
                     value={adminFields.adminNotes}
                     onChange={(e) => setAdminFields(prev => ({...prev, adminNotes: e.target.value}))}
                     placeholder="Internal admin notes"
-                    className="h-16 text-xs"
+                    className="h-16 text-xs mt-1"
                   />
                 </div>
-                <Button size="sm" onClick={handleAdminSave} className="w-full h-7 text-xs">
+                <Button size="sm" onClick={handleAdminSave} className="w-full h-7 text-xs bg-slate-700 hover:bg-slate-800">
                   Save Admin Details
                 </Button>
               </div>
             ) : (
-              <ul className="space-y-1 text-gray-600">
-                <li className="flex items-center gap-1">
-                  <FileText className="w-3 h-3" />
-                  CIS: {application.adminCisVerification || "Not verified"}
-                </li>
-                <li className="flex items-center gap-1">
-                  <PoundSterling className="w-3 h-3" />
-                  Rate: {application.adminPayRate ? `£${application.adminPayRate}/hr` : "Not set"}
-                </li>
-                <li className="text-xs">
-                  Notes: {application.adminNotes || "None"}
-                </li>
-              </ul>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-600 flex items-center gap-1">
+                    <FileText className="w-3 h-3" />
+                    CIS:
+                  </span>
+                  <span className="font-medium text-slate-800">{application.adminCisVerification || "Not verified"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600 flex items-center gap-1">
+                    <PoundSterling className="w-3 h-3" />
+                    Rate:
+                  </span>
+                  <span className="font-medium text-slate-800">{application.adminPayRate ? `£${application.adminPayRate}/hr` : "Not set"}</span>
+                </div>
+                <div className="text-xs">
+                  <span className="text-slate-600">Notes:</span> 
+                  <span className="font-medium text-slate-800 ml-1">{application.adminNotes || "None"}</span>
+                </div>
+              </div>
             )}
           </div>
         </div>
