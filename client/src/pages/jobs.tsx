@@ -117,15 +117,14 @@ export default function Jobs() {
                     size="sm"
                     className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-3 py-1 h-7 flex-1"
                     onClick={() => {
-                      const report = prompt("Report materials not on site or need clarification:");
+                      const report = prompt("Quick report - type anything (missing materials, questions, problems):");
                       if (report && report.trim()) {
-                        // Send report to admin - this would integrate with existing notification system
-                        alert("Report sent to admin. You'll receive updates on your dashboard.");
+                        alert("Report sent to admin.");
                       }
                     }}
                   >
-                    <i className="fas fa-exclamation-triangle mr-1"></i>
-                    Report Issue
+                    <i className="fas fa-comment mr-1"></i>
+                    Quick Report
                   </Button>
                   
                   <Button
