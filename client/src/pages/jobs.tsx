@@ -61,12 +61,16 @@ export default function Jobs() {
               <div key={assignment.id} className="bg-slate-800 rounded-lg p-3 border border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                      <i className="fas fa-briefcase text-white text-sm"></i>
+                    <div className={`w-8 h-8 rounded flex items-center justify-center ${
+                      assignment.status === 'assigned' ? 'bg-yellow-500' : 'bg-blue-600'
+                    }`}>
+                      <i className={`fas fa-briefcase text-sm ${
+                        assignment.status === 'assigned' ? 'text-black' : 'text-white'
+                      }`}></i>
                     </div>
                     <div>
-                      <h3 className="text-base font-semibold text-yellow-400">{assignment.title}</h3>
-                      <p className="text-slate-400 text-xs">{assignment.location}</p>
+                      <h3 className="text-base font-semibold text-yellow-400">{assignment.title || 'Untitled Job'}</h3>
+                      <p className="text-slate-400 text-xs">{assignment.location || 'Location not set'}</p>
                     </div>
                   </div>
                   <Badge className={`text-xs px-2 py-0.5 ${

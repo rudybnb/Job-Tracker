@@ -87,9 +87,10 @@ export default function More() {
     // Check if started after 8:15 AM (8.25 in decimal)
     const startedLate = startTimeDecimal > 8.25;
     
-    // For full day (8+ hours), use daily rate. For partial days, calculate proportionally
-    const isFullDay = hoursWorked >= 8;
-    let grossEarnings = isFullDay ? contractorInfo.dailyRate : (hoursWorked * contractorInfo.hourlyRate);
+    // Daily rate covers maximum 8 hours. If worked 9+ hours, still only pay for 8 hours (daily rate)
+    const paidHours = Math.min(hoursWorked, 8); // Cap paid hours at 8
+    const isFullDay = paidHours >= 8;
+    let grossEarnings = isFullDay ? contractorInfo.dailyRate : (paidHours * contractorInfo.hourlyRate);
     
     // Apply deduction if started after 8:15 AM
     if (startedLate && isFullDay) {
