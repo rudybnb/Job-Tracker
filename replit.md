@@ -61,10 +61,11 @@ The application features a dark navy background (`#1e293b`) with muted yellow-gr
 The application offers a complete workflow with distinct role-based interfaces for administrators and contractors. It manages operations from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize data persistence (PostgreSQL), security (GPS validation), and user experience.
 
 ### Recent Technical Achievements (August 10, 2025)
-- **Jobs Page Interactive Functionality**: Added "View Details" and "Tasks" buttons to job assignments, enabling contractors to inspect assignments and access task progress
-- **Assignment Details Access**: Fixed field mapping issues (hbxlJob vs title, workLocation vs location) so job assignments display correctly as "Flat 2" at "DA17 5DB"
-- **Contractor Assignment Workflow**: Contractors can now view detailed assignment information including phases, dates, and site reporting features through `/assignment/:id` route
-- **Database Synchronization**: Resolved duplicate function issues in database storage ensuring consistent data retrieval for contractor assignments
+- **Two-Tier Reporting System**: Implemented dual reporting workflows with simple "Quick Report" for contractors (text-only materials/clarification requests) and comprehensive "Admin Site Inspection" for admin (photos, quality ratings, weather conditions, safety notes, detailed assessments)
+- **Database Schema Enhancement**: Added `contractor_reports` and `admin_inspections` tables with full API endpoints supporting both reporting tiers
+- **Assignment Details Page**: Enhanced with contractor Quick Report functionality and admin inspection forms, maintaining "here to work not paperwork" philosophy for contractors
+- **Field Mapping Resolution**: Fixed assignment details display issues (hbxlJob vs title, workLocation vs location) ensuring proper data flow from job assignments
+- **Reporting API Integration**: Created complete CRUD operations for both contractor reports and admin inspections with proper error handling and validation
 
 ## External Dependencies
 
