@@ -28,6 +28,7 @@ import AssignmentDetails from "@/pages/assignment-details";
 import ContractorIdCapture from "@/pages/contractor-id-capture";
 import AdminSettings from "@/pages/admin-settings";
 import AdminInspections from "@/pages/admin-inspections";
+import Reports from "@/pages/reports";
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -98,6 +99,11 @@ function Router() {
         <Route path="/more" component={() => (
           <ProtectedRoute requiredRole="contractor">
             <More />
+          </ProtectedRoute>
+        )} />
+        <Route path="/reports" component={() => (
+          <ProtectedRoute requiredRole="contractor">
+            <Reports />
           </ProtectedRoute>
         )} />
         <Route path="/job-assignments" component={() => (
