@@ -163,7 +163,11 @@ export default function More() {
   const handleMenuAction = (action: string) => {
     setContractorDropdownOpen(false);
     if (action === "Sign Out & Switch Account") {
-      window.location.href = '/';
+      // Clear all localStorage data
+      localStorage.clear();
+      // Force page reload to ensure clean state
+      window.location.href = '/login';
+      window.location.reload();
       return;
     }
     toast({

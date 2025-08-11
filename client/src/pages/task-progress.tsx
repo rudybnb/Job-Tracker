@@ -398,7 +398,11 @@ export default function TaskProgress() {
                   
                   <div className="border-t border-slate-600 mt-2 pt-2">
                     <button 
-                      onClick={() => window.location.href = '/login'}
+                      onClick={() => {
+                        localStorage.clear();
+                        window.location.href = '/login';
+                        window.location.reload();
+                      }}
                       className="w-full px-4 py-2 text-left text-red-400 hover:bg-slate-700 flex items-center"
                     >
                       <i className="fas fa-sign-out-alt mr-3 text-red-400"></i>
