@@ -64,17 +64,17 @@ export default function More() {
     gcTime: 0, // Don't cache (renamed from cacheTime in v5)
   });
 
-  // Contractor details with AUTHENTIC data only - use contractorData from the API
-  const hourlyRate = contractorData?.adminPayRate ? parseFloat(contractorData.adminPayRate) : 18.75;
+  // Contractor details with AUTHENTIC data only - use contractorApplication from the API
+  const hourlyRate = contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) : 18.75;
   const contractorInfo = {
-    name: contractorData?.firstName && contractorData?.lastName 
-      ? `${contractorData.firstName} ${contractorData.lastName}` 
+    name: contractorApplication?.firstName && contractorApplication?.lastName 
+      ? `${contractorApplication.firstName} ${contractorApplication.lastName}` 
       : contractorName,
-    email: contractorData?.email || "",
-    cisRegistered: contractorData?.isCisRegistered === 'true',
+    email: contractorApplication?.email || "",
+    cisRegistered: contractorApplication?.isCisRegistered === 'true',
     dailyRate: hourlyRate * 8, // Calculate daily rate from authentic hourly rate
     hourlyRate: hourlyRate,
-    cisRate: contractorData?.isCisRegistered === 'true' ? 20 : 30 // Use authentic CIS status
+    cisRate: contractorApplication?.isCisRegistered === 'true' ? 20 : 30 // Use authentic CIS status
   };
   
   console.log(`💼 Contractor Info: ${contractorInfo.name}, £${hourlyRate}/hr, £${contractorInfo.dailyRate}/day, CIS: ${contractorInfo.cisRate}%`);
