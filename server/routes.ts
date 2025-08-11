@@ -427,8 +427,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'DA1': { latitude: '51.4417', longitude: '0.2056' },
       'SG1 1EH': { latitude: '51.8721', longitude: '-0.2015' },
       'SG1': { latitude: '51.8721', longitude: '-0.2015' },
-      'ME5 9GX': { latitude: '51.2737', longitude: '0.5238' }, // Dalwayne's current assignment
-      'ME5': { latitude: '51.2737', longitude: '0.5238' },
+      'ME5 9GX': { latitude: '51.335996', longitude: '0.530215' }, // Dalwayne's current assignment - official UK postcode coordinates
+      'ME5': { latitude: '51.335996', longitude: '0.530215' },
       // Add more as needed
     };
     
