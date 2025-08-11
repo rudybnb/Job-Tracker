@@ -45,7 +45,9 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
   
   // Check if current user is admin
   const userRole = localStorage.getItem('userRole');
+  const currentUser = localStorage.getItem('currentUser');
   const isAdmin = userRole === 'admin';
+  console.log('🔐 SubTasks Admin check - userRole:', userRole, 'currentUser:', currentUser, 'isAdmin:', isAdmin);
 
   useEffect(() => {
     const fetchJobTasks = async () => {
@@ -58,10 +60,13 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
           id: j.id,
           title: j.name,
           uploadId: j.uploadId,
+          phaseDataValue: j.phaseData,
           phaseTaskDataValue: j.phaseTaskData,
-          phaseTaskDataLength: j.phaseTaskData?.length,
+          hasPhaseData: !!j.phaseData,
           hasTaskData: !!j.phaseTaskData
         })));
+        
+        console.log('🔍 Assignment hbxlJob for matching:', assignment.hbxlJob);
 
         // Find matching job by title/name
         const matchingJob = jobs.find((job: any) => 
@@ -75,12 +80,15 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
         console.log('🎯 Selected job:', matchingJob ? {
           id: matchingJob.id,
           title: matchingJob.name,
+          hasPhaseData: !!matchingJob.phaseData,
           hasTaskData: !!matchingJob.phaseTaskData
         } : 'No matching job found');
 
-        if (matchingJob?.phaseTaskData) {
+        // Try both phaseData and phaseTaskData fields
+        const taskDataSource = matchingJob?.phaseData || matchingJob?.phaseTaskData;
+        if (taskDataSource) {
           console.log('✅ Returning authentic CSV data only - no assumptions made');
-          const phaseTaskData = JSON.parse(matchingJob.phaseTaskData);
+          const phaseTaskData = typeof taskDataSource === 'string' ? JSON.parse(taskDataSource) : taskDataSource;
           
           // Convert to flat task list with proper IDs
           const taskList: any[] = [];
@@ -282,7 +290,9 @@ export default function AssignmentDetails() {
 
   // Check if current user is admin
   const userRole = localStorage.getItem('userRole');
+  const currentUser = localStorage.getItem('currentUser');
   const isAdmin = userRole === 'admin';
+  console.log('🔐 Main Admin check - userRole:', userRole, 'currentUser:', currentUser, 'isAdmin:', isAdmin);
 
   if (assignmentLoading) {
     return (
