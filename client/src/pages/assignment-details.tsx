@@ -259,7 +259,7 @@ export default function AssignmentDetails() {
   // Fetch assignment details
   const { data: assignment, isLoading: assignmentLoading } = useQuery<AssignmentDetails>({
     queryKey: ["/api/job-assignments", assignmentId],
-    queryFn: getQueryFn(),
+    queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!assignmentId,
   });
 
