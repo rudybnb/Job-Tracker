@@ -37,6 +37,7 @@ export default function Login() {
       localStorage.setItem('userRole', 'admin');
       localStorage.setItem('isLoggedIn', 'true');
       localStorage.setItem('adminName', "Earl Johnson");
+      localStorage.setItem('adminEmail', "earl.johnson@erbuildanddesign.co.uk");
       console.log('✅ Earl Johnson admin login successful - role set to admin');
       window.location.href = '/admin';
       toast({

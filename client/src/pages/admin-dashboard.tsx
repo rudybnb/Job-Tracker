@@ -204,7 +204,7 @@ export default function AdminDashboard() {
               onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
               className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4 hover:bg-yellow-700 transition-colors"
             >
-              <span className="text-white font-bold text-sm">RD</span>
+              <span className="text-white font-bold text-sm">{(localStorage.getItem('adminName') || 'Admin').split(' ').map(n => n[0]).join('').slice(0,2)}</span>
             </button>
             <i className="fas fa-chevron-down text-slate-400 text-xs ml-1"></i>
             
@@ -212,8 +212,8 @@ export default function AdminDashboard() {
             {showAvatarDropdown && (
               <div className="absolute right-0 mt-2 w-80 bg-slate-800 rounded-lg shadow-xl border border-slate-600 z-50 max-h-96 overflow-y-auto">
                 <div className="p-4 border-b border-slate-600">
-                  <div className="font-medium text-white">Rudy Diedericks</div>
-                  <div className="text-sm text-slate-400">rudy@erbuildanddesign.co.uk</div>
+                  <div className="font-medium text-white">{localStorage.getItem('adminName') || 'Admin'}</div>
+                  <div className="text-sm text-slate-400">{localStorage.getItem('adminEmail') || 'admin@erbuildanddesign.co.uk'}</div>
                   <div className="flex items-center mt-2">
                     <i className="fas fa-shield-alt text-red-500 mr-2"></i>
                     <span className="text-red-400 text-sm">Admin Access</span>

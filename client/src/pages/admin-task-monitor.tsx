@@ -74,7 +74,7 @@ export default function AdminTaskMonitor() {
             <i className="fas fa-user-shield text-black mr-2"></i>
             <div>
               <span className="text-black font-medium text-sm">Admin Dashboard</span>
-              <div className="text-black text-xs">Welcome Rudy</div>
+              <div className="text-black text-xs">Welcome {localStorage.getItem('adminName')?.split(' ')[0] || 'Admin'}</div>
             </div>
           </div>
           <div className="flex space-x-2">
