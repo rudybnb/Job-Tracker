@@ -95,6 +95,8 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
   };
 
   useEffect(() => {
+    console.log('🔍 Assignment Details useEffect triggered, assignment:', assignment);
+    
     const fetchJobTasks = async () => {
       try {
         console.log('📋 Extracting ONLY authentic CSV task data...');
@@ -192,8 +194,13 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
       }
     };
 
-    fetchJobTasks();
-    loadTaskProgress();
+    if (assignment) {
+      console.log('🔍 Assignment exists, loading task data and progress...');
+      fetchJobTasks();
+      loadTaskProgress();
+    } else {
+      console.log('❌ No assignment provided to component');
+    }
   }, [assignment]);
 
   // Save quick note for task

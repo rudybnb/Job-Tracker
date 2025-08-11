@@ -1,0 +1,63 @@
+8:59:51 PM [express] GET /api/contractor-assignments/Dalwayne 304 in 20ms :: [{"id":"3dcacf03-4634-4…
+🔍 Fetching assignments for contractor: Dalwayne
+📋 Found 1 assignments for contractor: Dalwayne
+📍 Setting GPS coordinates for assignment 3dcacf03-4634-44b1-9d17-889895041fbd at ME5 9GX: 51.335996, 0.530215
+📋 Found assignments: 1
+8:59:54 PM [express] GET /api/contractor-assignments/Dalwayne 304 in 21ms :: [{"id":"3dcacf03-4634-4…
+📋 Extracting ONLY authentic CSV task data...
+🔍 Available jobs: [
+  {
+    id: '4714d1b6-e47c-437d-be8a-74023b00474b',
+    title: 'Promise',
+    uploadId: 'e00d9481-16da-4118-a20e-c18142cf6424',
+    phaseTaskDataValue: '{"Paving Slab":[{"description":"Paving Grout outside","quantity":1,"task":"Install paving grout outside"},{"description":"Curtain rail to be fixed","quantity":1,"task":"Install curtain rail to be fixed"},{"description":"Secor switch Promise Batroom","quantity":1,"task":"Install secor switch promise batroom"},{"description":"Other","quantity":1,"task":"Install other"}]}',
+    phaseTaskDataLength: 371,
+    hasTaskData: true
+  },
+  {
+    id: '9d943aba-cd5f-4e12-8143-52793c478f0b',
+    title: 'Promise',
+    uploadId: '9df591be-3df5-4049-b033-b63ba55b05ef',
+    phaseTaskDataValue: '{"Concrete":[{"description":"Outt building Concrete","quantity":1,"task":"Install outt building concrete"},{"description":"Cleaning","quantity":1,"task":"Install cleaning"}]}',
+    phaseTaskDataLength: 174,
+    hasTaskData: true
+  }
+]
+🎯 Selected job: {
+  id: '4714d1b6-e47c-437d-be8a-74023b00474b',
+  title: 'Promise',
+  hasTaskData: true
+}
+✅ Returning authentic CSV data only - no assumptions made
+8:59:54 PM [express] GET /api/uploaded-jobs 304 in 23ms :: [{"id":"flat2-job","name":"Promise","addr…
+🔍 Fetching assignments for contractor: Dalwayne
+📋 Found 1 assignments for contractor: Dalwayne
+📍 Setting GPS coordinates for assignment 3dcacf03-4634-44b1-9d17-889895041fbd at ME5 9GX: 51.335996, 0.530215
+📋 Found assignments: 1
+9:00:26 PM [express] GET /api/contractor-assignments/Dalwayne 304 in 51ms :: [{"id":"3dcacf03-4634-4…
+📋 Extracting ONLY authentic CSV task data...
+🔍 Available jobs: [
+  {
+    id: '4714d1b6-e47c-437d-be8a-74023b00474b',
+    title: 'Promise',
+    uploadId: 'e00d9481-16da-4118-a20e-c18142cf6424',
+    phaseTaskDataValue: '{"Paving Slab":[{"description":"Paving Grout outside","quantity":1,"task":"Install paving grout outside"},{"description":"Curtain rail to be fixed","quantity":1,"task":"Install curtain rail to be fixed"},{"description":"Secor switch Promise Batroom","quantity":1,"task":"Install secor switch promise batroom"},{"description":"Other","quantity":1,"task":"Install other"}]}',
+    phaseTaskDataLength: 371,
+    hasTaskData: true
+  },
+  {
+    id: '9d943aba-cd5f-4e12-8143-52793c478f0b',
+    title: 'Promise',
+    uploadId: '9df591be-3df5-4049-b033-b63ba55b05ef',
+    phaseTaskDataValue: '{"Concrete":[{"description":"Outt building Concrete","quantity":1,"task":"Install outt building concrete"},{"description":"Cleaning","quantity":1,"task":"Install cleaning"}]}',
+    phaseTaskDataLength: 174,
+    hasTaskData: true
+  }
+]
+🎯 Selected job: {
+  id: '4714d1b6-e47c-437d-be8a-74023b00474b',
+  title: 'Promise',
+  hasTaskData: true
+}
+✅ Returning authentic CSV data only - no assumptions made
+9:00:26 PM [express] GET /api/uploaded-jobs 304 in 23ms :: [{"id":"flat2-job","name":"Promise","addr…
