@@ -28,6 +28,7 @@ import AssignmentDetails from "@/pages/assignment-details";
 import ContractorIdCapture from "@/pages/contractor-id-capture";
 import AdminSettings from "@/pages/admin-settings";
 import AdminInspections from "@/pages/admin-inspections";
+import TelegramMessages from "@/pages/telegram-messages";
 
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -145,6 +146,11 @@ function Router() {
         <Route path="/admin-inspections" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AdminInspections />
+          </ProtectedRoute>
+        )} />
+        <Route path="/admin-telegram" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <TelegramMessages />
           </ProtectedRoute>
         )} />
         <Route path="/admin-site-inspections" component={() => (

@@ -872,6 +872,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get recent Telegram messages
+  app.get("/api/telegram/recent-messages", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const telegramService = new TelegramService();
+      const result = await telegramService.getRecentMessages(limit);
+      
+      if (result.success) {
+        // Filter to show messages from specific users or with relevant content
+        const relevantMessages = result.messages?.filter((msg: any) => {
+          const senderName = msg.from?.first_name?.toLowerCase() || '';
+          const messageText = msg.text?.toLowerCase() || '';
+          
+          // Look for messages from Marius or containing work-related keywords
+          return senderName.includes('marius') || 
+                 messageText.includes('work') || 
+                 messageText.includes('job') ||
+                 messageText.includes('ready') ||
+                 messageText.includes('hello') ||
+                 messageText.includes('hi');
+        }) || [];
+
+        res.json({
+          success: true,
+          messages: relevantMessages,
+          totalChecked: result.messages?.length || 0,
+          relevantCount: relevantMessages.length
+        });
+      } else {
+        res.json(result);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error getting recent messages:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get recent messages',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Get recent messages sent to the bot
   app.get("/api/telegram/messages", async (req, res) => {
     try {
