@@ -167,18 +167,25 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
     const loadTaskProgress = async () => {
       if (assignment) {
         try {
+          console.log(`📊 Attempting to load task progress for assignment: ${assignment.id}`);
           const response = await fetch(`/api/task-progress/${assignment.id}`);
           if (response.ok) {
             const progressData = await response.json();
+            console.log(`📊 Raw progress data from API:`, progressData);
             const progressMap: {[key: string]: number} = {};
             progressData.forEach((task: any) => {
-              progressMap[task.taskId] = parseFloat(task.completionProgress);
+              const progress = parseFloat(task.completionProgress);
+              progressMap[task.taskId] = progress;
+              console.log(`📊 Mapping task ${task.taskId} to ${progress}%`);
             });
             setTaskProgress(progressMap);
+            console.log(`📊 Final progress map set:`, progressMap);
             console.log(`📊 Loaded ${progressData.length} task progress records from database`);
+          } else {
+            console.error(`📊 Failed to load task progress: ${response.status}`);
           }
         } catch (error) {
-          console.error('Error loading task progress:', error);
+          console.error('📊 Error loading task progress:', error);
         }
       }
     };
@@ -250,6 +257,7 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
                   {phaseTasks.map((task: any) => {
                     const progress = taskProgress[task.id] || 0;
                     const isCompleted = progress === 100;
+                    console.log(`🔍 Task ${task.id}: progress=${progress}%, completed=${isCompleted}, taskProgress state:`, taskProgress);
                     
                     return (
                       <div key={task.id} className="bg-slate-700 rounded p-2 text-sm">
