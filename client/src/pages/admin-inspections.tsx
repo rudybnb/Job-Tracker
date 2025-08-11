@@ -136,7 +136,7 @@ export default function AdminInspections() {
                   
                   <div className="flex gap-3 pt-3">
                     <Button
-                      onClick={() => window.open(`/assignment/${inspection.assignmentId}`, '_blank')}
+                      onClick={() => window.open(`/assignment-details/${inspection.assignmentId}`, '_blank')}
                       variant="outline"
                       className="border-amber-500 text-amber-200 hover:bg-amber-600"
                     >
