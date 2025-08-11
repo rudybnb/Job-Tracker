@@ -1,0 +1,210 @@
+stallwart.build.js:1 stallwart: failed ping 1
+_app-29682acb77ecdd83.js:13 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+_app-29682acb77ecdd83.js:13 [LaunchDarkly] LaunchDarkly client initialized
+/~:1 Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
+Element with focus: <div.cm-content cm-lineWrapping>
+Ancestor with aria-hidden: <div. useView_view__C2mnv css-17qdd0f Surface_surfaceRoot__TeA2u> null
+JobDispatch:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'ambient-light-sensor'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'battery'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'execution-while-not-rendered'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'execution-while-out-of-viewport'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'layout-animations'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'legacy-image-formats'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'navigation-override'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'oversized-images'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'publickey-credentials'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'speaker-selection'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'unoptimized-images'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'unsized-media'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Unrecognized feature: 'pointer-lock'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Allow attribute will take precedence over 'allowfullscreen'.
+_ @ framework-9d3251a6078e5ccb.js:1
+framework-9d3251a6078e5ccb.js:1 Allow attribute will take precedence over 'allowpaymentrequest'.
+_ @ framework-9d3251a6078e5ccb.js:1
+2676-84e74969feec61f6.js:1 WebSocket connection to 'wss://production-ai-chat.replit.com/river?auth_token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQzNTI1ODAwLCJ1c2VyVGltZUNyZWF0ZWQiOiIyMDI1LTA2LTA1VDE3OjE0OjI0Ljc0MFoiLCJyZXBsSWQiOiIzZWE2OTE0OS1lYjUwLTQ4ODctOTk4NC02ZTZlYWY5OTAwYWUiLCJtZW1iZXJzaGlwIjoiY29yZSIsImlzc3VlciI6Imh0dHBzOi8vcmVwbGl0LXdlYi1wcm9kLnAucmVwbGl0LmNvbSIsInJvbGVzIjpbImludGVudF9idXNpbmVzcyIsIm9uYm9hcmRpbmdfam9iX290aGVyIiwib25ib2FyZGluZ19yb2xlX21lbWJlciJdLCJjYW5Xcml0ZSI6dHJ1ZSwiaGFzUmVwbGl0QWlQcm8iOnRydWUsImZsYWdnaW5nQ29udGV4dCI6IntcI...YXJkaW5nX2pvYl9vdGhlclwiLFwib25ib2FyZGluZ19yb2xlX21lbWJlclwiXSxcImlzX3RlYW1cIjpmYWxzZSxcIm1lbWJlcnNoaXBcIjpcImNvcmVcIn0iLCJpYXQiOjE3NTQ4OTI2NzYsImV4cCI6MTc1NDg5NjI3Nn0.UZ7MQGVfB47pbK00BlSdqqSmeKKq-aoZme2JTDp8puElQ3RtozmOu0bvk0NPGhAVPUvIkY6hmIKuurjbGzOjH5mGXImWUuM7mNTG4sus0sDDVX6h6VlwmQXdAT7BDqbR97QTsmLdRg0jwB7JfBYtc6wNEJ6RG46WUM0F5yJk1UNxO1LMDaBNBF9wVe_IFcksPNbgIwWFtkQz2clOfqsMK_pvf6-a9HNeawzpsTpVpJHPBQAYt4kHHnGMpx2IlY-kqqcV55wVdHiwNXVOq481986U_qPGOw9b6iQINN9KlFuapSvT7U71jlwvArZMocQijwo8NjxM6X6NPw4TvULmRw' failed: 
+(anonymous) @ 2676-84e74969feec61f6.js:1
+2676-84e74969feec61f6.js:1 WebSocket connection to 'wss://production-chort.replit.com/api/river' failed: 
+(anonymous) @ 2676-84e74969feec61f6.js:1
+3635-0abc29a912057312.js:1 WebSocket connection to 'wss://eval.spock.platform.replit.com/wsv2/v2.public.Q2dZSWdwbm14QVlTQmdpaHRlYkVCaUlGYzNCdlkyc3dBRHI2QVFva00yVmhOamt4TkRrdFpXSTFNQzAwT0RnM0xUazVPRFF0Tm1VMlpXRm1PVGt3TUdGbEVnTnVhWGdhRjNKbGNHeHBkQzF5WlhCc0xXWnBiR1Z6TFhOd2IyTnJJZ3RLYjJKRWFYTndZWFJqYUNvSWNuVmtlV0p1WW1SQ1VRb1ljbVZ3YkdsMExYSmxjR3d0WW14dlkydHpMWE53YjJOckVoWnlaWEJzYVhRdGNtVndiQzF0WlhSaExYTndiMk5yR2gxeVpYQnNhWFF0YldGeVoyRnlhVzVsTFdKc2IyTnJjeTF6Y0c5amEwb0hDS2pONEJRUUFWQUFXZzlwYm5SbGJuUmZZblZ6YVc1bGMzTmFGRzl1WW05aGNtUnBibWRmYW05aVgyOTBhR1Z5V2hadmJtSnZ...mpNbWx6UVhWdVZVaFpNMjUyY2t0cmEzTnRaWFkzVlc5NWNVUmFla1pNUlhsMVQzRm1abkZIU0RkUmFrNURkR05zWnlVeVFrVldObTVUT1ZSS1VreDBOMlZLYkhWaFl6QTNOemd3V1dGSWVtVjVZelUxV0dnMmMwOU9ZVnBpVTJkMFNUUmtlVTVqWkVKc09YbDFiM0JwYWpWaWJGbDZja2R3UmtKTVIwWnpTRXRPVjJsV2FGWmtNRUpWYm5CWGRIUk5iWGRrZFd4RFoyVWxNa1pFU0VoemVWbFBORXRSV0dwWFRUWXdiMHREVVhWelRVODJaakk0T1hkbE9VeHJaMUZOUW1wSWJtdHBTWE5EVG1WUU0wWlJWbVpSSlRORUpUTkXTcwX9A7yC4IVC40Ln4dExW4cCMpdqS7wH8lTP7o6rzzWcfUQMV02au7HenaHOBbZCRhx2bw2u4VKgfbgoXZQB.Q2dad2NtOWtPak1pQ25KbGNHeHBkQzVqYjIwPQ' failed: 
+connect @ 3635-0abc29a912057312.js:1
+3635-0abc29a912057312.js:1 WebSocket connection to 'wss://eval.spock.platform.replit.com/wsv2/v2.public.Q2dZSWdwbm14QVlTQmdpaHRlYkVCaUlGYzNCdlkyc3dBRHI2QVFva00yVmhOamt4TkRrdFpXSTFNQzAwT0RnM0xUazVPRFF0Tm1VMlpXRm1PVGt3TUdGbEVnTnVhWGdhRjNKbGNHeHBkQzF5WlhCc0xXWnBiR1Z6TFhOd2IyTnJJZ3RLYjJKRWFYTndZWFJqYUNvSWNuVmtlV0p1WW1SQ1VRb1ljbVZ3YkdsMExYSmxjR3d0WW14dlkydHpMWE53YjJOckVoWnlaWEJzYVhRdGNtVndiQzF0WlhSaExYTndiMk5yR2gxeVpYQnNhWFF0YldGeVoyRnlhVzVsTFdKc2IyTnJjeTF6Y0c5amEwb0hDS2pONEJRUUFWQUFXZzlwYm5SbGJuUmZZblZ6YVc1bGMzTmFGRzl1WW05aGNtUnBibWRmYW05aVgyOTBhR1Z5V2hadmJtSnZ...mpNbWx6UVhWdVZVaFpNMjUyY2t0cmEzTnRaWFkzVlc5NWNVUmFla1pNUlhsMVQzRm1abkZIU0RkUmFrNURkR05zWnlVeVFrVldObTVUT1ZSS1VreDBOMlZLYkhWaFl6QTNOemd3V1dGSWVtVjVZelUxV0dnMmMwOU9ZVnBpVTJkMFNUUmtlVTVqWkVKc09YbDFiM0JwYWpWaWJGbDZja2R3UmtKTVIwWnpTRXRPVjJsV2FGWmtNRUpWYm5CWGRIUk5iWGRrZFd4RFoyVWxNa1pFU0VoemVWbFBORXRSV0dwWFRUWXdiMHREVVhWelRVODJaakk0T1hkbE9VeHJaMUZOUW1wSWJtdHBTWE5EVG1WUU0wWlJWbVpSSlRORUpUTkXTcwX9A7yC4IVC40Ln4dExW4cCMpdqS7wH8lTP7o6rzzWcfUQMV02au7HenaHOBbZCRhx2bw2u4VKgfbgoXZQB.Q2dad2NtOWtPak1pQ25KbGNHeHBkQzVqYjIwPQ' failed: WebSocket is closed before the connection is established.
+cleanupSocket @ 3635-0abc29a912057312.js:1
+_app-29682acb77ecdd83.js:40 WebSocket connection to 'wss://replit.com/graphql_subscriptions' failed: 
+(anonymous) @ _app-29682acb77ecdd83.js:40
+27c7b5fc:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+27c7b5fc:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+graphql:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+get_connection_metadata:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+graphql:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+62b35a865152ab14c5942820:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+62b35a865152ab14c5942820:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+_app-29682acb77ecdd83.js:40 WebSocket connection to 'wss://replit.com/graphql_subscriptions' failed: 
+(anonymous) @ _app-29682acb77ecdd83.js:40
+3635-0abc29a912057312.js:1 WebSocket connection to 'wss://eval.spock.platform.replit.com/wsv2/v2.public.Q2dZSWdwbm14QVlTQmdpaHRlYkVCaUlGYzNCdlkyc3dBRHI2QVFva00yVmhOamt4TkRrdFpXSTFNQzAwT0RnM0xUazVPRFF0Tm1VMlpXRm1PVGt3TUdGbEVnTnVhWGdhRjNKbGNHeHBkQzF5WlhCc0xXWnBiR1Z6TFhOd2IyTnJJZ3RLYjJKRWFYTndZWFJqYUNvSWNuVmtlV0p1WW1SQ1VRb1ljbVZ3YkdsMExYSmxjR3d0WW14dlkydHpMWE53YjJOckVoWnlaWEJzYVhRdGNtVndiQzF0WlhSaExYTndiMk5yR2gxeVpYQnNhWFF0YldGeVoyRnlhVzVsTFdKc2IyTnJjeTF6Y0c5amEwb0hDS2pONEJRUUFWQUFXZzlwYm5SbGJuUmZZblZ6YVc1bGMzTmFGRzl1WW05aGNtUnBibWRmYW05aVgyOTBhR1Z5V2hadmJtSnZ...mpNbWx6UVhWdVZVaFpNMjUyY2t0cmEzTnRaWFkzVlc5NWNVUmFla1pNUlhsMVQzRm1abkZIU0RkUmFrNURkR05zWnlVeVFrVldObTVUT1ZSS1VreDBOMlZLYkhWaFl6QTNOemd3V1dGSWVtVjVZelUxV0dnMmMwOU9ZVnBpVTJkMFNUUmtlVTVqWkVKc09YbDFiM0JwYWpWaWJGbDZja2R3UmtKTVIwWnpTRXRPVjJsV2FGWmtNRUpWYm5CWGRIUk5iWGRrZFd4RFoyVWxNa1pFU0VoemVWbFBORXRSV0dwWFRUWXdiMHREVVhWelRVODJaakk0T1hkbE9VeHJaMUZOUW1wSWJtdHBTWE5EVG1WUU0wWlJWbVpSSlRORUpUTkXTcwX9A7yC4IVC40Ln4dExW4cCMpdqS7wH8lTP7o6rzzWcfUQMV02au7HenaHOBbZCRhx2bw2u4VKgfbgoXZQB.Q2dad2NtOWtPak1pQ25KbGNHeHBkQzVqYjIwPQ' failed: 
+connect @ 3635-0abc29a912057312.js:1
+62b35a865152ab14c5942820:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+_app-29682acb77ecdd83.js:13 onClick is deprecated, please use onPress
+(anonymous) @ _app-29682acb77ecdd83.js:13
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+/~:1 Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
+Element with focus: <div.cm-content cm-lineWrapping>
+Ancestor with aria-hidden: <div. useView_view__C2mnv css-17qdd0f Surface_surfaceRoot__TeA2u> <div class=​" useView_view__C2mnv css-17qdd0f Surface_surfaceRoot__TeA2u" aria-hidden=​"true" style=​"--useView--gap:​ 4px;​ border-color:​ var(--outline-dimmer)​;​ --focusedBorderColor:​ var(--accent-primary-default)​;​ --hoverBorderColor:​ var(--accent-primary-default)​;​">​…​</div>​
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+_app-29682acb77ecdd83.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-29682acb77ecdd83.js:13
+/~:1 Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
+Element with focus: <div.cm-content cm-lineWrapping>
+Ancestor with aria-hidden: <div. useView_view__C2mnv css-17qdd0f Surface_surfaceRoot__TeA2u> <div class=​" useView_view__C2mnv css-17qdd0f Surface_surfaceRoot__TeA2u" aria-hidden=​"true" style=​"--useView--gap:​ 4px;​ border-color:​ var(--outline-dimmer)​;​ --focusedBorderColor:​ var(--accent-primary-default)​;​ --hoverBorderColor:​ var(--accent-primary-default)​;​">​…​</div>​
+_app-29682acb77ecdd83.js:13 WARN: A component changed from uncontrolled to controlled.
+(anonymous) @ _app-29682acb77ecdd83.js:13
+(anonymous) @ _app-29682acb77ecdd83.js:40
+oO @ framework-9d3251a6078e5ccb.js:1
+uB @ framework-9d3251a6078e5ccb.js:1
+u_ @ framework-9d3251a6078e5ccb.js:1
+r6 @ framework-9d3251a6078e5ccb.js:1
+(anonymous) @ framework-9d3251a6078e5ccb.js:1
+uO @ framework-9d3251a6078e5ccb.js:1
+uS @ framework-9d3251a6078e5ccb.js:1
+C @ framework-9d3251a6078e5ccb.js:1
+z @ framework-9d3251a6078e5ccb.js:1
+_app-29682acb77ecdd83.js:13 WARN: A component changed from controlled to uncontrolled.
+(anonymous) @ _app-29682acb77ecdd83.js:13
+(anonymous) @ _app-29682acb77ecdd83.js:40
+oO @ framework-9d3251a6078e5ccb.js:1
+uB @ framework-9d3251a6078e5ccb.js:1
+(anonymous) @ framework-9d3251a6078e5ccb.js:1
+C @ framework-9d3251a6078e5ccb.js:1
+z @ framework-9d3251a6078e5ccb.js:1
+_app-29682acb77ecdd83.js:13 WARN: A component changed from uncontrolled to controlled.
+(anonymous) @ _app-29682acb77ecdd83.js:13
+(anonymous) @ _app-29682acb77ecdd83.js:40
+oO @ framework-9d3251a6078e5ccb.js:1
+uB @ framework-9d3251a6078e5ccb.js:1
+u_ @ framework-9d3251a6078e5ccb.js:1
+r6 @ framework-9d3251a6078e5ccb.js:1
+(anonymous) @ framework-9d3251a6078e5ccb.js:1
+uO @ framework-9d3251a6078e5ccb.js:1
+uS @ framework-9d3251a6078e5ccb.js:1
+C @ framework-9d3251a6078e5ccb.js:1
+z @ framework-9d3251a6078e5ccb.js:1
+3635-0abc29a912057312.js:1 WebSocket connection to 'wss://eval.spock.platform.replit.com/wsv2/v2.public.Q2dZSThMbm94QVlTQmdpUDF1akVCaUlGYzNCdlkyc3dBRHI2QVFva00yVmhOamt4TkRrdFpXSTFNQzAwT0RnM0xUazVPRFF0Tm1VMlpXRm1PVGt3TUdGbEVnTnVhWGdhRjNKbGNHeHBkQzF5WlhCc0xXWnBiR1Z6TFhOd2IyTnJJZ3RLYjJKRWFYTndZWFJqYUNvSWNuVmtlV0p1WW1SQ1VRb1ljbVZ3YkdsMExYSmxjR3d0WW14dlkydHpMWE53YjJOckVoWnlaWEJzYVhRdGNtVndiQzF0WlhSaExYTndiMk5yR2gxeVpYQnNhWFF0YldGeVoyRnlhVzVsTFdKc2IyTnJjeTF6Y0c5amEwb0hDS2pONEJRUUFWQUFXZzlwYm5SbGJuUmZZblZ6YVc1bGMzTmFGRzl1WW05aGNtUnBibWRmYW05aVgyOTBhR1Z5V2hadmJtSnZ...VWRqTTRaMjkyTTBvMk9UTkVKVEpHYkU1ME1YbzNWamcxWmxWaE9FRlRhelZDSlRKR01YZFBUMVZ3T1dNNFZtNVJaRWh5UzFsdGMyWlFUVzV4YzJaNFN6aEVUbVpXSlRKR1JGVllKVEpHUWt4clJETkJiVTVwVldNd00xSnNhVGdsTWtKclREQnBaSGhtVVhGRlZHd2xNa1k1WWs5YWFrZFBSaVV5UW1WVFVFeEhSMjVrU25CSFFuSTRRekJvYUVzMVlVNW9Oa0lsTWtab1pqQWxNa0owUmpOVWRWa3dabTBsTWtKU1ozSjViMnQ1TTBkSFoyWmFOMWR5UjNSamJqY3dUREkyVEhabVExSndRMm8xUjB4MlFTVXpSQ1V6UkE9Pf4OkDAImt6xw8Jh1modmKV8W6g1iwkxFGLhGYQ_-WSZlKKn7evMHP7xhIJHxPR_0rcofGyBNI4tlSi2V_BurQk.Q2dad2NtOWtPak1pQ25KbGNHeHBkQzVqYjIwPQ' failed: 
+connect @ 3635-0abc29a912057312.js:1
+handleClose @ 3635-0abc29a912057312.js:1
+t @ 3635-0abc29a912057312.js:1
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html:32 Unrecognized feature: 'battery'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+VM232 eruda.js:2 🔐 Main Admin check - userRole: null currentUser: null isAdmin: false
+VM232 eruda.js:2 ✓ SessionStorage cleared

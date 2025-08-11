@@ -135,18 +135,20 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
           console.log('✅ Returning authentic CSV data only - no assumptions made');
           const phaseTaskData = typeof taskDataSource === 'string' ? JSON.parse(taskDataSource) : taskDataSource;
           
-          // Convert to flat task list with proper IDs
+          // Convert to flat task list with proper IDs that match database
           const taskList: any[] = [];
           Object.entries(phaseTaskData).forEach(([phase, tasks]: [string, any]) => {
             if (Array.isArray(tasks)) {
               tasks.forEach((task, index) => {
+                const taskId = `${phase}-${index}`;
                 taskList.push({
-                  id: `${phase}-${index}`,
+                  id: taskId,
                   phase,
                   description: task.description || task.task || 'Task details not available',
                   quantity: task.quantity || 1,
                   task: task.task || task.description || 'Task details not available'
                 });
+                console.log(`📋 Created task with ID: ${taskId} - ${task.description || task.task}`);
               });
             }
           });
