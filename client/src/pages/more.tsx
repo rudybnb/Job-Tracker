@@ -45,11 +45,22 @@ export default function More() {
   }
   const contractorFirstName = contractorName.split(' ')[0];
 
+  // Map contractor first names to their usernames for API calls
+  const getUsernameFromFirstName = (firstName: string) => {
+    switch (firstName.toLowerCase()) {
+      case 'earl': return 'earl.johnson';
+      case 'dalwayne': return 'dalwayne';
+      default: return firstName.toLowerCase();
+    }
+  };
+
+  const username = getUsernameFromFirstName(contractorFirstName);
+
   // Get authentic contractor data from database - NO HARDCODED RATES
   const { data: contractorApplication } = useQuery({
-    queryKey: [`/api/contractor-application/${contractorFirstName.toLowerCase()}`],
+    queryKey: [`/api/contractor-application/${username}`],
     queryFn: async () => {
-      const response = await fetch(`/api/contractor-application/${contractorFirstName.toLowerCase()}`);
+      const response = await fetch(`/api/contractor-application/${username}`);
       if (response.status === 404) return null;
       if (!response.ok) throw new Error('Failed to fetch contractor data');
       return response.json();
@@ -153,11 +164,8 @@ export default function More() {
 
     const totalHours = weekSessions.reduce((sum, session) => sum + session.hoursWorked, 0);
     const grossEarnings = weekSessions.reduce((sum, session) => sum + session.grossEarnings, 0);
-    // Use authentic CIS rate from contractor's form data  
-    // Dalwayne: Not CIS Registered = 30% deduction (HMRC standard rate)
-    const contractorName = localStorage.getItem('contractorName') || '';
-    const authenticCisRate = contractorName === 'Dalwayne Diedericks' ? 30 : 20;
-    const cisDeduction = Math.round((grossEarnings * authenticCisRate / 100) * 100) / 100; // Round to 2 decimal places
+    // Use authentic CIS rate from contractor's database data
+    const cisDeduction = Math.round((grossEarnings * contractorInfo.cisRate / 100) * 100) / 100; // Round to 2 decimal places
     const netEarnings = Math.round((grossEarnings - cisDeduction) * 100) / 100;
 
     return {
@@ -166,7 +174,7 @@ export default function More() {
       grossEarnings,
       cisDeduction,
       netEarnings,
-      cisRate: contractorName === 'Dalwayne Diedericks' ? 30 : 20, // Authentic CIS rate
+      cisRate: contractorInfo.cisRate, // Use contractor's actual CIS rate from database
       sessions: weekSessions
     };
   };
