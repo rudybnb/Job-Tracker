@@ -192,7 +192,7 @@ export const WORKFLOW_CONFIGS = {
       }
     ]
   },
-  csvUpload: {
+  csvDataUpload: {
     workflow: 'csv-upload',
     steps: [
       {
@@ -256,7 +256,7 @@ export const WORKFLOW_CONFIGS = {
       }
     ]
   },
-  gpsTracking: {
+  gpsTimeTracking: {
     workflow: 'gps-tracking',
     steps: [
       {
