@@ -70,13 +70,16 @@ The application offers a complete workflow with distinct role-based interfaces f
 - **Progressive Inspection System**: Implemented automatic admin inspection notifications at 50% and 100% job completion milestones, integrated into admin dashboard "Site Inspections Required" section (formerly "Overdue Projects")
 - **Inspection Dashboard Integration**: Replaced the basic "Overdue Projects" tab with intelligent inspection notifications showing pending milestone inspections, with direct links to assignment details and one-click completion marking
 
-### Recent Fixes (August 10, 2025 - 2:24 PM)
-- **✅ RESOLVED - Sub-Task Display Fixed**: Job matching logic restored - assignments now correctly match CSV jobs using postcode and name matching
-- **✅ RESOLVED - Contractor Dashboard Filtering**: Fixed contractor reports filtering to show only Quick Reports, not admin inspection reports
-- **✅ RESOLVED - Admin Site Inspection Interface**: Added dedicated admin inspection dashboard with milestone tracking
-- **✅ RESOLVED - 50% Progress Trigger**: Progress monitoring API endpoints working correctly for milestone notifications
-- **Technical Fix**: Enhanced job matching to handle "Flat 2" assignments matching "Xavier jones" jobs through postcode correlation (SG1 1EH, DA7 6HJ)
-- **Data Integrity Restored**: Authentic CSV task data now displaying correctly with Column G quantities for progress tracking
+### Recent Fixes (August 11, 2025 - 6:00 PM)
+- **✅ EARL JOHNSON ADMIN ROLE CORRECTED**: Fixed Earl Johnson's role from contractor to admin
+  - Removed Earl from contractor_applications table 
+  - Deleted Earl's contractor work sessions and job assignments
+  - Earl now logs in with earl.johnson / EarlAdmin2025! for admin access only
+  - System maintains proper separation: Earl = Admin, Dalwayne = Contractor
+- **✅ CONTRACTOR DATA SEPARATION**: Fixed API username mapping for proper data isolation
+  - Earl's contractor data removed from system
+  - Dalwayne remains as authentic contractor with £18.75/hour, 30% CIS deduction
+  - Each role now has completely separate authentication and data access
 
 ### Latest Updates (August 10, 2025 - 5:30 PM)
 - **✅ COMPLETE JAMES DATA ELIMINATION**: Completely removed all "James Wilson" test data from entire system:
