@@ -36,8 +36,13 @@ export default function More() {
   }); // Current week
   const { toast } = useToast();
 
-  // Get contractor name from localStorage (authentic data only)
-  const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
+  // Get contractor name from localStorage - MUST be specific to logged-in user
+  const contractorName = localStorage.getItem('contractorName');
+  if (!contractorName) {
+    // If no contractor logged in, redirect to login
+    window.location.href = '/login';
+    return null;
+  }
   const contractorFirstName = contractorName.split(' ')[0];
 
   // Get authentic contractor data from database - NO HARDCODED RATES
@@ -120,8 +125,10 @@ export default function More() {
     console.log(`⏰ Raw data - Hours: ${hoursWorked}, TotalHours from DB: ${session.totalHours}`);
     console.log(`💸 Pay calculation: isFullDay=${isFullDay}, hourlyRate=£${contractorInfo.hourlyRate}, dailyRate=£${contractorInfo.dailyRate}`);
     
-    // FORCE CORRECT VALUES: Override calculation to show authentic data
-    const correctGrossEarnings = 150; // £18.75 × 8 = £150 daily rate
+    // Calculate earnings based on authenticated contractor's rates
+    const authenticHourlyRate = contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) : 18.75;
+    const dailyRate = authenticHourlyRate * 8;
+    const correctGrossEarnings = isFullDay ? dailyRate : (hoursWorked * authenticHourlyRate);
     
     return {
       id: session.id,
@@ -129,9 +136,9 @@ export default function More() {
       date: new Date(session.startTime).toISOString().split('T')[0],
       startTime: startTimeStr,
       endTime: endTimeStr,
-      hoursWorked: 8.0, // Display 8.0 hours as stored in database
-      hourlyRate: 18.75, // Force authentic rate
-      grossEarnings: correctGrossEarnings, // Force correct daily rate
+      hoursWorked: Math.min(hoursWorked, 8), // Display hours worked, max 8 for pay
+      hourlyRate: authenticHourlyRate, // Use contractor's actual rate
+      grossEarnings: correctGrossEarnings, // Use contractor's actual calculation
       gpsVerified: true
     };
   });

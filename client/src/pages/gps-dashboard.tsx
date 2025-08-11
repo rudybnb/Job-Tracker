@@ -13,8 +13,12 @@ function QuickReportsForContractor() {
     refetchInterval: 30000, // Check for new reports every 30 seconds
   });
 
-  // Get contractor name from localStorage 
-  const loggedInContractor = localStorage.getItem('contractorName') || 'James Wilson';
+  // Get contractor name from localStorage - must be authenticated
+  const loggedInContractor = localStorage.getItem('contractorName');
+  if (!loggedInContractor) {
+    window.location.href = '/login';
+    return null;
+  }
   
   // Filter reports for current contractor - ONLY Quick Reports, NOT admin inspection reports
   const myReports = contractorReports.filter((report: any) => 
@@ -167,8 +171,12 @@ export default function GPSDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get contractor name from localStorage (set during login)
-  const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
+  // Get contractor name from localStorage - enforce authentication
+  const contractorName = localStorage.getItem('contractorName');
+  if (!contractorName) {
+    window.location.href = '/login';
+    return null;
+  }
   const contractorFirstName = contractorName.split(' ')[0]; // Extract first name for API calls
   
   // Generate initials from contractor name
