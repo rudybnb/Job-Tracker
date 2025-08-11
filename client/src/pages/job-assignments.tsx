@@ -311,16 +311,17 @@ export default function JobAssignments() {
                     {expandedAssignment === assignment.id && (
                       <div className="mt-6 border-t border-slate-600 pt-6">
                         {/* Inspection Header */}
-                        <div className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 rounded-lg p-4 mb-6 border border-amber-500/20">
-                          <div className="flex items-center justify-between">
+                        <div className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6 border border-amber-500/20">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div>
-                              <h3 className="text-xl font-semibold text-amber-400 flex items-center gap-2">
-                                <i className="fas fa-clipboard-check"></i>
-                                Site Inspection Dashboard
+                              <h3 className="text-lg sm:text-xl font-semibold text-amber-400 flex items-center gap-2">
+                                <i className="fas fa-clipboard-check text-sm sm:text-base"></i>
+                                <span className="hidden sm:inline">Site Inspection Dashboard</span>
+                                <span className="sm:hidden">Inspection</span>
                               </h3>
-                              <p className="text-slate-300 mt-1">Quality assessment and task verification</p>
+                              <p className="text-slate-300 mt-1 text-sm">Quality assessment and task verification</p>
                             </div>
-                            <div className="text-right">
+                            <div className="text-left sm:text-right">
                               <div className="text-sm text-slate-400">Inspector</div>
                               <div className="text-amber-400 font-medium">
                                 {localStorage.getItem('adminName') || 'Admin'}
@@ -333,111 +334,114 @@ export default function JobAssignments() {
                         </div>
 
                         {/* Assignment Summary */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                          <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                            <div className="text-slate-400 text-sm">Contractor</div>
-                            <div className="text-white font-medium">{assignment.contractorName}</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                          <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+                            <div className="text-slate-400 text-xs sm:text-sm">Contractor</div>
+                            <div className="text-white font-medium text-sm sm:text-base">{assignment.contractorName}</div>
                           </div>
-                          <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                            <div className="text-slate-400 text-sm">Location</div>
-                            <div className="text-white font-medium">{assignment.workLocation}</div>
+                          <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+                            <div className="text-slate-400 text-xs sm:text-sm">Location</div>
+                            <div className="text-white font-medium text-sm sm:text-base">{assignment.workLocation}</div>
                           </div>
-                          <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                            <div className="text-slate-400 text-sm">Job Reference</div>
-                            <div className="text-white font-medium">{assignment.hbxlJob}</div>
+                          <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+                            <div className="text-slate-400 text-xs sm:text-sm">Job Reference</div>
+                            <div className="text-white font-medium text-sm sm:text-base">{assignment.hbxlJob}</div>
                           </div>
                         </div>
 
                         {completedTasks.length > 0 ? (
                           <div className="space-y-6">
                             {/* Tasks Summary */}
-                            <div className="bg-green-900/20 border border-green-700/30 rounded-lg p-4">
+                            <div className="bg-green-900/20 border border-green-700/30 rounded-lg p-3 sm:p-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
-                                  <i className="fas fa-check text-white text-lg"></i>
+                                <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <i className="fas fa-check text-white text-sm sm:text-lg"></i>
                                 </div>
-                                <div>
-                                  <h4 className="text-green-400 font-semibold text-lg">
-                                    {completedTasks.length} Task{completedTasks.length !== 1 ? 's' : ''} Ready for Inspection
+                                <div className="min-w-0">
+                                  <h4 className="text-green-400 font-semibold text-base sm:text-lg">
+                                    {completedTasks.length} Task{completedTasks.length !== 1 ? 's' : ''} Ready
                                   </h4>
-                                  <p className="text-slate-300 text-sm">All tasks marked complete by contractor - awaiting quality review</p>
+                                  <p className="text-slate-300 text-xs sm:text-sm">Complete - awaiting quality review</p>
                                 </div>
                               </div>
                             </div>
                             
                             {/* Task Inspection Cards */}
-                            <div className="space-y-4">
+                            <div className="space-y-3 sm:space-y-4">
                               {completedTasks.map((task: any) => (
-                                <div key={task.taskId} className="bg-slate-800/80 rounded-xl border border-slate-600 overflow-hidden">
+                                <div key={task.taskId} className="bg-slate-800/80 rounded-lg sm:rounded-xl border border-slate-600 overflow-hidden">
                                   {/* Task Header */}
-                                  <div className="bg-slate-700/50 px-6 py-4 border-b border-slate-600">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                          <i className="fas fa-tasks text-white"></i>
+                                  <div className="bg-slate-700/50 px-3 sm:px-6 py-3 sm:py-4 border-b border-slate-600">
+                                    <div className="flex items-start sm:items-center justify-between gap-3">
+                                      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                          <i className="fas fa-tasks text-white text-sm sm:text-base"></i>
                                         </div>
-                                        <div>
-                                          <h5 className="text-white font-semibold text-lg">{task.taskName}</h5>
-                                          <div className="flex items-center gap-4 mt-1">
-                                            <span className="text-slate-400 text-sm">Phase: {task.phase}</span>
-                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-900/30 border border-green-700/50 rounded-full text-green-400 text-xs font-medium">
+                                        <div className="min-w-0 flex-1">
+                                          <h5 className="text-white font-semibold text-sm sm:text-lg leading-tight">{task.taskName}</h5>
+                                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-1">
+                                            <span className="text-slate-400 text-xs sm:text-sm">Phase: {task.phase}</span>
+                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-900/30 border border-green-700/50 rounded-full text-green-400 text-xs font-medium w-fit">
                                               <i className="fas fa-check-circle"></i>
                                               Complete
                                             </span>
                                           </div>
                                         </div>
                                       </div>
-                                      <div className="text-right">
-                                        <div className="text-2xl font-bold text-green-400">100%</div>
+                                      <div className="text-right flex-shrink-0">
+                                        <div className="text-lg sm:text-2xl font-bold text-green-400">100%</div>
                                         <div className="text-xs text-slate-400">Progress</div>
                                       </div>
                                     </div>
                                   </div>
 
                                   {/* Inspection Controls */}
-                                  <div className="p-6">
+                                  <div className="p-3 sm:p-6">
                                     {/* Action Buttons */}
                                     <div className="mb-4">
-                                      <label className="block text-slate-300 font-medium mb-3">Quality Assessment</label>
-                                      <div className="flex gap-3">
+                                      <label className="block text-slate-300 font-medium mb-2 sm:mb-3 text-sm sm:text-base">Quality Assessment</label>
+                                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                         <button
                                           onClick={() => setInspectionStatus(prev => ({ ...prev, [task.taskId]: 'approved' }))}
-                                          className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                                          className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
                                             inspectionStatus[task.taskId] === 'approved'
                                               ? 'bg-green-600 text-white shadow-lg shadow-green-600/25 border-2 border-green-500'
                                               : 'bg-slate-700 text-slate-300 hover:bg-green-700 hover:text-white border-2 border-slate-600'
                                           }`}
                                         >
                                           <i className="fas fa-check-circle mr-2"></i>
-                                          Approve Work
+                                          <span className="hidden sm:inline">Approve Work</span>
+                                          <span className="sm:hidden">Approve</span>
                                         </button>
                                         <button
                                           onClick={() => setInspectionStatus(prev => ({ ...prev, [task.taskId]: 'issues' }))}
-                                          className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                                          className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
                                             inspectionStatus[task.taskId] === 'issues'
                                               ? 'bg-red-600 text-white shadow-lg shadow-red-600/25 border-2 border-red-500'
                                               : 'bg-slate-700 text-slate-300 hover:bg-red-700 hover:text-white border-2 border-slate-600'
                                           }`}
                                         >
                                           <i className="fas fa-exclamation-triangle mr-2"></i>
-                                          Requires Attention
+                                          <span className="hidden sm:inline">Requires Attention</span>
+                                          <span className="sm:hidden">Issues</span>
                                         </button>
-                                        <button className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 border-2 border-blue-500">
+                                        <button className="px-3 sm:px-4 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 border-2 border-blue-500 text-sm sm:text-base">
                                           <i className="fas fa-camera mr-2"></i>
-                                          Add Photo
+                                          <span className="hidden sm:inline">Add Photo</span>
+                                          <span className="sm:hidden">Photo</span>
                                         </button>
                                       </div>
                                     </div>
                                     
                                     {/* Notes Section */}
                                     <div>
-                                      <label className="block text-slate-300 font-medium mb-2">Inspection Notes</label>
+                                      <label className="block text-slate-300 font-medium mb-2 text-sm sm:text-base">Inspection Notes</label>
                                       <textarea
-                                        placeholder="Record quality observations, measurements, compliance notes, or remedial actions required..."
+                                        placeholder="Record quality observations, measurements, compliance notes..."
                                         value={inspectionNotes[task.taskId] || ''}
                                         onChange={(e) => setInspectionNotes(prev => ({ ...prev, [task.taskId]: e.target.value }))}
-                                        className="w-full bg-slate-700/80 border border-slate-500 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
-                                        rows={3}
+                                        className="w-full bg-slate-700/80 border border-slate-500 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-white placeholder-slate-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors text-sm sm:text-base"
+                                        rows={2}
                                       />
                                     </div>
                                   </div>
@@ -446,15 +450,15 @@ export default function JobAssignments() {
                             </div>
 
                             {/* Submit Section */}
-                            <div className="bg-slate-800/60 rounded-xl border border-slate-600 p-6">
-                              <div className="flex items-center justify-between">
+                            <div className="bg-slate-800/60 rounded-lg sm:rounded-xl border border-slate-600 p-3 sm:p-6">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                 <div>
-                                  <h4 className="text-white font-semibold text-lg">Complete Inspection</h4>
-                                  <p className="text-slate-400 text-sm mt-1">
-                                    Review all assessments before submitting final inspection report
+                                  <h4 className="text-white font-semibold text-base sm:text-lg">Complete Inspection</h4>
+                                  <p className="text-slate-400 text-xs sm:text-sm mt-1">
+                                    Review all assessments before submitting final report
                                   </p>
                                 </div>
-                                <div className="flex gap-3">
+                                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                   <button
                                     onClick={() => {
                                       setExpandedAssignment(null);
@@ -462,28 +466,29 @@ export default function JobAssignments() {
                                       setInspectionStatus({});
                                       setInspectionNotes({});
                                     }}
-                                    className="px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg font-medium transition-colors"
+                                    className="px-4 sm:px-6 py-2 sm:py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg font-medium transition-colors text-sm sm:text-base order-2 sm:order-1"
                                   >
                                     Cancel
                                   </button>
                                   <button
                                     onClick={submitInspection}
-                                    className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-medium shadow-lg shadow-green-600/25 transition-all duration-200"
+                                    className="px-6 sm:px-8 py-2 sm:py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-medium shadow-lg shadow-green-600/25 transition-all duration-200 text-sm sm:text-base order-1 sm:order-2"
                                   >
                                     <i className="fas fa-clipboard-check mr-2"></i>
-                                    Submit Inspection Report
+                                    <span className="hidden sm:inline">Submit Inspection Report</span>
+                                    <span className="sm:hidden">Submit Inspection</span>
                                   </button>
                                 </div>
                               </div>
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center py-12 bg-slate-800/50 rounded-xl border border-slate-600">
-                            <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <i className="fas fa-clipboard-list text-slate-400 text-xl"></i>
+                          <div className="text-center py-8 sm:py-12 bg-slate-800/50 rounded-lg sm:rounded-xl border border-slate-600">
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                              <i className="fas fa-clipboard-list text-slate-400 text-lg sm:text-xl"></i>
                             </div>
-                            <h4 className="text-white text-lg font-medium mb-2">No Tasks Ready for Inspection</h4>
-                            <p className="text-slate-400 text-sm max-w-md mx-auto">
+                            <h4 className="text-white text-base sm:text-lg font-medium mb-2">No Tasks Ready for Inspection</h4>
+                            <p className="text-slate-400 text-xs sm:text-sm max-w-md mx-auto px-4">
                               Completed tasks will appear here automatically once contractors mark them as 100% finished. 
                               Check back later or contact the contractor for status updates.
                             </p>

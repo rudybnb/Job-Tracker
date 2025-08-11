@@ -122,6 +122,11 @@ function Router() {
             <JobAssignments />
           </ProtectedRoute>
         )} />
+        <Route path="/admin/job-assignments" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <JobAssignments />
+          </ProtectedRoute>
+        )} />
         <Route path="/system-cleanup" component={() => (
           <ProtectedRoute requiredRole="admin">
             <SystemCleanupPage />
