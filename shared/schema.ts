@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, pgEnum, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, pgEnum, boolean, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -266,7 +266,7 @@ export const taskProgress = pgTable("task_progress", {
   phase: text("phase").notNull(),
   contractorName: text("contractor_name").notNull(),
   status: text("status").notNull().default("pending"), // pending, completed, approved, rejected
-  completionProgress: integer("completion_progress").default(0).notNull(), // 0-100
+  completionProgress: decimal("completion_progress", { precision: 5, scale: 2 }).default("0").notNull(), // 0-100
   contractorNotes: text("contractor_notes"),
   adminNotes: text("admin_notes"),
   photoUrls: text("photo_urls").array(), // Array of photo URLs

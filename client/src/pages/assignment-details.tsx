@@ -42,12 +42,26 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
   const [loading, setLoading] = useState(true);
   const [showNoteModal, setShowNoteModal] = useState<string | null>(null);
   const [taskNote, setTaskNote] = useState("");
+  const [taskProgress, setTaskProgress] = useState<{[key: string]: number}>({});
   
   // Check if current user is admin
   const userRole = localStorage.getItem('userRole');
   const currentUser = localStorage.getItem('currentUser');
   const isAdmin = userRole === 'admin';
   console.log('🔐 SubTasks Admin check - userRole:', userRole, 'currentUser:', currentUser, 'isAdmin:', isAdmin);
+
+  const markTaskComplete = (taskId: string) => {
+    setTaskProgress(prev => ({
+      ...prev,
+      [taskId]: 100
+    }));
+    console.log(`✓ Task ${taskId} marked as 100% complete by contractor`);
+  };
+
+  const approveTask = (taskId: string) => {
+    console.log(`✓ Task ${taskId} approved by admin`);
+    alert('Task approved! This functionality will be expanded with database integration.');
+  };
 
   useEffect(() => {
     const fetchJobTasks = async () => {
@@ -182,20 +196,57 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
                   {phase} ({phaseTasks.length} tasks)
                 </h3>
                 <div className="space-y-1">
-                  {phaseTasks.map((task: any) => (
-                    <div key={task.id} className="bg-slate-700 rounded p-2 text-sm">
+                  {phaseTasks.map((task: any) => {
+                    const progress = taskProgress[task.id] || 0;
+                    const isCompleted = progress === 100;
+                    
+                    return (
+                      <div key={task.id} className="bg-slate-700 rounded p-2 text-sm">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex-1">
                           <div className="text-white">{task.description}</div>
                           <div className="text-slate-400 text-xs">Qty: {task.quantity}</div>
+                          
+                          {/* Progress Bar */}
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="text-slate-400">Progress</span>
+                              <span className={progress === 100 ? "text-green-400" : "text-yellow-400"}>
+                                {progress}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-600 rounded-full h-2">
+                              <div 
+                                className={`h-2 rounded-full transition-all duration-300 ${
+                                  progress === 100 ? 'bg-green-500' : 'bg-yellow-500'
+                                }`}
+                                style={{ width: `${progress}%` }}
+                              ></div>
+                            </div>
+                          </div>
                         </div>
-                        <Badge className="bg-slate-600 text-slate-300 text-xs">
-                          Pending
+                        <Badge className={`text-xs ml-2 ${
+                          isCompleted ? 'bg-green-600 text-white' : 'bg-slate-600 text-slate-300'
+                        }`}>
+                          {isCompleted ? 'Completed' : 'In Progress'}
                         </Badge>
                       </div>
                       
-                      {/* Admin Action Buttons */}
-                      {isAdmin && (
+                      {/* Contractor Action - Mark Complete */}
+                      {!isAdmin && !isCompleted && (
+                        <div className="flex gap-2 pt-2 border-t border-slate-600">
+                          <Button
+                            size="sm"
+                            onClick={() => markTaskComplete(task.id)}
+                            className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 h-6"
+                          >
+                            ✓ Mark Complete
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {/* Admin Action Buttons - Only show for 100% completed tasks */}
+                      {isAdmin && isCompleted && (
                         <div className="flex gap-2 pt-2 border-t border-slate-600">
                           <Button
                             size="sm"
@@ -211,10 +262,18 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
                           >
                             📷 Photo
                           </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => approveTask(task.id)}
+                            className="bg-amber-600 hover:bg-amber-700 text-white text-xs px-2 py-1 h-6"
+                          >
+                            ✓ Approve
+                          </Button>
                         </div>
                       )}
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
