@@ -193,7 +193,7 @@ export default function Login() {
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold text-white">JobFlow</h1>
+                  <h1 className="text-4xl font-bold text-white">ERdesignandbuild</h1>
                   <p className="text-amber-400 font-medium">GPS Time Tracking & Job Management</p>
                 </div>
               </div>

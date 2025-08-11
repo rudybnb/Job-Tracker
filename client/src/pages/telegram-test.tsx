@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function TelegramTest() {
   const [isLoading, setIsLoading] = useState(false);
   const [chatId, setChatId] = useState('');
-  const [testMessage, setTestMessage] = useState('🔨 Test message from JobFlow!\n\nThis is a test to verify Telegram integration is working correctly.');
+  const [testMessage, setTestMessage] = useState('🔨 Test message from ERdesignandbuild!\n\nThis is a test to verify Telegram integration is working correctly.');
   const [recentMessages, setRecentMessages] = useState<any[]>([]);
   const { toast } = useToast();
 

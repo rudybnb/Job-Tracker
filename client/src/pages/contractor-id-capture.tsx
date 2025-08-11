@@ -12,7 +12,7 @@ export default function ContractorIdCapture() {
   const { toast } = useToast();
 
   const handleCopyFormMessage = () => {
-    const formMessage = `🔨 JobFlow Contractor Application
+    const formMessage = `🔨 ERdesignandbuild Contractor Application
 
 Hi ${contractorName || '[Contractor Name]'},
 
@@ -29,7 +29,7 @@ Please complete your contractor application form by providing:
 Reply with your completed information or visit our application portal.
 
 Best regards,
-JobFlow Team`;
+ERdesignandbuild Team`;
 
     navigator.clipboard.writeText(formMessage);
     toast({

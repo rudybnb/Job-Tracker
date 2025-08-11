@@ -1,7 +1,7 @@
-# JobFlow - GPS Time Tracking & Job Management System
+# ERdesignandbuild - GPS Time Tracking & Job Management System
 
 ## Overview
-JobFlow is a GPS-based time tracking and job management application for contractors. It provides GPS-verified time tracking, file upload capabilities for job creation, comprehensive admin dashboards, and direct job assignment workflows. The system aims to be a robust solution for managing contractor operations, from time tracking and compliance to job assignment and progress monitoring, enhancing efficiency and ensuring accurate record-keeping.
+ERdesignandbuild is a GPS-based time tracking and job management application for contractors. It provides GPS-verified time tracking, file upload capabilities for job creation, comprehensive admin dashboards, and direct job assignment workflows. The system aims to be a robust solution for managing contractor operations, from time tracking and compliance to job assignment and progress monitoring, enhancing efficiency and ensuring accurate record-keeping.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

@@ -6,7 +6,7 @@ const baseUrl = `https://api.telegram.org/bot${botToken}`;
 
 async function sendHello(chatId) {
   try {
-    const message = '👋 Hello from JobFlow! This is a test message to confirm the Telegram integration is working.';
+    const message = '👋 Hello from ERdesignandbuild! This is a test message to confirm the Telegram integration is working.';
     
     const response = await fetch(`${baseUrl}/sendMessage`, {
       method: 'POST',
