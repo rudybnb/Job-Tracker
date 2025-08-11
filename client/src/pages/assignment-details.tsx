@@ -250,8 +250,10 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
 }
 
 export default function AssignmentDetails() {
-  const [, params] = useRoute("/assignment/:id");
-  const assignmentId = params?.id;
+  // Try both route patterns - admin route and contractor route
+  const [, adminParams] = useRoute("/assignment-details/:id");
+  const [, contractorParams] = useRoute("/assignment/:id");
+  const assignmentId = adminParams?.id || contractorParams?.id;
 
   const [reportText, setReportText] = useState("");
   const [showQuickReport, setShowQuickReport] = useState(false);
