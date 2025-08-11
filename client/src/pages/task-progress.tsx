@@ -3,18 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-
-interface ProgressTask {
-  id: string;
-  title: string;
-  description: string;
-  area: string;
-  totalItems: number;
-  completedItems: number;
-  status: "not started" | "in progress" | "completed";
-  taskId?: string;
-  completed?: boolean;
-}
+import { TaskProgressManager, type TaskProgressData } from "@/lib/task-progress-manager";
 
 export default function TaskProgress() {
   const { toast } = useToast();
@@ -33,6 +22,17 @@ export default function TaskProgress() {
 
   // Get the first (active) assignment
   const activeAssignment = (assignments as any[])[0];
+  
+  // Initialize TaskProgressManager when assignment is available
+  const [progressManager, setProgressManager] = useState<TaskProgressManager | null>(null);
+  
+  useEffect(() => {
+    if (activeAssignment?.id && contractorName) {
+      const manager = new TaskProgressManager(contractorName, activeAssignment.id);
+      setProgressManager(manager);
+      console.log('🎯 TaskProgressManager initialized for assignment:', activeAssignment.id);
+    }
+  }, [activeAssignment?.id, contractorName]);
   
   console.log('🔍 Task Progress Debug - contractorFirstName:', contractorFirstName);
   console.log('🔍 Task Progress Debug - assignments:', assignments);
@@ -54,7 +54,7 @@ export default function TaskProgress() {
   }, [activeAssignment]);
   
   // Initialize tasks from database or CSV data
-  const [tasks, setTasks] = useState<ProgressTask[]>([]);
+  const [tasks, setTasks] = useState<TaskProgressData[]>([]);
 
   // Clear any old static task data when component loads  
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function TaskProgress() {
       }
       
       // Fetch the actual CSV job data to get real task items
-      let newTasks: ProgressTask[] = [];
+      let newTasks: TaskProgressData[] = [];
       
       try {
         // Get the uploaded jobs data that contains CSV task items
@@ -247,7 +247,7 @@ export default function TaskProgress() {
       // If we have saved progress from localStorage, restore it
       if (savedProgress) {
         try {
-          const savedTasks = JSON.parse(savedProgress) as ProgressTask[];
+          const savedTasks = JSON.parse(savedProgress) as TaskProgressData[];
           // Merge saved progress with current tasks
           newTasks = newTasks.map(task => {
             const savedTask = savedTasks.find(saved => saved.id === task.id || saved.title === task.title);
@@ -288,13 +288,19 @@ export default function TaskProgress() {
     loadTasksFromCSV();
   }, [activeAssignment]);
   
-  // Save progress whenever tasks change
+  // Save progress whenever tasks change (database-backed)
   useEffect(() => {
-    if (tasks.length > 0 && activeAssignment) {
+    if (tasks.length > 0 && activeAssignment && progressManager) {
+      // Save to localStorage immediately for speed
       const storageKey = `task_progress_${activeAssignment.id}`;
       localStorage.setItem(storageKey, JSON.stringify(tasks));
+      
+      // Also backup to database for persistence
+      progressManager.saveTaskProgress(tasks).catch(error => {
+        console.error('❌ Failed to backup to database:', error);
+      });
     }
-  }, [tasks, activeAssignment]);
+  }, [tasks, activeAssignment, progressManager]);
   
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
 
@@ -328,35 +334,20 @@ export default function TaskProgress() {
     const storageKey = `task_progress_${activeAssignment?.id || 'default'}`;
     localStorage.setItem(storageKey, JSON.stringify(updatedTasks));
     
-    // BACKUP: Also save to database to prevent data loss on logout
-    if (activeAssignment?.id && contractorName) {
+    // DATABASE BACKUP: Use TaskProgressManager for robust persistence
+    if (activeAssignment?.id && progressManager) {
       const updatedTask = updatedTasks.find(task => task.id === taskId);
       if (updatedTask) {
         const isCompleted = updatedTask.status === "completed";
         
-        // Save task progress to database as backup
-        fetch('/api/task-progress/update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contractorName,
-            assignmentId: activeAssignment.id,
-            taskId: updatedTask.id,
-            taskDescription: updatedTask.title,
-            phase: updatedTask.area,
-            completed: isCompleted,
-            completedItems: updatedTask.completedItems,
-            totalItems: updatedTask.totalItems
+        // Use TaskProgressManager for smart database backup
+        progressManager.updateTaskCompletion(updatedTask.taskId || updatedTask.id, isCompleted)
+          .then(() => {
+            console.log(`✅ Task persisted: ${updatedTask.title} - ${isCompleted ? 'completed' : 'in progress'}`);
           })
-        }).then(response => {
-          if (response.ok) {
-            console.log(`📁 Task progress backed up to database: ${updatedTask.title} - ${isCompleted ? 'completed' : 'in progress'}`);
-          } else {
-            console.error('❌ Failed to backup task progress to database');
-          }
-        }).catch(error => {
-          console.error('❌ Database backup failed:', error);
-        });
+          .catch(error => {
+            console.error('❌ Database persistence failed:', error);
+          });
       }
     }
     

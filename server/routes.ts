@@ -1651,36 +1651,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Backup endpoint for task progress (to prevent data loss on logout)
+  // Smart backup endpoint for task progress (upsert functionality)
   app.post("/api/task-progress/update", async (req, res) => {
     try {
-      const { contractorName, assignmentId, taskId, taskDescription, phase, completed, completedItems, totalItems } = req.body;
+      const { contractorName, assignmentId, taskId, taskDescription, phase, completed } = req.body;
       
-      // Try to update existing record, create if not exists
+      console.log(`📝 Processing task update: ${taskId} - ${completed ? 'completed' : 'incomplete'}`);
+      
+      // Try to update existing record first
       try {
         const existing = await storage.updateTaskCompletion(contractorName, assignmentId, taskId, completed);
         if (existing) {
-          console.log(`📁 Updated existing task progress backup: ${taskDescription}`);
-          return res.json({ success: true, action: 'updated' });
+          console.log(`📁 Updated existing task: ${taskId}`);
+          return res.json({ success: true, action: 'updated', data: existing });
         }
-      } catch (error) {
-        console.log(`📝 Creating new task progress backup: ${taskDescription}`);
+      } catch (updateError) {
+        console.log(`📝 Task not found, creating new record: ${taskId}`);
       }
       
-      // Create new task progress record
-      const newProgress = await storage.createTaskProgress({
-        contractorName,
-        assignmentId,
-        taskId,
-        taskDescription,
-        phase,
-        completed
-      });
-      
-      console.log(`✅ Task progress backed up: ${taskDescription} - ${completed ? 'completed' : 'in progress'}`);
-      res.json({ success: true, action: 'created', data: newProgress });
+      // Create new task progress record if update failed
+      try {
+        // Derive taskDescription and phase from taskId if not provided
+        const description = taskDescription || taskId.replace(/^phase-\d+-item-\d+-/, '').replace(/-/g, ' ');
+        const phaseMatch = taskId.match(/^phase-(\d+)/);
+        const derivedPhase = phase || (phaseMatch ? `Phase ${phaseMatch[1]}` : 'Unknown Phase');
+        
+        const newProgress = await storage.createTaskProgress({
+          contractorName,
+          assignmentId,
+          taskId,
+          taskDescription: description,
+          phase: derivedPhase,
+          completed: completed || false
+        });
+        
+        console.log(`✅ Created new task progress: ${taskId} - ${completed ? 'completed' : 'in progress'}`);
+        res.json({ success: true, action: 'created', data: newProgress });
+      } catch (createError) {
+        console.error('❌ Failed to create task progress:', createError);
+        res.status(500).json({ error: "Failed to create task progress record" });
+      }
     } catch (error) {
-      console.error("Error backing up task progress:", error);
+      console.error("❌ Error in task progress update:", error);
       res.status(500).json({ error: "Failed to backup task progress" });
     }
   });
