@@ -70,6 +70,12 @@ export default function AdminDashboard() {
     refetchInterval: 30000, // Check for new reports every 30 seconds
   });
 
+  // Fetch contractor-fixed inspections for admin review
+  const { data: contractorFixedInspections = [] } = useQuery<any[]>({
+    queryKey: ["/api/contractor-fixed-inspections"],
+    refetchInterval: 30000, // Check for contractor fixes every 30 seconds
+  });
+
   const completeInspectionMutation = useMutation({
     mutationFn: async (notificationId: string) => {
       const response = await apiRequest("POST", `/api/complete-inspection/${notificationId}`);
@@ -603,6 +609,84 @@ export default function AdminDashboard() {
               </div>
               <div className="text-slate-400 text-sm">
                 No urgent issues reported. All systems running smoothly.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Contractor Fixes Awaiting Review Card */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <div className="flex items-center mb-4">
+            <i className="fas fa-tools text-amber-500 mr-2"></i>
+            <h3 className="text-lg font-semibold text-amber-500">Contractor Fixes - Awaiting Review</h3>
+            {contractorFixedInspections.length > 0 && (
+              <Badge className="ml-2 bg-amber-600 text-white">
+                {contractorFixedInspections.length}
+              </Badge>
+            )}
+          </div>
+          
+          {contractorFixedInspections.length > 0 ? (
+            <div className="space-y-3">
+              {contractorFixedInspections.slice(0, 3).map((inspection: any) => (
+                <div key={inspection.id} className="bg-slate-700 rounded-lg p-3 border border-amber-500/30">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge className="text-xs bg-amber-600">
+                          FIXED
+                        </Badge>
+                        <span className="text-slate-400 text-xs">
+                          {new Date(inspection.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="text-white font-medium text-sm mb-1">
+                        {inspection.inspectorName} inspection - Assignment: {inspection.assignmentId.slice(0, 8)}...
+                      </div>
+                      <div className="text-slate-200 text-sm mb-2">
+                        <strong>Original Issue:</strong> {inspection.safetyNotes || inspection.materialsIssues || inspection.progressComments}
+                      </div>
+                      {inspection.nextActions && inspection.nextActions.includes('Contractor fixed:') && (
+                        <div className="text-green-300 text-sm mb-2">
+                          <strong>Contractor Notes:</strong> {inspection.nextActions.replace('Contractor fixed: ', '')}
+                        </div>
+                      )}
+                      <div className="text-amber-400 text-xs font-medium">
+                        ⚡ Needs Admin Re-Inspection
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => window.location.href = `/admin/inspection/${inspection.assignmentId}`}
+                      size="sm"
+                      className="bg-amber-600 hover:bg-amber-700 text-white ml-2"
+                    >
+                      Review
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              
+              {contractorFixedInspections.length > 3 && (
+                <div className="text-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-amber-500 text-amber-400 hover:bg-amber-600/10"
+                  >
+                    View All {contractorFixedInspections.length} Fixed Items
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 flex items-center justify-center">
+                  <i className="fas fa-check-circle text-green-400 text-4xl"></i>
+                </div>
+              </div>
+              <div className="text-slate-400 text-sm">
+                No contractor fixes pending review.
               </div>
             </div>
           )}

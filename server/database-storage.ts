@@ -95,6 +95,7 @@ export interface IStorage {
   getTaskInspectionResults(contractorName: string): Promise<any[]>;
   markTaskInspectionAsViewed(id: string): Promise<any>;
   markInspectionResolvedByContractor(inspectionId: string, contractorName: string, fixNotes?: string): Promise<any>;
+  getContractorFixedInspections(): Promise<any[]>;
   
   // Stats
   getStats(): Promise<{
@@ -782,6 +783,16 @@ export class DatabaseStorage implements IStorage {
     
     console.log(`✅ Marked inspection ${inspectionId} as resolved by contractor ${contractorName}`);
     return result;
+  }
+
+  async getContractorFixedInspections(): Promise<any[]> {
+    const fixedInspections = await db.select()
+      .from(adminInspections)
+      .where(eq(adminInspections.status, 'contractor_fixed'))
+      .orderBy(desc(adminInspections.createdAt));
+    
+    console.log(`📋 Retrieved ${fixedInspections.length} contractor-fixed inspections for admin review`);
+    return fixedInspections;
   }
 
   async getAdminInspectionsForContractor(contractorName: string): Promise<any[]> {

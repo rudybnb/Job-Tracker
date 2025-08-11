@@ -1843,5 +1843,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contractor-fixed inspections for admin to review
+  app.get("/api/contractor-fixed-inspections", async (req, res) => {
+    try {
+      console.log("📋 Fetching contractor-fixed inspections for admin review");
+      
+      // Get all admin inspections that have been marked as fixed by contractors
+      const fixedInspections = await storage.getContractorFixedInspections();
+      
+      res.json(fixedInspections);
+    } catch (error) {
+      console.error("Error fetching contractor-fixed inspections:", error);
+      res.status(500).json({ error: "Failed to fetch contractor-fixed inspections" });
+    }
+  });
+
   return httpServer;
 }
