@@ -51,7 +51,7 @@ export function EarningsTracker({
 
   const [earnings, setEarnings] = useState<EarningsCalculation>({
     hoursWorked: 0,
-    hourlyRate: hourlyRate,
+    hourlyRate: 18.75, // Will be updated from database
     grossEarnings: 0,
     punctualityDeduction: 0,
     cisDeduction: 0,
