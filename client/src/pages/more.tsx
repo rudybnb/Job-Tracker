@@ -92,9 +92,9 @@ export default function More() {
     // Check if started after 8:15 AM (8.25 in decimal)
     const startedLate = startTimeDecimal > 8.25;
     
-    // Daily rate covers maximum 8 hours. If worked 9+ hours, still only pay for 8 hours (daily rate)
-    const paidHours = Math.min(hoursWorked, 8); // Cap paid hours at 8
-    const isFullDay = paidHours >= 8;
+    // Daily rate covers maximum 8 hours. If worked 8+ hours, pay daily rate (£150)
+    const paidHours = Math.min(hoursWorked, 8); // Cap paid hours at 8 for daily rate calculation
+    const isFullDay = hoursWorked >= 8; // Full day if worked 8+ hours
     let grossEarnings = isFullDay ? contractorInfo.dailyRate : (paidHours * contractorInfo.hourlyRate);
     
     // Apply deduction if started after 8:15 AM
@@ -105,17 +105,26 @@ export default function More() {
       grossEarnings = Math.max(100, contractorInfo.dailyRate - deductionRate); // Minimum £100 per day
     }
     
-    const startTimeStr = startTime.toLocaleTimeString();
+    const startTimeStr = startTime.toLocaleTimeString('en-GB', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+    const endTimeStr = session.endTime ? new Date(session.endTime).toLocaleTimeString('en-GB', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    }) : "In Progress";
     const lateStatus = startedLate ? ' (LATE)' : '';
-    console.log(`💰 Session ${session.id}: ${hoursWorked} hours, started ${startTimeStr}${lateStatus} = £${grossEarnings.toFixed(2)}`);
+    console.log(`💰 Session ${session.id}: ${Math.min(hoursWorked, 8)} hours paid (${startTimeStr}-${endTimeStr}), started ${startTimeStr}${lateStatus} = £${grossEarnings.toFixed(2)}`);
     
     return {
       id: session.id,
       location: session.jobSiteLocation || "Work Site",
       date: new Date(session.startTime).toISOString().split('T')[0],
       startTime: startTimeStr,
-      endTime: session.endTime ? new Date(session.endTime).toLocaleTimeString() : "In Progress",
-      hoursWorked: hoursWorked,
+      endTime: endTimeStr,
+      hoursWorked: Math.min(hoursWorked, 8), // Display max 8 hours for pay calculation
       hourlyRate: contractorInfo.hourlyRate,
       grossEarnings: grossEarnings,
       gpsVerified: true
