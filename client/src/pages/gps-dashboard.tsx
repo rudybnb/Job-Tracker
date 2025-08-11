@@ -984,7 +984,7 @@ export default function GPSDashboard() {
         </div>
 
         {/* Task Inspection Results - Feedback from Admin */}
-        <InspectionIssues contractorName={contractorFirstName} />
+        <InspectionIssues contractorName={loggedInContractor} />
 
         {/* Overdue Projects Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
