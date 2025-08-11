@@ -94,6 +94,7 @@ export interface IStorage {
   createTaskInspectionResult(inspection: any): Promise<any>;
   getTaskInspectionResults(contractorName: string): Promise<any[]>;
   markTaskInspectionAsViewed(id: string): Promise<any>;
+  markInspectionResolvedByContractor(inspectionId: string, contractorName: string, fixNotes?: string): Promise<any>;
   
   // Stats
   getStats(): Promise<{
@@ -765,6 +766,21 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     console.log(`👁️ Marked task inspection ${id} as viewed`);
+    return result;
+  }
+
+  async markInspectionResolvedByContractor(inspectionId: string, contractorName: string, fixNotes?: string): Promise<any> {
+    // Since we're using admin inspections, update the admin inspection with contractor resolution
+    const [result] = await db
+      .update(adminInspections)
+      .set({ 
+        status: 'contractor_fixed',
+        nextActions: fixNotes ? `Contractor fixed: ${fixNotes}` : 'Contractor marked as fixed - awaiting admin re-inspection'
+      })
+      .where(eq(adminInspections.id, inspectionId))
+      .returning();
+    
+    console.log(`✅ Marked inspection ${inspectionId} as resolved by contractor ${contractorName}`);
     return result;
   }
 

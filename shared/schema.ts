@@ -280,13 +280,19 @@ export const taskInspectionResults = pgTable("task_inspection_results", {
   taskId: text("task_id").notNull(),
   phase: text("phase").notNull(),
   taskName: text("task_name").notNull(),
-  inspectionStatus: text("inspection_status").notNull(), // 'approved', 'issues', 'pending'
+  inspectionStatus: text("inspection_status").notNull(), // 'approved', 'issues', 'pending', 'contractor_fixed', 'admin_reapproved'
   notes: text("notes"),
   photos: text("photos").array(), // Array of photo URLs
   inspectedBy: text("inspected_by").notNull(),
   inspectedAt: timestamp("inspected_at").defaultNow().notNull(),
   contractorViewed: boolean("contractor_viewed").default(false).notNull(),
   contractorViewedAt: timestamp("contractor_viewed_at"),
+  contractorMarkedDone: boolean("contractor_marked_done").default(false).notNull(),
+  contractorMarkedDoneAt: timestamp("contractor_marked_done_at"),
+  contractorFixNotes: text("contractor_fix_notes"),
+  adminReapprovedBy: text("admin_reapproved_by"),
+  adminReapprovedAt: timestamp("admin_reapproved_at"),
+  adminReapprovalNotes: text("admin_reapproval_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

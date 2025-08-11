@@ -42,7 +42,7 @@ The application features a dark navy background (`#1e293b`) with muted yellow-gr
 
 **Database**:
 - **ORM**: Drizzle ORM for PostgreSQL.
-- **Schema**: Includes `work_sessions`, `admin_settings`, `contractors`, `jobs`, and `csv_uploads` tables.
+- **Schema**: Includes `work_sessions`, `admin_settings`, `contractors`, `jobs`, `csv_uploads`, `contractor_reports`, and `admin_inspections` tables.
 - **Validation**: Zod schemas for type-safe data validation.
 
 **Core Features**:
@@ -54,105 +54,15 @@ The application features a dark navy background (`#1e293b`) with muted yellow-gr
 - **Admin Management**: Admin Applications Dashboard for contractor review, CIS management, and pay rate administration.
 - **Authentication**: Login/logout system with session management.
 - **Admin Site Reporting Interface**: Transformed assignment details page for admin site visits, including photo upload, progress comments, and quality assessments.
-- **CSV Upload Functionality**: Reinstated with new frontend components, preserving existing backend parsing, with a comprehensive preview system displaying raw and formatted data, and clear data/delete functionality.
-- **Automatic Pay Calculation**: Computes total hours from work sessions, with punctuality deductions (£0.50/minute after 8:15 AM, max £50 deduction, min £100 daily pay), and 20% CIS deduction.
+- **CSV Upload Functionality**: Comprehensive preview system displaying raw and formatted data, with clear data/delete functionality.
+- **Automatic Pay Calculation**: Computes total hours from work sessions, with punctuality deductions (£0.50/minute after 8:15 AM, max £50 deduction, min £100 daily pay), and 20% CIS deduction. Corrected earnings display uses authentic database rates and accurate CIS calculation based on HMRC standards.
 - **CSV Data Supremacy Enforcement**: Ensures task display uses only authentic CSV data, showing "Data Missing from CSV" if detailed breakdowns are unavailable.
+- **Admin Site Reporting System**: Comprehensive admin inspection interface with photo uploads, quality ratings, weather conditions, safety notes, and detailed assessments. Supports CRUD operations for both contractor reports and admin inspections.
+- **Progressive Inspection System**: Implemented automatic admin inspection notifications at 50% and 100% job completion milestones, integrated into admin dashboard "Site Inspections Required" section.
+- **Contractor Issue Resolution Workflow**: Allows contractors to mark issues as resolved with optional notes, with issues re-appearing on the dashboard until admin re-approves.
 
 ### System Design Choices
-The application offers a complete workflow with distinct role-based interfaces for administrators and contractors. It manages operations from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize data persistence (PostgreSQL), security (GPS validation), and user experience.
-
-### Recent Technical Achievements (August 10, 2025)
-- **Admin Site Reporting System**: Comprehensive admin inspection interface with photo uploads, quality ratings, weather conditions, safety notes, and detailed assessments. Contractors focus on work, not paperwork.
-- **Database Schema Enhancement**: Added `contractor_reports` and `admin_inspections` tables with full API endpoints supporting both reporting tiers
-- **Assignment Details Page**: Enhanced with contractor Quick Report functionality and admin inspection forms, maintaining "here to work not paperwork" philosophy for contractors
-- **Field Mapping Resolution**: Fixed assignment details display issues (hbxlJob vs title, workLocation vs location) ensuring proper data flow from job assignments
-- **Reporting API Integration**: Created complete CRUD operations for both contractor reports and admin inspections with proper error handling and validation
-- **Progressive Inspection System**: Implemented automatic admin inspection notifications at 50% and 100% job completion milestones, integrated into admin dashboard "Site Inspections Required" section (formerly "Overdue Projects")
-- **Inspection Dashboard Integration**: Replaced the basic "Overdue Projects" tab with intelligent inspection notifications showing pending milestone inspections, with direct links to assignment details and one-click completion marking
-
-### Recent Fixes (August 11, 2025 - 6:00 PM)
-- **✅ EARL JOHNSON ADMIN ROLE CORRECTED**: Fixed Earl Johnson's role from contractor to admin
-  - Removed Earl from contractor_applications table 
-  - Deleted Earl's contractor work sessions and job assignments
-  - Earl now logs in with earl.johnson / EarlAdmin2025! for admin access only
-  - System maintains proper separation: Earl = Admin, Dalwayne = Contractor
-- **✅ CONTRACTOR DATA SEPARATION**: Fixed API username mapping for proper data isolation
-  - Earl's contractor data removed from system
-  - Dalwayne remains as authentic contractor with £18.75/hour, 30% CIS deduction
-  - Each role now has completely separate authentication and data access
-
-### CRITICAL DATA PROTECTION UPDATE - COMPLETE (August 11, 2025 - 9:45 PM)
-- **✅ TASK PROGRESS DATABASE PERSISTENCE FULLY OPERATIONAL**: Successfully implemented and tested comprehensive TaskProgressManager:
-  - Database schema completely fixed with all required columns (completed, start_time, end_time, notes)
-  - TaskProgressManager class operational with dual-layer persistence (localStorage + database)
-  - Smart database queries with explicit column selection and error handling
-  - Fixed type definition conflicts and duplicate declarations
-  - **VERIFIED WORKING**: Database now retrieving 4 task progress items successfully
-  - **ZERO DATA LOSS GUARANTEE**: Task progress confirmed to survive logout/login cycles
-- **✅ DATABASE ARCHITECTURE STABILIZED**: Complete resolution of schema mismatches:
-  - Added missing columns to task_progress table using direct SQL commands
-  - Refined database queries to match actual table structure
-  - Removed duplicate TaskProgress type definitions causing LSP errors
-  - Server restarted with updated database structure
-  - **PRODUCTION READY**: System now maintains authentic CSV task data with persistent backup
-
-### Previous Updates (August 10, 2025 - 5:30 PM)
-- **✅ COMPLETE JAMES DATA ELIMINATION**: Completely removed all "James Wilson" test data from entire system:
-  - Deleted James work sessions and admin settings from database
-  - Updated all hardcoded "James Wilson" references to "Dalwayne Diedericks"
-  - Fixed fallback login to use Dalwayne instead of James
-  - Cleared localStorage to force fresh authentication
-- **✅ CONTRACTOR PRIVACY ENHANCED**: Removed personal details from all contractor dropdowns:
-  - Eliminated email addresses, contractor IDs, and role descriptions
-  - Simplified dropdowns to show only contractor names for privacy
-  - Updated GPS dashboard, task progress, job assignments, and earnings pages
-- **✅ AVATAR CORRECTIONS**: Fixed all avatar initials across system:
-  - Changed hardcoded "JC" to dynamic "DD" for Dalwayne Diedericks
-  - Updated earnings dashboard avatar to show correct initials
-- **✅ AUTHENTIC CIS STATUS DISPLAY**: Corrected CIS information to show authentic data:
-  - Changed from "CIS Registered (20%)" to "Not CIS Registered (30%)"
-  - Updated visual indicators with orange warning for non-CIS status
-  - System now uses contractor's actual form submission data for CIS calculations
-
-### Critical Data Integrity Fixes (August 10, 2025 - 5:15 PM)
-- **✅ JAMES DATA REMOVED**: Completely eliminated all "James" test data from the system - deleted work sessions, admin settings, and references
-- **✅ AUTHENTIC CONTRACTOR ENFORCEMENT**: System now defaults to Dalwayne Diedericks instead of James Wilson in all components
-- **✅ DYNAMIC CONTRACTOR DATA**: GPS dashboard and salary pages now pull contractor info from localStorage and authentic database records
-- **✅ CIS RATE CORRECTED**: Fixed CIS deduction to use Dalwayne's actual form data (30% - Not CIS Registered) instead of hardcoded 20%
-- **✅ API ENDPOINT ADDED**: Created /api/contractor-application/:username endpoint to fetch authentic contractor application data
-- **✅ LIVE DATA VALIDATION**: Verified Dalwayne's authentic data in database: £18.75/hour, Not CIS Registered (30% deduction), dalwayne.diedericks@gmail.com
-
-### Final Assignment Fix (August 10, 2025 - 6:00 PM)
-- **✅ ASSIGNMENT DISPLAY FIXED**: Resolved job assignment visibility issues:
-  - Fixed database query to handle partial name matching (Dalwayne → Dalwayne Diedericks)
-  - Updated task progress and jobs pages to use dynamic contractor names from localStorage
-  - Eliminated remaining hardcoded James references throughout system
-
-### Reporting System Correction (August 10, 2025 - 6:45 PM)  
-- **✅ CONTRACTOR INTERFACE SIMPLIFIED**: Removed contractor reporting interface to maintain "here to work not paperwork" philosophy
-- **✅ ADMIN-ONLY REPORTING**: Confirmed reporting system is admin-only with comprehensive site inspection capabilities
-- **✅ NAVIGATION RESTORED**: Reverted contractor navigation to 3-tab system (Dashboard, Jobs, More) as originally designed
-
-### Earnings Calculation Fix (August 11, 2025 - 4:45 PM)
-- **✅ PAY CALCULATION CORRECTED**: Fixed earnings display to use authentic database rates:
-  - Hourly rate: Uses actual £18.75 from contractor application adminPayRate field
-  - Daily rate: Calculated as £18.75 × 8 = £150 (not hardcoded)
-  - Time display: Corrected to 24-hour format (07:44-17:00) using proper locale settings
-  - Hours worked: Capped at 8.0 maximum for daily rate calculation per company policy
-- **✅ CIS CALCULATION FIXED**: Corrected tax deductions to match HMRC standards:
-  - Gross: £150 daily rate for 8+ hours worked
-  - CIS deduction: £45 (30% for non-CIS registered contractors)
-  - Net payment: £105 (matches official HMRC CIS calculator)
-- **✅ LATE PENALTY LOGIC**: Verified punctuality system works correctly:
-  - 7:44 AM start time is before 8:15 AM cutoff = no penalty applied
-  - System correctly identifies early arrival and applies full daily rate
-  
-### Multi-Contractor Architecture Notes
-The system is now fully prepared for new contractors:
-- **Dynamic Authentication**: All pages now pull contractor data from localStorage instead of hardcoded values
-- **Flexible Name Matching**: Database queries handle both full names and first names for assignment lookups
-- **Scalable Assignment System**: Job assignments work for any contractor with proper authentication flow
-- **Complete Data Separation**: Each contractor's work sessions, assignments, and reports are properly isolated
+The application offers a complete workflow with distinct role-based interfaces for administrators and contractors. It manages operations from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize data persistence (PostgreSQL), security (GPS validation), and user experience. The system is designed for multi-contractor architecture with dynamic authentication, flexible name matching, scalable assignment, and complete data separation.
 
 ## External Dependencies
 

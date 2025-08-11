@@ -1,9 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, MessageCircle, Camera, CheckCircle, Clock } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertTriangle, MessageCircle, Camera, CheckCircle, Clock, Wrench } from "lucide-react";
 import { useState } from "react";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface TaskInspectionResult {
   id: string;
@@ -27,10 +31,38 @@ interface InspectionIssuesProps {
 
 export function InspectionIssues({ contractorName }: InspectionIssuesProps) {
   const [showAll, setShowAll] = useState(false);
+  const [fixNotes, setFixNotes] = useState<Record<string, string>>({});
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: inspectionResults = [], isLoading } = useQuery<TaskInspectionResult[]>({
     queryKey: [`/api/task-inspection-results/${contractorName}`],
     enabled: !!contractorName,
+  });
+
+  const markDoneMutation = useMutation({
+    mutationFn: async ({ inspectionId, notes }: { inspectionId: string; notes: string }) => {
+      const response = await apiRequest("POST", `/api/task-inspection-results/${inspectionId}/mark-done`, {
+        contractorName,
+        fixNotes: notes
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/task-inspection-results/${contractorName}`] });
+      toast({
+        title: "Issue Marked as Resolved",
+        description: "Issue has been marked as fixed. Waiting for admin approval.",
+      });
+      setFixNotes({});
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to mark issue as resolved",
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading) {
@@ -209,6 +241,50 @@ export function InspectionIssues({ contractorName }: InspectionIssuesProps) {
                           />
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Contractor Actions - Only show for issues */}
+                {result.inspectionStatus === 'issues' && (
+                  <div className="mt-4 p-3 bg-slate-800/70 rounded-lg border border-slate-600">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Wrench className="h-4 w-4 text-amber-500" />
+                      <span className="text-sm font-medium text-slate-200">Mark as Fixed</span>
+                    </div>
+                    
+                    <Textarea
+                      placeholder="Describe what you did to fix this issue (optional)"
+                      value={fixNotes[result.id] || ''}
+                      onChange={(e) => setFixNotes(prev => ({ ...prev, [result.id]: e.target.value }))}
+                      className="mb-3 bg-slate-700 border-slate-600 text-slate-200 text-sm"
+                      rows={2}
+                    />
+                    
+                    <Button
+                      onClick={() => markDoneMutation.mutate({ 
+                        inspectionId: result.id, 
+                        notes: fixNotes[result.id] || '' 
+                      })}
+                      disabled={markDoneMutation.isPending}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      size="sm"
+                    >
+                      {markDoneMutation.isPending ? (
+                        <>
+                          <Clock className="h-4 w-4 mr-2 animate-spin" />
+                          Marking as Done...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Mark as Done
+                        </>
+                      )}
+                    </Button>
+                    
+                    <div className="text-xs text-slate-400 mt-2 text-center">
+                      This will notify the admin for re-approval
                     </div>
                   </div>
                 )}

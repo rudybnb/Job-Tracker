@@ -1769,12 +1769,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const adminInspections = await storage.getAdminInspectionsForContractor(contractorName);
       
       // Transform admin inspection data to match the task inspection format
+      // Only show issues that haven't been marked as fixed by contractor
       const taskInspectionResults = adminInspections
         .filter(inspection => 
           inspection.inspectionType === 'task_inspection' && 
           (inspection.progressComments?.includes('issues') || 
            inspection.safetyNotes || 
-           inspection.materialsIssues)
+           inspection.materialsIssues) &&
+          inspection.status !== 'contractor_fixed' // Exclude already fixed issues
         )
         .map(inspection => {
           // Extract task info from progress comments
@@ -1808,6 +1810,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching task inspection results:", error);
       res.status(500).json({ error: "Failed to fetch inspection results" });
+    }
+  });
+
+  // Contractor marks inspection issue as resolved
+  app.post("/api/task-inspection-results/:inspectionId/mark-done", async (req, res) => {
+    try {
+      const { inspectionId } = req.params;
+      const { contractorName, fixNotes } = req.body;
+      
+      console.log("✅ Contractor marking inspection as done:", { inspectionId, contractorName });
+      
+      // Update the admin inspection with contractor resolution
+      const updatedInspection = await storage.markInspectionResolvedByContractor(
+        inspectionId, 
+        contractorName, 
+        fixNotes
+      );
+      
+      if (!updatedInspection) {
+        return res.status(404).json({ error: "Inspection not found" });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Issue marked as resolved. Waiting for admin approval.",
+        inspection: updatedInspection
+      });
+    } catch (error) {
+      console.error("Error marking inspection as resolved:", error);
+      res.status(500).json({ error: "Failed to mark inspection as resolved" });
     }
   });
 
