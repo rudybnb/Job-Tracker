@@ -52,14 +52,16 @@ export default function More() {
     retry: false,
   });
 
-  // Get authentic work sessions from database (using logged-in contractor)
+  // Get authentic work sessions from database (using logged-in contractor)  
   const { data: realWorkSessions = [] } = useQuery({
     queryKey: [`/api/work-sessions/${contractorFirstName}`],
     queryFn: async () => {
-      const response = await fetch(`/api/work-sessions/${contractorFirstName}`);
+      const response = await fetch(`/api/work-sessions/${contractorFirstName}?t=${Date.now()}`);
       if (!response.ok) throw new Error('Failed to fetch work sessions');
       return response.json();
     },
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache
   });
 
   // Contractor details with AUTHENTIC data only
@@ -117,6 +119,7 @@ export default function More() {
     }) : "In Progress";
     const lateStatus = startedLate ? ' (LATE)' : '';
     console.log(`💰 Session ${session.id}: ${Math.min(hoursWorked, 8)} hours paid (${startTimeStr}-${endTimeStr}), started ${startTimeStr}${lateStatus} = £${grossEarnings.toFixed(2)}`);
+    console.log(`⏰ Raw data - Hours: ${hoursWorked}, TotalHours from DB: ${session.totalHours}`);
     
     return {
       id: session.id,
@@ -160,6 +163,15 @@ export default function More() {
   };
 
   const weeklyData = calculateWeeklyEarnings();
+  
+  // Debug logging
+  console.log(`📊 Weekly data calculated:`, {
+    totalHours: weeklyData.totalHours,
+    grossEarnings: weeklyData.grossEarnings,
+    netEarnings: weeklyData.netEarnings,
+    sessions: weeklyData.sessions.length,
+    firstSession: weeklyData.sessions[0]
+  });
 
   const handleExportWeek = () => {
     const exportData = {
@@ -397,7 +409,7 @@ export default function More() {
                 </div>
                 <div className="text-slate-400 text-sm truncate">
                   <i className="fas fa-map-marker-alt mr-1"></i>
-                  {session.jobName}
+                  {session.location}
                 </div>
               </div>
             ))
