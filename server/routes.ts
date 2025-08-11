@@ -1735,5 +1735,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  // Admin batch inspection submission endpoint
+  app.post("/api/admin-inspections/batch", async (req, res) => {
+    try {
+      const { inspections } = req.body;
+      console.log("📋 Processing batch inspection submission:", inspections?.length || 0, "tasks");
+      
+      if (!inspections || !Array.isArray(inspections)) {
+        return res.status(400).json({ error: "Invalid inspections data" });
+      }
+      
+      const results = [];
+      for (const inspection of inspections) {
+        const result = await storage.createTaskInspectionResult(inspection);
+        results.push(result);
+      }
+      
+      console.log("✅ Created", results.length, "task inspection results");
+      res.json({ success: true, results });
+    } catch (error) {
+      console.error("Error creating batch inspections:", error);
+      res.status(500).json({ error: "Failed to create inspections" });
+    }
+  });
+
+  // Get task inspection results for contractor (issues that need attention)
+  app.get("/api/task-inspection-results/:contractorName", async (req, res) => {
+    try {
+      const { contractorName } = req.params;
+      console.log("📋 Fetching task inspection results for contractor:", contractorName);
+      
+      const results = await storage.getTaskInspectionResults(contractorName);
+      
+      // Mark unviewed issues as viewed
+      const unviewedIssues = results.filter(r => r.inspectionStatus === 'issues' && !r.contractorViewed);
+      if (unviewedIssues.length > 0) {
+        await Promise.all(unviewedIssues.map(issue => 
+          storage.markTaskInspectionAsViewed(issue.id)
+        ));
+      }
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Error fetching task inspection results:", error);
+      res.status(500).json({ error: "Failed to fetch inspection results" });
+    }
+  });
+
   return httpServer;
 }

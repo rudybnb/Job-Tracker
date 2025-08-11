@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import ContextualTooltip from "@/components/contextual-tooltip";
 import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
+import { InspectionIssues } from "@/components/inspection-issues";
 
 // Quick Reports Component for Contractors
 function QuickReportsForContractor() {
@@ -981,6 +982,9 @@ export default function GPSDashboard() {
           
           <QuickReportsForContractor />
         </div>
+
+        {/* Task Inspection Results - Feedback from Admin */}
+        <InspectionIssues contractorName={contractorFirstName} />
 
         {/* Overdue Projects Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">

@@ -24,7 +24,7 @@ import {
   type TaskProgress,
   type InsertTaskProgress
 } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like } from "drizzle-orm";
 
@@ -89,6 +89,11 @@ export interface IStorage {
   createTaskProgress(taskProgress: InsertTaskProgress): Promise<TaskProgress>;
   updateTaskProgress(id: string, taskProgress: Partial<TaskProgress>): Promise<TaskProgress | undefined>;
   updateTaskCompletion(contractorName: string, assignmentId: string, taskId: string, completed: boolean): Promise<TaskProgress | undefined>;
+  
+  // Task Inspection Results
+  createTaskInspectionResult(inspection: any): Promise<any>;
+  getTaskInspectionResults(contractorName: string): Promise<any[]>;
+  markTaskInspectionAsViewed(id: string): Promise<any>;
   
   // Stats
   getStats(): Promise<{
@@ -730,6 +735,37 @@ export class DatabaseStorage implements IStorage {
     
     console.log(`✅ Task ${taskId} marked as ${completed ? 'completed' : 'incomplete'} for ${contractorName}`);
     return progress;
+  }
+
+  // Task Inspection Results Methods
+  async createTaskInspectionResult(inspection: any): Promise<any> {
+    const [result] = await db.insert(taskInspectionResults).values(inspection).returning();
+    console.log(`📋 Created task inspection result: ${result.taskName} - ${result.inspectionStatus}`);
+    return result;
+  }
+
+  async getTaskInspectionResults(contractorName: string): Promise<any[]> {
+    const results = await db.select()
+      .from(taskInspectionResults)
+      .where(eq(taskInspectionResults.contractorName, contractorName))
+      .orderBy(desc(taskInspectionResults.inspectedAt));
+    
+    console.log(`📋 Retrieved ${results.length} task inspection results for ${contractorName}`);
+    return results;
+  }
+
+  async markTaskInspectionAsViewed(id: string): Promise<any> {
+    const [result] = await db
+      .update(taskInspectionResults)
+      .set({ 
+        contractorViewed: true,
+        contractorViewedAt: new Date()
+      })
+      .where(eq(taskInspectionResults.id, id))
+      .returning();
+    
+    console.log(`👁️ Marked task inspection ${id} as viewed`);
+    return result;
   }
 }
 

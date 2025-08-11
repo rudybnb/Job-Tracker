@@ -272,6 +272,29 @@ export const inspectionNotifications = pgTable("inspection_notifications", {
   completedAt: timestamp("completed_at"),
 });
 
+// Task Inspection Results table - tracks admin inspection status for individual tasks
+export const taskInspectionResults = pgTable("task_inspection_results", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  assignmentId: text("assignment_id").notNull(),
+  contractorName: text("contractor_name").notNull(),
+  taskId: text("task_id").notNull(),
+  phase: text("phase").notNull(),
+  taskName: text("task_name").notNull(),
+  inspectionStatus: text("inspection_status").notNull(), // 'approved', 'issues', 'pending'
+  notes: text("notes"),
+  photos: text("photos").array(), // Array of photo URLs
+  inspectedBy: text("inspected_by").notNull(),
+  inspectedAt: timestamp("inspected_at").defaultNow().notNull(),
+  contractorViewed: boolean("contractor_viewed").default(false).notNull(),
+  contractorViewedAt: timestamp("contractor_viewed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTaskInspectionResultSchema = createInsertSchema(taskInspectionResults).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertAdminInspectionSchema = createInsertSchema(adminInspections).omit({
   id: true,
   createdAt: true,
