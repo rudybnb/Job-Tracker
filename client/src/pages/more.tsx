@@ -93,6 +93,7 @@ export default function More() {
     
     // Check if started after 8:15 AM (8.25 in decimal)
     const startedLate = startTimeDecimal > 8.25;
+    console.log(`⏰ Start time check: ${startTimeDecimal.toFixed(2)} vs 8.25 (8:15 AM) - Late: ${startedLate}`);
     
     // Daily rate covers maximum 8 hours. If worked 8+ hours, pay daily rate (£150)
     const paidHours = Math.min(hoursWorked, 8); // Cap paid hours at 8 for daily rate calculation
@@ -145,11 +146,11 @@ export default function More() {
     const totalHours = weekSessions.reduce((sum, session) => sum + session.hoursWorked, 0);
     const grossEarnings = weekSessions.reduce((sum, session) => sum + session.grossEarnings, 0);
     // Use authentic CIS rate from contractor's form data  
-    // Dalwayne: Not CIS Registered = 30% deduction
+    // Dalwayne: Not CIS Registered = 30% deduction (HMRC standard rate)
     const contractorName = localStorage.getItem('contractorName') || '';
     const authenticCisRate = contractorName === 'Dalwayne Diedericks' ? 30 : 20;
-    const cisDeduction = grossEarnings * (authenticCisRate / 100);
-    const netEarnings = grossEarnings - cisDeduction;
+    const cisDeduction = Math.round((grossEarnings * authenticCisRate / 100) * 100) / 100; // Round to 2 decimal places
+    const netEarnings = Math.round((grossEarnings - cisDeduction) * 100) / 100;
 
     return {
       weekEnding: selectedWeek,
@@ -168,10 +169,16 @@ export default function More() {
   console.log(`📊 Weekly data calculated:`, {
     totalHours: weeklyData.totalHours,
     grossEarnings: weeklyData.grossEarnings,
+    cisDeduction: weeklyData.cisDeduction,
+    cisRate: weeklyData.cisRate,
     netEarnings: weeklyData.netEarnings,
     sessions: weeklyData.sessions.length,
     firstSession: weeklyData.sessions[0]
   });
+  
+  // CIS Calculation verification
+  console.log(`💸 CIS Calculation: £${weeklyData.grossEarnings.toFixed(2)} × ${weeklyData.cisRate}% = £${weeklyData.cisDeduction.toFixed(2)} deduction`);
+  console.log(`💰 Net Payment: £${weeklyData.grossEarnings.toFixed(2)} - £${weeklyData.cisDeduction.toFixed(2)} = £${weeklyData.netEarnings.toFixed(2)}`);
 
   const handleExportWeek = () => {
     const exportData = {
