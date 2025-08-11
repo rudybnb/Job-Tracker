@@ -1397,6 +1397,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Batch admin inspections for multiple completed tasks
+  app.post("/api/admin-inspections/batch", async (req, res) => {
+    try {
+      const { inspections } = req.body;
+      
+      if (!Array.isArray(inspections)) {
+        return res.status(400).json({ error: "Inspections must be an array" });
+      }
+      
+      const createdInspections = [];
+      
+      for (const inspectionData of inspections) {
+        const inspection = await storage.createAdminInspection({
+          assignmentId: inspectionData.assignmentId,
+          inspectorName: inspectionData.inspectedBy,
+          inspectionType: "task_inspection", 
+          workQualityRating: inspectionData.inspectionStatus === 'approved' ? 5 : 3,
+          weatherConditions: "Not specified",
+          progressComments: `Task: ${inspectionData.taskName} - ${inspectionData.inspectionStatus}`,
+          safetyNotes: inspectionData.notes || "",
+          materialsIssues: inspectionData.inspectionStatus === 'issues' ? inspectionData.notes : "",
+          nextActions: inspectionData.inspectionStatus === 'issues' ? "Address noted issues" : "Task approved",
+          photoUrls: [],
+          status: "completed"
+        });
+        
+        createdInspections.push(inspection);
+      }
+      
+      console.log(`📋 Created ${createdInspections.length} task-based admin inspections`);
+      res.status(201).json(createdInspections);
+    } catch (error) {
+      console.error("Error creating batch admin inspections:", error);
+      res.status(500).json({ error: "Failed to create batch admin inspections" });
+    }
+  });
+
   // Inspection Notification endpoints
   app.get("/api/pending-inspections", async (req, res) => {
     try {

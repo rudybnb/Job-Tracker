@@ -28,6 +28,7 @@ import AssignmentDetails from "@/pages/assignment-details";
 import ContractorIdCapture from "@/pages/contractor-id-capture";
 import AdminSettings from "@/pages/admin-settings";
 import AdminInspections from "@/pages/admin-inspections";
+import AdminInspection from "@/pages/admin-inspection";
 import TelegramMessages from "@/pages/telegram-messages";
 
 import NotFound from "@/pages/not-found";
@@ -161,6 +162,11 @@ function Router() {
             <AdminInspections />
           </ProtectedRoute>
         )} />
+        <Route path="/admin-inspection/:id" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminInspection />
+          </ProtectedRoute>
+        )} />
         <Route path="/admin-telegram" component={() => (
           <ProtectedRoute requiredRole="admin">
             <TelegramMessages />
@@ -168,7 +174,7 @@ function Router() {
         )} />
         <Route path="/admin-site-inspections" component={() => (
           <ProtectedRoute requiredRole="admin">
-            {lazy(() => import("@/pages/admin-site-inspections")).default}
+            <AdminInspections />
           </ProtectedRoute>
         )} />
         <Route path="/admin-site-reporting" component={() => (
