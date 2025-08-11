@@ -205,10 +205,10 @@ export default function JobAssignments() {
                       <div>
                         <div className="text-xs text-slate-400">Actions</div>
                         <button 
-                          onClick={() => window.location.href = `/assignment-details/${assignment.id}`}
-                          className="text-blue-400 hover:text-blue-300 text-sm underline"
+                          onClick={() => window.location.href = `/assignment/${assignment.id}`}
+                          className="text-amber-400 hover:text-amber-300 text-sm underline"
                         >
-                          View Assignment
+                          Admin Site Inspection
                         </button>
                       </div>
                     </div>

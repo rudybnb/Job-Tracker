@@ -138,9 +138,9 @@ export default function AdminInspections() {
                     <Button
                       onClick={() => window.open(`/assignment/${inspection.assignmentId}`, '_blank')}
                       variant="outline"
-                      className="border-slate-500 text-slate-200 hover:bg-slate-600"
+                      className="border-amber-500 text-amber-200 hover:bg-amber-600"
                     >
-                      View Assignment Details
+                      Admin Site Inspection
                     </Button>
                     <Button
                       onClick={() => completeInspectionMutation.mutate(inspection.id)}
@@ -161,7 +161,7 @@ export default function AdminInspections() {
           <ul className="text-slate-300 space-y-1 text-sm">
             <li>• <strong>50% Inspection:</strong> Triggered automatically when job reaches 50% completion</li>
             <li>• <strong>100% Inspection:</strong> Triggered when job is marked as fully complete</li>
-            <li>• Click "View Assignment Details" to access the full site inspection form</li>
+            <li>• Click "Admin Site Inspection" to access the task-level reporting interface</li>
             <li>• Complete inspections with photos, quality ratings, and detailed reports</li>
           </ul>
         </div>
