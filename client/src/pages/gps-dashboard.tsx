@@ -171,9 +171,29 @@ export default function GPSDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get contractor name from localStorage - enforce authentication
+  // Debug localStorage contents at dashboard load
+  const userRole = localStorage.getItem('userRole');
+  const adminName = localStorage.getItem('adminName');
   const contractorName = localStorage.getItem('contractorName');
+  
+  console.log('🚨 GPS DASHBOARD ACCESS ATTEMPT:', {
+    userRole,
+    adminName, 
+    contractorName,
+    isAdmin: userRole === 'admin',
+    shouldRedirect: userRole === 'admin'
+  });
+  
+  // CRITICAL: If admin user reached GPS dashboard, redirect to admin
+  if (userRole === 'admin') {
+    console.log('🚫 ADMIN USER BLOCKED FROM GPS DASHBOARD - Redirecting to /admin');
+    window.location.href = '/admin';
+    return <div>Redirecting admin to dashboard...</div>;
+  }
+  
+  // Get contractor name from localStorage - enforce authentication
   if (!contractorName) {
+    console.log('❌ No contractor name found - redirecting to login');
     window.location.href = '/login';
     return null;
   }
@@ -718,9 +738,13 @@ export default function GPSDashboard() {
             
             {contractorDropdownOpen && (
               <div className="absolute right-0 top-10 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50">
-                {/* Contractor Info Header */}
+                {/* Contractor Info Header - NEVER show this to admin users */}
                 <div className="px-4 py-3 border-b border-slate-600">
                   <div className="text-yellow-400 font-semibold">{contractorName}</div>
+                  <div className="text-xs text-slate-500">Role: {userRole || 'Unknown'}</div>
+                  {userRole === 'admin' && (
+                    <div className="text-red-400 text-xs">⚠️ ADMIN ACCESS ERROR</div>
+                  )}
                 </div>
                 
                 {/* Simple Contractor Menu Items */}

@@ -14,12 +14,16 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // FORCE CLEAR ALL DATA ON EVERY LOGIN ATTEMPT
+    localStorage.clear();
+    sessionStorage.clear();
+    
     // Check admin credentials first
     if (username === "admin" && password === "admin123") {
-      localStorage.clear();
       localStorage.setItem('userRole', 'admin');
       localStorage.setItem('isLoggedIn', 'true');
       localStorage.setItem('adminName', "Admin");
+      console.log('✅ Admin login successful - role set to admin');
       window.location.href = '/admin';
       toast({
         title: "Login Successful",
@@ -30,10 +34,10 @@ export default function Login() {
     
     // Separate admin login for Earl Johnson
     if (username === "earl.johnson" && password === "EarlAdmin2025!") {
-      localStorage.clear();
       localStorage.setItem('userRole', 'admin');
       localStorage.setItem('isLoggedIn', 'true');
       localStorage.setItem('adminName', "Earl Johnson");
+      console.log('✅ Earl Johnson admin login successful - role set to admin');
       window.location.href = '/admin';
       toast({
         title: "Login Successful",
@@ -55,12 +59,12 @@ export default function Login() {
       if (response.ok) {
         const contractor = await response.json();
         
-        // Successful contractor login - clear any previous data first
-        localStorage.clear(); // Clear all previous contractor data
+        // Successful contractor login
         localStorage.setItem('userRole', 'contractor');
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('contractorName', `${contractor.firstName} ${contractor.lastName}`);
         localStorage.setItem('contractorId', contractor.id);
+        console.log(`✅ Contractor login successful - ${contractor.firstName} ${contractor.lastName}`);
         window.location.href = '/';
         toast({
           title: "Login Successful",
@@ -80,10 +84,10 @@ export default function Login() {
         
         // Fallback to legacy contractor login
         if (username === "contractor" && password === "contractor123") {
-          localStorage.clear(); // Clear any admin data
           localStorage.setItem('userRole', 'contractor');
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('contractorName', 'Dalwayne Diedericks');
+          console.log('✅ Legacy contractor login successful - Dalwayne Diedericks');
           window.location.href = '/';
           toast({
             title: "Login Successful",
