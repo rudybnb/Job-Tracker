@@ -1651,6 +1651,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Backup endpoint for task progress (to prevent data loss on logout)
+  app.post("/api/task-progress/update", async (req, res) => {
+    try {
+      const { contractorName, assignmentId, taskId, taskDescription, phase, completed, completedItems, totalItems } = req.body;
+      
+      // Try to update existing record, create if not exists
+      try {
+        const existing = await storage.updateTaskCompletion(contractorName, assignmentId, taskId, completed);
+        if (existing) {
+          console.log(`📁 Updated existing task progress backup: ${taskDescription}`);
+          return res.json({ success: true, action: 'updated' });
+        }
+      } catch (error) {
+        console.log(`📝 Creating new task progress backup: ${taskDescription}`);
+      }
+      
+      // Create new task progress record
+      const newProgress = await storage.createTaskProgress({
+        contractorName,
+        assignmentId,
+        taskId,
+        taskDescription,
+        phase,
+        completed
+      });
+      
+      console.log(`✅ Task progress backed up: ${taskDescription} - ${completed ? 'completed' : 'in progress'}`);
+      res.json({ success: true, action: 'created', data: newProgress });
+    } catch (error) {
+      console.error("Error backing up task progress:", error);
+      res.status(500).json({ error: "Failed to backup task progress" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

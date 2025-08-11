@@ -81,6 +81,21 @@ export default function TaskProgress() {
       const storageKey = `task_progress_${activeAssignment.id}`;
       const savedProgress = localStorage.getItem(storageKey);
       
+      // If no localStorage data, try to restore from database backup
+      let databaseBackup: any[] = [];
+      if (!savedProgress) {
+        try {
+          console.log('📁 No localStorage found, checking database backup...');
+          const response = await fetch(`/api/task-progress/${contractorName}/${activeAssignment.id}`);
+          if (response.ok) {
+            databaseBackup = await response.json();
+            console.log(`📦 Found ${databaseBackup.length} tasks in database backup`);
+          }
+        } catch (error) {
+          console.log('❌ No database backup found:', error);
+        }
+      }
+      
       // Fetch the actual CSV job data to get real task items
       let newTasks: ProgressTask[] = [];
       
@@ -229,7 +244,7 @@ export default function TaskProgress() {
         });
       }
       
-      // If we have saved progress for this job, restore it
+      // If we have saved progress from localStorage, restore it
       if (savedProgress) {
         try {
           const savedTasks = JSON.parse(savedProgress) as ProgressTask[];
@@ -238,8 +253,32 @@ export default function TaskProgress() {
             const savedTask = savedTasks.find(saved => saved.id === task.id || saved.title === task.title);
             return savedTask ? { ...task, completedItems: savedTask.completedItems, status: savedTask.status } : task;
           });
+          console.log('📁 Restored progress from localStorage');
         } catch (error) {
           console.error('Failed to load saved progress:', error);
+        }
+      } else if (databaseBackup.length > 0) {
+        // If no localStorage but we have database backup, restore from database
+        try {
+          newTasks = newTasks.map(task => {
+            const backupTask = databaseBackup.find((backup: any) => 
+              backup.taskId === task.id || backup.taskDescription === task.title
+            );
+            if (backupTask) {
+              const completedItems = backupTask.completed ? 1 : 0;
+              const status = backupTask.completed ? "completed" : "not started";
+              console.log(`📦 Restored task from database: ${task.title} - ${status}`);
+              return { ...task, completedItems, status };
+            }
+            return task;
+          });
+          console.log(`✅ Restored ${databaseBackup.length} tasks from database backup`);
+          
+          // Save restored data to localStorage for faster access
+          const storageKey = `task_progress_${activeAssignment.id}`;
+          localStorage.setItem(storageKey, JSON.stringify(newTasks));
+        } catch (error) {
+          console.error('Failed to restore from database backup:', error);
         }
       }
       
@@ -285,9 +324,41 @@ export default function TaskProgress() {
     
     setTasks(updatedTasks);
     
-    // Save progress to localStorage with assignment-specific key
+    // Save progress to localStorage with assignment-specific key (existing functionality)
     const storageKey = `task_progress_${activeAssignment?.id || 'default'}`;
     localStorage.setItem(storageKey, JSON.stringify(updatedTasks));
+    
+    // BACKUP: Also save to database to prevent data loss on logout
+    if (activeAssignment?.id && contractorName) {
+      const updatedTask = updatedTasks.find(task => task.id === taskId);
+      if (updatedTask) {
+        const isCompleted = updatedTask.status === "completed";
+        
+        // Save task progress to database as backup
+        fetch('/api/task-progress/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contractorName,
+            assignmentId: activeAssignment.id,
+            taskId: updatedTask.id,
+            taskDescription: updatedTask.title,
+            phase: updatedTask.area,
+            completed: isCompleted,
+            completedItems: updatedTask.completedItems,
+            totalItems: updatedTask.totalItems
+          })
+        }).then(response => {
+          if (response.ok) {
+            console.log(`📁 Task progress backed up to database: ${updatedTask.title} - ${isCompleted ? 'completed' : 'in progress'}`);
+          } else {
+            console.error('❌ Failed to backup task progress to database');
+          }
+        }).catch(error => {
+          console.error('❌ Database backup failed:', error);
+        });
+      }
+    }
     
     // CRITICAL FIX: Only calculate progress for the current assignment, not affecting other phases
     const progressForCurrentTasks = updatedTasks.filter(task => 
