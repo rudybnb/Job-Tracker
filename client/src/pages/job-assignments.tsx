@@ -5,9 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 
 function LogoutButton() {
   const handleLogout = () => {
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('isLoggedIn');
+    // Clear all localStorage data
+    localStorage.clear();
+    // Force page reload to ensure clean state
     window.location.href = '/login';
+    window.location.reload();
   };
 
   return (

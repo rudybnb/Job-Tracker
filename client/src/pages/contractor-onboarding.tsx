@@ -7,9 +7,11 @@ import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
 
 function LogoutButton() {
   const handleLogout = () => {
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('isLoggedIn');
+    // Clear all localStorage data
+    localStorage.clear();
+    // Force page reload to ensure clean state
     window.location.href = '/login';
+    window.location.reload();
   };
 
   return (
