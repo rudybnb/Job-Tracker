@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import { DALWAYNE_EARNINGS, EARL_EARNINGS } from "@/lib/earnings-calculator";
 
 interface EarningsTrackerProps {
   isTracking: boolean;
@@ -34,10 +35,21 @@ export function EarningsTracker({
   const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
   const contractorFirstName = contractorName.split(' ')[0];
 
+  // Map contractor first names to their usernames for API calls
+  const getUsernameFromFirstName = (firstName: string) => {
+    switch (firstName.toLowerCase()) {
+      case 'earl': return 'earl.johnson';
+      case 'dalwayne': return 'dalwayne';
+      default: return firstName.toLowerCase();
+    }
+  };
+
+  const username = getUsernameFromFirstName(contractorFirstName);
+  
   const { data: contractorApplication } = useQuery({
-    queryKey: [`/api/contractor-application/${contractorFirstName.toLowerCase()}`],
+    queryKey: [`/api/contractor-application/${username}`],
     queryFn: async () => {
-      const response = await fetch(`/api/contractor-application/${contractorFirstName.toLowerCase()}`);
+      const response = await fetch(`/api/contractor-application/${username}`);
       if (response.status === 404) return null;
       if (!response.ok) throw new Error('Failed to fetch contractor data');
       return response.json();

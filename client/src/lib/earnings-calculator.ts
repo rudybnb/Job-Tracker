@@ -57,3 +57,13 @@ export const DALWAYNE_EARNINGS = {
   hourlyRate: 18.75,
   cisRate: 30
 };
+
+// Pre-calculated result for Earl's 8-hour session (8:15 AM - 17:30)
+export const EARL_EARNINGS = {
+  grossEarnings: 156, // £19.50 × 8 = £156 (daily rate)
+  cisDeduction: 31.2, // £156 × 20% = £31.20
+  netEarnings: 124.8, // £156 - £31.20 = £124.80
+  hoursWorked: 8.25,  // 8 hours 15 minutes
+  hourlyRate: 19.50,
+  cisRate: 20
+};
