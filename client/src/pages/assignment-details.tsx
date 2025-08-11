@@ -255,7 +255,6 @@ export default function AssignmentDetails() {
   
   // Admin inspection form state
   const [adminInspection, setAdminInspection] = useState({
-    progressComments: '',
     workQualityRating: '',
     weatherConditions: '',
     safetyNotes: '',
@@ -272,7 +271,6 @@ export default function AssignmentDetails() {
         inspectionType: "site_inspection",
         workQualityRating: adminInspection.workQualityRating,
         weatherConditions: adminInspection.weatherConditions,
-        progressComments: adminInspection.progressComments,
         safetyNotes: adminInspection.safetyNotes,
         materialsIssues: adminInspection.materialsIssues,
         nextActions: adminInspection.nextActions,
@@ -296,7 +294,6 @@ export default function AssignmentDetails() {
       
       // Reset form and show success
       setAdminInspection({
-        progressComments: '',
         workQualityRating: '',
         weatherConditions: '',
         safetyNotes: '',
@@ -540,19 +537,7 @@ export default function AssignmentDetails() {
               </div>
             </div>
 
-            {/* Progress Assessment */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Progress Comments
-              </label>
-              <textarea
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
-                rows={4}
-                placeholder="Enter detailed observations about work progress, quality, and any issues..."
-                value={adminInspection.progressComments}
-                onChange={(e) => setAdminInspection({...adminInspection, progressComments: e.target.value})}
-              />
-            </div>
+
 
             {/* Quality Assessment */}
             <div className="grid grid-cols-2 gap-4">
