@@ -1611,21 +1611,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Task Progress endpoints for completed task inspection
-  app.get("/api/completed-tasks-for-inspection/:assignmentId", async (req, res) => {
+  // Task Progress endpoints for database persistence
+  app.post("/api/task-progress", async (req, res) => {
+    try {
+      const progressData = req.body;
+      console.log(`📊 Saving task progress to database:`, progressData);
+      
+      const newProgress = await storage.createTaskProgress({
+        ...progressData,
+        completedAt: new Date(),
+      });
+      
+      console.log(`✅ Task progress saved: ${progressData.taskId} - ${progressData.completionProgress}%`);
+      res.status(201).json(newProgress);
+    } catch (error) {
+      console.error("❌ Error saving task progress:", error);
+      res.status(500).json({ error: "Failed to save task progress" });
+    }
+  });
+
+  app.get("/api/task-progress/:assignmentId", async (req, res) => {
     try {
       const assignmentId = req.params.assignmentId;
+      console.log(`📊 Loading task progress for assignment: ${assignmentId}`);
       
-      // Get completed tasks from localStorage simulation (for this demo)
-      // In a real implementation, this would come from the database
-      res.json({
-        assignmentId,
-        completedTasks: [], // This will be populated by frontend localStorage
-        message: "Task completion data is managed by frontend for this demo"
-      });
+      const progressRecords = await storage.getTaskProgressByAssignment(assignmentId);
+      console.log(`📊 Found ${progressRecords.length} task progress records`);
+      
+      res.json(progressRecords);
     } catch (error) {
-      console.error("❌ Error fetching completed tasks for inspection:", error);
-      res.status(500).json({ error: "Failed to fetch completed tasks" });
+      console.error("❌ Error loading task progress:", error);
+      res.status(500).json({ error: "Failed to load task progress" });
+    }
+  });
+
+  app.get("/api/completed-tasks", async (req, res) => {
+    try {
+      console.log(`📊 Loading all completed tasks`);
+      const completedTasks = await storage.getCompletedTasks();
+      console.log(`📊 Found ${completedTasks.length} completed tasks`);
+      
+      res.json(completedTasks);
+    } catch (error) {
+      console.error("❌ Error loading completed tasks:", error);
+      res.status(500).json({ error: "Failed to load completed tasks" });
     }
   });
 

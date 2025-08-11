@@ -50,17 +50,38 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
   const isAdmin = userRole === 'admin';
   console.log('🔐 SubTasks Admin check - userRole:', userRole, 'currentUser:', currentUser, 'isAdmin:', isAdmin);
 
-  const markTaskComplete = async (taskId: string) => {
+  const markTaskComplete = async (taskId: string, taskData: any) => {
     try {
       setTaskProgress(prev => ({
         ...prev,
         [taskId]: 100
       }));
       
-      // Also save to localStorage for persistence across page reloads
-      const existingProgress = JSON.parse(localStorage.getItem('taskProgress') || '{}');
-      existingProgress[taskId] = 100;
-      localStorage.setItem('taskProgress', JSON.stringify(existingProgress));
+      // Save to database for persistent storage
+      const contractorName = localStorage.getItem('contractorName');
+      if (contractorName && assignment) {
+        const progressData = {
+          assignmentId: assignment.id,
+          taskId: taskId,
+          taskDescription: taskData.description,
+          phase: taskData.phase || 'General',
+          contractorName: contractorName,
+          completionProgress: 100,
+          status: 'completed'
+        };
+
+        const response = await fetch('/api/task-progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(progressData)
+        });
+
+        if (response.ok) {
+          console.log(`✅ Task ${taskId} saved to database: 100% complete`);
+        } else {
+          console.error('Failed to save task progress to database');
+        }
+      }
       
       console.log(`✓ Task ${taskId} marked as 100% complete by contractor`);
     } catch (error) {
@@ -74,10 +95,6 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
   };
 
   useEffect(() => {
-    // Load saved task progress from localStorage
-    const savedProgress = JSON.parse(localStorage.getItem('taskProgress') || '{}');
-    setTaskProgress(savedProgress);
-    
     const fetchJobTasks = async () => {
       try {
         console.log('📋 Extracting ONLY authentic CSV task data...');
@@ -147,7 +164,27 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
       }
     };
 
+    const loadTaskProgress = async () => {
+      if (assignment) {
+        try {
+          const response = await fetch(`/api/task-progress/${assignment.id}`);
+          if (response.ok) {
+            const progressData = await response.json();
+            const progressMap: {[key: string]: number} = {};
+            progressData.forEach((task: any) => {
+              progressMap[task.taskId] = parseFloat(task.completionProgress);
+            });
+            setTaskProgress(progressMap);
+            console.log(`📊 Loaded ${progressData.length} task progress records from database`);
+          }
+        } catch (error) {
+          console.error('Error loading task progress:', error);
+        }
+      }
+    };
+
     fetchJobTasks();
+    loadTaskProgress();
   }, [assignment]);
 
   // Save quick note for task
@@ -251,7 +288,7 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
                         <div className="flex gap-2 pt-2 border-t border-slate-600">
                           <Button
                             size="sm"
-                            onClick={() => markTaskComplete(task.id)}
+                            onClick={() => markTaskComplete(task.id, { ...task, phase })}
                             className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 h-6"
                           >
                             ✓ Mark Complete

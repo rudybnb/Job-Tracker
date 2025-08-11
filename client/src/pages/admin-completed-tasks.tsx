@@ -30,45 +30,25 @@ export default function AdminCompletedTasks() {
     queryKey: ["/api/uploaded-jobs"],
   });
 
+  const { data: completedTasksData = [] } = useQuery({
+    queryKey: ["/api/completed-tasks"],
+  });
+
   useEffect(() => {
-    // Get completed tasks from localStorage
-    const savedProgress = JSON.parse(localStorage.getItem('taskProgress') || '{}');
-    const completedTaskIds = Object.keys(savedProgress).filter(taskId => savedProgress[taskId] === 100);
+    // Convert database completed tasks to display format
+    const tasksData: CompletedTask[] = completedTasksData.map((task: any) => ({
+      id: task.taskId,
+      description: task.taskDescription,
+      quantity: 1,
+      phase: task.phase,
+      assignmentId: task.assignmentId,
+      contractorName: task.contractorName,
+      completedAt: task.completedAt
+    }));
     
-    if (completedTaskIds.length > 0 && uploadedJobs.length > 0) {
-      // Extract actual task data from CSV for completed tasks
-      const tasksData: CompletedTask[] = [];
-      
-      uploadedJobs.forEach((job: any) => {
-        if (job.phaseData) {
-          try {
-            const phaseData = JSON.parse(job.phaseData);
-            Object.entries(phaseData).forEach(([phase, tasks]: [string, any]) => {
-              if (Array.isArray(tasks)) {
-                tasks.forEach((task: any) => {
-                  if (completedTaskIds.includes(task.id)) {
-                    tasksData.push({
-                      id: task.id,
-                      description: task.description,
-                      quantity: task.quantity,
-                      phase: phase,
-                      assignmentId: assignments.find((a: any) => a.title === job.name)?.id,
-                      contractorName: assignments.find((a: any) => a.title === job.name)?.contractorName || "Unknown",
-                      completedAt: new Date().toISOString()
-                    });
-                  }
-                });
-              }
-            });
-          } catch (e) {
-            console.error('Error parsing phase data:', e);
-          }
-        }
-      });
-      
-      setCompletedTasks(tasksData);
-    }
-  }, [uploadedJobs, assignments]);
+    setCompletedTasks(tasksData);
+    console.log(`📊 Loaded ${tasksData.length} completed tasks from database`);
+  }, [completedTasksData]);
 
   const approveTask = (taskId: string) => {
     toast({
