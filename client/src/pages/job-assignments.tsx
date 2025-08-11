@@ -307,96 +307,186 @@ export default function JobAssignments() {
                       </div>
                     </div>
 
-                    {/* Inline Task Inspection View */}
+                    {/* Professional Task Inspection Interface */}
                     {expandedAssignment === assignment.id && (
-                      <div className="mt-6 border-t border-slate-600 pt-4">
-                        <div className="mb-4">
-                          <h3 className="text-lg font-semibold text-yellow-400 mb-2">
-                            📋 Admin Task Inspection
-                          </h3>
-                          <div className="text-sm text-slate-400 mb-4">
-                            Contractor: {assignment.contractorName} | Location: {assignment.workLocation}
+                      <div className="mt-6 border-t border-slate-600 pt-6">
+                        {/* Inspection Header */}
+                        <div className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 rounded-lg p-4 mb-6 border border-amber-500/20">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-xl font-semibold text-amber-400 flex items-center gap-2">
+                                <i className="fas fa-clipboard-check"></i>
+                                Site Inspection Dashboard
+                              </h3>
+                              <p className="text-slate-300 mt-1">Quality assessment and task verification</p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm text-slate-400">Inspector</div>
+                              <div className="text-amber-400 font-medium">
+                                {localStorage.getItem('adminName') || 'Admin'}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {new Date().toLocaleDateString('en-GB')}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Assignment Summary */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                          <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                            <div className="text-slate-400 text-sm">Contractor</div>
+                            <div className="text-white font-medium">{assignment.contractorName}</div>
+                          </div>
+                          <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                            <div className="text-slate-400 text-sm">Location</div>
+                            <div className="text-white font-medium">{assignment.workLocation}</div>
+                          </div>
+                          <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                            <div className="text-slate-400 text-sm">Job Reference</div>
+                            <div className="text-white font-medium">{assignment.hbxlJob}</div>
                           </div>
                         </div>
 
                         {completedTasks.length > 0 ? (
-                          <div className="space-y-4">
-                            <div className="text-sm font-medium text-white mb-3">
-                              ✅ Completed Tasks Ready for Inspection ({completedTasks.length})
-                            </div>
-                            
-                            {completedTasks.map((task: any) => (
-                              <div key={task.taskId} className="bg-slate-600 rounded-lg p-4 border border-slate-500">
-                                <div className="flex items-center justify-between mb-3">
-                                  <div>
-                                    <div className="font-medium text-white">{task.taskName}</div>
-                                    <div className="text-sm text-slate-300">Phase: {task.phase}</div>
-                                    <div className="text-xs text-green-400">✓ 100% Complete</div>
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    <button
-                                      onClick={() => setInspectionStatus(prev => ({ ...prev, [task.taskId]: 'approved' }))}
-                                      className={`px-3 py-1 rounded text-sm ${
-                                        inspectionStatus[task.taskId] === 'approved'
-                                          ? 'bg-green-600 text-white'
-                                          : 'bg-slate-700 text-slate-300 hover:bg-green-700'
-                                      }`}
-                                    >
-                                      ✓ Approve
-                                    </button>
-                                    <button
-                                      onClick={() => setInspectionStatus(prev => ({ ...prev, [task.taskId]: 'issues' }))}
-                                      className={`px-3 py-1 rounded text-sm ${
-                                        inspectionStatus[task.taskId] === 'issues'
-                                          ? 'bg-red-600 text-white'
-                                          : 'bg-slate-700 text-slate-300 hover:bg-red-700'
-                                      }`}
-                                    >
-                                      ⚠ Issues
-                                    </button>
-                                    <button className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
-                                      📷 Photo
-                                    </button>
-                                  </div>
+                          <div className="space-y-6">
+                            {/* Tasks Summary */}
+                            <div className="bg-green-900/20 border border-green-700/30 rounded-lg p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+                                  <i className="fas fa-check text-white text-lg"></i>
                                 </div>
-                                
-                                {/* Notes section */}
-                                <div className="mt-3">
-                                  <textarea
-                                    placeholder="Add inspection notes..."
-                                    value={inspectionNotes[task.taskId] || ''}
-                                    onChange={(e) => setInspectionNotes(prev => ({ ...prev, [task.taskId]: e.target.value }))}
-                                    className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white placeholder-slate-400 text-sm"
-                                    rows={2}
-                                  />
+                                <div>
+                                  <h4 className="text-green-400 font-semibold text-lg">
+                                    {completedTasks.length} Task{completedTasks.length !== 1 ? 's' : ''} Ready for Inspection
+                                  </h4>
+                                  <p className="text-slate-300 text-sm">All tasks marked complete by contractor - awaiting quality review</p>
                                 </div>
                               </div>
-                            ))}
+                            </div>
+                            
+                            {/* Task Inspection Cards */}
+                            <div className="space-y-4">
+                              {completedTasks.map((task: any) => (
+                                <div key={task.taskId} className="bg-slate-800/80 rounded-xl border border-slate-600 overflow-hidden">
+                                  {/* Task Header */}
+                                  <div className="bg-slate-700/50 px-6 py-4 border-b border-slate-600">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                          <i className="fas fa-tasks text-white"></i>
+                                        </div>
+                                        <div>
+                                          <h5 className="text-white font-semibold text-lg">{task.taskName}</h5>
+                                          <div className="flex items-center gap-4 mt-1">
+                                            <span className="text-slate-400 text-sm">Phase: {task.phase}</span>
+                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-900/30 border border-green-700/50 rounded-full text-green-400 text-xs font-medium">
+                                              <i className="fas fa-check-circle"></i>
+                                              Complete
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="text-2xl font-bold text-green-400">100%</div>
+                                        <div className="text-xs text-slate-400">Progress</div>
+                                      </div>
+                                    </div>
+                                  </div>
 
-                            <div className="flex justify-end space-x-3 mt-6">
-                              <button
-                                onClick={() => {
-                                  setExpandedAssignment(null);
-                                  setCompletedTasks([]);
-                                  setInspectionStatus({});
-                                  setInspectionNotes({});
-                                }}
-                                className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={submitInspection}
-                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded"
-                              >
-                                Submit Inspection
-                              </button>
+                                  {/* Inspection Controls */}
+                                  <div className="p-6">
+                                    {/* Action Buttons */}
+                                    <div className="mb-4">
+                                      <label className="block text-slate-300 font-medium mb-3">Quality Assessment</label>
+                                      <div className="flex gap-3">
+                                        <button
+                                          onClick={() => setInspectionStatus(prev => ({ ...prev, [task.taskId]: 'approved' }))}
+                                          className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                                            inspectionStatus[task.taskId] === 'approved'
+                                              ? 'bg-green-600 text-white shadow-lg shadow-green-600/25 border-2 border-green-500'
+                                              : 'bg-slate-700 text-slate-300 hover:bg-green-700 hover:text-white border-2 border-slate-600'
+                                          }`}
+                                        >
+                                          <i className="fas fa-check-circle mr-2"></i>
+                                          Approve Work
+                                        </button>
+                                        <button
+                                          onClick={() => setInspectionStatus(prev => ({ ...prev, [task.taskId]: 'issues' }))}
+                                          className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                                            inspectionStatus[task.taskId] === 'issues'
+                                              ? 'bg-red-600 text-white shadow-lg shadow-red-600/25 border-2 border-red-500'
+                                              : 'bg-slate-700 text-slate-300 hover:bg-red-700 hover:text-white border-2 border-slate-600'
+                                          }`}
+                                        >
+                                          <i className="fas fa-exclamation-triangle mr-2"></i>
+                                          Requires Attention
+                                        </button>
+                                        <button className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 border-2 border-blue-500">
+                                          <i className="fas fa-camera mr-2"></i>
+                                          Add Photo
+                                        </button>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Notes Section */}
+                                    <div>
+                                      <label className="block text-slate-300 font-medium mb-2">Inspection Notes</label>
+                                      <textarea
+                                        placeholder="Record quality observations, measurements, compliance notes, or remedial actions required..."
+                                        value={inspectionNotes[task.taskId] || ''}
+                                        onChange={(e) => setInspectionNotes(prev => ({ ...prev, [task.taskId]: e.target.value }))}
+                                        className="w-full bg-slate-700/80 border border-slate-500 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
+                                        rows={3}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Submit Section */}
+                            <div className="bg-slate-800/60 rounded-xl border border-slate-600 p-6">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="text-white font-semibold text-lg">Complete Inspection</h4>
+                                  <p className="text-slate-400 text-sm mt-1">
+                                    Review all assessments before submitting final inspection report
+                                  </p>
+                                </div>
+                                <div className="flex gap-3">
+                                  <button
+                                    onClick={() => {
+                                      setExpandedAssignment(null);
+                                      setCompletedTasks([]);
+                                      setInspectionStatus({});
+                                      setInspectionNotes({});
+                                    }}
+                                    className="px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg font-medium transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={submitInspection}
+                                    className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-medium shadow-lg shadow-green-600/25 transition-all duration-200"
+                                  >
+                                    <i className="fas fa-clipboard-check mr-2"></i>
+                                    Submit Inspection Report
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center py-8 text-slate-400">
-                            <div className="text-lg mb-2">No completed tasks found</div>
-                            <div className="text-sm">Tasks will appear here once marked as 100% complete by the contractor</div>
+                          <div className="text-center py-12 bg-slate-800/50 rounded-xl border border-slate-600">
+                            <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <i className="fas fa-clipboard-list text-slate-400 text-xl"></i>
+                            </div>
+                            <h4 className="text-white text-lg font-medium mb-2">No Tasks Ready for Inspection</h4>
+                            <p className="text-slate-400 text-sm max-w-md mx-auto">
+                              Completed tasks will appear here automatically once contractors mark them as 100% finished. 
+                              Check back later or contact the contractor for status updates.
+                            </p>
                           </div>
                         )}
                       </div>
