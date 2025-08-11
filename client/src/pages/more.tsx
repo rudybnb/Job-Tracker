@@ -42,13 +42,15 @@ export default function More() {
 
   // Get authentic contractor data from database - NO HARDCODED RATES
   const { data: contractorApplication } = useQuery({
-    queryKey: [`/api/contractor-application/${contractorFirstName.toLowerCase()}`],
+    queryKey: [`/api/contractor-application/${contractorFirstName.toLowerCase()}`, Date.now()],
     queryFn: async () => {
-      const response = await fetch(`/api/contractor-application/${contractorFirstName.toLowerCase()}`);
+      const response = await fetch(`/api/contractor-application/${contractorFirstName.toLowerCase()}?v=${Date.now()}`);
       if (response.status === 404) return null;
       if (!response.ok) throw new Error('Failed to fetch contractor data');
       return response.json();
     },
+    staleTime: 0,
+    gcTime: 0,
     retry: false,
   });
 
@@ -78,6 +80,7 @@ export default function More() {
   };
   
   console.log(`💼 Contractor Info: ${contractorInfo.name}, £${hourlyRate}/hr, £${contractorInfo.dailyRate}/day, CIS: ${contractorInfo.cisRate}%`);
+  console.log(`🔍 Raw contractor data:`, contractorApplication);
 
   // Convert real work sessions to our format with proper payment calculation
   const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
@@ -104,6 +107,9 @@ export default function More() {
     const paidHours = Math.min(hoursWorked, 8); // Cap paid hours at 8 for daily rate calculation
     const isFullDay = hoursWorked >= 8; // Full day if worked 8+ hours
     let grossEarnings = isFullDay ? contractorInfo.dailyRate : (paidHours * contractorInfo.hourlyRate);
+    
+    console.log(`💵 Earnings calculation: hoursWorked=${hoursWorked}, paidHours=${paidHours}, isFullDay=${isFullDay}`);
+    console.log(`💵 Rate used: ${isFullDay ? `Daily £${contractorInfo.dailyRate}` : `Hourly £${contractorInfo.hourlyRate} × ${paidHours}h`} = £${grossEarnings}`);
     
     // Apply deduction if started after 8:15 AM
     if (startedLate && isFullDay) {
