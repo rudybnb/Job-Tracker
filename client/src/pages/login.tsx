@@ -197,32 +197,6 @@ export default function Login() {
                   <p className="text-amber-400 font-medium">GPS Time Tracking & Job Management</p>
                 </div>
               </div>
-              
-              <div className="space-y-6 text-slate-300 text-lg">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-amber-400 rounded-full mt-3 flex-shrink-0"></div>
-                  <div>
-                    <h3 className="text-white font-medium">GPS-Verified Time Tracking</h3>
-                    <p className="text-slate-400">100m proximity validation ensures accurate location-based work sessions</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-amber-400 rounded-full mt-3 flex-shrink-0"></div>
-                  <div>
-                    <h3 className="text-white font-medium">Real-Time Job Management</h3>
-                    <p className="text-slate-400">Complete contractor workflow from onboarding to progress tracking</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-amber-400 rounded-full mt-3 flex-shrink-0"></div>
-                  <div>
-                    <h3 className="text-white font-medium">UK Construction Compliance</h3>
-                    <p className="text-slate-400">CIS deductions, punctuality monitoring, and safety protocols</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
           
