@@ -26,7 +26,7 @@ import {
 } from "@shared/schema";
 import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, like } from "drizzle-orm";
+import { eq, desc, and, or, like, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Contractors
@@ -766,6 +766,28 @@ export class DatabaseStorage implements IStorage {
     
     console.log(`👁️ Marked task inspection ${id} as viewed`);
     return result;
+  }
+
+  async getAdminInspectionsForContractor(contractorName: string): Promise<any[]> {
+    // Get the contractor's assignments first
+    const assignments = await db.select()
+      .from(jobAssignments)
+      .where(eq(jobAssignments.contractorName, contractorName));
+    
+    if (assignments.length === 0) {
+      return [];
+    }
+    
+    const assignmentIds = assignments.map(a => a.id);
+    
+    // Get admin inspections for these assignments
+    const inspections = await db.select()
+      .from(adminInspections)
+      .where(inArray(adminInspections.assignmentId, assignmentIds))
+      .orderBy(desc(adminInspections.createdAt));
+    
+    console.log(`📋 Retrieved ${inspections.length} admin inspections for contractor ${contractorName}`);
+    return inspections;
   }
 }
 

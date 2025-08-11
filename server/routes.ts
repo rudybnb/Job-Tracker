@@ -1765,17 +1765,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { contractorName } = req.params;
       console.log("📋 Fetching task inspection results for contractor:", contractorName);
       
-      const results = await storage.getTaskInspectionResults(contractorName);
+      // Get admin inspections that are task-based and contain issues/feedback for this contractor
+      const adminInspections = await storage.getAdminInspectionsForContractor(contractorName);
       
-      // Mark unviewed issues as viewed
-      const unviewedIssues = results.filter(r => r.inspectionStatus === 'issues' && !r.contractorViewed);
-      if (unviewedIssues.length > 0) {
-        await Promise.all(unviewedIssues.map(issue => 
-          storage.markTaskInspectionAsViewed(issue.id)
-        ));
-      }
+      // Transform admin inspection data to match the task inspection format
+      const taskInspectionResults = adminInspections
+        .filter(inspection => 
+          inspection.inspectionType === 'task_inspection' && 
+          (inspection.progressComments?.includes('issues') || 
+           inspection.safetyNotes || 
+           inspection.materialsIssues)
+        )
+        .map(inspection => {
+          // Extract task info from progress comments
+          const taskMatch = inspection.progressComments?.match(/Task: (.+?) - (approved|issues)/);
+          const taskName = taskMatch ? taskMatch[1] : 'Unknown Task';
+          const status = taskMatch ? taskMatch[2] : 'pending';
+          
+          return {
+            id: inspection.id,
+            assignmentId: inspection.assignmentId,
+            contractorName: contractorName,
+            taskId: `inspection-${inspection.id}`,
+            phase: 'Inspection',
+            taskName: taskName,
+            inspectionStatus: status,
+            notes: [
+              inspection.safetyNotes, 
+              inspection.materialsIssues, 
+              inspection.nextActions
+            ].filter(Boolean).join(' | '),
+            photos: inspection.photoUrls || [],
+            inspectedBy: inspection.inspectorName,
+            inspectedAt: inspection.createdAt,
+            contractorViewed: true, // Admin inspections are immediately visible
+            contractorViewedAt: inspection.createdAt
+          };
+        });
       
-      res.json(results);
+      console.log("📋 Retrieved", taskInspectionResults.length, "task inspection results for", contractorName);
+      res.json(taskInspectionResults);
     } catch (error) {
       console.error("Error fetching task inspection results:", error);
       res.status(500).json({ error: "Failed to fetch inspection results" });
