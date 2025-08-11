@@ -9,18 +9,20 @@ import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
 interface AssignmentDetails {
   id: string;
   contractorName: string;
-  hbxlJob: string;
-  title: string;
+  email: string;
+  phone: string;
   workLocation: string;
-  location: string;
-  description: string;
-  priority: string;
-  estimatedHours: number;
-  assignedDate: string;
-  dueDate: string;
+  hbxlJob: string;
+  buildPhases: string[];
+  startDate: string;
+  endDate: string;
+  specialInstructions: string;
   status: string;
-  contactName?: string;
-  contactPhone?: string;
+  sendTelegramNotification: boolean;
+  latitude: string;
+  longitude: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ContractorReport {
@@ -42,8 +44,8 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
   const [taskNote, setTaskNote] = useState("");
   
   // Check if current user is admin
-  const currentUser = localStorage.getItem('currentUser');
-  const isAdmin = currentUser && (currentUser.includes('admin') || currentUser.includes('earl.johnson'));
+  const userRole = localStorage.getItem('userRole');
+  const isAdmin = userRole === 'admin';
 
   useEffect(() => {
     const fetchJobTasks = async () => {
@@ -64,8 +66,8 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
         // Find matching job by title/name
         const matchingJob = jobs.find((job: any) => 
           job.name && (
-            job.name.toLowerCase().includes(assignment.title?.toLowerCase() || '') ||
-            assignment.title?.toLowerCase().includes(job.name.toLowerCase()) ||
+            job.name.toLowerCase().includes(assignment.hbxlJob?.toLowerCase() || '') ||
+            assignment.hbxlJob?.toLowerCase().includes(job.name.toLowerCase()) ||
             job.name === assignment.hbxlJob
           )
         );
@@ -279,8 +281,8 @@ export default function AssignmentDetails() {
   });
 
   // Check if current user is admin
-  const currentUser = localStorage.getItem('currentUser');
-  const isAdmin = currentUser && (currentUser.includes('admin') || currentUser.includes('earl.johnson'));
+  const userRole = localStorage.getItem('userRole');
+  const isAdmin = userRole === 'admin';
 
   if (assignmentLoading) {
     return (
@@ -324,16 +326,13 @@ export default function AssignmentDetails() {
             </Button>
             <div>
               <h1 className="text-xl font-bold text-yellow-400">
-                {assignment.title || assignment.hbxlJob}
+                {assignment.hbxlJob}
               </h1>
               <p className="text-slate-400 text-sm">Assignment Details</p>
             </div>
           </div>
-          <Badge className={`${
-            assignment.priority === 'High' ? 'bg-red-600' :
-            assignment.priority === 'Medium' ? 'bg-yellow-600' : 'bg-green-600'
-          } text-white`}>
-            {assignment.priority} Priority
+          <Badge className="bg-blue-600 text-white">
+            {assignment.status}
           </Badge>
         </div>
       </div>
@@ -356,12 +355,12 @@ export default function AssignmentDetails() {
               <div className="flex items-center space-x-2">
                 <MapPin className="w-4 h-4 text-green-400" />
                 <span className="text-slate-400 text-sm">Location:</span>
-                <span className="text-white text-sm">{assignment.workLocation || assignment.location}</span>
+                <span className="text-white text-sm">{assignment.workLocation}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Clock className="w-4 h-4 text-yellow-400" />
-                <span className="text-slate-400 text-sm">Estimated Hours:</span>
-                <span className="text-white text-sm">{assignment.estimatedHours}h</span>
+                <span className="text-slate-400 text-sm">Start Date:</span>
+                <span className="text-white text-sm">{assignment.startDate}</span>
               </div>
             </div>
             
