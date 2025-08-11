@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [isCheckingLocation, setIsCheckingLocation] = useState(false);
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -39,25 +40,16 @@ export default function Login() {
       
       if (response.ok) {
         const contractor = await response.json();
-        localStorage.setItem('userRole', 'contractor');
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('contractorName', `${contractor.firstName} ${contractor.lastName}`);
-        window.location.href = '/';
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${contractor.firstName}!`,
-        });
+        
+        // GPS proximity check for contractors
+        setIsCheckingLocation(true);
+        await performGPSProximityCheck(contractor.firstName, contractor.lastName);
+        
       } else {
         // Fallback to legacy contractor login
         if (username === "contractor" && password === "contractor123") {
-          localStorage.setItem('userRole', 'contractor');
-          localStorage.setItem('isLoggedIn', 'true');
-          localStorage.setItem('contractorName', 'Dalwayne Diedericks');
-          window.location.href = '/';
-          toast({
-            title: "Login Successful",
-            description: "Welcome back, Dalwayne!",
-          });
+          setIsCheckingLocation(true);
+          await performGPSProximityCheck("Dalwayne", "Diedericks");
         } else {
           toast({
             title: "Login Failed",
@@ -71,6 +63,109 @@ export default function Login() {
       toast({
         title: "Login Failed",
         description: "Unable to connect to server",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // GPS proximity validation function
+  const performGPSProximityCheck = async (firstName: string, lastName: string) => {
+    try {
+      // Get contractor's current assignment
+      const assignmentResponse = await fetch(`/api/contractor-assignments/${firstName}`);
+      if (!assignmentResponse.ok) {
+        setIsCheckingLocation(false);
+        toast({
+          title: "No Active Assignment",
+          description: "You don't have an active job assignment. Contact admin.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const assignments = await assignmentResponse.json();
+      if (!assignments || assignments.length === 0) {
+        setIsCheckingLocation(false);
+        toast({
+          title: "No Active Assignment",
+          description: "You don't have an active job assignment. Contact admin.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const activeAssignment = assignments[0];
+      
+      // Get current GPS location
+      if (!navigator.geolocation) {
+        setIsCheckingLocation(false);
+        toast({
+          title: "GPS Not Available",
+          description: "Your device doesn't support GPS. Contact admin for manual check-in.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const userLat = position.coords.latitude;
+          const userLon = position.coords.longitude;
+          
+          // Check proximity to job site
+          const proximityResponse = await fetch('/api/check-proximity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userLatitude: userLat,
+              userLongitude: userLon,
+              workLocation: activeAssignment.workLocation,
+              contractorName: `${firstName} ${lastName}`
+            })
+          });
+
+          const proximityResult = await proximityResponse.json();
+          setIsCheckingLocation(false);
+
+          if (proximityResult.withinRange) {
+            // Login successful - contractor is within 100m of job site
+            localStorage.setItem('userRole', 'contractor');
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('contractorName', `${firstName} ${lastName}`);
+            window.location.href = '/';
+            toast({
+              title: "Login Successful",
+              description: `Welcome back, ${firstName}! Distance: ${proximityResult.distance}m`,
+            });
+          } else {
+            toast({
+              title: "Location Check Failed",
+              description: `You must be within 100m of job site. Current distance: ${proximityResult.distance}m`,
+              variant: "destructive",
+            });
+          }
+        },
+        (error) => {
+          setIsCheckingLocation(false);
+          console.error('GPS error:', error);
+          toast({
+            title: "GPS Error",
+            description: "Unable to get your location. Please enable GPS and try again.",
+            variant: "destructive",
+          });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    } catch (error) {
+      setIsCheckingLocation(false);
+      console.error('Proximity check error:', error);
+      toast({
+        title: "Location Check Error",
+        description: "Unable to verify your location. Try again.",
         variant: "destructive",
       });
     }
@@ -110,9 +205,17 @@ export default function Login() {
             </div>
             <Button 
               type="submit" 
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+              disabled={isCheckingLocation}
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
             >
-              Sign In
+              {isCheckingLocation ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Checking Location...
+                </div>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           </form>
           

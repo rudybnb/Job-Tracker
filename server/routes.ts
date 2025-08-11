@@ -427,6 +427,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'DA1': { latitude: '51.4417', longitude: '0.2056' },
       'SG1 1EH': { latitude: '51.8721', longitude: '-0.2015' },
       'SG1': { latitude: '51.8721', longitude: '-0.2015' },
+      'ME5 9GX': { latitude: '51.2737', longitude: '0.5238' }, // Dalwayne's current assignment
+      'ME5': { latitude: '51.2737', longitude: '0.5238' },
       // Add more as needed
     };
     
@@ -1173,6 +1175,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c; // Distance in meters
   }
+
+  // GPS proximity check endpoint for login validation
+  app.post("/api/check-proximity", async (req, res) => {
+    try {
+      const { userLatitude, userLongitude, workLocation, contractorName } = req.body;
+      
+      console.log(`🔍 GPS Proximity Check for ${contractorName}:`);
+      console.log(`📍 User Location: ${userLatitude}, ${userLongitude}`);
+      console.log(`🏗️ Work Location: ${workLocation}`);
+      
+      // Get GPS coordinates for the work location (postcode)
+      const jobSiteCoords = getPostcodeCoordinates(workLocation);
+      if (!jobSiteCoords) {
+        return res.status(400).json({ 
+          error: "Unable to find GPS coordinates for work location",
+          withinRange: false,
+          distance: "Unknown"
+        });
+      }
+      
+      const jobSiteLat = parseFloat(jobSiteCoords.latitude);
+      const jobSiteLon = parseFloat(jobSiteCoords.longitude);
+      
+      console.log(`🎯 Job Site Coordinates: ${jobSiteLat}, ${jobSiteLon}`);
+      
+      // Calculate distance between user and job site
+      const distance = calculateGPSDistance(
+        parseFloat(userLatitude),
+        parseFloat(userLongitude),
+        jobSiteLat,
+        jobSiteLon
+      );
+      
+      const withinRange = distance <= 100; // 100 meter proximity requirement
+      
+      console.log(`📏 Distance: ${distance.toFixed(0)}m - ${withinRange ? '✅ WITHIN RANGE' : '❌ TOO FAR'}`);
+      
+      res.json({
+        withinRange,
+        distance: Math.round(distance),
+        allowedDistance: 100,
+        workLocation,
+        jobSiteCoordinates: jobSiteCoords
+      });
+      
+    } catch (error) {
+      console.error("Error in proximity check:", error);
+      res.status(500).json({ 
+        error: "Failed to check proximity",
+        withinRange: false,
+        distance: "Error"
+      });
+    }
+  });
 
   // Contractor Reports endpoints
   app.post("/api/contractor-reports", async (req, res) => {
