@@ -1,6 +1,54 @@
 # ERdesignandbuild - GPS Time Tracking & Job Management System
 ## Changelog
 
+### Version 1.3.8 - CONTRACTOR ISSUE RESOLUTION WORKFLOW (August 11, 2025 - 10:55 PM)
+
+#### ✅ **NEW FEATURE: Complete Contractor Feedback Loop for Inspection Issues**
+**Feature**: Contractors can now resolve admin-reported issues with feedback notes
+**Benefit**: Eliminates duplicate issue reports and ensures proper quality control workflow
+
+#### 🔧 **Technical Implementation**
+- **Contractor Resolution**: Added "Mark as Done" button for contractors to resolve inspection issues
+- **Fix Notes System**: Optional text field for contractors to explain what was fixed
+- **Admin Notification Dashboard**: New "Contractor Fixes - Awaiting Review" section in admin interface
+- **Database Schema Enhanced**: Added contractor resolution tracking fields to admin_inspections table
+- **API Endpoints**: `/api/task-inspection-results/:id/mark-done` and `/api/contractor-fixed-inspections`
+- **Real-Time Updates**: Dashboard refreshes every 30 seconds to show new contractor fixes
+
+#### 📊 **Database Changes Applied**
+```sql
+-- Added contractor resolution tracking fields
+ALTER TABLE admin_inspections 
+ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'open',
+-- Status values: 'open', 'contractor_fixed', 'admin_approved'
+```
+
+#### 🛠️ **Workflow Process**
+1. **Admin Reports Issue**: Earl creates inspection with issues → appears on Dalwayne's dashboard
+2. **Contractor Resolves**: Dalwayne clicks "Mark as Done" → adds fix notes → issue hidden from dashboard
+3. **Admin Notification**: Earl sees amber notification card with contractor's fix notes
+4. **Admin Re-Approval**: Earl reviews fix and can approve or reject (future enhancement)
+
+#### ✅ **Quality Control Maintained**
+- Issues hidden from contractor dashboard once marked as resolved
+- Admin must re-inspect before permanent removal
+- Contractor notes visible to admin for verification
+- Prevents contractors from bypassing inspection process
+- Authentic database data only - no mock or temporary data
+
+#### 🔍 **Bug Fixes**
+- **JavaScript Scope Error**: Fixed "loggedInContractor is not defined" preventing inspection component loading
+- **Variable Scope**: Properly passed contractor name to InspectionIssues component
+- **Duplicate Reporting**: Filtered out already-resolved inspections from contractor view
+
+#### 🧪 **Testing Verified**
+- **7 Contractor Fixes**: Successfully retrieved from database via API
+- **Real-Time Dashboard**: Admin notifications updating automatically
+- **Contractor Notes**: Successfully displayed fix notes "The door was broken"
+- **Database Persistence**: All resolution data properly stored and retrieved
+
+---
+
 ### Version 1.3.7 - CRITICAL DATA PERSISTENCE FIX (August 11, 2025 - 9:45 PM)
 
 #### ✅ **RESOLVED: Task Progress Data Loss Issue**
