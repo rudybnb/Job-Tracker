@@ -182,8 +182,9 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
               progressMap[task.taskId] = progress;
               console.log(`📊 Mapping task ${task.taskId} to ${progress}%`);
             });
+            console.log(`📊 Progress map before setState:`, progressMap);
             setTaskProgress(progressMap);
-            console.log(`📊 Final progress map set:`, progressMap);
+            console.log(`📊 setTaskProgress called with:`, progressMap);
             console.log(`📊 Loaded ${progressData.length} task progress records from database`);
           } else {
             console.error(`📊 Failed to load task progress: ${response.status}`);
@@ -266,7 +267,9 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
                   {phaseTasks.map((task: any) => {
                     const progress = taskProgress[task.id] || 0;
                     const isCompleted = progress === 100;
-                    console.log(`🔍 Task ${task.id}: progress=${progress}%, completed=${isCompleted}, taskProgress state:`, taskProgress);
+                    console.log(`🔍 Task ${task.id}: progress=${progress}%, completed=${isCompleted}`);
+                    console.log(`🔍 Available taskProgress keys:`, Object.keys(taskProgress));
+                    console.log(`🔍 Looking for key "${task.id}" in:`, taskProgress);
                     
                     return (
                       <div key={task.id} className="bg-slate-700 rounded p-2 text-sm">
