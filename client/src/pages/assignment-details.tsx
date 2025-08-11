@@ -509,27 +509,27 @@ export default function AssignmentDetails() {
                   {assignment.status}
                 </Badge>
               </div>
-              {assignment.contactName && (
+              {assignment.email && (
                 <div className="flex items-center space-x-2">
                   <User className="w-4 h-4 text-orange-400" />
                   <span className="text-slate-400 text-sm">Contact:</span>
-                  <span className="text-white text-sm">{assignment.contactName}</span>
+                  <span className="text-white text-sm">{assignment.email}</span>
                 </div>
               )}
-              {assignment.contactPhone && (
+              {assignment.phone && (
                 <div className="flex items-center space-x-2">
                   <Phone className="w-4 h-4 text-green-400" />
                   <span className="text-slate-400 text-sm">Phone:</span>
-                  <span className="text-white text-sm">{assignment.contactPhone}</span>
+                  <span className="text-white text-sm">{assignment.phone}</span>
                 </div>
               )}
             </div>
           </div>
           
-          {assignment.description && (
+          {assignment.specialInstructions && (
             <div className="mt-4 pt-4 border-t border-slate-600">
-              <h3 className="text-white font-medium mb-2">Description</h3>
-              <p className="text-slate-300 text-sm">{assignment.description}</p>
+              <h3 className="text-white font-medium mb-2">Special Instructions</h3>
+              <p className="text-slate-300 text-sm">{assignment.specialInstructions}</p>
             </div>
           )}
         </div>
