@@ -172,8 +172,16 @@ Good luck with the project! 💪`;
       // Generate unique contractor ID
       const contractorId = `CTR-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
       
-      // Use Rudy's Chat ID
-      const chatId = '7617462316';
+      // Map contractor names to their specific chat IDs
+      let chatId = '7617462316'; // Default to Rudy
+      
+      if (contractorName.toLowerCase().includes('marius')) {
+        chatId = '8006717361'; // Marius Andronache
+      } else if (contractorName.toLowerCase().includes('dalwayne')) {
+        chatId = '8016744652'; // Dalwayne Diedericks
+      } else if (contractorName.toLowerCase().includes('earl')) {
+        chatId = '6792554033'; // Earl Johnson
+      }
       
       const message = `🎯 <b>New Contractor Onboarding Required</b>
 
