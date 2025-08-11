@@ -15,15 +15,29 @@ export default function Login() {
     e.preventDefault();
     
     // Check admin credentials first
-    if ((username === "admin" && password === "admin123") || 
-        (username === "earl.johnson" && password === "EarlAdmin2025!")) {
+    if (username === "admin" && password === "admin123") {
+      localStorage.clear();
       localStorage.setItem('userRole', 'admin');
       localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('adminName', username === "earl.johnson" ? "Earl Johnson" : "Admin");
+      localStorage.setItem('adminName', "Admin");
       window.location.href = '/admin';
       toast({
         title: "Login Successful",
-        description: username === "earl.johnson" ? "Welcome back, Earl!" : "Welcome back, Admin!",
+        description: "Welcome back, Admin!",
+      });
+      return;
+    }
+    
+    // Separate admin login for Earl Johnson
+    if (username === "earl.johnson" && password === "EarlAdmin2025!") {
+      localStorage.clear();
+      localStorage.setItem('userRole', 'admin');
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('adminName', "Earl Johnson");
+      window.location.href = '/admin';
+      toast({
+        title: "Login Successful",
+        description: "Welcome back, Earl! (Admin Mode)",
       });
       return;
     }
@@ -41,10 +55,12 @@ export default function Login() {
       if (response.ok) {
         const contractor = await response.json();
         
-        // Successful contractor login - no GPS check needed at login
+        // Successful contractor login - clear any previous data first
+        localStorage.clear(); // Clear all previous contractor data
         localStorage.setItem('userRole', 'contractor');
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('contractorName', `${contractor.firstName} ${contractor.lastName}`);
+        localStorage.setItem('contractorId', contractor.id);
         window.location.href = '/';
         toast({
           title: "Login Successful",
