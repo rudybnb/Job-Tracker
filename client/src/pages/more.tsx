@@ -61,18 +61,23 @@ export default function More() {
       return response.json();
     },
     staleTime: 0, // Always fetch fresh data
-    cacheTime: 0, // Don't cache
+    gcTime: 0, // Don't cache (renamed from cacheTime in v5)
   });
 
-  // Contractor details with AUTHENTIC data only
+  // Contractor details with AUTHENTIC data only - use contractorData from the API
+  const hourlyRate = contractorData?.adminPayRate ? parseFloat(contractorData.adminPayRate) : 18.75;
   const contractorInfo = {
-    name: contractorName,
-    email: contractorApplication?.email || "",
-    cisRegistered: contractorApplication?.isCisRegistered || false,
-    dailyRate: contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) * 8 : 150, // £18.75/hour * 8 hours = £150
-    hourlyRate: contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) : 18.75,
-    cisRate: contractorApplication?.isCisRegistered ? 20 : 30 // Use authentic CIS status
+    name: contractorData?.firstName && contractorData?.lastName 
+      ? `${contractorData.firstName} ${contractorData.lastName}` 
+      : contractorName,
+    email: contractorData?.email || "",
+    cisRegistered: contractorData?.isCisRegistered === 'true',
+    dailyRate: hourlyRate * 8, // Calculate daily rate from authentic hourly rate
+    hourlyRate: hourlyRate,
+    cisRate: contractorData?.isCisRegistered === 'true' ? 20 : 30 // Use authentic CIS status
   };
+  
+  console.log(`💼 Contractor Info: ${contractorInfo.name}, £${hourlyRate}/hr, £${contractorInfo.dailyRate}/day, CIS: ${contractorInfo.cisRate}%`);
 
   // Convert real work sessions to our format with proper payment calculation
   const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
@@ -106,6 +111,9 @@ export default function More() {
       const minutesLate = Math.max(0, (startTimeDecimal - 8.25) * 60);
       const deductionRate = Math.min(minutesLate * 0.5, 50); // £0.50 per minute late, max £50
       grossEarnings = Math.max(100, contractorInfo.dailyRate - deductionRate); // Minimum £100 per day
+      console.log(`⚠️ LATE PENALTY: ${minutesLate.toFixed(1)} minutes late, £${deductionRate.toFixed(2)} penalty applied`);
+    } else if (startedLate) {
+      console.log(`⚠️ Started late but not full day - no penalty applied to hourly rate`);
     }
     
     const startTimeStr = startTime.toLocaleTimeString('en-GB', { 
@@ -121,6 +129,7 @@ export default function More() {
     const lateStatus = startedLate ? ' (LATE)' : '';
     console.log(`💰 Session ${session.id}: ${Math.min(hoursWorked, 8)} hours paid (${startTimeStr}-${endTimeStr}), started ${startTimeStr}${lateStatus} = £${grossEarnings.toFixed(2)}`);
     console.log(`⏰ Raw data - Hours: ${hoursWorked}, TotalHours from DB: ${session.totalHours}`);
+    console.log(`💸 Pay calculation: isFullDay=${isFullDay}, hourlyRate=£${contractorInfo.hourlyRate}, dailyRate=£${contractorInfo.dailyRate}`);
     
     return {
       id: session.id,
