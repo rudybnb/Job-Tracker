@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
 
 interface EarningsTrackerProps {
   isTracking: boolean;
@@ -29,9 +30,28 @@ export function EarningsTracker({
   distanceFromSite,
   isWeekendWork 
 }: EarningsTrackerProps) {
+  // Get authentic contractor data from database
+  const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
+  const contractorFirstName = contractorName.split(' ')[0];
+
+  const { data: contractorApplication } = useQuery({
+    queryKey: [`/api/contractor-application/${contractorFirstName.toLowerCase()}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/contractor-application/${contractorFirstName.toLowerCase()}`);
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error('Failed to fetch contractor data');
+      return response.json();
+    },
+    retry: false,
+  });
+
+  // Use authentic hourly rate from database
+  const hourlyRate = contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) : 18.75;
+  const cisRate = contractorApplication?.isCisRegistered === 'true' ? 20 : 30;
+
   const [earnings, setEarnings] = useState<EarningsCalculation>({
     hoursWorked: 0,
-    hourlyRate: 25.00, // Standard rate £25/hour
+    hourlyRate: hourlyRate,
     grossEarnings: 0,
     punctualityDeduction: 0,
     cisDeduction: 0,
@@ -49,13 +69,15 @@ export function EarningsTracker({
     const now = new Date();
     const hoursWorked = (now.getTime() - startTime.getTime()) / (1000 * 60 * 60);
     
-    // Determine hourly rate
-    const baseRate = 25.00;
+    // Use authentic hourly rate with weekend overtime multiplier
+    const baseRate = hourlyRate;
     const overtimeMultiplier = isWeekendWork ? 1.5 : 1.0; // 1.5x for weekends
-    const hourlyRate = baseRate * overtimeMultiplier;
+    const effectiveHourlyRate = baseRate * overtimeMultiplier;
     
-    // Calculate gross earnings
-    const grossEarnings = hoursWorked * hourlyRate;
+    // Calculate gross earnings using daily rate logic (8+ hours = daily rate)
+    const dailyRate = baseRate * 8; // £18.75 × 8 = £150
+    const isFullDay = hoursWorked >= 8;
+    const grossEarnings = isFullDay ? dailyRate : (hoursWorked * effectiveHourlyRate);
     
     // Calculate punctuality deduction (£0.50/minute after 8:15 AM, max £50, min £100 daily pay)
     let punctualityDeduction = 0;
@@ -69,12 +91,9 @@ export function EarningsTracker({
       punctualityDeduction = Math.min(lateMinutes * 0.50, 50); // Max £50 deduction
     }
     
-    // Calculate CIS deduction based on logged-in contractor's authentic form data
-    // For Dalwayne: Not CIS Registered = 30% deduction
-    // For registered contractors: 20% deduction
-    const contractorName = localStorage.getItem('contractorName') || '';
-    const cisRate = contractorName === 'Dalwayne Diedericks' ? 0.30 : 0.20; // Use authentic data from form
-    const cisDeduction = grossEarnings * cisRate;
+    // Calculate CIS deduction using authentic contractor data
+    const adjustedGrossEarnings = Math.max(100, grossEarnings - punctualityDeduction); // Minimum £100 daily pay
+    const cisDeduction = adjustedGrossEarnings * (cisRate / 100);
     
     // Calculate net earnings (minimum £100 daily pay)
     const beforeMinimum = grossEarnings - punctualityDeduction - cisDeduction;
@@ -82,14 +101,14 @@ export function EarningsTracker({
     
     setEarnings({
       hoursWorked,
-      hourlyRate,
-      grossEarnings,
+      hourlyRate: effectiveHourlyRate,
+      grossEarnings: adjustedGrossEarnings,
       punctualityDeduction,
       cisDeduction,
       netEarnings,
       isOvertimeRate: isWeekendWork
     });
-  }, [isTracking, startTime, currentTime, isWeekendWork]);
+  }, [isTracking, startTime, currentTime, isWeekendWork, hourlyRate, cisRate]);
 
   if (!isTracking) {
     return (
