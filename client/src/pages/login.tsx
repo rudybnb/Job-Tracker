@@ -282,41 +282,6 @@ export default function Login() {
                     )}
                   </Button>
                 </form>
-                
-                {/* Credentials Reference */}
-                <div className="mt-8 space-y-4">
-                  <div className="border-t border-slate-600 pt-6">
-                    <div className="grid grid-cols-1 gap-4 text-sm">
-                      <div className="bg-slate-800 rounded-lg p-4 border border-slate-600">
-                        <h4 className="text-amber-400 font-medium mb-2 flex items-center">
-                          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.11 3.89 23 5 23H11V21H5V3H14V8H21V9H21ZM15 13V11L21 17L15 23V21H13V15H15V13Z"/>
-                          </svg>
-                          Admin Access
-                        </h4>
-                        <div className="space-y-1 text-slate-300">
-                          <div className="text-xs text-slate-400">Earl Johnson:</div>
-                          <div className="font-mono text-xs">earl.johnson / EarlAdmin2025!</div>
-                          <div className="text-xs text-slate-400 mt-2">General Admin:</div>
-                          <div className="font-mono text-xs">admin / admin123</div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-slate-800 rounded-lg p-4 border border-slate-600">
-                        <h4 className="text-green-400 font-medium mb-2 flex items-center">
-                          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9Z"/>
-                          </svg>
-                          Contractor Login
-                        </h4>
-                        <div className="text-slate-300 font-mono text-xs">
-                          contractor / contractor123
-                          <div className="text-slate-400 text-xs mt-1">*Requires GPS proximity to job site</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>
