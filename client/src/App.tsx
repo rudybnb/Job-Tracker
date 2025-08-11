@@ -36,13 +36,26 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 // Role-based dashboard component
 function RoleBased() {
   const userRole = localStorage.getItem('userRole');
+  const adminName = localStorage.getItem('adminName');
+  const contractorName = localStorage.getItem('contractorName');
+  
+  // Debug logging to track localStorage contents
+  console.log('🔍 RoleBased Debug:', {
+    userRole,
+    adminName,
+    contractorName,
+    allLocalStorage: Object.fromEntries(Object.entries(localStorage))
+  });
   
   if (userRole === 'admin') {
+    console.log(`👑 Admin access for: ${adminName}`);
     return <AdminDashboard />;
   } else if (userRole === 'contractor') {
+    console.log(`👷 Contractor access for: ${contractorName}`);
     return <GPSDashboard />;
   } else {
     // Default fallback - redirect to login
+    console.log('❌ No valid role found, redirecting to login');
     window.location.href = '/login';
     return <div>Redirecting...</div>;
   }

@@ -68,8 +68,19 @@ export default function Login() {
         });
         
       } else {
+        // Check if this is a failed admin login attempt
+        if (username === "earl.johnson") {
+          toast({
+            title: "Login Failed",
+            description: "For admin access, use password: EarlAdmin2025!",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         // Fallback to legacy contractor login
         if (username === "contractor" && password === "contractor123") {
+          localStorage.clear(); // Clear any admin data
           localStorage.setItem('userRole', 'contractor');
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('contractorName', 'Dalwayne Diedericks');
