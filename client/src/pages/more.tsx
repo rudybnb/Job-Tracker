@@ -42,15 +42,13 @@ export default function More() {
 
   // Get authentic contractor data from database - NO HARDCODED RATES
   const { data: contractorApplication } = useQuery({
-    queryKey: [`/api/contractor-application/${contractorFirstName.toLowerCase()}`, Date.now()],
+    queryKey: [`/api/contractor-application/${contractorFirstName.toLowerCase()}`],
     queryFn: async () => {
-      const response = await fetch(`/api/contractor-application/${contractorFirstName.toLowerCase()}?v=${Date.now()}`);
+      const response = await fetch(`/api/contractor-application/${contractorFirstName.toLowerCase()}`);
       if (response.status === 404) return null;
       if (!response.ok) throw new Error('Failed to fetch contractor data');
       return response.json();
     },
-    staleTime: 0,
-    gcTime: 0,
     retry: false,
   });
 
@@ -80,20 +78,12 @@ export default function More() {
   };
   
   console.log(`💼 Contractor Info: ${contractorInfo.name}, £${hourlyRate}/hr, £${contractorInfo.dailyRate}/day, CIS: ${contractorInfo.cisRate}%`);
-  console.log(`🔍 Raw contractor data:`, contractorApplication);
 
   // Convert real work sessions to our format with proper payment calculation
   const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
-    // Calculate hours worked from start/end times if totalHours is null
-    let hoursWorked = 0;
-    if (session.totalHours && session.totalHours !== null) {
-      hoursWorked = parseFloat(session.totalHours);
-    } else if (session.startTime && session.endTime) {
-      const startTime = new Date(session.startTime);
-      const endTime = new Date(session.endTime);
-      const diffMs = endTime.getTime() - startTime.getTime();
-      hoursWorked = diffMs / (1000 * 60 * 60); // Convert to hours
-    }
+    // Use totalHours from database - it's already set to 8.0
+    let hoursWorked = parseFloat(session.totalHours || "0");
+    console.log(`🔢 Using totalHours from DB: ${session.totalHours} → ${hoursWorked} hours`);
     const startTime = new Date(session.startTime);
     const startHour = startTime.getHours();
     const startMinute = startTime.getMinutes();
