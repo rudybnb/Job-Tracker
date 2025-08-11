@@ -114,6 +114,20 @@ The application offers a complete workflow with distinct role-based interfaces f
 - **✅ CONTRACTOR INTERFACE SIMPLIFIED**: Removed contractor reporting interface to maintain "here to work not paperwork" philosophy
 - **✅ ADMIN-ONLY REPORTING**: Confirmed reporting system is admin-only with comprehensive site inspection capabilities
 - **✅ NAVIGATION RESTORED**: Reverted contractor navigation to 3-tab system (Dashboard, Jobs, More) as originally designed
+
+### Earnings Calculation Fix (August 11, 2025 - 4:45 PM)
+- **✅ PAY CALCULATION CORRECTED**: Fixed earnings display to use authentic database rates:
+  - Hourly rate: Uses actual £18.75 from contractor application adminPayRate field
+  - Daily rate: Calculated as £18.75 × 8 = £150 (not hardcoded)
+  - Time display: Corrected to 24-hour format (07:44-17:00) using proper locale settings
+  - Hours worked: Capped at 8.0 maximum for daily rate calculation per company policy
+- **✅ CIS CALCULATION FIXED**: Corrected tax deductions to match HMRC standards:
+  - Gross: £150 daily rate for 8+ hours worked
+  - CIS deduction: £45 (30% for non-CIS registered contractors)
+  - Net payment: £105 (matches official HMRC CIS calculator)
+- **✅ LATE PENALTY LOGIC**: Verified punctuality system works correctly:
+  - 7:44 AM start time is before 8:15 AM cutoff = no penalty applied
+  - System correctly identifies early arrival and applies full daily rate
   
 ### Multi-Contractor Architecture Notes
 The system is now fully prepared for new contractors:
