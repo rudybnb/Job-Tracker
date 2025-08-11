@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, pgEnum, boolean, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, pgEnum, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -257,31 +257,6 @@ export const insertInspectionNotificationSchema = createInsertSchema(inspectionN
   createdAt: true,
 });
 
-// Task Progress table to track individual sub-task completion
-export const taskProgress = pgTable("task_progress", {
-  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
-  assignmentId: text("assignment_id").notNull(),
-  taskId: text("task_id").notNull(), // Format: "phase-index" (e.g., "Paving Slab-0")
-  taskDescription: text("task_description").notNull(),
-  phase: text("phase").notNull(),
-  contractorName: text("contractor_name").notNull(),
-  status: text("status").notNull().default("pending"), // pending, completed, approved, rejected
-  completionProgress: decimal("completion_progress", { precision: 5, scale: 2 }).default("0").notNull(), // 0-100
-  contractorNotes: text("contractor_notes"),
-  adminNotes: text("admin_notes"),
-  photoUrls: text("photo_urls").array(), // Array of photo URLs
-  completedAt: timestamp("completed_at"),
-  approvedAt: timestamp("approved_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const insertTaskProgressSchema = createInsertSchema(taskProgress).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 export type InsertContractor = z.infer<typeof insertContractorSchema>;
 export type Contractor = typeof contractors.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
@@ -298,8 +273,6 @@ export type JobAssignment = z.infer<typeof jobAssignmentSchema>;
 export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
 export type AdminSetting = typeof adminSettings.$inferSelect;
 export type InsertJobAssignment = z.infer<typeof insertJobAssignmentSchema>;
-export type InsertTaskProgress = z.infer<typeof insertTaskProgressSchema>;
-export type TaskProgress = typeof taskProgress.$inferSelect;
 export type JobAssignmentRecord = typeof jobAssignments.$inferSelect;
 export type InsertContractorReport = z.infer<typeof insertContractorReportSchema>;
 export type ContractorReport = typeof contractorReports.$inferSelect;

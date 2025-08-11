@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
-import { useRoute } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MapPin, Clock, User, Phone, Briefcase } from "lucide-react";
-import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
+import { useState, useEffect } from "react";
+import { apiRequest } from "@/lib/queryClient";
 
 interface AssignmentDetails {
   id: string;
@@ -16,21 +15,18 @@ interface AssignmentDetails {
   buildPhases: string[];
   startDate: string;
   endDate: string;
-  specialInstructions: string;
+  specialInstructions: string | null;
   status: string;
   sendTelegramNotification: boolean;
-  latitude: string;
-  longitude: string;
+  latitude: string | null;
+  longitude: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-interface ContractorReport {
-  id: string;
-  contractorName: string;
-  assignmentId: string;
-  reportText: string;
-  submitTime: string;
+interface TaskProgress {
+  phase: string;
+  completed: boolean;
   startTime?: string;
   endTime?: string;
   notes?: string;
@@ -40,405 +36,322 @@ interface ContractorReport {
 function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
   const [jobTasks, setJobTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showNoteModal, setShowNoteModal] = useState<string | null>(null);
-  const [taskNote, setTaskNote] = useState("");
-  const [taskProgress, setTaskProgress] = useState<{[key: string]: number}>({});
-  
-  // Check if current user is admin
-  const userRole = localStorage.getItem('userRole');
-  const currentUser = localStorage.getItem('currentUser');
-  const isAdmin = userRole === 'admin';
-  console.log('🔐 SubTasks Admin check - userRole:', userRole, 'currentUser:', currentUser, 'isAdmin:', isAdmin);
-
-  const markTaskComplete = async (taskId: string, taskData: any) => {
-    try {
-      setTaskProgress(prev => ({
-        ...prev,
-        [taskId]: 100
-      }));
-      
-      // Save to database for persistent storage
-      const contractorName = localStorage.getItem('contractorName');
-      if (contractorName && assignment) {
-        const progressData = {
-          assignmentId: assignment.id,
-          taskId: taskId,
-          taskDescription: taskData.description,
-          phase: taskData.phase || 'General',
-          contractorName: contractorName,
-          completionProgress: 100,
-          status: 'completed'
-        };
-
-        const response = await fetch('/api/task-progress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(progressData)
-        });
-
-        if (response.ok) {
-          console.log(`✅ Task ${taskId} saved to database: 100% complete`);
-        } else {
-          console.error('Failed to save task progress to database');
-        }
-      }
-      
-      console.log(`✓ Task ${taskId} marked as 100% complete by contractor`);
-    } catch (error) {
-      console.error('Error marking task complete:', error);
-    }
-  };
-
-  const approveTask = (taskId: string) => {
-    console.log(`✓ Task ${taskId} approved by admin`);
-    alert('Task approved! This functionality will be expanded with database integration.');
-  };
 
   useEffect(() => {
-    console.log('🔍 Assignment Details useEffect triggered, assignment:', assignment);
-    
     const fetchJobTasks = async () => {
       try {
-        console.log('📋 Extracting ONLY authentic CSV task data...');
         const response = await fetch('/api/uploaded-jobs');
-        const jobs = await response.json();
+        const uploadedJobs = await response.json();
         
-        console.log('🔍 Available jobs:', jobs.map((j: any) => ({
-          id: j.id,
-          title: j.name,
-          uploadId: j.uploadId,
-          phaseDataValue: j.phaseData,
-          phaseTaskDataValue: j.phaseTaskData,
-          hasPhaseData: !!j.phaseData,
-          hasTaskData: !!j.phaseTaskData
-        })));
-        
-        console.log('🔍 Assignment hbxlJob for matching:', assignment.hbxlJob);
-
-        // Find matching job by title/name
-        const matchingJob = jobs.find((job: any) => 
-          job.name && (
-            job.name.toLowerCase().includes(assignment.hbxlJob?.toLowerCase() || '') ||
-            assignment.hbxlJob?.toLowerCase().includes(job.name.toLowerCase()) ||
-            job.name === assignment.hbxlJob
-          )
-        );
-
-        console.log('🎯 Selected job:', matchingJob ? {
-          id: matchingJob.id,
-          title: matchingJob.name,
-          hasPhaseData: !!matchingJob.phaseData,
-          hasTaskData: !!matchingJob.phaseTaskData
-        } : 'No matching job found');
-
-        // Try both phaseData and phaseTaskData fields
-        const taskDataSource = matchingJob?.phaseData || matchingJob?.phaseTaskData;
-        if (taskDataSource) {
-          console.log('✅ Returning authentic CSV data only - no assumptions made');
-          const phaseTaskData = typeof taskDataSource === 'string' ? JSON.parse(taskDataSource) : taskDataSource;
+        // Find matching job using same logic as task-progress
+        const matchingJob = uploadedJobs.find((job: any) => {
+          if (job.name === assignment.hbxlJob) return true;
           
-          // Convert to flat task list with proper IDs that match database
-          const taskList: any[] = [];
-          Object.entries(phaseTaskData).forEach(([phase, tasks]: [string, any]) => {
-            if (Array.isArray(tasks)) {
-              tasks.forEach((task, index) => {
-                const taskId = `${phase}-${index}`;
-                taskList.push({
-                  id: taskId,
-                  phase,
-                  description: task.description || task.task || 'Task details not available',
-                  quantity: task.quantity || 1,
-                  task: task.task || task.description || 'Task details not available'
+          // Handle "Flat12 2Bedroom" vs "Flat1 2Bedroom" matching
+          if (job.name && assignment.hbxlJob) {
+            const jobNameClean = job.name.toLowerCase().replace(/\s+/g, '');
+            const assignmentNameClean = assignment.hbxlJob.toLowerCase().replace(/\s+/g, '');
+            if (jobNameClean.includes('flat') && assignmentNameClean.includes('flat')) {
+              return true;
+            }
+          }
+          
+          // Postcode matching for DA17 5DB
+          if (job.postcode && assignment.workLocation) {
+            const jobPostcodePrefix = job.postcode.split(' ')[0];
+            const assignmentLocationPrefix = assignment.workLocation.split(' ')[0];
+            if (jobPostcodePrefix === assignmentLocationPrefix) {
+              return true;
+            }
+          }
+          
+          return false;
+        });
+
+        if (matchingJob && matchingJob.phaseData) {
+          const allTasks: any[] = [];
+          
+          // Extract tasks for assigned phases only
+          assignment.buildPhases.forEach((phase: string) => {
+            if (matchingJob.phaseData[phase]) {
+              matchingJob.phaseData[phase].forEach((task: any) => {
+                allTasks.push({
+                  ...task,
+                  phase: phase,
+                  id: `${phase}-${task.description}`.replace(/\s+/g, '-').toLowerCase()
                 });
-                console.log(`📋 Created task with ID: ${taskId} - ${task.description || task.task}`);
               });
             }
           });
           
-          setJobTasks(taskList);
+          setJobTasks(allTasks);
+          console.log(`✅ Loaded ${allTasks.length} sub-tasks for assignment`);
         } else {
-          console.log('❌ No authentic task data found - showing empty state');
-          setJobTasks([]);
+          console.log('❌ No matching job found for:', assignment.hbxlJob);
         }
-        setLoading(false);
       } catch (error) {
         console.error('❌ Error fetching job tasks:', error);
-        setJobTasks([]);
+      } finally {
         setLoading(false);
       }
     };
 
-    const loadTaskProgress = async () => {
-      if (assignment) {
-        try {
-          console.log(`📊 Attempting to load task progress for assignment: ${assignment.id}`);
-          const response = await fetch(`/api/task-progress/${assignment.id}`);
-          if (response.ok) {
-            const progressData = await response.json();
-            console.log(`📊 Raw progress data from API:`, progressData);
-            const progressMap: {[key: string]: number} = {};
-            progressData.forEach((task: any) => {
-              const progress = parseFloat(task.completionProgress);
-              progressMap[task.taskId] = progress;
-              console.log(`📊 Mapping task ${task.taskId} to ${progress}%`);
-            });
-            console.log(`📊 Progress map before setState:`, progressMap);
-            setTaskProgress(progressMap);
-            console.log(`📊 setTaskProgress called with:`, progressMap);
-            
-            // Force component re-render to ensure state update is reflected
-            setTimeout(() => {
-              console.log(`📊 TaskProgress state after setState:`, taskProgress);
-            }, 100);
-            console.log(`📊 Loaded ${progressData.length} task progress records from database`);
-          } else {
-            console.error(`📊 Failed to load task progress: ${response.status}`);
-          }
-        } catch (error) {
-          console.error('📊 Error loading task progress:', error);
-        }
-      }
-    };
-
-    if (assignment) {
-      console.log('🔍 Assignment exists, loading task data and progress...');
-      fetchJobTasks();
-      loadTaskProgress();
-    } else {
-      console.log('❌ No assignment provided to component');
-    }
+    fetchJobTasks();
   }, [assignment]);
-
-  // Save quick note for task
-  const saveTaskNote = async (taskId: string) => {
-    if (!taskNote.trim()) return;
-    
-    try {
-      const reportData = {
-        contractorName: assignment.contractorName,
-        assignmentId: assignment.id,
-        reportText: `Task Note - ${taskId}: ${taskNote}`
-      };
-      
-      await apiRequest("POST", "/api/contractor-reports", reportData);
-      setTaskNote("");
-      setShowNoteModal(null);
-      console.log("✅ Task note saved");
-    } catch (error) {
-      console.error("❌ Error saving task note:", error);
-    }
-  };
 
   if (loading) {
     return (
       <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-        <h2 className="text-lg font-semibold text-yellow-400 mb-4">🔧 Sub-Tasks Progress</h2>
-        <div className="animate-pulse space-y-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-16 bg-slate-700 rounded"></div>
-          ))}
-        </div>
+        <h2 className="text-lg font-semibold text-yellow-400 mb-4">Loading Sub-Tasks...</h2>
       </div>
     );
   }
 
   return (
     <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-      <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
-        🔧 Sub-Tasks Progress
-      </h2>
+      <h2 className="text-lg font-semibold text-yellow-400 mb-4">Project Sub-Tasks ({jobTasks.length} items)</h2>
       
       {jobTasks.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="text-slate-400 text-4xl mb-4">📋</div>
-          <p className="text-slate-400 text-sm">Data Missing from CSV</p>
-          <p className="text-slate-500 text-xs mt-1">No task breakdown available in uploaded job data</p>
+        <div className="text-slate-400 text-center py-4">
+          No detailed tasks found for this assignment
         </div>
       ) : (
-        <div className="space-y-3">
-          {Object.entries(
-            jobTasks.reduce((acc: any, task) => {
-              if (!acc[task.phase]) acc[task.phase] = [];
-              acc[task.phase].push(task);
-              return acc;
-            }, {})
-          ).map(([phase, phaseTasks]: [string, any]) => {
+        <div className="space-y-3 max-h-80 overflow-y-auto">
+          {assignment.buildPhases.map((phase: string) => {
+            const phaseTasks = jobTasks.filter(task => task.phase === phase);
+            
+            if (phaseTasks.length === 0) return null;
+            
             return (
               <div key={phase} className="border border-slate-600 rounded-lg p-3">
                 <h3 className="text-white font-semibold mb-2 border-b border-slate-600 pb-1">
                   {phase} ({phaseTasks.length} tasks)
                 </h3>
                 <div className="space-y-1">
-                  {phaseTasks.map((task: any) => {
-                    const progress = taskProgress[task.id] || 0;
-                    const isCompleted = progress === 100;
-                    // DEBUG: Log progress mapping details
-                    if (Object.keys(taskProgress).length > 0) {
-                      console.log(`🔍 Task ${task.id}: progress=${progress}%, completed=${isCompleted}`);
-                      console.log(`🔍 Available taskProgress keys:`, Object.keys(taskProgress));
-                      console.log(`🔍 taskProgress["${task.id}"] =`, taskProgress[task.id]);
-                    }
-                    
-                    return (
-                      <div key={task.id} className="bg-slate-700 rounded p-2 text-sm">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="text-white">{task.description}</div>
-                          <div className="text-slate-400 text-xs">Qty: {task.quantity}</div>
-                          
-                          {/* Progress Bar */}
-                          <div className="mt-2">
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="text-slate-400">Progress</span>
-                              <span className={progress === 100 ? "text-green-400" : "text-yellow-400"}>
-                                {progress}%
-                              </span>
-                            </div>
-                            <div className="w-full bg-slate-600 rounded-full h-2">
-                              <div 
-                                className={`h-2 rounded-full transition-all duration-300 ${
-                                  progress === 100 ? 'bg-green-500' : 'bg-yellow-500'
-                                }`}
-                                style={{ width: `${progress}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        </div>
-                        <Badge className={`text-xs ml-2 ${
-                          isCompleted ? 'bg-green-600 text-white' : 'bg-slate-600 text-slate-300'
-                        }`}>
-                          {isCompleted ? 'Completed' : 'In Progress'}
-                        </Badge>
+                  {phaseTasks.map((task: any) => (
+                    <div key={task.id} className="flex items-center justify-between bg-slate-700 rounded p-2 text-sm">
+                      <div className="flex-1">
+                        <div className="text-white">{task.description}</div>
+                        <div className="text-slate-400 text-xs">Qty: {task.quantity}</div>
                       </div>
-                      
-                      {/* Contractor Action - Mark Complete */}
-                      {!isAdmin && !isCompleted && (
-                        <div className="flex gap-2 pt-2 border-t border-slate-600">
-                          <Button
-                            size="sm"
-                            onClick={() => markTaskComplete(task.id, { ...task, phase })}
-                            className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 h-6"
-                          >
-                            ✓ Mark Complete
-                          </Button>
-                        </div>
-                      )}
-                      
-                      {/* Admin Action Buttons - Only show for 100% completed tasks */}
-                      {isAdmin && isCompleted && (
-                        <div className="flex gap-2 pt-2 border-t border-slate-600">
-                          <Button
-                            size="sm"
-                            onClick={() => setShowNoteModal(task.id)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 h-6"
-                          >
-                            📝 Note
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => alert('Photo capture coming soon')}
-                            className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 h-6"
-                          >
-                            📷 Photo
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => approveTask(task.id)}
-                            className="bg-amber-600 hover:bg-amber-700 text-white text-xs px-2 py-1 h-6"
-                          >
-                            ✓ Approve
-                          </Button>
-                        </div>
-                      )}
-                      </div>
-                    );
-                  })}
+                      <Badge className="bg-slate-600 text-slate-300 text-xs">
+                        Pending
+                      </Badge>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// Milestone Progress Component  
+function MilestoneProgress({ assignmentId }: { assignmentId: string }) {
+  const [progress, setProgress] = useState(0);
+  const [milestones, setMilestones] = useState<any[]>([]);
+
+  // Fetch milestone progress
+  const { data: pendingInspections } = useQuery({
+    queryKey: ["/api/pending-inspections"],
+  });
+
+  useEffect(() => {
+    // Calculate progress based on task completion (placeholder for now)
+    // In a real implementation, this would track actual task completion
+    setProgress(25); // Example: 25% progress
+    
+    // Check for milestone inspections
+    if (pendingInspections) {
+      const assignmentMilestones = pendingInspections.filter((inspection: any) => 
+        inspection.assignmentId === assignmentId
+      );
+      setMilestones(assignmentMilestones);
+    }
+  }, [assignmentId, pendingInspections]);
+
+  const triggerMilestone = async (milestone: number) => {
+    try {
+      // Update progress to trigger milestone
+      const response = await apiRequest("POST", "/api/progress-monitor/check-milestones", {
+        assignmentId: assignmentId
+      });
       
-      {/* Quick Note Modal */}
-      {showNoteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 p-6 rounded-lg border border-slate-600 w-96">
-            <h3 className="text-yellow-400 font-semibold mb-4">Add Task Note</h3>
-            <textarea
-              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white placeholder-slate-400 focus:border-yellow-500 resize-none"
-              rows={4}
-              placeholder="Enter quick note for this task..."
-              value={taskNote}
-              onChange={(e) => setTaskNote(e.target.value)}
-            />
-            <div className="flex gap-2 mt-4">
-              <Button
-                onClick={() => saveTaskNote(showNoteModal)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={!taskNote.trim()}
-              >
-                Save Note
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowNoteModal(null);
-                  setTaskNote("");
-                }}
-                className="bg-slate-600 hover:bg-slate-700 text-white"
-              >
-                Cancel
-              </Button>
-            </div>
+      if (response.ok) {
+        console.log(`✅ ${milestone}% milestone triggered`);
+        // Refresh pending inspections
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("❌ Error triggering milestone:", error);
+    }
+  };
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 className="text-lg font-semibold text-yellow-400 mb-4">Progress Milestones</h2>
+      
+      <div className="space-y-4">
+        {/* Progress Bar */}
+        <div>
+          <div className="flex justify-between text-sm text-slate-400 mb-2">
+            <span>Overall Progress</span>
+            <span>{progress}%</span>
+          </div>
+          <div className="w-full bg-slate-700 rounded-full h-3">
+            <div 
+              className="bg-yellow-500 h-3 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            ></div>
           </div>
         </div>
-      )}
+
+        {/* Milestone Buttons */}
+        <div className="grid grid-cols-2 gap-3">
+          <Button 
+            onClick={() => triggerMilestone(50)}
+            className="bg-orange-600 hover:bg-orange-700 text-white"
+            disabled={progress < 50}
+          >
+            50% Milestone
+            {progress >= 50 ? " ✓" : " 🔒"}
+          </Button>
+          
+          <Button 
+            onClick={() => triggerMilestone(100)}
+            className="bg-green-600 hover:bg-green-700 text-white"
+            disabled={progress < 100}
+          >
+            100% Milestone
+            {progress >= 100 ? " ✓" : " 🔒"}
+          </Button>
+        </div>
+
+        {/* Active Milestones */}
+        {milestones.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-yellow-400 font-medium">Active Inspections Required:</h3>
+            {milestones.map((milestone: any, index: number) => (
+              <div key={index} className="bg-orange-600 rounded p-2 text-white text-sm">
+                🚨 {milestone.notificationType.replace('_', ' ').toUpperCase()} inspection required
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 export default function AssignmentDetails() {
-  // Try both route patterns - admin route and contractor route
-  const [, adminParams] = useRoute("/assignment-details/:id");
-  const [, contractorParams] = useRoute("/assignment/:id");
-  const assignmentId = adminParams?.id || contractorParams?.id;
-
+  const params = useParams();
+  const assignmentId = params.id;
+  const queryClient = useQueryClient();
   const [reportText, setReportText] = useState("");
   const [showQuickReport, setShowQuickReport] = useState(false);
+  
+  // Admin inspection form state
+  const [adminInspection, setAdminInspection] = useState({
+    workQualityRating: '',
+    weatherConditions: '',
+    safetyNotes: '',
+    materialsIssues: '',
+    nextActions: ''
+  });
+  
+  // Admin inspection submission
+  const handleAdminInspectionSubmit = async () => {
+    try {
+      const inspectionData = {
+        assignmentId: assignmentId,
+        inspectorName: "Admin",
+        inspectionType: "site_inspection",
+        workQualityRating: adminInspection.workQualityRating,
+        weatherConditions: adminInspection.weatherConditions,
+        safetyNotes: adminInspection.safetyNotes,
+        materialsIssues: adminInspection.materialsIssues,
+        nextActions: adminInspection.nextActions,
+        photoUrls: [],
+        status: "completed"
+      };
+      
+      const response = await apiRequest("POST", "/api/admin-inspections", inspectionData);
+      const result = await response.json();
+      
+      // Create contractor report based on admin findings
+      if (adminInspection.materialsIssues || adminInspection.nextActions) {
+        const contractorReportData = {
+          contractorName: assignment?.contractorName || '',
+          assignmentId: assignmentId || '',
+          reportText: `Admin Inspection Findings: ${adminInspection.materialsIssues ? 'Materials: ' + adminInspection.materialsIssues + '. ' : ''}${adminInspection.nextActions ? 'Actions Required: ' + adminInspection.nextActions : ''}`
+        };
+        
+        await apiRequest("POST", "/api/contractor-reports", contractorReportData);
+      }
+      
+      // Reset form and show success
+      setAdminInspection({
+        workQualityRating: '',
+        weatherConditions: '',
+        safetyNotes: '',
+        materialsIssues: '',
+        nextActions: ''
+      });
+      
+      alert("Inspection submitted successfully and contractor notified!");
+      
+    } catch (error) {
+      console.error("Error submitting admin inspection:", error);
+      alert("Failed to submit inspection. Please try again.");
+    }
+  };
 
-  // Fetch assignment details
-  const { data: assignment, isLoading: assignmentLoading } = useQuery<AssignmentDetails>({
-    queryKey: ["/api/job-assignments", assignmentId],
-    queryFn: getQueryFn({ on401: "throw" }),
+  // Get assignment details
+  const { data: assignment, isLoading } = useQuery<AssignmentDetails>({
+    queryKey: [`/api/job-assignments/${assignmentId}`],
     enabled: !!assignmentId,
   });
 
-  // Create contractor report mutation
+  // Quick Report mutation
   const createReportMutation = useMutation({
-    mutationFn: async (data: { contractorName: string; assignmentId: string; reportText: string }) => {
-      const response = await apiRequest("POST", "/api/contractor-reports", data);
-      return response.json();
+    mutationFn: async (reportData: { contractorName: string; assignmentId: string; reportText: string }) => {
+      console.log("📝 Submitting Quick Report:", reportData);
+      const response = await apiRequest("POST", "/api/contractor-reports", reportData);
+      const result = await response.json();
+      console.log("✅ Quick Report submitted successfully:", result);
+      return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contractor-reports"] });
+      console.log("✅ Quick Report mutation successful");
       setReportText("");
       setShowQuickReport(false);
+      // Refresh reports if needed
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor-reports"] });
+    },
+    onError: (error) => {
+      console.error("❌ Quick Report failed:", error);
     },
   });
 
-  // Check if current user is admin
-  const userRole = localStorage.getItem('userRole');
-  const currentUser = localStorage.getItem('currentUser');
-  const isAdmin = userRole === 'admin';
-  console.log('🔐 Main Admin check - userRole:', userRole, 'currentUser:', currentUser, 'isAdmin:', isAdmin);
+  // Mock progress data for now - this would come from database
+  const taskProgress: TaskProgress[] = assignment?.buildPhases ? 
+    assignment.buildPhases.map((phase: string) => ({
+      phase,
+      completed: false,
+      startTime: undefined,
+      endTime: undefined,
+      notes: ''
+    })) : [];
 
-  if (assignmentLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 p-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-slate-700 rounded w-1/2"></div>
-          <div className="h-32 bg-slate-700 rounded"></div>
-          <div className="h-64 bg-slate-700 rounded"></div>
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading assignment details...</p>
         </div>
       </div>
     );
@@ -446,13 +359,12 @@ export default function AssignmentDetails() {
 
   if (!assignment) {
     return (
-      <div className="min-h-screen bg-slate-900 p-4 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-xl text-white mb-2">Assignment Not Found</h1>
-          <p className="text-slate-400 mb-4">The requested assignment could not be found.</p>
-          <Button onClick={() => window.history.back()} className="bg-blue-600 hover:bg-blue-700">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Go Back
+          <h1 className="text-2xl font-bold text-red-400 mb-2">Assignment Not Found</h1>
+          <p className="text-slate-400 mb-4">The assignment you're looking for doesn't exist.</p>
+          <Button onClick={() => window.location.href = '/job-assignments'}>
+            Back to Assignments
           </Button>
         </div>
       </div>
@@ -462,177 +374,284 @@ export default function AssignmentDetails() {
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700 p-4">
+      <div className="bg-slate-800 px-4 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Button
-              onClick={() => window.history.back()}
-              size="sm"
-              className="bg-slate-700 hover:bg-slate-600 text-white"
+          <div>
+            <button 
+              onClick={() => window.location.href = '/job-assignments'}
+              className="text-slate-400 hover:text-white mb-2"
             >
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold text-yellow-400">
-                {assignment.hbxlJob}
-              </h1>
-              <p className="text-slate-400 text-sm">Assignment Details</p>
-            </div>
+              <i className="fas fa-arrow-left mr-2"></i>
+              Back to Assignments
+            </button>
+            <h1 className="text-xl font-bold text-white mb-1">{assignment.hbxlJob}</h1>
+            <p className="text-slate-400 text-sm">Admin Site Reporting & Progress Monitoring</p>
           </div>
-          <Badge className="bg-blue-600 text-white">
+          <Badge className={`${
+            assignment.status === 'assigned' 
+              ? 'bg-yellow-500 text-black' 
+              : assignment.status === 'completed'
+              ? 'bg-green-500 text-white'
+              : 'bg-slate-500 text-white'
+          }`}>
             {assignment.status}
           </Badge>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-6">
         {/* Assignment Overview */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
-            📋 Assignment Overview
-          </h2>
+          <h2 className="text-lg font-semibold text-yellow-400 mb-4">Assignment Overview</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <User className="w-4 h-4 text-blue-400" />
-                <span className="text-slate-400 text-sm">Contractor:</span>
-                <span className="text-white text-sm">{assignment.contractorName}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <MapPin className="w-4 h-4 text-green-400" />
-                <span className="text-slate-400 text-sm">Location:</span>
-                <span className="text-white text-sm">{assignment.workLocation}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Clock className="w-4 h-4 text-yellow-400" />
-                <span className="text-slate-400 text-sm">Start Date:</span>
-                <span className="text-white text-sm">{assignment.startDate}</span>
-              </div>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <div className="text-xs text-slate-400">Contractor</div>
+              <div className="text-white">{assignment.contractorName}</div>
             </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Briefcase className="w-4 h-4 text-purple-400" />
-                <span className="text-slate-400 text-sm">Status:</span>
-                <Badge className="bg-blue-600 text-white text-xs">
-                  {assignment.status}
-                </Badge>
-              </div>
-              {assignment.email && (
-                <div className="flex items-center space-x-2">
-                  <User className="w-4 h-4 text-orange-400" />
-                  <span className="text-slate-400 text-sm">Contact:</span>
-                  <span className="text-white text-sm">{assignment.email}</span>
-                </div>
-              )}
-              {assignment.phone && (
-                <div className="flex items-center space-x-2">
-                  <Phone className="w-4 h-4 text-green-400" />
-                  <span className="text-slate-400 text-sm">Phone:</span>
-                  <span className="text-white text-sm">{assignment.phone}</span>
-                </div>
-              )}
+            <div>
+              <div className="text-xs text-slate-400">Location</div>
+              <div className="text-white">{assignment.workLocation}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400">Start Date</div>
+              <div className="text-white">{assignment.startDate}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400">Due Date</div>
+              <div className="text-white">{assignment.endDate}</div>
             </div>
           </div>
-          
+
           {assignment.specialInstructions && (
-            <div className="mt-4 pt-4 border-t border-slate-600">
-              <h3 className="text-white font-medium mb-2">Special Instructions</h3>
-              <p className="text-slate-300 text-sm">{assignment.specialInstructions}</p>
+            <div className="mb-4">
+              <div className="text-xs text-slate-400">Special Instructions</div>
+              <div className="text-white">{assignment.specialInstructions}</div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-slate-400">Telegram Notification</div>
+              <div className="text-white">
+                {assignment.sendTelegramNotification ? (
+                  <span className="text-green-400">✓ Sent</span>
+                ) : (
+                  <span className="text-red-400">Not sent</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400">Created</div>
+              <div className="text-white">{new Date(assignment.createdAt).toLocaleDateString()}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Build Phases with Sub-Tasks */}
+        <SubTasksProgress assignment={assignment} />
+        
+        {/* Milestone Progress Monitoring */}
+        <MilestoneProgress assignmentId={assignment.id} />
+
+        {/* Quick Report Section */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
+            📝 Quick Report
+          </h2>
+          
+          <p className="text-slate-400 text-sm mb-4">
+            Report any materials missing from site or request clarification - keep it simple!
+          </p>
+
+          {!showQuickReport ? (
+            <Button 
+              onClick={() => setShowQuickReport(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+            >
+              📝 Quick Report
+            </Button>
+          ) : (
+            <div className="space-y-4">
+              <textarea
+                value={reportText}
+                onChange={(e) => setReportText(e.target.value)}
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+                rows={3}
+                placeholder="What materials are missing or what clarification do you need?"
+              />
+              
+              <div className="flex space-x-3">
+                <Button 
+                  onClick={() => {
+                    if (reportText.trim() && assignment) {
+                      createReportMutation.mutate({
+                        contractorName: assignment.contractorName,
+                        assignmentId: assignment.id,
+                        reportText: reportText.trim()
+                      });
+                    }
+                  }}
+                  disabled={!reportText.trim() || createReportMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                >
+                  {createReportMutation.isPending ? "Sending..." : "Send Report"}
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setShowQuickReport(false);
+                    setReportText("");
+                  }}
+                  className="bg-slate-600 hover:bg-slate-500 text-white"
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Sub-Tasks Progress */}
-        <SubTasksProgress assignment={assignment} />
-
-        {/* Contractor Quick Report (Contractors Only) */}
-        {!isAdmin && (
-          <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-            <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
-              📝 Quick Report
-            </h2>
-            
-            {!showQuickReport ? (
-              <div className="text-center">
-                <p className="text-slate-400 text-sm mb-4">
-                  Need to report an issue or update?
-                </p>
-                <Button 
-                  onClick={() => setShowQuickReport(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Send Quick Report
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <textarea
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
-                  rows={4}
-                  placeholder="Describe any issues, progress updates, or questions..."
-                  value={reportText}
-                  onChange={(e) => setReportText(e.target.value)}
-                />
-                
-                <div className="flex space-x-3">
-                  <Button 
-                    onClick={() => {
-                      if (reportText.trim() && assignment) {
-                        createReportMutation.mutate({
-                          contractorName: assignment.contractorName,
-                          assignmentId: assignment.id,
-                          reportText: reportText.trim()
-                        });
-                      }
-                    }}
-                    disabled={!reportText.trim() || createReportMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 text-white flex-1"
-                  >
-                    {createReportMutation.isPending ? "Sending..." : "Send Report"}
+        {/* Admin Site Inspection Form */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
+            📷 Admin Site Inspection
+          </h2>
+          
+          <div className="space-y-4">
+            {/* Photo Upload Section */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Site Photos
+              </label>
+              <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-slate-500 transition-colors">
+                <div className="space-y-3">
+                  <div className="text-slate-400 text-3xl">📷</div>
+                  <div>
+                    <p className="text-slate-400">Upload photos from site visit</p>
+                    <p className="text-xs text-slate-500">Support: JPG, PNG, HEIC. Max 10MB per photo</p>
+                  </div>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    Add Photos
                   </Button>
-                  <Button 
-                    onClick={() => {
-                      setShowQuickReport(false);
-                      setReportText("");
-                    }}
-                    className="bg-slate-600 hover:bg-slate-500 text-white"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Simplified Admin Reporting System */}
-        {isAdmin && (
-          <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-            <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
-              📝 Admin Task Reporting
-            </h2>
-            
-            <div className="bg-blue-900 border border-blue-700 rounded-lg p-4 mb-4">
-              <div className="flex items-start gap-3">
-                <div className="text-blue-400 text-xl">💡</div>
-                <div>
-                  <h3 className="text-blue-300 font-semibold mb-2">New Task-Based Reporting</h3>
-                  <p className="text-blue-200 text-sm mb-2">
-                    Use the task-level buttons above to add quick notes and photos for each specific task.
-                  </p>
-                  <ul className="text-blue-200 text-xs space-y-1">
-                    <li>• 📝 Note button: Add quick observations per task</li>
-                    <li>• 📷 Photo button: Capture evidence per task (coming soon)</li>
-                    <li>• More efficient than complex forms</li>
-                  </ul>
                 </div>
               </div>
             </div>
+
+
+
+            {/* Quality Assessment */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Work Quality Rating
+                </label>
+                <select 
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500"
+                  value={adminInspection.workQualityRating}
+                  onChange={(e) => setAdminInspection({...adminInspection, workQualityRating: e.target.value})}
+                >
+                  <option value="">Rate quality...</option>
+                  <option value="Excellent">Excellent</option>
+                  <option value="Good">Good</option>
+                  <option value="Satisfactory">Satisfactory</option>
+                  <option value="Needs Improvement">Needs Improvement</option>
+                  <option value="Unsatisfactory">Unsatisfactory</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Weather Conditions
+                </label>
+                <select 
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-yellow-500"
+                  value={adminInspection.weatherConditions}
+                  onChange={(e) => setAdminInspection({...adminInspection, weatherConditions: e.target.value})}
+                >
+                  <option value="">Select weather...</option>
+                  <option value="Clear/Sunny">Clear/Sunny</option>
+                  <option value="Cloudy">Cloudy</option>
+                  <option value="Light Rain">Light Rain</option>
+                  <option value="Heavy Rain">Heavy Rain</option>
+                  <option value="Snow">Snow</option>
+                  <option value="Windy">Windy</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Safety & Compliance */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Safety & Compliance Notes
+              </label>
+              <textarea
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+                rows={3}
+                placeholder="Note any safety concerns, compliance issues, or recommendations..."
+                value={adminInspection.safetyNotes}
+                onChange={(e) => setAdminInspection({...adminInspection, safetyNotes: e.target.value})}
+              />
+            </div>
+
+            {/* Materials & Issues */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Materials & Issues
+              </label>
+              <textarea
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+                rows={3}
+                placeholder="List any missing materials, delivery issues, or equipment problems..."
+                value={adminInspection.materialsIssues}
+                onChange={(e) => setAdminInspection({...adminInspection, materialsIssues: e.target.value})}
+              />
+            </div>
+
+            {/* Next Actions */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Next Actions Required
+              </label>
+              <textarea
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+                rows={2}
+                placeholder="Specify any follow-up actions, deliveries, or corrections needed..."
+                value={adminInspection.nextActions}
+                onChange={(e) => setAdminInspection({...adminInspection, nextActions: e.target.value})}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex space-x-3 pt-4">
+              <Button className="bg-green-600 hover:bg-green-700 text-white flex-1">
+                Save Inspection Report
+              </Button>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+                onClick={handleAdminInspectionSubmit}
+              >
+                Submit & Notify Contractor
+              </Button>
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Previous Admin Reports */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
+            📋 Previous Site Inspections
+          </h2>
+          <p className="text-slate-400 text-sm">
+            Previous admin inspection reports will appear here with photos and detailed assessments.
+          </p>
+          
+          <div className="text-center py-8">
+            <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              <i className="fas fa-file-alt text-slate-500 text-3xl"></i>
+            </div>
+            <p className="text-slate-400 text-sm">No previous reports submitted yet</p>
+            <p className="text-slate-500 text-xs mt-1">Reports will appear here after site visits</p>
+          </div>
+        </div>
       </div>
 
       {/* Bottom Navigation */}

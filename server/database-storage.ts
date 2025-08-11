@@ -20,11 +20,9 @@ import {
   type AdminInspection,
   type InsertAdminInspection,
   type InspectionNotification,
-  type InsertInspectionNotification,
-  type TaskProgress,
-  type InsertTaskProgress
+  type InsertInspectionNotification
 } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like } from "drizzle-orm";
 
@@ -84,12 +82,6 @@ export interface IStorage {
   getAdminInspectionsByAssignment(assignmentId: string): Promise<AdminInspection[]>;
   updateAdminInspection(id: string, inspection: Partial<AdminInspection>): Promise<AdminInspection | undefined>;
   
-  // Task Progress
-  createTaskProgress(data: InsertTaskProgress): Promise<TaskProgress>;
-  getTaskProgressByAssignment(assignmentId: string): Promise<TaskProgress[]>;
-  getCompletedTasks(): Promise<TaskProgress[]>;
-  updateTaskProgress(taskId: string, updates: Partial<TaskProgress>): Promise<TaskProgress | undefined>;
-
   // Stats
   getStats(): Promise<{
     totalJobs: number;
@@ -665,55 +657,6 @@ export class DatabaseStorage implements IStorage {
   async deleteAllAdminInspections(): Promise<void> {
     const result = await db.delete(adminInspections);
     console.log("🗑️ Deleted all admin inspections - Affected rows:", result.rowCount);
-  }
-
-  // Task Progress Management
-  async createTaskProgress(data: InsertTaskProgress): Promise<TaskProgress> {
-    const [progress] = await db
-      .insert(taskProgress)
-      .values(data)
-      .returning();
-    return progress;
-  }
-
-  async getTaskProgressByAssignment(assignmentId: string): Promise<TaskProgress[]> {
-    return await db
-      .select()
-      .from(taskProgress)
-      .where(eq(taskProgress.assignmentId, assignmentId));
-  }
-
-  async getCompletedTasks(): Promise<TaskProgress[]> {
-    return await db
-      .select()
-      .from(taskProgress)
-      .where(eq(taskProgress.status, 'completed'));
-  }
-
-  async updateTaskProgress(taskId: string, updates: Partial<TaskProgress>): Promise<TaskProgress | undefined> {
-    const [updated] = await db
-      .update(taskProgress)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(taskProgress.taskId, taskId))
-      .returning();
-    return updated;
-  }
-
-  async getStats(): Promise<{
-    totalJobs: number;
-    pendingJobs: number;
-    completedJobs: number;
-    activeContractors: number;
-  }> {
-    const totalJobs = await db.select().from(jobs);
-    const totalContractors = await db.select().from(contractors);
-    
-    return {
-      totalJobs: totalJobs.length,
-      pendingJobs: 0, // Placeholder logic
-      completedJobs: 0, // Placeholder logic
-      activeContractors: totalContractors.length,
-    };
   }
 }
 
