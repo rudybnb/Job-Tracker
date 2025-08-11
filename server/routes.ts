@@ -1611,6 +1611,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task Progress API endpoints
+  app.get("/api/task-progress/:contractorName/:assignmentId", async (req, res) => {
+    try {
+      const { contractorName, assignmentId } = req.params;
+      const progress = await storage.getTaskProgress(contractorName, assignmentId);
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching task progress:", error);
+      res.status(500).json({ error: "Failed to fetch task progress" });
+    }
+  });
+
+  app.post("/api/task-progress", async (req, res) => {
+    try {
+      const progress = await storage.createTaskProgress(req.body);
+      res.status(201).json(progress);
+    } catch (error) {
+      console.error("Error creating task progress:", error);
+      res.status(500).json({ error: "Failed to create task progress" });
+    }
+  });
+
+  app.put("/api/task-progress/:contractorName/:assignmentId/:taskId", async (req, res) => {
+    try {
+      const { contractorName, assignmentId, taskId } = req.params;
+      const { completed } = req.body;
+      
+      const progress = await storage.updateTaskCompletion(contractorName, assignmentId, taskId, completed);
+      
+      if (!progress) {
+        return res.status(404).json({ error: "Task progress not found" });
+      }
+      
+      res.json(progress);
+    } catch (error) {
+      console.error("Error updating task progress:", error);
+      res.status(500).json({ error: "Failed to update task progress" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

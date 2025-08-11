@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-// Data integrity handled at API level
+import { apiRequest } from "@/lib/queryClient";
 
 interface ProgressTask {
   id: string;
@@ -13,14 +13,18 @@ interface ProgressTask {
   totalItems: number;
   completedItems: number;
   status: "not started" | "in progress" | "completed";
+  taskId?: string;
+  completed?: boolean;
 }
 
 export default function TaskProgress() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   // Get contractor assignments using logged-in contractor name
   const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
   const contractorFirstName = contractorName.split(' ')[0];
   
-  // Log immediately when component loads
   console.log('🚀 TaskProgress component loaded');
   console.log('🚀 contractorName from localStorage:', contractorName);
   console.log('🚀 contractorFirstName:', contractorFirstName);
@@ -32,11 +36,54 @@ export default function TaskProgress() {
   // Get the first (active) assignment
   const activeAssignment = (assignments as any[])[0];
   
-  // Debug logging - these should show up in console
+  // Fetch task progress from database
+  const { data: taskProgressData = [], isLoading: taskProgressLoading } = useQuery({
+    queryKey: [`/api/task-progress/${contractorName}/${activeAssignment?.id}`],
+    enabled: !!activeAssignment?.id,
+  });
+  
+  // Task completion mutation
+  const taskCompletionMutation = useMutation({
+    mutationFn: async ({ taskId, completed }: { taskId: string; completed: boolean }) => {
+      const response = await apiRequest(
+        'PUT',
+        `/api/task-progress/${contractorName}/${activeAssignment?.id}/${taskId}`,
+        { completed }
+      );
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries([`/api/task-progress/${contractorName}/${activeAssignment?.id}`]);
+      toast({
+        title: "Task Updated",
+        description: "Task progress saved successfully",
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update task progress",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create task progress mutation for new tasks
+  const createTaskMutation = useMutation({
+    mutationFn: async (taskData: any) => {
+      const response = await apiRequest('POST', '/api/task-progress', taskData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries([`/api/task-progress/${contractorName}/${activeAssignment?.id}`]);
+    },
+  });
+  
   console.log('🔍 Task Progress Debug - contractorFirstName:', contractorFirstName);
   console.log('🔍 Task Progress Debug - assignments:', assignments);
   console.log('🔍 Task Progress Debug - activeAssignment:', activeAssignment);
-  console.log('🔍 Task Progress Debug - isLoading:', isLoading);
+  console.log('🔍 Task Progress Debug - taskProgressData:', taskProgressData);
   
   // Update current project based on assignment data
   const [currentProject, setCurrentProject] = useState("Loading...");
@@ -51,7 +98,8 @@ export default function TaskProgress() {
       setCurrentProject("No Active Assignment");
     }
   }, [activeAssignment]);
-  // Initialize tasks as empty - will be populated from actual job assignment data
+  
+  // Initialize tasks from database or CSV data
   const [tasks, setTasks] = useState<ProgressTask[]>([]);
 
   // Clear any old static task data when component loads  
@@ -256,7 +304,6 @@ export default function TaskProgress() {
   }, [tasks, activeAssignment]);
   
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
-  const { toast } = useToast();
 
   const getTotalCompleted = () => tasks.reduce((sum, task) => sum + task.completedItems, 0);
   const getTotalItems = () => tasks.reduce((sum, task) => sum + task.totalItems, 0);

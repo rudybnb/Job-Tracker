@@ -203,6 +203,29 @@ export const insertJobAssignmentSchema = createInsertSchema(jobAssignments).omit
   updatedAt: true,
 });
 
+// Task Progress table for tracking individual task completion
+export const taskProgress = pgTable("task_progress", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorName: text("contractor_name").notNull(),
+  assignmentId: text("assignment_id").notNull(), // Reference to job assignment
+  taskId: text("task_id").notNull(), // Unique task identifier (phase-description)
+  phase: text("phase").notNull(),
+  taskDescription: text("task_description").notNull(),
+  completed: boolean("completed").notNull().default(false),
+  startTime: timestamp("start_time"),
+  endTime: timestamp("end_time"),
+  notes: text("notes"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertTaskProgressSchema = createInsertSchema(taskProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Contractor Reports table for simple issue reporting
 export const contractorReports = pgTable("contractor_reports", {
   id: text("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -280,6 +303,8 @@ export type InsertAdminInspection = z.infer<typeof insertAdminInspectionSchema>;
 export type AdminInspection = typeof adminInspections.$inferSelect;
 export type InsertInspectionNotification = z.infer<typeof insertInspectionNotificationSchema>;
 export type InspectionNotification = typeof inspectionNotifications.$inferSelect;
+export type InsertTaskProgress = z.infer<typeof insertTaskProgressSchema>;
+export type TaskProgress = typeof taskProgress.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;
