@@ -74,7 +74,16 @@ export default function More() {
 
   // Convert real work sessions to our format with proper payment calculation
   const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
-    const hoursWorked = parseFloat(session.totalHours) || 0;
+    // Calculate hours worked from start/end times if totalHours is null
+    let hoursWorked = 0;
+    if (session.totalHours && session.totalHours !== null) {
+      hoursWorked = parseFloat(session.totalHours);
+    } else if (session.startTime && session.endTime) {
+      const startTime = new Date(session.startTime);
+      const endTime = new Date(session.endTime);
+      const diffMs = endTime.getTime() - startTime.getTime();
+      hoursWorked = diffMs / (1000 * 60 * 60); // Convert to hours
+    }
     const startTime = new Date(session.startTime);
     const startHour = startTime.getHours();
     const startMinute = startTime.getMinutes();
