@@ -367,7 +367,7 @@ export class DatabaseStorage implements IStorage {
   async getWorkSessions(contractorName?: string): Promise<WorkSession[]> {
     if (contractorName) {
       return db.select().from(workSessions)
-        .where(eq(workSessions.contractorName, contractorName))
+        .where(like(workSessions.contractorName, `%${contractorName}%`))
         .orderBy(desc(workSessions.createdAt));
     }
     return db.select().from(workSessions).orderBy(desc(workSessions.createdAt));
@@ -377,7 +377,7 @@ export class DatabaseStorage implements IStorage {
     const [session] = await db.select().from(workSessions)
       .where(
         and(
-          eq(workSessions.contractorName, contractorName),
+          like(workSessions.contractorName, `%${contractorName}%`),
           eq(workSessions.status, "active")
         )
       );
