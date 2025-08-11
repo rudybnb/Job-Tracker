@@ -658,6 +658,8 @@ export class DatabaseStorage implements IStorage {
     const result = await db.delete(adminInspections);
     console.log("🗑️ Deleted all admin inspections - Affected rows:", result.rowCount);
   }
+
+
 }
 
 export const storage = new DatabaseStorage();

@@ -50,12 +50,22 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
   const isAdmin = userRole === 'admin';
   console.log('🔐 SubTasks Admin check - userRole:', userRole, 'currentUser:', currentUser, 'isAdmin:', isAdmin);
 
-  const markTaskComplete = (taskId: string) => {
-    setTaskProgress(prev => ({
-      ...prev,
-      [taskId]: 100
-    }));
-    console.log(`✓ Task ${taskId} marked as 100% complete by contractor`);
+  const markTaskComplete = async (taskId: string) => {
+    try {
+      setTaskProgress(prev => ({
+        ...prev,
+        [taskId]: 100
+      }));
+      
+      // Also save to localStorage for persistence across page reloads
+      const existingProgress = JSON.parse(localStorage.getItem('taskProgress') || '{}');
+      existingProgress[taskId] = 100;
+      localStorage.setItem('taskProgress', JSON.stringify(existingProgress));
+      
+      console.log(`✓ Task ${taskId} marked as 100% complete by contractor`);
+    } catch (error) {
+      console.error('Error marking task complete:', error);
+    }
   };
 
   const approveTask = (taskId: string) => {
@@ -64,6 +74,10 @@ function SubTasksProgress({ assignment }: { assignment: AssignmentDetails }) {
   };
 
   useEffect(() => {
+    // Load saved task progress from localStorage
+    const savedProgress = JSON.parse(localStorage.getItem('taskProgress') || '{}');
+    setTaskProgress(savedProgress);
+    
     const fetchJobTasks = async () => {
       try {
         console.log('📋 Extracting ONLY authentic CSV task data...');

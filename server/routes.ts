@@ -1611,6 +1611,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task Progress endpoints for completed task inspection
+  app.get("/api/completed-tasks-for-inspection/:assignmentId", async (req, res) => {
+    try {
+      const assignmentId = req.params.assignmentId;
+      
+      // Get completed tasks from localStorage simulation (for this demo)
+      // In a real implementation, this would come from the database
+      res.json({
+        assignmentId,
+        completedTasks: [], // This will be populated by frontend localStorage
+        message: "Task completion data is managed by frontend for this demo"
+      });
+    } catch (error) {
+      console.error("❌ Error fetching completed tasks for inspection:", error);
+      res.status(500).json({ error: "Failed to fetch completed tasks" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
