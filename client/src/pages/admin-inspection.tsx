@@ -104,20 +104,31 @@ export default function AdminInspection() {
         const phaseData = JSON.parse(matchingJob.phaseTaskDataValue);
         const completed: TaskInspection[] = [];
 
-        // Extract completed tasks for assigned phases
-        assignment.buildPhases.forEach((phase: string) => {
-          if (phaseData[phase]) {
-            phaseData[phase].forEach((task: any, index: number) => {
-              const taskId = `${phase}-${index}`;
-              const progressItem = taskProgress.find((p: any) => p.phase === phase && p.taskId === taskId);
-              
-              // Only include 100% completed tasks for inspection
-              if (progressItem && progressItem.completed) {
+        // Extract completed tasks - check all task progress regardless of phase matching
+        // Some tasks might have "Unknown Phase" but still belong to assigned phases
+        taskProgress.forEach((progressItem: any) => {
+          if (progressItem.completed === true) {
+            // Find the corresponding task in CSV data by taskId
+            const taskIdParts = progressItem.taskId.split('-');
+            const expectedPhase = taskIdParts[0] + (taskIdParts.length > 2 ? ' ' + taskIdParts.slice(1, -1).join(' ') : '');
+            const taskIndex = parseInt(taskIdParts[taskIdParts.length - 1]);
+            
+            console.log(`🔍 Processing completed task:`, { 
+              taskId: progressItem.taskId,
+              expectedPhase,
+              taskIndex,
+              progressItem
+            });
+            
+            // Check if this task belongs to assigned phases
+            if (assignment.buildPhases.includes(expectedPhase) && phaseData[expectedPhase]) {
+              const csvTask = phaseData[expectedPhase][taskIndex];
+              if (csvTask) {
                 completed.push({
-                  taskId,
-                  phase,
-                  taskName: task.task || `${task.description}`,
-                  description: task.description,
+                  taskId: progressItem.taskId,
+                  phase: expectedPhase,
+                  taskName: csvTask.task || csvTask.description,
+                  description: progressItem.taskDescription || csvTask.description,
                   progress: 100,
                   completed: true,
                   inspectionStatus: 'pending',
@@ -125,13 +136,29 @@ export default function AdminInspection() {
                   photos: []
                 });
               }
-            });
+            } else {
+              // Include completed tasks even if phase doesn't match perfectly
+              // This handles tasks that may have been recorded with "Unknown Phase"
+              completed.push({
+                taskId: progressItem.taskId,
+                phase: progressItem.phase || expectedPhase,
+                taskName: progressItem.taskDescription,
+                description: progressItem.taskDescription,
+                progress: 100,
+                completed: true,
+                inspectionStatus: 'pending',
+                notes: '',
+                photos: []
+              });
+            }
           }
         });
 
+        console.log(`📋 Found ${completed.length} tasks for inspection:`, completed);
         setCompletedTasks(completed);
       } catch (error) {
         console.error('Error loading completed tasks:', error);
+        setCompletedTasks([]);
       }
     };
 
