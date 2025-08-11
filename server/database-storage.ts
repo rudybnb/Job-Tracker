@@ -669,16 +669,31 @@ export class DatabaseStorage implements IStorage {
 
   // Task Progress Methods
   async getTaskProgress(contractorName: string, assignmentId: string): Promise<TaskProgress[]> {
-    const progress = await db.select()
-      .from(taskProgress)
-      .where(and(
-        eq(taskProgress.contractorName, contractorName),
-        eq(taskProgress.assignmentId, assignmentId)
-      ))
-      .orderBy(taskProgress.phase, taskProgress.taskDescription);
-    
-    console.log(`📋 Retrieved ${progress.length} task progress items for ${contractorName} assignment ${assignmentId}`);
-    return progress;
+    try {
+      const progress = await db.select({
+        id: taskProgress.id,
+        contractorName: taskProgress.contractorName,
+        assignmentId: taskProgress.assignmentId,
+        taskId: taskProgress.taskId,
+        phase: taskProgress.phase,
+        taskDescription: taskProgress.taskDescription,
+        completed: taskProgress.completed,
+        completedAt: taskProgress.completedAt,
+        createdAt: taskProgress.createdAt,
+        updatedAt: taskProgress.updatedAt
+      })
+        .from(taskProgress)
+        .where(and(
+          eq(taskProgress.contractorName, contractorName),
+          eq(taskProgress.assignmentId, assignmentId)
+        ));
+      
+      console.log(`📋 Retrieved ${progress.length} task progress items for ${contractorName} assignment ${assignmentId}`);
+      return progress as TaskProgress[];
+    } catch (error) {
+      console.error('Error fetching task progress:', error);
+      return [];
+    }
   }
 
   async createTaskProgress(newTaskProgress: InsertTaskProgress): Promise<TaskProgress> {

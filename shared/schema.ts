@@ -226,6 +226,8 @@ export const insertTaskProgressSchema = createInsertSchema(taskProgress).omit({
   updatedAt: true,
 });
 
+
+
 // Contractor Reports table for simple issue reporting
 export const contractorReports = pgTable("contractor_reports", {
   id: text("id").primaryKey().default(sql`gen_random_uuid()`),
