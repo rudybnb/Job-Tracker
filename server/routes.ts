@@ -1776,7 +1776,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (inspection.progressComments?.includes('issues') || 
            inspection.safetyNotes || 
            inspection.materialsIssues) &&
-          inspection.status !== 'contractor_fixed' // Exclude already fixed issues
+          inspection.status !== 'contractor_fixed' && // Exclude already fixed issues
+          inspection.status !== 'approved' // Exclude admin-approved issues to prevent infinite loop
         )
         .map(inspection => {
           // Extract task info from progress comments
