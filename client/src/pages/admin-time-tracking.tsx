@@ -53,7 +53,16 @@ function LogoutButton() {
 }
 
 export default function AdminTimeTracking() {
-  const [selectedWeek, setSelectedWeek] = useState("2025-02-08"); // Current week
+  // Calculate the current Friday as default week ending
+  const getCurrentFridayWeekEnding = () => {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
+    const daysToFriday = currentDay <= 5 ? (5 - currentDay) : (7 - currentDay + 5);
+    const currentFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
+    return currentFriday.toISOString().split('T')[0];
+  };
+  
+  const [selectedWeek, setSelectedWeek] = useState(getCurrentFridayWeekEnding()); // Current week ending Friday
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const { toast } = useToast();
 
@@ -69,18 +78,24 @@ export default function AdminTimeTracking() {
   const totalCisDeductions = jobEarnings.reduce((sum, job) => sum + job.totalCisDeduction, 0);
   const totalNetPayout = jobEarnings.reduce((sum, job) => sum + job.totalNetEarnings, 0);
 
-  // Generate week options for the last 12 weeks
+  // Generate week options for the last 12 weeks - ALWAYS ending on Friday
   const getWeekOptions = () => {
     const weeks = [];
     const now = new Date();
+    
+    // Find the most recent Friday (or today if it's Friday)
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
+    const daysToFriday = currentDay <= 5 ? (5 - currentDay) : (7 - currentDay + 5);
+    const mostRecentFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
+    
     for (let i = 0; i < 12; i++) {
-      const weekDate = new Date(now.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
-      const weekEnding = weekDate.toISOString().split('T')[0];
-      const weekLabel = `Week ending ${weekDate.toLocaleDateString('en-UK', { 
+      const weekEndingFriday = new Date(mostRecentFriday.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
+      const weekEnding = weekEndingFriday.toISOString().split('T')[0];
+      const weekLabel = `Week ending ${weekEndingFriday.toLocaleDateString('en-UK', { 
         day: 'numeric', 
         month: 'short', 
         year: 'numeric' 
-      })}`;
+      })} (Fri)`;
       weeks.push({ value: weekEnding, label: weekLabel });
     }
     return weeks;

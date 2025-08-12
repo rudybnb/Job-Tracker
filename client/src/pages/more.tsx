@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
@@ -30,11 +31,41 @@ interface WeeklyEarnings {
 
 export default function More() {
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
-  const [selectedWeek, setSelectedWeek] = useState(() => {
-    // Default to current week ending (today)
-    return new Date().toISOString().split('T')[0];
-  }); // Current week
+  
+  // Calculate the current Friday as default week ending
+  const getCurrentFridayWeekEnding = () => {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
+    const daysToFriday = currentDay <= 5 ? (5 - currentDay) : (7 - currentDay + 5);
+    const currentFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
+    return currentFriday.toISOString().split('T')[0];
+  };
+  
+  const [selectedWeek, setSelectedWeek] = useState(getCurrentFridayWeekEnding()); // Current week ending Friday
   const { toast } = useToast();
+  
+  // Generate week options for the last 12 weeks - ALWAYS ending on Friday  
+  const getWeekOptions = () => {
+    const weeks = [];
+    const now = new Date();
+    
+    // Find the most recent Friday (or today if it's Friday)
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
+    const daysToFriday = currentDay <= 5 ? (5 - currentDay) : (7 - currentDay + 5);
+    const mostRecentFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
+    
+    for (let i = 0; i < 12; i++) {
+      const weekEndingFriday = new Date(mostRecentFriday.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
+      const weekEnding = weekEndingFriday.toISOString().split('T')[0];
+      const weekLabel = `Week ending ${weekEndingFriday.toLocaleDateString('en-UK', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+      })} (Fri)`;
+      weeks.push({ value: weekEnding, label: weekLabel });
+    }
+    return weeks;
+  };
 
   // Get contractor name from localStorage - MUST be specific to logged-in user
   const contractorName = localStorage.getItem('contractorName');
@@ -343,31 +374,18 @@ export default function More() {
         {/* Week Navigation */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-yellow-400">Week Details</h2>
-          <select 
-            value={selectedWeek}
-            onChange={(e) => setSelectedWeek(e.target.value)}
-            className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1 text-white text-sm"
-          >
-            {(() => {
-              // Generate last 8 weeks from current date
-              const weeks = [];
-              const today = new Date();
-              for (let i = 0; i < 8; i++) {
-                const weekEnd = new Date(today.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
-                const weekEndStr = weekEnd.toISOString().split('T')[0];
-                const displayDate = weekEnd.toLocaleDateString('en-GB', { 
-                  month: 'short', 
-                  day: 'numeric' 
-                });
-                weeks.push(
-                  <option key={weekEndStr} value={weekEndStr}>
-                    Week ending {displayDate}
-                  </option>
-                );
-              }
-              return weeks;
-            })()}
-          </select>
+          <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+            <SelectTrigger className="w-48 bg-slate-800 border-slate-600 text-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {getWeekOptions().map((week) => (
+                <SelectItem key={week.value} value={week.value}>
+                  {week.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Rate Information Card */}
