@@ -248,7 +248,9 @@ function MilestoneProgress({ assignmentId }: { assignmentId: string }) {
 
 export default function AssignmentDetails() {
   const params = useParams();
-  const assignmentId = params.id;
+  // Check both URL params and query string for assignment ID
+  const urlParams = new URLSearchParams(window.location.search);
+  const assignmentId = params.id || urlParams.get('id');
   const queryClient = useQueryClient();
   const [reportText, setReportText] = useState("");
   const [showQuickReport, setShowQuickReport] = useState(false);
