@@ -1906,7 +1906,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           duration: `${durationHours}h ${durationMinutes}m`,
           durationMs: durationMs,
           isActive: true,
-          status: 'clocked_in'
+          status: 'clocked_in',
+          workingHours: durationHours,
+          workingMinutes: durationMinutes,
+          startedAt: startTime.toLocaleTimeString('en-GB', {
+            timeZone: 'Europe/London',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
         };
       });
       

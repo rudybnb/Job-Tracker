@@ -562,36 +562,42 @@ export default function AdminDashboard() {
             </div>
           </div>
           
-          {/* Currently Clocked In */}
+          {/* Currently Clocked In - Compact Grid Layout */}
           <div className="mb-6">
             <h4 className="text-white font-medium mb-3 flex items-center">
               <i className="fas fa-clock text-yellow-500 mr-2"></i>
-              Currently Clocked In ({activeSessions.length})
+              Active Workers ({activeSessions.length})
             </h4>
             {activeSessions.length > 0 ? (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {activeSessions.map((session: any) => (
-                  <div key={session.id} className="bg-slate-700 rounded-lg p-3 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                      <div>
-                        <div className="text-white font-medium">{session.contractorName}</div>
-                        <div className="text-slate-400 text-sm">{session.jobSiteLocation || 'No location'}</div>
+                  <div key={session.id} className="bg-slate-700/50 border border-slate-600 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 min-w-0">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <div className="min-w-0">
+                          <div className="text-white font-medium text-sm truncate">{session.contractorName}</div>
+                          <div className="text-slate-400 text-xs">
+                            Started {session.startedAt || new Date(session.startTime).toLocaleTimeString('en-GB', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-yellow-400 font-mono text-sm">
-                        {session.startTime ? new Date(session.startTime).toLocaleTimeString() : 'Unknown'}
+                      <div className="text-right">
+                        <div className="text-yellow-400 font-bold text-sm">
+                          {session.duration || 'Calculating...'}
+                        </div>
                       </div>
-                      <div className="text-slate-400 text-xs">Started</div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-slate-400 text-center py-3">
+              <div className="text-slate-400 text-center py-4">
                 <i className="fas fa-clock text-slate-500 mb-2"></i>
-                <div>No contractors currently clocked in</div>
+                <div>No workers currently active</div>
               </div>
             )}
           </div>
@@ -612,44 +618,28 @@ export default function AdminDashboard() {
               </div>
             </h4>
             {recentActivities.length > 0 ? (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {recentActivities.slice(0, 10).map((activity: any) => (
-                  <div key={activity.id} className="bg-slate-700 rounded p-2 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-2 h-2 rounded-full ${
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {recentActivities.slice(0, 12).map((activity: any) => (
+                  <div key={activity.id} className="bg-slate-700/40 rounded p-2 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${
                         activity.activity === 'clock_in' ? 'bg-green-500' : 'bg-red-500'
                       }`}></div>
-                      <div className="text-white text-sm">{activity.contractorName}</div>
-                      <div className={`text-xs px-2 py-1 rounded ${
+                      <div className="text-white text-sm truncate">{activity.contractorName}</div>
+                      <div className={`text-xs px-1.5 py-0.5 rounded ${
                         activity.activity === 'clock_in' 
                           ? 'bg-green-900 text-green-300' 
                           : 'bg-red-900 text-red-300'
                       }`}>
-                        {activity.activity === 'clock_in' ? 'Clocked In' : 'Clocked Out'}
+                        {activity.activity === 'clock_in' ? 'In' : 'Out'}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-slate-300 text-xs">
-                        {activity.actualTime || new Date(activity.timestamp).toLocaleTimeString('en-GB', {
-                          timeZone: 'Europe/London',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit'
-                        })}
-                      </div>
-                      <div className="text-slate-500 text-xs">
-                        {activity.fullDateTime || new Date(activity.timestamp).toLocaleDateString('en-GB', {
-                          timeZone: 'Europe/London',
-                          weekday: 'short',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
-                      </div>
-                      {activity.totalHours && (
-                        <div className="text-yellow-400 text-xs">
-                          {activity.totalHours}h
-                        </div>
-                      )}
+                    <div className="text-slate-400 text-xs">
+                      {activity.actualTime || new Date(activity.timestamp).toLocaleTimeString('en-GB', {
+                        timeZone: 'Europe/London',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </div>
                   </div>
                 ))}
