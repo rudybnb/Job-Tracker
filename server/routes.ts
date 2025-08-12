@@ -1129,6 +1129,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startTime: req.body.startTime ? new Date(req.body.startTime) : new Date(),
         endTime: req.body.endTime ? new Date(req.body.endTime) : undefined
       };
+
+      // Lookup proper job location instead of using raw GPS coordinates
+      if (sessionData.jobSiteLocation && (sessionData.jobSiteLocation.includes('Work Site:') || sessionData.jobSiteLocation === 'Unknown Location')) {
+        // Get all jobs to find the proper location
+        const jobs = await storage.getJobs();
+        
+        // Find the active job location for this contractor
+        for (const job of jobs) {
+          if (job.contractorName === sessionData.contractorName && job.location) {
+            console.log(`📍 Mapping GPS coordinates to job location: ${job.location}`);
+            sessionData.jobSiteLocation = job.location;
+            break;
+          }
+        }
+        
+        // Fallback: Use first available job location if contractor-specific job not found
+        if (sessionData.jobSiteLocation.includes('Work Site:') || sessionData.jobSiteLocation === 'Unknown Location') {
+          const anyJob = jobs.find(job => job.location);
+          if (anyJob) {
+            console.log(`📍 Using fallback job location: ${anyJob.location}`);
+            sessionData.jobSiteLocation = anyJob.location;
+          }
+        }
+      }
       
       const validatedSession = insertWorkSessionSchema.parse(sessionData);
       const session = await storage.createWorkSession(validatedSession);
