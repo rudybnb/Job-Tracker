@@ -332,7 +332,7 @@ Looking forward to today's assignments! 💪`;
     }
   }
 
-  // Get recent messages sent to the bot
+  // Get recent messages and auto-register new contractor Telegram IDs
   async getRecentMessages(limit: number = 10) {
     try {
       if (!this.botToken) {
@@ -349,7 +349,7 @@ Looking forward to today's assignments! 💪`;
         return { success: false, error: `Failed to get updates: ${response.status}` };
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       console.log('✅ Retrieved updates:', result);
       
       if (result.ok && result.result.length > 0) {
@@ -360,6 +360,9 @@ Looking forward to today's assignments! 💪`;
           date: new Date(update.message?.date * 1000),
           chatId: update.message?.chat?.id
         })).filter((msg: any) => msg.text);
+
+        // Auto-register new contractor Telegram IDs
+        await this.autoRegisterContractorTelegramIds(messages);
 
         return { 
           success: true, 
@@ -377,6 +380,44 @@ Looking forward to today's assignments! 💪`;
     } catch (error) {
       console.error('❌ Error getting messages:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  // Auto-register new contractor Telegram IDs when they message the bot
+  private async autoRegisterContractorTelegramIds(messages: any[]) {
+    try {
+      const { DatabaseStorage } = await import('./database-storage');
+      const storage = new DatabaseStorage();
+      
+      const knownIds = ['8006717361', '8016744652', '6792554033', '5209713845'];
+      
+      for (const message of messages) {
+        const chatId = message.chatId?.toString();
+        const firstName = message.from?.first_name;
+        
+        if (chatId && firstName && !knownIds.includes(chatId)) {
+          console.log(`🆕 New contractor detected: ${firstName} (ID: ${chatId})`);
+          
+          // Try to find contractor by name and update their Telegram ID
+          const contractors = await storage.getContractors();
+          const matchingContractor = contractors.find(c => 
+            c.name.toLowerCase().includes(firstName.toLowerCase())
+          );
+          
+          if (matchingContractor) {
+            console.log(`🔗 Linking ${firstName} to contractor: ${matchingContractor.name}`);
+            // Update contractor with Telegram ID
+            await storage.updateContractor(matchingContractor.id, { 
+              telegramId: chatId 
+            });
+            knownIds.push(chatId);
+          } else {
+            console.log(`⚠️ No matching contractor found for ${firstName}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error auto-registering Telegram IDs:', error);
     }
   }
 
