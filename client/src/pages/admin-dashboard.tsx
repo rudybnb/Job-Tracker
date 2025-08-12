@@ -598,9 +598,18 @@ export default function AdminDashboard() {
 
           {/* Recent Activities */}
           <div className="mb-6">
-            <h4 className="text-white font-medium mb-3 flex items-center">
-              <i className="fas fa-history text-blue-500 mr-2"></i>
-              Recent Activities (Last 24h)
+            <h4 className="text-white font-medium mb-3 flex items-center justify-between">
+              <div className="flex items-center">
+                <i className="fas fa-history text-blue-500 mr-2"></i>
+                Recent Activities (Last 24h)
+              </div>
+              <div className="text-slate-400 text-xs">
+                Current: {new Date().toLocaleTimeString('en-GB', {
+                  timeZone: 'Europe/London',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </div>
             </h4>
             {recentActivities.length > 0 ? (
               <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -628,18 +637,19 @@ export default function AdminDashboard() {
                           second: '2-digit'
                         })}
                       </div>
+                      <div className="text-slate-500 text-xs">
+                        {activity.fullDateTime || new Date(activity.timestamp).toLocaleDateString('en-GB', {
+                          timeZone: 'Europe/London',
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </div>
                       {activity.totalHours && (
                         <div className="text-yellow-400 text-xs">
                           {activity.totalHours}h
                         </div>
                       )}
-                      <div className="text-slate-500 text-xs">
-                        {new Date(activity.timestamp).toLocaleDateString('en-GB', {
-                          timeZone: 'Europe/London',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
-                      </div>
                     </div>
                   </div>
                 ))}
