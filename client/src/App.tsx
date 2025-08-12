@@ -24,7 +24,7 @@ import SystemCleanupPage from "@/pages/system-cleanup";
 import CreateAssignment from "@/pages/create-assignment";
 import TelegramTest from "@/pages/telegram-test";
 import AdminTimeTracking from "@/pages/admin-time-tracking";
-import AssignmentDetails from "@/pages/assignment-details";
+
 import ContractorIdCapture from "@/pages/contractor-id-capture";
 import AdminSettings from "@/pages/admin-settings";
 import AdminInspections from "@/pages/admin-inspections";
@@ -142,21 +142,7 @@ function Router() {
             <AdminTimeTracking />
           </ProtectedRoute>
         )} />
-        <Route path="/assignment-details/:id" component={() => (
-          <ProtectedRoute requiredRole="admin">
-            <AssignmentDetails />
-          </ProtectedRoute>
-        )} />
-        <Route path="/assignment-details" component={() => (
-          <ProtectedRoute requiredRole="admin">
-            <AssignmentDetails />
-          </ProtectedRoute>
-        )} />
-        <Route path="/assignment/:id" component={() => (
-          <ProtectedRoute requiredRole="contractor">
-            <AssignmentDetails />
-          </ProtectedRoute>
-        )} />
+
         <Route path="/contractor-id-capture" component={() => (
           <ProtectedRoute requiredRole="admin">
             <ContractorIdCapture />
@@ -187,11 +173,7 @@ function Router() {
             <AdminInspections />
           </ProtectedRoute>
         )} />
-        <Route path="/admin-site-reporting" component={() => (
-          <ProtectedRoute requiredRole="admin">
-            <AssignmentDetails />
-          </ProtectedRoute>
-        )} />
+
         <Route component={NotFound} />
       </Switch>
     </div>
