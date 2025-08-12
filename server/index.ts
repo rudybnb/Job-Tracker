@@ -36,8 +36,55 @@ app.use((req, res, next) => {
   next();
 });
 
+// Automatic 5PM logout background service
+async function startAutomaticLogoutService() {
+  const { storage } = await import('./storage');
+  console.log("🕐 Starting automatic logout service...");
+  
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      // Force logout at 5:00 PM exactly
+      if (currentHour >= 17) {
+        const allSessions = await storage.getAllActiveSessions();
+        
+        for (const session of allSessions) {
+          // Calculate end time as 5:00 PM sharp
+          const endTime = new Date(session.startTime);
+          endTime.setHours(17, 0, 0, 0);
+          
+          // Update session to completed
+          await storage.updateWorkSession(session.id, {
+            endTime,
+            status: 'completed' as const
+          });
+          
+          console.log(`🕐 AUTO-LOGOUT: ${session.contractorName} clocked out at 5:00 PM`);
+        }
+      }
+      
+      // Show progress every 5 minutes before 5pm
+      if (currentMinute % 5 === 0 && currentHour < 17) {
+        const activeSessions = await storage.getAllActiveSessions();
+        if (activeSessions.length > 0) {
+          console.log(`🕐 MONITORING: ${activeSessions.length} active contractors, auto-logout at 5:00 PM`);
+        }
+      }
+      
+    } catch (error) {
+      console.error("❌ Error in automatic logout service:", error);
+    }
+  }, 30000); // Check every 30 seconds
+}
+
 (async () => {
   const server = await registerRoutes(app);
+  
+  // Start automatic logout service
+  await startAutomaticLogoutService();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
