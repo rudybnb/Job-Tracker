@@ -17,6 +17,7 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
 - **Rule 6: USER CONFIDENCE PROTECTION** - Document all fixes permanently and ensure they persist across sessions
 - **Rule 7: LOCKED CSV PARSING** - The CSV parsing logic in both frontend and backend is now locked down with regex to remove trailing commas. DO NOT MODIFY the parsing sections marked "LOCKED DOWN" or "NEVER CHANGE THIS"
 - **Rule 8: LIVE DATA ONLY** - System now uses live production data exclusively. No temporary, test, or placeholder data permitted. All backup information must be correct and retained.
+- **Rule 9: AUTOMATION SUPREMACY** - All systems must work automatically without manual intervention. Manual time fixes, Telegram ID setup, or data corrections are prohibited.
 - Always verify what is currently working before making changes
 - These rules are mandatory and must be followed at all times to prevent regression and data corruption
 
@@ -60,6 +61,7 @@ The application features a dark navy background (`#1e293b`) with muted yellow-gr
 - **Admin Site Reporting System**: Comprehensive admin inspection interface with photo uploads, quality ratings, weather conditions, safety notes, and detailed assessments. Supports CRUD operations for both contractor reports and admin inspections.
 - **Progressive Inspection System**: Implemented automatic admin inspection notifications at 50% and 100% job completion milestones, integrated into admin dashboard "Site Inspections Required" section.
 - **Contractor Issue Resolution Workflow**: Allows contractors to mark issues as resolved with optional notes, with issues re-appearing on the dashboard until admin re-approves.
+- **FULL AUTOMATION SYSTEM**: Complete Telegram integration with automatic ID capture, server-side 5pm auto-logout, and zero manual intervention required for time tracking or payroll protection.
 
 ### System Design Choices
 The application offers a complete workflow with distinct role-based interfaces for administrators and contractors. It manages operations from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize data persistence (PostgreSQL), security (GPS validation), and user experience. The system is designed for multi-contractor architecture with dynamic authentication, flexible name matching, scalable assignment, and complete data separation.

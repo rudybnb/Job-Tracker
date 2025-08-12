@@ -1153,7 +1153,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/work-sessions/:contractorName/active", async (req, res) => {
     try {
       console.log("🕐 Fetching active session for:", req.params.contractorName);
-      const session = await storage.getActiveWorkSession(req.params.contractorName);
+      let session = await storage.getActiveWorkSession(req.params.contractorName);
+      
+      // Automatic 5pm logout enforcement
+      if (session && session.status === 'active') {
+        const now = new Date();
+        const currentHour = now.getHours();
+        
+        // Force logout if it's 5pm or later
+        if (currentHour >= 17) {
+          console.log(`🕐 Auto-logout at ${currentHour}:${now.getMinutes().toString().padStart(2, '0')} - ending session for ${req.params.contractorName}`);
+          
+          // Calculate end time as 5:00 PM sharp
+          const endTime = new Date(session.startTime);
+          endTime.setHours(17, 0, 0, 0);
+          
+          // Update session to completed
+          const updateData = {
+            endTime,
+            status: 'completed' as const
+          };
+          
+          session = await storage.updateWorkSession(session.id, updateData);
+          console.log(`✅ Session auto-completed for ${req.params.contractorName}`);
+        }
+      }
+      
       if (session) {
         res.json(session);
       } else {

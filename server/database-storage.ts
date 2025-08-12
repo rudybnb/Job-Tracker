@@ -451,6 +451,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(workSessions.startTime));
   }
 
+  async getAllActiveSessions(): Promise<WorkSession[]> {
+    return db.select().from(workSessions)
+      .where(eq(workSessions.status, "active"));
+  }
+
   async getRecentClockActivities(): Promise<any[]> {
     // Get all sessions from the last 24 hours
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
