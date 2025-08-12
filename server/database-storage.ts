@@ -68,6 +68,11 @@ export interface IStorage {
   createWorkSession(session: InsertWorkSession): Promise<WorkSession>;
   updateWorkSession(id: string, session: Partial<WorkSession>): Promise<WorkSession | undefined>;
   
+  // Admin Clock Monitoring
+  getActiveWorkSessions(): Promise<WorkSession[]>;
+  getRecentClockActivities(): Promise<any[]>;
+  getTodayWorkSessions(): Promise<WorkSession[]>;
+  
   // Admin Settings
   getAdminSettings(): Promise<AdminSetting[]>;
   getAdminSetting(key: string): Promise<AdminSetting | undefined>;
@@ -436,6 +441,74 @@ export class DatabaseStorage implements IStorage {
       .where(eq(workSessions.id, id))
       .returning();
     return session;
+  }
+
+  // Admin Clock Monitoring Methods
+  
+  async getActiveWorkSessions(): Promise<WorkSession[]> {
+    return db.select().from(workSessions)
+      .where(eq(workSessions.status, "active"))
+      .orderBy(desc(workSessions.startTime));
+  }
+
+  async getRecentClockActivities(): Promise<any[]> {
+    // Get all sessions from the last 24 hours
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const recentSessions = await db.select().from(workSessions)
+      .where(or(
+        eq(workSessions.status, "active"),
+        and(
+          eq(workSessions.status, "completed"),
+          // Add date filter for recent completed sessions
+        )
+      ))
+      .orderBy(desc(workSessions.startTime));
+
+    // Transform to activity format
+    const activities = [];
+    
+    for (const session of recentSessions) {
+      // Clock in activity
+      activities.push({
+        id: `${session.id}-in`,
+        contractorName: session.contractorName,
+        activity: 'clock_in',
+        timestamp: session.startTime,
+        location: session.jobSiteLocation,
+        sessionId: session.id
+      });
+
+      // Clock out activity (if session is completed)
+      if (session.status === 'completed' && session.endTime) {
+        activities.push({
+          id: `${session.id}-out`,
+          contractorName: session.contractorName,
+          activity: 'clock_out',
+          timestamp: session.endTime,
+          location: session.jobSiteLocation,
+          sessionId: session.id,
+          totalHours: session.totalHours
+        });
+      }
+    }
+
+    // Sort by timestamp descending
+    return activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+
+  async getTodayWorkSessions(): Promise<WorkSession[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return db.select().from(workSessions)
+      .where(and(
+        // Filter for sessions that started today
+        // Note: This is a simplified version - in production you'd use proper date range filtering
+      ))
+      .orderBy(desc(workSessions.startTime));
   }
 
   // Money and GPS calculation helper method

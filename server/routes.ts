@@ -1884,5 +1884,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Real-time clock monitoring endpoints for admin dashboard
+  
+  // Get active work sessions (currently clocked in contractors)
+  app.get("/api/admin/active-sessions", async (req, res) => {
+    try {
+      console.log("📊 Fetching active work sessions for admin monitoring");
+      
+      const activeSessions = await storage.getActiveWorkSessions();
+      
+      // Calculate session duration for each active session
+      const sessionsWithDuration = activeSessions.map(session => {
+        const startTime = new Date(session.startTime);
+        const now = new Date();
+        const durationMs = now.getTime() - startTime.getTime();
+        const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+        const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        return {
+          ...session,
+          duration: `${durationHours}h ${durationMinutes}m`,
+          durationMs: durationMs,
+          isActive: true,
+          status: 'clocked_in'
+        };
+      });
+      
+      console.log(`📈 Found ${sessionsWithDuration.length} active sessions`);
+      res.json(sessionsWithDuration);
+    } catch (error) {
+      console.error("Error fetching active sessions:", error);
+      res.status(500).json({ error: "Failed to fetch active sessions" });
+    }
+  });
+
+  // Get recent clock activities (last 24 hours)
+  app.get("/api/admin/recent-activities", async (req, res) => {
+    try {
+      console.log("📊 Fetching recent clock activities for admin monitoring");
+      
+      const recentActivities = await storage.getRecentClockActivities();
+      
+      res.json(recentActivities);
+    } catch (error) {
+      console.error("Error fetching recent activities:", error);
+      res.status(500).json({ error: "Failed to fetch recent activities" });
+    }
+  });
+
+  // Get all work sessions for today
+  app.get("/api/admin/today-sessions", async (req, res) => {
+    try {
+      console.log("📊 Fetching today's work sessions for admin monitoring");
+      
+      const todaySessions = await storage.getTodayWorkSessions();
+      
+      res.json(todaySessions);
+    } catch (error) {
+      console.error("Error fetching today's sessions:", error);
+      res.status(500).json({ error: "Failed to fetch today's sessions" });
+    }
+  });
+
   return httpServer;
 }
