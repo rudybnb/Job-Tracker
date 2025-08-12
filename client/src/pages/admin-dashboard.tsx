@@ -656,7 +656,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <Button
-                      onClick={() => window.location.href = `/admin/inspection/${inspection.assignmentId}`}
+                      onClick={() => window.location.href = `/assignment-details?id=${inspection.assignmentId}&admin=true`}
                       size="sm"
                       className="bg-amber-600 hover:bg-amber-700 text-white ml-2"
                     >
