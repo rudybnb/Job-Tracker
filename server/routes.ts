@@ -1413,7 +1413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           assignmentId: inspectionData.assignmentId,
           inspectorName: inspectionData.inspectedBy,
           inspectionType: "task_inspection", 
-          workQualityRating: inspectionData.inspectionStatus === 'approved' ? 5 : 3,
+          workQualityRating: (inspectionData.inspectionStatus === 'approved' ? 5 : 3).toString(),
           weatherConditions: "Not specified",
           progressComments: `Task: ${inspectionData.taskName} - ${inspectionData.inspectionStatus}`,
           safetyNotes: inspectionData.notes || "",

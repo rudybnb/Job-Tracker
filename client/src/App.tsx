@@ -147,6 +147,11 @@ function Router() {
             <AssignmentDetails />
           </ProtectedRoute>
         )} />
+        <Route path="/assignment-details" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AssignmentDetails />
+          </ProtectedRoute>
+        )} />
         <Route path="/assignment/:id" component={() => (
           <ProtectedRoute requiredRole="contractor">
             <AssignmentDetails />
