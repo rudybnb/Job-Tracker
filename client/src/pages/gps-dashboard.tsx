@@ -7,82 +7,7 @@ import ContextualTooltip from "@/components/contextual-tooltip";
 import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
 import { InspectionIssues } from "@/components/inspection-issues";
 
-// Quick Reports Component for Contractors
-function QuickReportsForContractor() {
-  const { data: contractorReports = [] } = useQuery<any[]>({
-    queryKey: ["/api/contractor-reports"],
-    refetchInterval: 30000, // Check for new reports every 30 seconds
-  });
 
-  // Get contractor name from localStorage - must be authenticated
-  const loggedInContractor = localStorage.getItem('contractorName');
-  if (!loggedInContractor) {
-    window.location.href = '/login';
-    return null;
-  }
-  
-  // Filter reports for current contractor - ONLY Quick Reports, NOT admin inspection reports
-  const myReports = contractorReports.filter((report: any) => 
-    report.contractorName === loggedInContractor.split(' ')[0] && 
-    report.reportType === 'quick_report' &&
-    !report.isAdminInspection
-  );
-
-  if (myReports.length === 0) {
-    return (
-      <div className="text-center space-y-4">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 flex items-center justify-center">
-            <i className="fas fa-clipboard-check text-green-400 text-3xl"></i>
-          </div>
-        </div>
-        <div className="text-slate-400 text-sm">
-          No reports submitted yet. Use assignment details to submit Quick Reports.
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {myReports.slice(0, 3).map((report: any) => (
-        <div key={report.id} className="bg-slate-700 rounded-lg p-3 border border-slate-600">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Badge className="text-xs bg-blue-600">
-                  My Report
-                </Badge>
-                <span className="text-slate-400 text-xs">
-                  {new Date(report.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="text-slate-200 text-sm mb-1">
-                {report.reportText}
-              </div>
-              <div className="text-slate-400 text-xs">
-                Status: Submitted • Awaiting admin review
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
-      
-      {myReports.length > 3 && (
-        <div className="text-center">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs border-slate-500 text-slate-200 hover:bg-slate-600"
-            onClick={() => window.location.href = '/my-reports'}
-          >
-            View All {myReports.length} Reports
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 
 // Active Assignment Component
@@ -973,15 +898,7 @@ export default function GPSDashboard() {
           <ActiveAssignmentContent nearestJobSite={nearestJob} />
         </div>
 
-        {/* My Quick Reports Card - Contractor View */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center mb-4">
-            <i className="fas fa-clipboard-list text-yellow-400 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-400">My Quick Reports</h3>
-          </div>
-          
-          <QuickReportsForContractor />
-        </div>
+
 
         {/* Task Inspection Results - Feedback from Admin */}
         <InspectionIssues contractorName={contractorName} />
