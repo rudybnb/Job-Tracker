@@ -795,6 +795,20 @@ export class DatabaseStorage implements IStorage {
     return fixedInspections;
   }
 
+  async approveContractorFix(inspectionId: string, adminName: string): Promise<any> {
+    const [result] = await db
+      .update(adminInspections)
+      .set({ 
+        status: 'approved',
+        nextActions: `Admin approved contractor fix on ${new Date().toISOString()}`
+      })
+      .where(eq(adminInspections.id, inspectionId))
+      .returning();
+    
+    console.log(`✅ Admin ${adminName} approved contractor fix for inspection ${inspectionId}`);
+    return result;
+  }
+
   async getAdminInspectionsForContractor(contractorName: string): Promise<any[]> {
     // Get the contractor's assignments first
     const assignments = await db.select()

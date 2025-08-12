@@ -1858,5 +1858,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin approves contractor fix
+  app.post("/api/contractor-fixed-inspections/:inspectionId/approve", async (req, res) => {
+    try {
+      const { inspectionId } = req.params;
+      const { adminName } = req.body;
+      
+      console.log("✅ Admin approving contractor fix:", { inspectionId, adminName });
+      
+      const approvedInspection = await storage.approveContractorFix(inspectionId, adminName);
+      
+      if (!approvedInspection) {
+        return res.status(404).json({ error: "Inspection not found" });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Contractor fix approved successfully",
+        inspection: approvedInspection
+      });
+    } catch (error) {
+      console.error("Error approving contractor fix:", error);
+      res.status(500).json({ error: "Failed to approve contractor fix" });
+    }
+  });
+
   return httpServer;
 }

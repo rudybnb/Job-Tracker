@@ -97,6 +97,30 @@ export default function AdminDashboard() {
     },
   });
 
+  // Admin approve contractor fix mutation
+  const approveContractorFixMutation = useMutation({
+    mutationFn: async (inspectionId: string) => {
+      const response = await apiRequest("POST", `/api/contractor-fixed-inspections/${inspectionId}/approve`, {
+        adminName: "Earl Johnson"
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor-fixed-inspections"] });
+      toast({
+        title: "Fix Approved",
+        description: "Contractor fix has been approved and removed from review",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to approve contractor fix",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Send onboarding form mutation
   const sendOnboardingFormMutation = useMutation({
     mutationFn: async (data: { contractorName: string; contractorPhone?: string }) => {
@@ -656,17 +680,12 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <Button
-                      onClick={() => {
-                        toast({
-                          title: "Inspection Reviewed",
-                          description: "Issue marked as resolved by admin",
-                        });
-                        // For now, just acknowledge the review - could integrate with backend later
-                      }}
+                      onClick={() => approveContractorFixMutation.mutate(inspection.id)}
+                      disabled={approveContractorFixMutation.isPending}
                       size="sm"
                       className="bg-green-600 hover:bg-green-700 text-white ml-2"
                     >
-                      Mark Resolved
+                      {approveContractorFixMutation.isPending ? "Approving..." : "Mark Resolved"}
                     </Button>
                   </div>
                 </div>
