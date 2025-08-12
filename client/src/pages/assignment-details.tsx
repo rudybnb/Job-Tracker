@@ -252,8 +252,7 @@ export default function AssignmentDetails() {
   const urlParams = new URLSearchParams(window.location.search);
   const assignmentId = params.id || urlParams.get('id');
   const queryClient = useQueryClient();
-  const [reportText, setReportText] = useState("");
-  const [showQuickReport, setShowQuickReport] = useState(false);
+
   
   // Admin inspection form state
   const [adminInspection, setAdminInspection] = useState({
@@ -317,26 +316,7 @@ export default function AssignmentDetails() {
     enabled: !!assignmentId,
   });
 
-  // Quick Report mutation
-  const createReportMutation = useMutation({
-    mutationFn: async (reportData: { contractorName: string; assignmentId: string; reportText: string }) => {
-      console.log("📝 Submitting Quick Report:", reportData);
-      const response = await apiRequest("POST", "/api/contractor-reports", reportData);
-      const result = await response.json();
-      console.log("✅ Quick Report submitted successfully:", result);
-      return result;
-    },
-    onSuccess: () => {
-      console.log("✅ Quick Report mutation successful");
-      setReportText("");
-      setShowQuickReport(false);
-      // Refresh reports if needed
-      queryClient.invalidateQueries({ queryKey: ["/api/contractor-reports"] });
-    },
-    onError: (error) => {
-      console.error("❌ Quick Report failed:", error);
-    },
-  });
+
 
   // Mock progress data for now - this would come from database
   const taskProgress: TaskProgress[] = assignment?.buildPhases ? 
@@ -456,62 +436,7 @@ export default function AssignmentDetails() {
         {/* Milestone Progress Monitoring */}
         <MilestoneProgress assignmentId={assignment.id} />
 
-        {/* Quick Report Section */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <h2 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center">
-            📝 Quick Report
-          </h2>
-          
-          <p className="text-slate-400 text-sm mb-4">
-            Report any materials missing from site or request clarification - keep it simple!
-          </p>
 
-          {!showQuickReport ? (
-            <Button 
-              onClick={() => setShowQuickReport(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white w-full"
-            >
-              📝 Quick Report
-            </Button>
-          ) : (
-            <div className="space-y-4">
-              <textarea
-                value={reportText}
-                onChange={(e) => setReportText(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
-                rows={3}
-                placeholder="What materials are missing or what clarification do you need?"
-              />
-              
-              <div className="flex space-x-3">
-                <Button 
-                  onClick={() => {
-                    if (reportText.trim() && assignment) {
-                      createReportMutation.mutate({
-                        contractorName: assignment.contractorName,
-                        assignmentId: assignment.id,
-                        reportText: reportText.trim()
-                      });
-                    }
-                  }}
-                  disabled={!reportText.trim() || createReportMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
-                >
-                  {createReportMutation.isPending ? "Sending..." : "Send Report"}
-                </Button>
-                <Button 
-                  onClick={() => {
-                    setShowQuickReport(false);
-                    setReportText("");
-                  }}
-                  className="bg-slate-600 hover:bg-slate-500 text-white"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* Admin Site Inspection Form */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
