@@ -1925,6 +1925,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const recentActivities = await storage.getRecentClockActivities();
       
+      // Debug logging for timestamp verification
+      console.log(`🕐 Current server time: ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}`);
+      console.log(`📋 Recent activities found: ${recentActivities.length}`);
+      
+      recentActivities.slice(0, 3).forEach((activity, index) => {
+        console.log(`⏰ Activity ${index + 1}: ${activity.contractorName} ${activity.activity} at ${activity.actualTime || 'raw: ' + activity.timestamp}`);
+      });
+      
       res.json(recentActivities);
     } catch (error) {
       console.error("Error fetching recent activities:", error);

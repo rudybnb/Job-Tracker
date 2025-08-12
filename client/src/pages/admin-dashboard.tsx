@@ -621,13 +621,25 @@ export default function AdminDashboard() {
                     </div>
                     <div className="text-right">
                       <div className="text-slate-300 text-xs">
-                        {new Date(activity.timestamp).toLocaleTimeString()}
+                        {activity.actualTime || new Date(activity.timestamp).toLocaleTimeString('en-GB', {
+                          timeZone: 'Europe/London',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
                       </div>
                       {activity.totalHours && (
                         <div className="text-yellow-400 text-xs">
                           {activity.totalHours}h
                         </div>
                       )}
+                      <div className="text-slate-500 text-xs">
+                        {new Date(activity.timestamp).toLocaleDateString('en-GB', {
+                          timeZone: 'Europe/London',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </div>
                     </div>
                   </div>
                 ))}

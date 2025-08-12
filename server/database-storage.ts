@@ -456,40 +456,54 @@ export class DatabaseStorage implements IStorage {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
     const recentSessions = await db.select().from(workSessions)
-      .where(or(
-        eq(workSessions.status, "active"),
-        and(
-          eq(workSessions.status, "completed"),
-          // Add date filter for recent completed sessions
-        )
-      ))
-      .orderBy(desc(workSessions.startTime));
+      .orderBy(desc(workSessions.startTime))
+      .limit(50); // Get last 50 sessions to ensure we catch recent activity
 
-    // Transform to activity format
+    // Transform to activity format and filter for last 24 hours
     const activities = [];
     
     for (const session of recentSessions) {
-      // Clock in activity
-      activities.push({
-        id: `${session.id}-in`,
-        contractorName: session.contractorName,
-        activity: 'clock_in',
-        timestamp: session.startTime,
-        location: session.jobSiteLocation,
-        sessionId: session.id
-      });
-
-      // Clock out activity (if session is completed)
-      if (session.status === 'completed' && session.endTime) {
+      const sessionStartTime = new Date(session.startTime);
+      
+      // Only include sessions from last 24 hours
+      if (sessionStartTime.getTime() >= oneDayAgo.getTime()) {
+        // Clock in activity
         activities.push({
-          id: `${session.id}-out`,
+          id: `${session.id}-in`,
           contractorName: session.contractorName,
-          activity: 'clock_out',
-          timestamp: session.endTime,
+          activity: 'clock_in',
+          timestamp: session.startTime,
           location: session.jobSiteLocation,
           sessionId: session.id,
-          totalHours: session.totalHours
+          actualTime: sessionStartTime.toLocaleString('en-GB', { 
+            timeZone: 'Europe/London',
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+          })
         });
+
+        // Clock out activity (if session is completed)
+        if (session.status === 'completed' && session.endTime) {
+          const sessionEndTime = new Date(session.endTime);
+          if (sessionEndTime.getTime() >= oneDayAgo.getTime()) {
+            activities.push({
+              id: `${session.id}-out`,
+              contractorName: session.contractorName,
+              activity: 'clock_out',
+              timestamp: session.endTime,
+              location: session.jobSiteLocation,
+              sessionId: session.id,
+              totalHours: session.totalHours,
+              actualTime: sessionEndTime.toLocaleString('en-GB', { 
+                timeZone: 'Europe/London',
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+              })
+            });
+          }
+        }
       }
     }
 
@@ -500,15 +514,19 @@ export class DatabaseStorage implements IStorage {
   async getTodayWorkSessions(): Promise<WorkSession[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    return db.select().from(workSessions)
-      .where(and(
-        // Filter for sessions that started today
-        // Note: This is a simplified version - in production you'd use proper date range filtering
-      ))
+    
+    // Get sessions from today onwards
+    const allSessions = await db.select().from(workSessions)
       .orderBy(desc(workSessions.startTime));
+    
+    // Filter for sessions that started today
+    const todaySessions = allSessions.filter(session => {
+      const sessionDate = new Date(session.startTime);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() === today.getTime();
+    });
+
+    return todaySessions;
   }
 
   // Money and GPS calculation helper method
