@@ -181,6 +181,8 @@ Good luck with the project! 💪`;
         chatId = '8016744652'; // Dalwayne Diedericks
       } else if (contractorName.toLowerCase().includes('earl')) {
         chatId = '6792554033'; // Earl Johnson
+      } else if (contractorName.toLowerCase().includes('muhammed') || contractorName.toLowerCase().includes('midou')) {
+        chatId = '5209713845'; // Muhammed/Midou
       }
       
       const message = `🎯 <b>New Contractor Onboarding Required</b>
