@@ -96,52 +96,50 @@ export default function LiveClockMonitor() {
       </div>
 
       {/* Live Clock Monitoring Section */}
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-2">
-              <h3 className="text-green-500 text-lg font-semibold">Live Clock Monitoring</h3>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-green-500 text-sm">Live</span>
-            </div>
+      <div className="p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-green-500 text-lg font-semibold">Live Clock Monitoring</h3>
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-green-500 text-sm">Live</span>
           </div>
-          
-          {/* Active Workers Section */}
-          <div className="mb-6">
-            <h4 className="text-white text-base font-medium mb-3">
-              Active Workers ({activeSessions.length})
-            </h4>
-            {activeLoading ? (
-              <div className="text-slate-400">Loading...</div>
-            ) : activeSessions.length > 0 ? (
-              <div className="space-y-2">
-                {activeSessions.map((session: any) => (
-                  <div key={session.id} className="text-white">
-                    {session.contractorName} - Active
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-slate-400">
-                No workers currently active
-              </div>
-            )}
-          </div>
+        </div>
+        
+        {/* Active Workers Section */}
+        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+          <h4 className="text-white text-base font-medium mb-3">
+            Active Workers ({activeSessions.length})
+          </h4>
+          {activeLoading ? (
+            <div className="text-slate-400">Loading...</div>
+          ) : activeSessions.length > 0 ? (
+            <div className="space-y-2">
+              {activeSessions.map((session: any) => (
+                <div key={session.id} className="text-slate-300 bg-slate-700/30 rounded px-3 py-2 border border-slate-600/30">
+                  {session.contractorName} - Active
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-slate-500 text-center py-4">
+              No workers currently active
+            </div>
+          )}
+        </div>
 
-          {/* Recent Activities Section */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <h4 className="text-white text-base font-medium">Recent Activities (Last 24h)</h4>
-              <div className="text-slate-400 text-sm">
-                Current: {new Date().toLocaleTimeString('en-GB', {
-                  timeZone: 'Europe/London',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
+        {/* Recent Activities Section */}
+        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-white text-base font-medium">Recent Activities (Last 24h)</h4>
+            <div className="text-slate-400 text-sm">
+              Current: {new Date().toLocaleTimeString('en-GB', {
+                timeZone: 'Europe/London',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
             </div>
+          </div>
 {activitiesLoading ? (
               <div className="text-slate-400">Loading...</div>
             ) : recentActivities.length > 0 ? (
@@ -158,24 +156,27 @@ export default function LiveClockMonitor() {
                   }, {});
 
                   return Object.entries(groupedActivities).map(([contractorName, activities]: [string, any]) => (
-                    <div key={contractorName} className="border-l-2 border-slate-600 pl-3">
-                      <div className="font-medium text-white mb-2">{contractorName}</div>
-                      <div className="space-y-1">
+                    <div key={contractorName} className="bg-slate-700/30 rounded-lg p-3 border border-slate-600/40 mb-3">
+                      <div className="font-medium text-slate-200 mb-3 flex items-center">
+                        <div className="w-2 h-2 bg-slate-500 rounded-full mr-2"></div>
+                        {contractorName}
+                      </div>
+                      <div className="space-y-2 ml-4">
                         {activities.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((activity: any) => (
-                          <div key={activity.id} className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
+                          <div key={activity.id} className="flex items-center justify-between bg-slate-800/40 rounded-md px-3 py-2 border border-slate-600/20">
+                            <div className="flex items-center space-x-3">
                               <div className={`w-1.5 h-1.5 rounded-full ${
                                 activity.activity === 'clock_in' ? 'bg-green-500' : 'bg-red-500'
                               }`}></div>
-                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              <span className={`text-xs px-2 py-1 rounded-md font-medium ${
                                 activity.activity === 'clock_in' 
-                                  ? 'bg-green-900 text-green-300' 
-                                  : 'bg-red-900 text-red-300'
+                                  ? 'bg-green-900/60 text-green-300 border border-green-700/30' 
+                                  : 'bg-red-900/60 text-red-300 border border-red-700/30'
                               }`}>
                                 {activity.activity === 'clock_in' ? 'In' : 'Out'}
                               </span>
                             </div>
-                            <div className="text-slate-400 text-sm">
+                            <div className="text-slate-400 text-sm font-mono">
                               {activity.actualTime || new Date(activity.timestamp).toLocaleTimeString('en-GB', {
                                 timeZone: 'Europe/London',
                                 hour: '2-digit',
@@ -191,11 +192,10 @@ export default function LiveClockMonitor() {
                 })()}
               </div>
             ) : (
-              <div className="text-slate-400">
+              <div className="text-slate-500 text-center py-4">
                 No recent activity
               </div>
             )}
-          </div>
         </div>
       </div>
     </div>
