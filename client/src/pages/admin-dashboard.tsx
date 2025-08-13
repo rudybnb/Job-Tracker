@@ -568,7 +568,180 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Live Clock Monitoring - Compact Version */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <i className="fas fa-users text-green-500"></i>
+              <h3 className="text-lg font-semibold text-green-500">Live Clock Monitoring</h3>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-green-500 text-sm">Live</span>
+              </div>
+              <button 
+                onClick={() => window.location.href = '/live-clock-monitor'}
+                className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded"
+              >
+                Full Monitor
+              </button>
+            </div>
+          </div>
+          
+          {/* Currently Active Workers - Compact */}
+          <div className="mb-4">
+            <h4 className="text-white font-medium mb-2 flex items-center text-sm">
+              <i className="fas fa-clock text-yellow-500 mr-2"></i>
+              Active Now ({activeSessions.length})
+            </h4>
+            {activeSessions.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {activeSessions.slice(0, 4).map((session: any) => (
+                  <div key={session.id} className="bg-slate-700/50 border border-slate-600 rounded p-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 min-w-0">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <div className="min-w-0">
+                          <div className="text-white font-medium text-xs truncate">{session.contractorName}</div>
+                          <div className="text-slate-400 text-xs">
+                            {session.startedAt || new Date(session.startTime).toLocaleTimeString('en-GB', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-yellow-400 font-bold text-xs">
+                        {session.duration || 'Live'}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-slate-400 text-center py-2 text-sm">
+                <i className="fas fa-clock text-slate-500 mb-1"></i>
+                <div>No active workers</div>
+              </div>
+            )}
+            {activeSessions.length > 4 && (
+              <div className="text-center mt-2">
+                <button 
+                  onClick={() => window.location.href = '/live-clock-monitor'}
+                  className="text-blue-400 text-xs hover:text-blue-300"
+                >
+                  +{activeSessions.length - 4} more workers - View all
+                </button>
+              </div>
+            )}
+          </div>
 
+          {/* Today's Summary - Compact */}
+          <div className="mb-4">
+            <h4 className="text-white font-medium mb-2 flex items-center justify-between text-sm">
+              <div className="flex items-center">
+                <i className="fas fa-calendar-day text-orange-500 mr-2"></i>
+                Today's Summary
+              </div>
+              <div className="text-slate-400 text-xs">
+                {todaySessions.length} sessions
+              </div>
+            </h4>
+            {dailySummary.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {dailySummary.slice(0, 4).map((contractor: any) => (
+                  <div key={contractor.contractorName} className="bg-slate-700/30 rounded p-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-white text-xs font-medium truncate">{contractor.contractorName}</div>
+                      <div className="flex items-center space-x-1">
+                        {contractor.activeSession && (
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                        )}
+                        <div className="text-yellow-400 font-bold text-xs">
+                          {contractor.totalDailyHours}h
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-slate-400 text-center py-2 text-sm">
+                No sessions today
+              </div>
+            )}
+            {dailySummary.length > 4 && (
+              <div className="text-center mt-2">
+                <button 
+                  onClick={() => window.location.href = '/live-clock-monitor'}
+                  className="text-blue-400 text-xs hover:text-blue-300"
+                >
+                  +{dailySummary.length - 4} more contractors - View all
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Recent Activities - Compact */}
+          <div>
+            <h4 className="text-white font-medium mb-2 flex items-center justify-between text-sm">
+              <div className="flex items-center">
+                <i className="fas fa-history text-blue-500 mr-2"></i>
+                Recent Activity
+              </div>
+              <div className="text-slate-400 text-xs">
+                {new Date().toLocaleTimeString('en-GB', {
+                  timeZone: 'Europe/London',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </div>
+            </h4>
+            {recentActivities.length > 0 ? (
+              <div className="space-y-1">
+                {recentActivities.slice(0, 3).map((activity: any) => (
+                  <div key={activity.id} className="bg-slate-700/30 rounded p-2 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        activity.activity === 'clock_in' ? 'bg-green-500' : 'bg-red-500'
+                      }`}></div>
+                      <div className="text-white text-xs truncate">{activity.contractorName}</div>
+                      <div className={`text-xs px-1 py-0.5 rounded ${
+                        activity.activity === 'clock_in' 
+                          ? 'bg-green-900 text-green-300' 
+                          : 'bg-red-900 text-red-300'
+                      }`}>
+                        {activity.activity === 'clock_in' ? 'In' : 'Out'}
+                      </div>
+                    </div>
+                    <div className="text-slate-400 text-xs">
+                      {activity.actualTime || new Date(activity.timestamp).toLocaleTimeString('en-GB', {
+                        timeZone: 'Europe/London',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-slate-400 text-center py-2 text-sm">
+                No recent activity
+              </div>
+            )}
+            {recentActivities.length > 3 && (
+              <div className="text-center mt-2">
+                <button 
+                  onClick={() => window.location.href = '/live-clock-monitor'}
+                  className="text-blue-400 text-xs hover:text-blue-300"
+                >
+                  View all recent activity
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* GPS Time Tracker Card */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
