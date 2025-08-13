@@ -100,12 +100,12 @@ export default function LiveClockMonitor() {
         <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-2">
-              <h3 className="text-green-500 text-2xl font-semibold">Live Clock Monitoring</h3>
+              <h3 className="text-green-500 text-lg font-semibold">Live Clock Monitoring</h3>
             </div>
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-green-500 text-sm font-medium">Live</span>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-green-500 text-sm">Live</span>
               </div>
               <button 
                 onClick={() => window.location.href = '/admin'}
@@ -117,22 +117,22 @@ export default function LiveClockMonitor() {
           </div>
           
           {/* Active Workers Section */}
-          <div className="mb-8">
-            <h4 className="text-white text-xl font-medium mb-4">
+          <div className="mb-6">
+            <h4 className="text-white text-base font-medium mb-3">
               Active Workers ({activeSessions.length})
             </h4>
             {activeLoading ? (
               <div className="text-slate-400">Loading...</div>
             ) : activeSessions.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {activeSessions.map((session: any) => (
-                  <div key={session.id} className="text-white text-lg">
+                  <div key={session.id} className="text-white">
                     {session.contractorName} - Active
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-slate-400 text-lg">
+              <div className="text-slate-400">
                 No workers currently active
               </div>
             )}
@@ -140,8 +140,8 @@ export default function LiveClockMonitor() {
 
           {/* Recent Activities Section */}
           <div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-white text-xl font-medium">Recent Activities (Last 24h)</h4>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-white text-base font-medium">Recent Activities (Last 24h)</h4>
               <div className="text-slate-400 text-sm">
                 Current: {new Date().toLocaleTimeString('en-GB', {
                   timeZone: 'Europe/London',
@@ -156,12 +156,12 @@ export default function LiveClockMonitor() {
               <div className="space-y-2">
                 {recentActivities.map((activity: any) => (
                   <div key={activity.id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-2 h-2 rounded-full ${
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${
                         activity.activity === 'clock_in' ? 'bg-green-500' : 'bg-red-500'
                       }`}></div>
-                      <span className="text-white text-lg">{activity.contractorName}</span>
-                      <span className={`text-sm px-2 py-1 rounded ${
+                      <span className="text-white">{activity.contractorName}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
                         activity.activity === 'clock_in' 
                           ? 'bg-green-900 text-green-300' 
                           : 'bg-red-900 text-red-300'
@@ -169,7 +169,7 @@ export default function LiveClockMonitor() {
                         {activity.activity === 'clock_in' ? 'In' : 'Out'}
                       </span>
                     </div>
-                    <div className="text-slate-400 text-lg">
+                    <div className="text-slate-400 text-sm">
                       {activity.actualTime || new Date(activity.timestamp).toLocaleTimeString('en-GB', {
                         timeZone: 'Europe/London',
                         hour: '2-digit',
@@ -181,7 +181,7 @@ export default function LiveClockMonitor() {
                 ))}
               </div>
             ) : (
-              <div className="text-slate-400 text-lg">
+              <div className="text-slate-400">
                 No recent activity
               </div>
             )}
