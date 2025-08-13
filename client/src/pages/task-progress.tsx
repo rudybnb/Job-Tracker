@@ -64,11 +64,21 @@ export default function TaskProgress() {
 
   // Helper function to check if a task has been completed by teammates
   const getTeammateCompletion = (taskId: string) => {
-    const teammateProgress = (teamProgress as any[]).find((progress: any) => 
-      progress.taskId === taskId && 
-      progress.completed && 
-      progress.completedByFirstName !== contractorFirstName
-    );
+    console.log(`🔍 Checking teammate completion for taskId: ${taskId}`);
+    console.log(`🔍 Team progress data:`, teamProgress);
+    console.log(`🔍 Current contractor: ${contractorFirstName}`);
+    
+    const teammateProgress = (teamProgress as any[]).find((progress: any) => {
+      const taskMatches = progress.taskId === taskId;
+      const isCompleted = progress.completed;
+      const isDifferentContractor = progress.completedByFirstName !== contractorFirstName;
+      
+      console.log(`🔍 Task ${progress.taskId}: matches=${taskMatches}, completed=${isCompleted}, different=${isDifferentContractor}`);
+      
+      return taskMatches && isCompleted && isDifferentContractor;
+    });
+    
+    console.log(`🔍 Found teammate completion:`, teammateProgress);
     return teammateProgress;
   };
 
