@@ -1268,6 +1268,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return R * c; // Distance in meters
   }
 
+  // Import shared location tracking
+  const { updateContractorLocation, getContractorLocation } = await import('./location-tracker');
+
+  // Update contractor's current location (real-time GPS tracking)
+  app.post("/api/update-location", async (req, res) => {
+    try {
+      const { contractorName, latitude, longitude } = req.body;
+      
+      if (!contractorName || !latitude || !longitude) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      // Store current location using shared tracker
+      updateContractorLocation(contractorName, parseFloat(latitude), parseFloat(longitude));
+      
+      res.json({ success: true, message: "Location updated successfully" });
+      
+    } catch (error) {
+      console.error("Error updating location:", error);
+      res.status(500).json({ error: "Failed to update location" });
+    }
+  });
+
+  // Get contractor's current location
+  app.get("/api/contractor-location/:name", async (req, res) => {
+    try {
+      const contractorName = decodeURIComponent(req.params.name);
+      const location = getContractorLocation(contractorName);
+      
+      if (!location) {
+        return res.status(404).json({ error: "Location not found" });
+      }
+      
+      res.json({
+        contractorName,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        lastUpdate: location.lastUpdate
+      });
+      
+    } catch (error) {
+      console.error("Error getting contractor location:", error);
+      res.status(500).json({ error: "Failed to get location" });
+    }
+  });
+
   // GPS proximity check endpoint for login validation
   app.post("/api/check-proximity", async (req, res) => {
     try {
@@ -1276,6 +1322,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🔍 GPS Proximity Check for ${contractorName}:`);
       console.log(`📍 User Location: ${userLatitude}, ${userLongitude}`);
       console.log(`🏗️ Work Location: ${workLocation}`);
+      
+      // Update contractor's current location for real-time tracking
+      if (contractorName && userLatitude && userLongitude) {
+        updateContractorLocation(contractorName, parseFloat(userLatitude), parseFloat(userLongitude));
+      }
       
       // Get GPS coordinates for the work location (postcode)
       const jobSiteCoords = getPostcodeCoordinates(workLocation);

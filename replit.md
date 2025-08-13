@@ -68,6 +68,8 @@ The application features a dark navy background (`#1e293b`) with muted yellow-gr
 ### System Design Choices
 The application offers a complete workflow with distinct role-based interfaces for administrators and contractors. It manages operations from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize data persistence (PostgreSQL), security (GPS validation), and user experience. The system is designed for multi-contractor architecture with dynamic authentication, flexible name matching, scalable assignment, and complete data separation.
 
+**Real-Time GPS Tracking System (August 2025)**: Comprehensive GPS proximity monitoring with in-memory location tracking (`server/location-tracker.ts`) and enhanced automatic logout service that uses contractors' current GPS coordinates instead of start coordinates. Features 500-meter auto-logout threshold, 30-second monitoring cycles, and dual logout rules (5:00 PM + GPS proximity) for complete payroll protection and workforce compliance.
+
 ## External Dependencies
 
 ### Database Services
