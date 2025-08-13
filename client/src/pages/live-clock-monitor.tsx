@@ -169,7 +169,7 @@ export default function LiveClockMonitor() {
                     <div key={contractorName} className="border-l-2 border-slate-600 pl-3">
                       <div className="font-medium text-white mb-2">{contractorName}</div>
                       <div className="space-y-1">
-                        {activities.map((activity: any) => (
+                        {activities.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((activity: any) => (
                           <div key={activity.id} className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <div className={`w-1.5 h-1.5 rounded-full ${
