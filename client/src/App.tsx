@@ -24,6 +24,7 @@ import SystemCleanupPage from "@/pages/system-cleanup";
 import CreateAssignment from "@/pages/create-assignment";
 import TelegramTest from "@/pages/telegram-test";
 import AdminTimeTracking from "@/pages/admin-time-tracking";
+import LiveClockMonitor from "@/pages/live-clock-monitor";
 
 import ContractorIdCapture from "@/pages/contractor-id-capture";
 import AdminSettings from "@/pages/admin-settings";
@@ -140,6 +141,11 @@ function Router() {
         <Route path="/admin-time-tracking" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AdminTimeTracking />
+          </ProtectedRoute>
+        )} />
+        <Route path="/live-clock-monitor" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <LiveClockMonitor />
           </ProtectedRoute>
         )} />
 

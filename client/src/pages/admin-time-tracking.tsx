@@ -187,6 +187,14 @@ export default function AdminTimeTracking() {
                   </button>
                   
                   <button 
+                    onClick={() => window.location.href = '/live-clock-monitor'}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-white"
+                  >
+                    <i className="fas fa-broadcast-tower mr-3 w-4"></i>
+                    Live Clock Monitor
+                  </button>
+                  
+                  <button 
                     onClick={() => window.location.href = '/job-assignments'}
                     className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-white"
                   >
