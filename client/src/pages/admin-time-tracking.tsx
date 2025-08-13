@@ -8,12 +8,15 @@ import { useToast } from "@/hooks/use-toast";
 
 interface ContractorEarnings {
   contractorName: string;
+  sessions: any[];
+  totalHours: number;
   hoursWorked: number;
   hourlyRate: number;
   grossEarnings: number;
   cisDeduction: number;
   netEarnings: number;
   cisRate: number;
+  gpsVerified: boolean;
 }
 
 interface JobEarnings {
@@ -66,17 +69,32 @@ export default function AdminTimeTracking() {
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const { toast } = useToast();
 
-  // This will be replaced with real API data
-  const { data: jobEarnings = [], isLoading } = useQuery<JobEarnings[]>({
+  // Fetch real time tracking data from backend
+  const { data: timeTrackingData, isLoading } = useQuery<{
+    weekEnding: string;
+    weekStart: string;
+    weekEnd: string;
+    contractors: ContractorEarnings[];
+    totals: {
+      totalHours: number;
+      totalGrossEarnings: number;
+      totalCisDeduction: number;
+      totalNetEarnings: number;
+      contractors: number;
+    };
+    sessionsCount: number;
+  }>({
     queryKey: ['/api/admin/time-tracking', selectedWeek],
-    // For now, returning empty array until real data is available
-    queryFn: () => Promise.resolve([])
+    enabled: !!selectedWeek
   });
 
-  const totalWeeklySpend = jobEarnings.reduce((sum, job) => sum + job.totalGrossEarnings, 0);
-  const totalWeeklyHours = jobEarnings.reduce((sum, job) => sum + job.totalHours, 0);
-  const totalCisDeductions = jobEarnings.reduce((sum, job) => sum + job.totalCisDeduction, 0);
-  const totalNetPayout = jobEarnings.reduce((sum, job) => sum + job.totalNetEarnings, 0);
+  // Calculate totals from real data
+  const totalWeeklySpend = timeTrackingData?.totals.totalGrossEarnings || 0;
+  const totalWeeklyHours = timeTrackingData?.totals.totalHours || 0;
+  const totalCisDeductions = timeTrackingData?.totals.totalCisDeduction || 0;
+  const totalNetPayout = timeTrackingData?.totals.totalNetEarnings || 0;
+  const contractors = timeTrackingData?.contractors || [];
+  const sessionsCount = timeTrackingData?.sessionsCount || 0;
 
   // Generate week options for the last 12 weeks - ALWAYS ending on Friday
   const getWeekOptions = () => {
@@ -195,10 +213,20 @@ export default function AdminTimeTracking() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="bg-blue-700 text-white px-2 py-1 rounded text-xs">
+            <button 
+              onClick={() => {
+                if (selectedWeek) {
+                  window.open(`/api/admin/time-tracking/export?weekEnding=${selectedWeek}`, '_blank');
+                  toast({ title: "Export Data", description: "Time tracking data exported successfully!" });
+                } else {
+                  toast({ title: "Export Error", description: "Please select a week to export", variant: "destructive" });
+                }
+              }}
+              className="bg-blue-700 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition-colors"
+            >
               <i className="fas fa-download mr-1"></i>
               Export
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -258,9 +286,9 @@ export default function AdminTimeTracking() {
         {/* Job Earnings Breakdown */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Job Earnings Breakdown</h3>
+            <h3 className="text-lg font-semibold text-white">Contractor Earnings Breakdown</h3>
             <Badge variant="outline" className="text-slate-400 border-slate-600">
-              {jobEarnings.length} Jobs
+              {contractors.length} Contractors
             </Badge>
           </div>
 
@@ -268,7 +296,7 @@ export default function AdminTimeTracking() {
             <div className="flex items-center justify-center py-8">
               <div className="text-slate-400">Loading contractor earnings...</div>
             </div>
-          ) : jobEarnings.length === 0 ? (
+          ) : contractors.length === 0 ? (
             <Card className="bg-slate-800 border-slate-700">
               <CardContent className="p-8 text-center">
                 <i className="fas fa-clock text-slate-500 text-4xl mb-4"></i>
@@ -282,70 +310,54 @@ export default function AdminTimeTracking() {
               </CardContent>
             </Card>
           ) : (
-            jobEarnings.map(job => (
-              <Card key={job.jobId} className="bg-slate-800 border-slate-700">
+            contractors.map((contractor: ContractorEarnings, index: number) => (
+              <Card key={contractor.contractorName} className="bg-slate-800 border-slate-700">
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-white text-lg">{job.jobTitle}</CardTitle>
-                      <CardDescription className="text-slate-400">
-                        <i className="fas fa-map-marker-alt mr-1"></i>
-                        {job.location}
-                      </CardDescription>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">
+                          {contractor.contractorName.split(' ').map((n: string) => n[0]).join('')}
+                        </span>
+                      </div>
+                      <div>
+                        <CardTitle className="text-white text-lg">{contractor.contractorName}</CardTitle>
+                        <CardDescription className="text-slate-400">
+                          <i className="fas fa-clock mr-1"></i>
+                          {contractor.hoursWorked.toFixed(2)}h worked this week
+                        </CardDescription>
+                      </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-green-400">£{job.totalGrossEarnings.toFixed(2)}</div>
-                      <div className="text-sm text-slate-400">{job.totalHours}h total</div>
-                      {job.gpsVerified && (
-                        <Badge className="bg-green-900 text-green-300 mt-1">
-                          <i className="fas fa-map-marker-alt mr-1"></i>GPS Verified
-                        </Badge>
-                      )}
+                      <div className="text-2xl font-bold text-green-400">£{contractor.grossEarnings.toFixed(2)}</div>
+                      <div className="text-sm text-slate-400">£{contractor.hourlyRate.toFixed(2)}/hour</div>
+                      <Badge className="bg-green-900 text-green-300 mt-1">
+                        <i className="fas fa-map-marker-alt mr-1"></i>GPS Verified
+                      </Badge>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* Contractor breakdown */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-400">Contractor Breakdown:</span>
-                      <span className="text-slate-400">{job.contractors.length} contractors</span>
-                    </div>
-                    
-                    {job.contractors.map((contractor, index) => (
-                      <div key={index} className="flex items-center justify-between bg-slate-700 rounded-lg p-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">
-                              {contractor.contractorName.split(' ').map(n => n[0]).join('')}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="text-white text-sm font-medium">{contractor.contractorName}</div>
-                            <div className="text-slate-400 text-xs">{contractor.hoursWorked}h @ £{contractor.hourlyRate}/h</div>
-                          </div>
-                        </div>
-                        
-                        <div className="text-right">
-                          <div className="text-white font-medium">£{contractor.grossEarnings.toFixed(2)}</div>
-                          <div className="text-slate-400 text-xs">
-                            -{contractor.cisRate}% CIS (£{contractor.cisDeduction.toFixed(2)})
-                          </div>
-                          <div className="text-green-400 text-xs font-medium">
-                            Net: £{contractor.netEarnings.toFixed(2)}
-                          </div>
-                        </div>
+                    {/* Earnings breakdown */}
+                    <div className="bg-slate-700 rounded-lg p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-slate-400 text-sm">Earnings Breakdown</span>
+                        <span className="text-slate-400 text-xs">{contractor.sessions.length} sessions</span>
                       </div>
-                    ))}
-                    
-                    {/* Job totals */}
-                    <div className="border-t border-slate-600 pt-3 mt-3">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-400">Job Totals:</span>
-                        <div className="text-right space-y-1">
-                          <div className="text-white">Gross: £{job.totalGrossEarnings.toFixed(2)}</div>
-                          <div className="text-orange-400">CIS: -£{job.totalCisDeduction.toFixed(2)}</div>
-                          <div className="text-green-400 font-medium">Net: £{job.totalNetEarnings.toFixed(2)}</div>
+                      
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-300">Gross Earnings:</span>
+                          <span className="text-white font-medium">£{contractor.grossEarnings.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-300">CIS Deduction ({(contractor.cisRate * 100).toFixed(0)}%):</span>
+                          <span className="text-orange-400">-£{contractor.cisDeduction.toFixed(2)}</span>
+                        </div>
+                        <div className="border-t border-slate-600 pt-2 flex justify-between">
+                          <span className="text-slate-300 font-medium">Net Payout:</span>
+                          <span className="text-green-400 font-bold">£{contractor.netEarnings.toFixed(2)}</span>
                         </div>
                       </div>
                     </div>

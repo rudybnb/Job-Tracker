@@ -2164,5 +2164,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get time tracking data with earnings calculations for admin
+  app.get("/api/admin/time-tracking", async (req, res) => {
+    try {
+      const weekEnding = req.query.weekEnding as string;
+      console.log(`📊 Fetching time tracking data for week ending: ${weekEnding}`);
+      
+      if (!weekEnding) {
+        return res.status(400).json({ error: "weekEnding parameter required" });
+      }
+      
+      // Calculate week start and end dates
+      const endDate = new Date(weekEnding);
+      const startDate = new Date(endDate);
+      startDate.setDate(endDate.getDate() - 6); // 7 days back
+      
+      console.log(`📅 Week range: ${startDate.toDateString()} to ${endDate.toDateString()}`);
+      
+      // Get all work sessions for the week
+      const weekSessions = await storage.getWorkSessionsForWeek(startDate, endDate);
+      console.log(`🕐 Found ${weekSessions.length} sessions for the week`);
+      
+      // Group by contractor and calculate earnings
+      const contractorEarnings = weekSessions.reduce((acc: any, session: any) => {
+        const contractorName = session.contractorName;
+        if (!acc[contractorName]) {
+          acc[contractorName] = {
+            contractorName,
+            sessions: [],
+            totalHours: 0,
+            hoursWorked: 0,
+            hourlyRate: 25.00, // Base rate
+            grossEarnings: 0,
+            cisDeduction: 0,
+            netEarnings: 0,
+            cisRate: 0.30, // Default 30% for unregistered
+            gpsVerified: true
+          };
+        }
+        
+        // Calculate session hours
+        let sessionHours = 0;
+        if (session.endTime) {
+          const startTime = new Date(session.startTime);
+          const endTime = new Date(session.endTime);
+          sessionHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+        }
+        
+        acc[contractorName].sessions.push({
+          ...session,
+          sessionHours: sessionHours.toFixed(2)
+        });
+        acc[contractorName].totalHours += sessionHours;
+        acc[contractorName].hoursWorked += sessionHours;
+        
+        return acc;
+      }, {});
+      
+      // Calculate earnings for each contractor
+      Object.values(contractorEarnings).forEach((contractor: any) => {
+        const hoursWorked = contractor.hoursWorked;
+        const hourlyRate = contractor.hourlyRate;
+        
+        // Check for weekend overtime
+        const hasWeekendWork = contractor.sessions.some((session: any) => {
+          const sessionDate = new Date(session.startTime);
+          const dayOfWeek = sessionDate.getDay();
+          return dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+        });
+        
+        if (hasWeekendWork) {
+          contractor.hourlyRate = hourlyRate * 1.5; // 1.5x overtime
+        }
+        
+        // Calculate gross earnings
+        contractor.grossEarnings = hoursWorked * contractor.hourlyRate;
+        
+        // Calculate CIS deduction
+        contractor.cisDeduction = contractor.grossEarnings * contractor.cisRate;
+        
+        // Calculate net earnings (minimum £100 daily protection)
+        contractor.netEarnings = Math.max(
+          contractor.grossEarnings - contractor.cisDeduction,
+          100 * Math.ceil(hoursWorked / 8) // £100 minimum per day worked
+        );
+        
+        // Round all monetary values
+        contractor.grossEarnings = Math.round(contractor.grossEarnings * 100) / 100;
+        contractor.cisDeduction = Math.round(contractor.cisDeduction * 100) / 100;
+        contractor.netEarnings = Math.round(contractor.netEarnings * 100) / 100;
+        contractor.totalHours = Math.round(contractor.totalHours * 100) / 100;
+      });
+      
+      // Calculate weekly totals
+      const contractors = Object.values(contractorEarnings);
+      const weeklyTotals = {
+        totalHours: contractors.reduce((sum: number, c: any) => sum + c.totalHours, 0),
+        totalGrossEarnings: contractors.reduce((sum: number, c: any) => sum + c.grossEarnings, 0),
+        totalCisDeduction: contractors.reduce((sum: number, c: any) => sum + c.cisDeduction, 0),
+        totalNetEarnings: contractors.reduce((sum: number, c: any) => sum + c.netEarnings, 0),
+        contractors: contractors.length
+      };
+      
+      console.log(`💰 Weekly totals: ${weeklyTotals.totalHours}h, £${weeklyTotals.totalGrossEarnings} gross, £${weeklyTotals.totalNetEarnings} net`);
+      
+      res.json({
+        weekEnding,
+        weekStart: startDate.toISOString().split('T')[0],
+        weekEnd: endDate.toISOString().split('T')[0],
+        contractors: contractors,
+        totals: weeklyTotals,
+        sessionsCount: weekSessions.length
+      });
+    } catch (error) {
+      console.error("Error fetching time tracking data:", error);
+      res.status(500).json({ error: "Failed to fetch time tracking data" });
+    }
+  });
+
+  // Export time tracking data as CSV
+  app.get("/api/admin/time-tracking/export", async (req, res) => {
+    try {
+      const weekEnding = req.query.weekEnding as string;
+      if (!weekEnding) {
+        return res.status(400).json({ error: "weekEnding parameter required" });
+      }
+      
+      console.log(`📤 Exporting time tracking data for week ending: ${weekEnding}`);
+      
+      // Get the same data as the main endpoint
+      const timeTrackingResponse = await fetch(`http://localhost:5000/api/admin/time-tracking?weekEnding=${weekEnding}`);
+      const timeTrackingData = await timeTrackingResponse.json();
+      
+      // Generate CSV content
+      let csvContent = "Contractor Name,Total Hours,Hourly Rate,Gross Earnings,CIS Deduction,Net Earnings,Sessions Count,GPS Verified\n";
+      
+      timeTrackingData.contractors.forEach((contractor: any) => {
+        csvContent += `"${contractor.contractorName}",${contractor.totalHours},£${contractor.hourlyRate},£${contractor.grossEarnings},£${contractor.cisDeduction},£${contractor.netEarnings},${contractor.sessions.length},Yes\n`;
+      });
+      
+      // Add totals row
+      csvContent += `\nTOTALS,${timeTrackingData.totals.totalHours},,£${timeTrackingData.totals.totalGrossEarnings},£${timeTrackingData.totals.totalCisDeduction},£${timeTrackingData.totals.totalNetEarnings},${timeTrackingData.sessionsCount},\n`;
+      
+      // Set headers for CSV download
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="time-tracking-week-ending-${weekEnding}.csv"`);
+      
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error exporting time tracking data:", error);
+      res.status(500).json({ error: "Failed to export time tracking data" });
+    }
+  });
+
   return httpServer;
 }

@@ -577,6 +577,23 @@ export class DatabaseStorage implements IStorage {
     return sessionsWithHours;
   }
 
+  async getWorkSessionsForWeek(startDate: Date, endDate: Date): Promise<WorkSession[]> {
+    console.log(`🗓️ Fetching work sessions between ${startDate.toDateString()} and ${endDate.toDateString()}`);
+    
+    // Get all sessions and filter by date range
+    const allSessions = await db.select().from(workSessions)
+      .orderBy(desc(workSessions.startTime));
+    
+    // Filter sessions within the week range
+    const weekSessions = allSessions.filter(session => {
+      const sessionDate = new Date(session.startTime);
+      return sessionDate >= startDate && sessionDate <= endDate;
+    });
+
+    console.log(`📊 Found ${weekSessions.length} sessions in the specified week range`);
+    return weekSessions;
+  }
+
   // Money and GPS calculation helper method
   private calculateEarnings(startTime: Date, endTime: Date, hoursWorked: number) {
     const baseRate = 25.00; // £25/hour standard rate
