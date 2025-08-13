@@ -525,25 +525,38 @@ export default function TaskProgress() {
           </div>
         </div>
 
-        {/* Task Cards */}
-        <div className="space-y-4">
-          {tasks.map((task) => (
-            <div key={task.id} className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center">
-                  <div className="w-4 h-4 border-2 border-slate-500 rounded-full mr-3 mt-1"></div>
-                  <div>
-                    <h4 className="text-yellow-400 font-semibold">{task.title}</h4>
-                    <div className="text-slate-400 text-sm mt-1">{task.area}</div>
-                  </div>
-                </div>
-                <Badge 
-                  variant="outline" 
-                  className="border-slate-500 text-slate-400"
-                >
-                  {task.status}
-                </Badge>
+        {/* Task Cards Grouped by Phase */}
+        <div className="space-y-6">
+          {/* Group tasks by phase */}
+          {Object.entries(tasks.reduce((groups: Record<string, typeof tasks>, task) => {
+            const phase = task.area;
+            if (!groups[phase]) groups[phase] = [];
+            groups[phase].push(task);
+            return groups;
+          }, {})).map(([phase, phaseTasks]) => (
+            <div key={phase} className="space-y-4">
+              {/* Phase Header */}
+              <div className="bg-amber-600 text-slate-900 font-bold px-4 py-2 rounded-lg">
+                <h3 className="text-lg">{phase}</h3>
               </div>
+              
+              {/* Phase Tasks */}
+              {phaseTasks.map((task) => (
+                <div key={task.id} className="bg-slate-800 rounded-lg p-4 border border-slate-700 ml-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 border-2 border-slate-500 rounded-full mr-3 mt-1"></div>
+                      <div>
+                        <h4 className="text-yellow-400 font-semibold">{task.title}</h4>
+                      </div>
+                    </div>
+                    <Badge 
+                      variant="outline" 
+                      className="border-slate-500 text-slate-400"
+                    >
+                      {task.status}
+                    </Badge>
+                  </div>
               
               <p className="text-slate-300 text-sm mb-3">{task.description}</p>
               
@@ -586,12 +599,14 @@ export default function TaskProgress() {
                 </div>
               </div>
               
-              <Button 
-                variant="outline" 
-                className="w-full border-yellow-600 text-yellow-400 hover:bg-yellow-600 hover:text-black"
-              >
-                Show Details
-              </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-yellow-600 text-yellow-400 hover:bg-yellow-600 hover:text-black"
+                  >
+                    Show Details
+                  </Button>
+                </div>
+              ))}
             </div>
           ))}
         </div>
