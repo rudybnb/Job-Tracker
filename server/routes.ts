@@ -1830,30 +1830,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { assignmentId } = req.params;
       console.log(`🤝 Fetching team task progress for assignment: ${assignmentId}`);
       
-      // Get all contractors assigned to this job
-      const assignments = await storage.getJobAssignments();
-      const teamAssignments = assignments.filter((a: any) => a.id === assignmentId);
+      // Get all assignments to find teammates working on the same job
+      const allAssignments = await storage.getJobAssignments();
+      const currentAssignment = allAssignments.find((a: any) => a.id === assignmentId);
       
-      if (teamAssignments.length === 0) {
+      if (!currentAssignment) {
+        console.log(`❌ Assignment ${assignmentId} not found`);
         return res.json([]);
       }
+      
+      // Find all contractors working on the same job location (teammates)
+      const teamAssignments = allAssignments.filter((a: any) => 
+        a.hbxlJob === currentAssignment.hbxlJob && 
+        a.workLocation === currentAssignment.workLocation &&
+        a.status === 'assigned'
+      );
+      
+      console.log(`🤝 Found ${teamAssignments.length} contractors working on job: ${currentAssignment.hbxlJob} at ${currentAssignment.workLocation}`);
       
       // Get task progress from all team members
       const teamProgress: any[] = [];
       
       for (const assignment of teamAssignments) {
-        const contractorProgress = await storage.getTaskProgress(assignment.contractorName, assignmentId);
+        const contractorProgress = await storage.getTaskProgress(assignment.contractorName, assignment.id);
         
         contractorProgress.forEach((progress: any) => {
-          teamProgress.push({
-            ...progress,
-            completedBy: assignment.contractorName,
-            completedByFirstName: assignment.contractorName.split(' ')[0]
-          });
+          if (progress.completed) {
+            teamProgress.push({
+              ...progress,
+              completedBy: assignment.contractorName,
+              completedByFirstName: assignment.contractorName.split(' ')[0]
+            });
+          }
         });
       }
       
-      console.log(`🤝 Found ${teamProgress.length} completed tasks across team members`);
+      console.log(`🤝 Found ${teamProgress.length} completed tasks across ${teamAssignments.length} team members`);
       res.json(teamProgress);
     } catch (error) {
       console.error("Error fetching team task progress:", error);
