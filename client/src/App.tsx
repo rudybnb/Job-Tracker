@@ -85,6 +85,11 @@ function Router() {
             <AdminDashboard />
           </ProtectedRoute>
         )} />
+        <Route path="/admin-dashboard" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard />
+          </ProtectedRoute>
+        )} />
         <Route path="/admin-task-monitor" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AdminTaskMonitor />
