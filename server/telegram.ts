@@ -29,13 +29,18 @@ export class TelegramService {
         return { success: true, simulated: true };
       }
 
-      // Get contractor's Telegram ID from database
-      const { DatabaseStorage } = await import('./database-storage');
-      const storage = new DatabaseStorage();
+      // Map contractor names to their specific chat IDs for job assignments
+      let chatId = '7617462316'; // Default to admin
       
-      // Find contractor by name to get their Telegram ID
-      const contractor = await storage.getContractorByName(params.contractorName);
-      const chatId = contractor?.telegramId || '8016744652'; // Dalwayne's correct ID
+      if (params.contractorName.toLowerCase().includes('marius')) {
+        chatId = '8006717361'; // Marius Andronache
+      } else if (params.contractorName.toLowerCase().includes('dalwayne')) {
+        chatId = '8016744652'; // Dalwayne Diedericks
+      } else if (params.contractorName.toLowerCase().includes('earl')) {
+        chatId = '6792554033'; // Earl Johnson
+      } else if (params.contractorName.toLowerCase().includes('muhammed') || params.contractorName.toLowerCase().includes('midou')) {
+        chatId = '5209713845'; // Muhammed/Midou
+      }
       
       const message = this.formatJobAssignmentMessage(params);
       

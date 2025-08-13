@@ -63,6 +63,7 @@ The application features a dark navy background (`#1e293b`) with muted yellow-gr
 - **Progressive Inspection System**: Implemented automatic admin inspection notifications at 50% and 100% job completion milestones, integrated into admin dashboard "Site Inspections Required" section.
 - **Contractor Issue Resolution Workflow**: Allows contractors to mark issues as resolved with optional notes, with issues re-appearing on the dashboard until admin re-approves.
 - **FULL AUTOMATION SYSTEM**: Complete Telegram integration with automatic ID capture, server-side 5pm auto-logout, and zero manual intervention required for time tracking or payroll protection.
+- **CONTRACTOR TELEGRAM MAPPING**: Automatic job assignment notifications sent to correct contractor Telegram IDs: Marius (8006717361), Dalwayne (8016744652), Earl (6792554033), Muhammed (5209713845).
 
 ### System Design Choices
 The application offers a complete workflow with distinct role-based interfaces for administrators and contractors. It manages operations from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize data persistence (PostgreSQL), security (GPS validation), and user experience. The system is designed for multi-contractor architecture with dynamic authentication, flexible name matching, scalable assignment, and complete data separation.
