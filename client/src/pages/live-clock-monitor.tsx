@@ -150,35 +150,53 @@ export default function LiveClockMonitor() {
                 })}
               </div>
             </div>
-            {activitiesLoading ? (
+{activitiesLoading ? (
               <div className="text-slate-400">Loading...</div>
             ) : recentActivities.length > 0 ? (
-              <div className="space-y-2">
-                {recentActivities.map((activity: any) => (
-                  <div key={activity.id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-1.5 h-1.5 rounded-full ${
-                        activity.activity === 'clock_in' ? 'bg-green-500' : 'bg-red-500'
-                      }`}></div>
-                      <span className="text-white">{activity.contractorName}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        activity.activity === 'clock_in' 
-                          ? 'bg-green-900 text-green-300' 
-                          : 'bg-red-900 text-red-300'
-                      }`}>
-                        {activity.activity === 'clock_in' ? 'In' : 'Out'}
-                      </span>
+              <div className="space-y-3">
+                {(() => {
+                  // Group activities by contractor
+                  const groupedActivities = recentActivities.reduce((groups: any, activity: any) => {
+                    const name = activity.contractorName;
+                    if (!groups[name]) {
+                      groups[name] = [];
+                    }
+                    groups[name].push(activity);
+                    return groups;
+                  }, {});
+
+                  return Object.entries(groupedActivities).map(([contractorName, activities]: [string, any]) => (
+                    <div key={contractorName} className="border-l-2 border-slate-600 pl-3">
+                      <div className="font-medium text-white mb-2">{contractorName}</div>
+                      <div className="space-y-1">
+                        {activities.map((activity: any) => (
+                          <div key={activity.id} className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className={`w-1.5 h-1.5 rounded-full ${
+                                activity.activity === 'clock_in' ? 'bg-green-500' : 'bg-red-500'
+                              }`}></div>
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                activity.activity === 'clock_in' 
+                                  ? 'bg-green-900 text-green-300' 
+                                  : 'bg-red-900 text-red-300'
+                              }`}>
+                                {activity.activity === 'clock_in' ? 'In' : 'Out'}
+                              </span>
+                            </div>
+                            <div className="text-slate-400 text-sm">
+                              {activity.actualTime || new Date(activity.timestamp).toLocaleTimeString('en-GB', {
+                                timeZone: 'Europe/London',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="text-slate-400 text-sm">
-                      {activity.actualTime || new Date(activity.timestamp).toLocaleTimeString('en-GB', {
-                        timeZone: 'Europe/London',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                      })}
-                    </div>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             ) : (
               <div className="text-slate-400">
