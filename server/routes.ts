@@ -414,7 +414,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Helper function to get GPS coordinates from UK postcode
-  function getPostcodeCoordinates(postcode: string): { latitude: string; longitude: string } | null {
+  function getPostcodeCoordinates(location: string): { latitude: string; longitude: string } | null {
+    if (!location || typeof location !== 'string') {
+      return null;
+    }
+    
     // Simple postcode-to-GPS lookup for common UK postcodes
     const postcodeMap: { [key: string]: { latitude: string; longitude: string } } = {
       'DA17 5DB': { latitude: '51.4851', longitude: '0.1540' },
@@ -427,21 +431,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'DA1': { latitude: '51.4417', longitude: '0.2056' },
       'SG1 1EH': { latitude: '51.8721', longitude: '-0.2015' },
       'SG1': { latitude: '51.8721', longitude: '-0.2015' },
-      'ME5 9GX': { latitude: '51.335996', longitude: '0.530215' }, // Dalwayne's current assignment - official UK postcode coordinates
+      'ME5 9GX': { latitude: '51.335996', longitude: '0.530215' }, // Chatham main site
       'ME5': { latitude: '51.335996', longitude: '0.530215' },
+      'ME1 1AA': { latitude: '51.388000', longitude: '0.505000' }, // Rochester site
+      'ME1': { latitude: '51.388000', longitude: '0.505000' },
+      'ME7 1BT': { latitude: '51.388800', longitude: '0.548900' }, // Gillingham site
+      'ME7': { latitude: '51.388800', longitude: '0.548900' },
       // Add more as needed
     };
     
-    // Try exact match first, then partial matches
-    const upperPostcode = postcode.toUpperCase().trim();
-    if (postcodeMap[upperPostcode]) {
-      return postcodeMap[upperPostcode];
+    // Extract postcode from location string (handles "City, POSTCODE" format)
+    const upperLocation = location.toUpperCase().trim();
+    
+    // Try to extract postcode pattern (letters followed by numbers and letters)
+    const postcodePattern = /([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})/;
+    const postcodeMatch = upperLocation.match(postcodePattern);
+    
+    if (postcodeMatch) {
+      const extractedPostcode = postcodeMatch[1].trim();
+      if (postcodeMap[extractedPostcode]) {
+        return postcodeMap[extractedPostcode];
+      }
+      
+      // Try partial match with area code only
+      const postcodePrefix = extractedPostcode.split(' ')[0];
+      if (postcodeMap[postcodePrefix]) {
+        return postcodeMap[postcodePrefix];
+      }
+    }
+    
+    // Fallback: try direct match with entire location string
+    if (postcodeMap[upperLocation]) {
+      return postcodeMap[upperLocation];
     }
     
     // Try partial matches (first part before space)
-    const postcodePrefix = upperPostcode.split(' ')[0];
-    if (postcodeMap[postcodePrefix]) {
-      return postcodeMap[postcodePrefix];
+    const locationPrefix = upperLocation.split(' ')[0];
+    if (postcodeMap[locationPrefix]) {
+      return postcodeMap[locationPrefix];
     }
     
     return null;
@@ -1314,61 +1341,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GPS proximity check endpoint for login validation
+  // Multi-site GPS proximity check endpoint for login validation
   app.post("/api/check-proximity", async (req, res) => {
     try {
-      const { userLatitude, userLongitude, workLocation, contractorName } = req.body;
+      const { userLatitude, userLongitude, contractorName } = req.body;
       
-      console.log(`🔍 GPS Proximity Check for ${contractorName}:`);
+      console.log(`🔍 MULTI-SITE GPS Check for ${contractorName}:`);
       console.log(`📍 User Location: ${userLatitude}, ${userLongitude}`);
-      console.log(`🏗️ Work Location: ${workLocation}`);
       
       // Update contractor's current location for real-time tracking
       if (contractorName && userLatitude && userLongitude) {
         updateContractorLocation(contractorName, parseFloat(userLatitude), parseFloat(userLongitude));
       }
       
-      // Get GPS coordinates for the work location (postcode)
-      const jobSiteCoords = getPostcodeCoordinates(workLocation);
-      if (!jobSiteCoords) {
-        return res.status(400).json({ 
-          error: "Unable to find GPS coordinates for work location",
-          withinRange: false,
-          distance: "Unknown"
-        });
+      // Check proximity to ALL job sites
+      const allJobs = await storage.getJobs();
+      console.log(`🔍 Found ${allJobs.length} total jobs in database`);
+      
+      let nearestJobSite = null;
+      let nearestDistance = Infinity;
+      let authorizedSites = [];
+      
+      for (const job of allJobs) {
+        if (job.location) {
+          console.log(`🏗️ Checking job: ${job.title} at ${job.location}`);
+          const jobSiteCoords = getPostcodeCoordinates(job.location);
+          console.log(`🔎 GPS lookup for ${job.location}:`, jobSiteCoords);
+          if (jobSiteCoords) {
+            console.log(`📍 GPS coordinates for ${job.location}: ${jobSiteCoords.latitude}, ${jobSiteCoords.longitude}`);
+            const jobSiteLat = parseFloat(jobSiteCoords.latitude);
+            const jobSiteLon = parseFloat(jobSiteCoords.longitude);
+            
+            const distance = calculateGPSDistance(
+              parseFloat(userLatitude),
+              parseFloat(userLongitude),
+              jobSiteLat,
+              jobSiteLon
+            );
+            
+            // Track nearest job site
+            if (distance < nearestDistance) {
+              nearestDistance = distance;
+              nearestJobSite = {
+                location: job.location,
+                distance: distance,
+                jobTitle: job.title,
+                jobId: job.id
+              };
+            }
+            
+            // Check if within login range (100m) of this site
+            if (distance <= 100) {
+              authorizedSites.push({
+                location: job.location,
+                distance: Math.round(distance),
+                jobTitle: job.title,
+                jobId: job.id
+              });
+            }
+          }
+        }
       }
       
-      const jobSiteLat = parseFloat(jobSiteCoords.latitude);
-      const jobSiteLon = parseFloat(jobSiteCoords.longitude);
+      const withinRange = authorizedSites.length > 0;
       
-      console.log(`🎯 Job Site Coordinates: ${jobSiteLat}, ${jobSiteLon}`);
-      
-      // Calculate distance between user and job site
-      const distance = calculateGPSDistance(
-        parseFloat(userLatitude),
-        parseFloat(userLongitude),
-        jobSiteLat,
-        jobSiteLon
-      );
-      
-      const withinRange = distance <= 100; // 100 meter proximity requirement
-      
-      console.log(`📏 Distance: ${distance.toFixed(0)}m - ${withinRange ? '✅ WITHIN RANGE' : '❌ TOO FAR'}`);
+      if (withinRange) {
+        console.log(`✅ AUTHORIZED: ${contractorName} can clock in at ${authorizedSites.length} site(s)`);
+        authorizedSites.forEach(site => {
+          console.log(`   📍 ${site.location} (${site.jobTitle}) - ${site.distance}m away`);
+        });
+      } else {
+        const nearestInfo = nearestJobSite ? 
+          `${Math.round(nearestDistance)}m from ${nearestJobSite.location}` :
+          'no job sites found';
+        console.log(`❌ TOO FAR: ${contractorName} not within 100m of any job site - ${nearestInfo}`);
+      }
       
       res.json({
         withinRange,
-        distance: Math.round(distance),
+        authorizedSites,
+        nearestJobSite,
         allowedDistance: 100,
-        workLocation,
-        jobSiteCoordinates: jobSiteCoords
+        message: withinRange ? 
+          `Access granted to ${authorizedSites.length} job site(s)` :
+          `Must be within 100m of a job site to clock in`
       });
       
     } catch (error) {
-      console.error("Error in proximity check:", error);
+      console.error("Error in multi-site proximity check:", error);
       res.status(500).json({ 
         error: "Failed to check proximity",
         withinRange: false,
-        distance: "Error"
+        authorizedSites: []
       });
     }
   });

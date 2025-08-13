@@ -116,46 +116,76 @@ async function startAutomaticLogoutService() {
             const currentLocation = getContractorLocation(session.contractorName.trim());
             
             if (currentLocation) {
-              // Try to determine work location from job assignments
-              const assignments = await storage.getContractorAssignments(session.contractorName.trim());
+              // Multi-site detection: Check proximity to ALL job sites
+              const allJobs = await storage.getJobs();
+              let nearestJobSite = null;
+              let nearestDistance = Infinity;
+              let isNearAnyJobSite = false;
               
-              // Default to ME5 9GX (Chatham) if no assignments found
-              let workLocation = 'ME5 9GX';
-              if (assignments.length > 0) {
-                workLocation = assignments[0].workLocation;
+              // Check distance to all job sites
+              for (const job of allJobs) {
+                if (job.location) {
+                  const jobSiteCoords = getPostcodeCoordinates(job.location);
+                  if (jobSiteCoords) {
+                    const jobSiteLat = parseFloat(jobSiteCoords.latitude);
+                    const jobSiteLon = parseFloat(jobSiteCoords.longitude);
+                    
+                    const distance = calculateGPSDistance(
+                      currentLocation.latitude, 
+                      currentLocation.longitude, 
+                      jobSiteLat, 
+                      jobSiteLon
+                    );
+                    
+                    // Track nearest job site
+                    if (distance < nearestDistance) {
+                      nearestDistance = distance;
+                      nearestJobSite = {
+                        location: job.location,
+                        distance: distance,
+                        jobTitle: job.title
+                      };
+                    }
+                    
+                    // Check if within working range of ANY job site (500m threshold)
+                    if (distance <= 500) {
+                      isNearAnyJobSite = true;
+                    }
+                  }
+                }
               }
               
-              // Get job site coordinates
-              const jobSiteCoords = getPostcodeCoordinates(workLocation);
-              
-              if (jobSiteCoords) {
-                const jobSiteLat = parseFloat(jobSiteCoords.latitude);
-                const jobSiteLon = parseFloat(jobSiteCoords.longitude);
+              // Auto-logout only if contractor is FAR from ALL job sites
+              if (!isNearAnyJobSite) {
+                const endTime = new Date();
                 
-                // Calculate distance from CURRENT position to job site
-                const distance = calculateGPSDistance(
-                  currentLocation.latitude, 
-                  currentLocation.longitude, 
-                  jobSiteLat, 
-                  jobSiteLon
-                );
+                await storage.updateWorkSession(session.id, {
+                  endTime,
+                  status: 'completed' as const
+                });
                 
-                // Auto-logout if contractor is more than 500 meters from job site
-                // (More lenient than login requirement of 100m to avoid accidental logouts)
-                if (distance > 500) {
-                  const endTime = new Date();
+                const nearestInfo = nearestJobSite ? 
+                  `${Math.round(nearestDistance)}m from nearest site (${nearestJobSite.location})` :
+                  'no job sites found';
+                
+                console.log(`📍 AUTO-LOGOUT (MULTI-SITE): ${session.contractorName} auto-logged out - ${nearestInfo}`);
+              } else {
+                // Update active assignment if moved to different job site
+                if (nearestJobSite && nearestDistance <= 100) {
+                  // Contractor is very close to a specific job site - could update assignment
+                  const currentAssignments = await storage.getContractorAssignments(session.contractorName.trim());
                   
-                  // Update session to completed
-                  await storage.updateWorkSession(session.id, {
-                    endTime,
-                    status: 'completed' as const
-                  });
-                  
-                  console.log(`📍 AUTO-LOGOUT (GPS): ${session.contractorName} auto-logged out - ${Math.round(distance)}m from job site (${workLocation})`);
-                } else {
-                  // Log current proximity for monitoring
-                  console.log(`📍 GPS TRACKING: ${session.contractorName} is ${Math.round(distance)}m from ${workLocation} ✅`);
+                  if (currentAssignments.length === 0 || currentAssignments[0].workLocation !== nearestJobSite.location) {
+                    console.log(`🔄 AUTO-ASSIGNMENT DETECTED: ${session.contractorName} near ${nearestJobSite.location} (${nearestJobSite.jobTitle})`);
+                  }
                 }
+                
+                // Log multi-site tracking status
+                const statusInfo = nearestJobSite ? 
+                  `${Math.round(nearestDistance)}m from ${nearestJobSite.location}` :
+                  'monitoring all sites';
+                
+                console.log(`📍 MULTI-SITE TRACKING: ${session.contractorName} - ${statusInfo} ✅`);
               }
             } else {
               // No current location available - use start coordinates as fallback
@@ -197,7 +227,7 @@ async function startAutomaticLogoutService() {
       if (currentMinute % 5 === 0 && currentHour < 17) {
         const activeSessions = await storage.getAllActiveSessions();
         if (activeSessions.length > 0) {
-          console.log(`🕐 MONITORING: ${activeSessions.length} active contractors, auto-logout at 5:00 PM or if >500m from site`);
+          console.log(`🕐 MULTI-SITE MONITORING: ${activeSessions.length} active contractors, auto-logout at 5:00 PM or if >500m from ALL sites`);
         }
       }
       
