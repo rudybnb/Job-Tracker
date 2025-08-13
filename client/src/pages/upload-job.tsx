@@ -185,26 +185,6 @@ export default function UploadJob() {
             )}
           </div>
         </div>
-
-        {/* Instructions */}
-        <div className="mt-8 bg-slate-800 border border-slate-700 rounded-lg p-6">
-          <h4 className="text-lg font-medium text-amber-400 mb-3">CSV File Format Requirements</h4>
-          <div className="text-sm text-slate-300 space-y-2">
-            <p><strong>Header Information (First 4 lines):</strong></p>
-            <ul className="list-disc list-inside ml-4 space-y-1">
-              <li>Name,&lt;Job Name&gt;</li>
-              <li>Address,&lt;Job Address&gt;</li>
-              <li>Post code,&lt;Postcode&gt;</li>
-              <li>Project Type,&lt;Project Type&gt;</li>
-            </ul>
-            <p className="mt-3"><strong>Data Section:</strong></p>
-            <ul className="list-disc list-inside ml-4 space-y-1">
-              <li>Must include columns: Order Date, Build Phase, etc.</li>
-              <li>Build Phase column contains the job phases</li>
-              <li>System will extract unique phases automatically</li>
-            </ul>
-          </div>
-        </div>
       </div>
 
       {/* Bottom Navigation */}
