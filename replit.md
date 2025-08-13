@@ -27,7 +27,7 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
 ### UI/UX Decisions
 The application features a dark navy background (`#1e293b`) with muted yellow-grey headers and text (`#d97706`, `#ca8a04`). UI elements include rounded cards with slate borders (`#374151`) and consistent bottom navigation. GPS coordinates and timer displays are designed for precise visual matching.
 
-**Live Monitoring Layout (August 2025)**: Simplified live clock monitoring from complex detailed view to minimal layout showing only Active Workers and Recent Activities. Dedicated `/live-clock-monitor` page replaced with redirect message directing users to main dashboard version.
+**Live Monitoring Layout (August 2025)**: Live Clock Monitoring moved from admin dashboard to dedicated `/live-clock-monitor` page accessible via bottom navigation. Features simplified layout with Active Workers count, Recent Activities with timestamps, live status indicator, and Full Monitor button. Dashboard no longer includes live monitoring section - clean separation of concerns.
 
 ### Technical Implementations
 **Frontend**:
