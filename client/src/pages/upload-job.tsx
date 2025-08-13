@@ -92,18 +92,18 @@ export default function UploadJob() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-900">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-50">
+      <div className="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-slate-900">Upload Job Files</h1>
+              <h1 className="text-2xl font-bold text-amber-400">Upload Job Files</h1>
             </div>
             <div className="flex items-center space-x-4">
               <button 
                 onClick={() => window.location.href = '/'}
-                className="text-slate-600 hover:text-slate-900"
+                className="text-slate-300 hover:text-amber-400"
               >
                 ← Back to Dashboard
               </button>
@@ -120,14 +120,14 @@ export default function UploadJob() {
           </div>
 
           {/* Upload History */}
-          <div className="bg-white rounded-lg shadow-md border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Uploads</h3>
+          <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
+            <h3 className="text-lg font-semibold text-amber-400 mb-4">Recent Uploads</h3>
             
             {uploads.length === 0 ? (
               <div className="text-center py-8">
-                <FileText className="mx-auto h-12 w-12 text-slate-300 mb-4" />
-                <p className="text-slate-500">No uploads yet</p>
-                <p className="text-sm text-slate-400 mt-1">
+                <FileText className="mx-auto h-12 w-12 text-slate-500 mb-4" />
+                <p className="text-slate-400">No uploads yet</p>
+                <p className="text-sm text-slate-500 mt-1">
                   Upload your first CSV file to get started
                 </p>
               </div>
@@ -136,18 +136,18 @@ export default function UploadJob() {
                 {uploads.slice().reverse().map((upload) => (
                   <div
                     key={upload.id}
-                    className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50"
+                    className="flex items-center justify-between p-4 border border-slate-600 rounded-lg hover:bg-slate-700/50"
                   >
                     <div className="flex items-center space-x-3">
                       <FileText className="h-8 w-8 text-slate-400" />
                       <div>
-                        <div className="font-medium text-slate-900">
+                        <div className="font-medium text-slate-200">
                           {upload.filename}
                         </div>
-                        <div className="text-sm text-slate-500">
+                        <div className="text-sm text-slate-400">
                           {upload.jobsCount} job(s) created
                         </div>
-                        <div className="text-xs text-slate-400">
+                        <div className="text-xs text-slate-500">
                           {new Date(upload.createdAt).toLocaleString()}
                         </div>
                       </div>
@@ -169,11 +169,11 @@ export default function UploadJob() {
                         disabled={deleteMutation.isPending}
                         variant="ghost"
                         size="sm"
-                        className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1 h-8 w-8"
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20 p-1 h-8 w-8"
                         title="Delete upload record"
                       >
                         {deleteMutation.isPending ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
                         ) : (
                           <Trash2 className="h-4 w-4" />
                         )}
@@ -187,9 +187,9 @@ export default function UploadJob() {
         </div>
 
         {/* Instructions */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h4 className="text-lg font-medium text-blue-900 mb-3">CSV File Format Requirements</h4>
-          <div className="text-sm text-blue-800 space-y-2">
+        <div className="mt-8 bg-slate-800 border border-slate-700 rounded-lg p-6">
+          <h4 className="text-lg font-medium text-amber-400 mb-3">CSV File Format Requirements</h4>
+          <div className="text-sm text-slate-300 space-y-2">
             <p><strong>Header Information (First 4 lines):</strong></p>
             <ul className="list-disc list-inside ml-4 space-y-1">
               <li>Name,&lt;Job Name&gt;</li>

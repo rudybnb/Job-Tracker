@@ -303,10 +303,10 @@ export default function UploadCsv() {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md border border-slate-200 p-6">
+    <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
       <div className="mb-4">
         <div className="flex items-center space-x-2 mb-2">
-          <h3 className="text-lg font-semibold text-slate-900">Upload Job CSV File</h3>
+          <h3 className="text-lg font-semibold text-amber-400">Upload Job CSV File</h3>
           <ContextualTooltip
             id="csv-upload-header"
             title="CSV Upload Process"
@@ -314,12 +314,12 @@ export default function UploadCsv() {
             type="info"
             placement="right"
           >
-            <div className="text-blue-500 cursor-help">
+            <div className="text-amber-500 cursor-help">
               <AlertCircle className="h-4 w-4" />
             </div>
           </ContextualTooltip>
         </div>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-slate-400">
           Upload CSV files to create new jobs. File format: Name, Address, Project Type, Build Phase data.
         </p>
       </div>
@@ -327,8 +327,8 @@ export default function UploadCsv() {
       <div
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
           dragActive
-            ? "border-blue-400 bg-blue-50"
-            : "border-slate-300 hover:border-slate-400"
+            ? "border-amber-400 bg-amber-900/10"
+            : "border-slate-600 hover:border-slate-500"
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -346,7 +346,7 @@ export default function UploadCsv() {
         
         {!selectedFile ? (
           <>
-            <Upload className="mx-auto h-12 w-12 text-slate-400 mb-4" />
+            <Upload className="mx-auto h-12 w-12 text-slate-500 mb-4" />
             <ContextualTooltip
               id="file-selection-area"
               title="File Selection"
@@ -356,18 +356,18 @@ export default function UploadCsv() {
             >
               <label
                 htmlFor="csv-upload"
-                className="cursor-pointer text-blue-600 hover:text-blue-500 font-medium"
+                className="cursor-pointer text-amber-500 hover:text-amber-400 font-medium"
               >
                 Click to upload
               </label>
             </ContextualTooltip>
-            <span className="text-slate-500"> or drag and drop</span>
+            <span className="text-slate-400"> or drag and drop</span>
             <p className="text-sm text-slate-500 mt-2">CSV files only, up to 10MB</p>
           </>
         ) : (
           <div className="flex items-center justify-center space-x-3">
-            <FileText className="h-8 w-8 text-green-600" />
-            <span className="text-slate-900 font-medium">{selectedFile.name}</span>
+            <FileText className="h-8 w-8 text-green-500" />
+            <span className="text-slate-200 font-medium">{selectedFile.name}</span>
             <ContextualTooltip
               id="clear-file-button"
               title="Clear Selected File"
@@ -377,7 +377,7 @@ export default function UploadCsv() {
             >
               <button
                 onClick={handleClearData}
-                className="flex items-center space-x-1 px-2 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                className="flex items-center space-x-1 px-2 py-1 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors"
                 disabled={uploadMutation.isPending}
               >
                 <i className="fas fa-times text-sm"></i>
@@ -390,7 +390,7 @@ export default function UploadCsv() {
 
       {selectedFile && !showPreview && (
         <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-sm text-slate-600">
+          <div className="flex items-center space-x-2 text-sm text-slate-400">
             <FileText className="h-4 w-4" />
             <span>{(selectedFile.size / 1024).toFixed(1)} KB</span>
           </div>
@@ -404,7 +404,7 @@ export default function UploadCsv() {
           >
             <Button
               onClick={() => setShowPreview(true)}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-amber-600 hover:bg-amber-700"
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Preview Jobs
@@ -414,7 +414,7 @@ export default function UploadCsv() {
       )}
 
       {uploadMutation.error && (
-        <div className="mt-4 flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
+        <div className="mt-4 flex items-center space-x-2 text-red-400 bg-red-900/20 border border-red-700/30 p-3 rounded-lg">
           <AlertCircle className="h-5 w-5" />
           <span className="text-sm">{uploadMutation.error.message}</span>
         </div>
