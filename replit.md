@@ -27,6 +27,8 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
 ### UI/UX Decisions
 The application features a dark navy background (`#1e293b`) with muted yellow-grey headers and text (`#d97706`, `#ca8a04`). UI elements include rounded cards with slate borders (`#374151`) and consistent bottom navigation. GPS coordinates and timer displays are designed for precise visual matching.
 
+**Live Monitoring Layout (August 2025)**: Simplified live clock monitoring from complex detailed view to minimal layout showing only Active Workers and Recent Activities. Dedicated `/live-clock-monitor` page replaced with redirect message directing users to main dashboard version.
+
 ### Technical Implementations
 **Frontend**:
 - **Framework**: React with TypeScript, Vite.
