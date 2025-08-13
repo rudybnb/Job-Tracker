@@ -1010,13 +1010,7 @@ export default function AdminDashboard() {
             <i className="fas fa-user-cog block mb-1"></i>
             <span className="text-xs">Admin</span>
           </button>
-          <button 
-            onClick={() => window.location.href = '/admin-time-tracking'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
-          >
-            <i className="fas fa-clock block mb-1"></i>
-            <span className="text-xs">Time Tracking</span>
-          </button>
+
           <button 
             onClick={() => window.location.href = '/upload'}
             className="py-3 px-4 text-slate-400 hover:text-white"
