@@ -102,17 +102,9 @@ export default function LiveClockMonitor() {
             <div className="flex items-center space-x-2">
               <h3 className="text-green-500 text-lg font-semibold">Live Clock Monitoring</h3>
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-green-500 text-sm">Live</span>
-              </div>
-              <button 
-                onClick={() => window.location.href = '/admin'}
-                className="text-sm px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
-              >
-                Full Monitor
-              </button>
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-green-500 text-sm">Live</span>
             </div>
           </div>
           
