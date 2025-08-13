@@ -22,6 +22,12 @@ export default function TaskProgress() {
 
   // Get the first (active) assignment
   const activeAssignment = (assignments as any[])[0];
+
+  // Get team task progress to show teammate completion status
+  const { data: teamProgress = [] } = useQuery({
+    queryKey: [`/api/team-task-progress/${activeAssignment?.id}`],
+    enabled: !!activeAssignment?.id,
+  });
   
   // Initialize TaskProgressManager when assignment is available
   const [progressManager, setProgressManager] = useState<TaskProgressManager | null>(null);
@@ -55,6 +61,16 @@ export default function TaskProgress() {
   
   // Initialize tasks from database or CSV data
   const [tasks, setTasks] = useState<TaskProgressData[]>([]);
+
+  // Helper function to check if a task has been completed by teammates
+  const getTeammateCompletion = (taskId: string) => {
+    const teammateProgress = (teamProgress as any[]).find((progress: any) => 
+      progress.taskId === taskId && 
+      progress.completed && 
+      progress.completedByFirstName !== contractorFirstName
+    );
+    return teammateProgress;
+  };
 
   // Clear any old static task data when component loads  
   useEffect(() => {
@@ -541,72 +557,119 @@ export default function TaskProgress() {
               </div>
               
               {/* Phase Tasks */}
-              {phaseTasks.map((task) => (
-                <div key={task.id} className="bg-slate-800 rounded-lg p-4 border border-slate-700 ml-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 border-2 border-slate-500 rounded-full mr-3 mt-1"></div>
-                      <div>
-                        <h4 className="text-yellow-400 font-semibold">{task.title}</h4>
-                      </div>
-                    </div>
-                    <Badge 
-                      variant="outline" 
-                      className="border-slate-500 text-slate-400"
-                    >
-                      {task.status}
-                    </Badge>
-                  </div>
-              
-              <p className="text-slate-300 text-sm mb-3">{task.description}</p>
-              
-              <div className="text-orange-400 text-sm mb-4">
-                • {task.totalItems} items left to complete
-              </div>
-              
-              {/* Progress Section */}
-              <div className="flex items-center justify-between mb-4">
-                <button 
-                  onClick={() => updateTaskProgress(task.id, -1)}
-                  disabled={task.completedItems <= 0}
-                  className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  −
-                </button>
+              {phaseTasks.map((task) => {
+                const teammateCompletion = getTeammateCompletion(task.id);
                 
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white">
-                    {task.completedItems} / {task.totalItems}
-                  </div>
-                  <div className="text-slate-400 text-sm">completed</div>
-                  <div className="text-orange-400 text-sm">
-                    {task.totalItems - task.completedItems} remaining
-                  </div>
-                </div>
-                
-                <button 
-                  onClick={() => updateTaskProgress(task.id, 1)}
-                  disabled={task.completedItems >= task.totalItems}
-                  className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-yellow-400 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  +
-                </button>
-                
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-white">
-                    {task.totalItems > 0 ? Math.round((task.completedItems / task.totalItems) * 100) : 0}%
-                  </div>
-                </div>
-              </div>
-              
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-yellow-600 text-yellow-400 hover:bg-yellow-600 hover:text-black"
+                return (
+                  <div 
+                    key={task.id} 
+                    className={`bg-slate-800 rounded-lg p-4 border ml-4 ${
+                      teammateCompletion ? 'border-green-500 bg-green-900/20' : 'border-slate-700'
+                    }`}
                   >
-                    Show Details
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center">
+                        <div 
+                          className={`w-4 h-4 border-2 rounded-full mr-3 mt-1 ${
+                            teammateCompletion 
+                              ? 'border-green-500 bg-green-500' 
+                              : 'border-slate-500'
+                          }`}
+                        >
+                          {teammateCompletion && (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <i className="fas fa-check text-white text-xs"></i>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h4 className={`font-semibold ${teammateCompletion ? 'text-green-400' : 'text-yellow-400'}`}>
+                            {task.title}
+                          </h4>
+                          {teammateCompletion && (
+                            <div className="text-green-400 text-xs mt-1">
+                              ✓ Completed by {teammateCompletion.completedByFirstName}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <Badge 
+                        variant="outline" 
+                        className={`${
+                          teammateCompletion 
+                            ? 'border-green-500 text-green-400' 
+                            : 'border-slate-500 text-slate-400'
+                        }`}
+                      >
+                        {teammateCompletion ? 'Done by teammate' : task.status}
+                      </Badge>
+                    </div>
+                    
+                    <p className="text-slate-300 text-sm mb-3">{task.description}</p>
+                    
+                    {!teammateCompletion && (
+                      <>
+                        <div className="text-orange-400 text-sm mb-4">
+                          • {task.totalItems} items left to complete
+                        </div>
+                        
+                        {/* Progress Section */}
+                        <div className="flex items-center justify-between mb-4">
+                          <button 
+                            onClick={() => updateTaskProgress(task.id, -1)}
+                            disabled={task.completedItems <= 0}
+                            className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            −
+                          </button>
+                          
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-white">
+                              {task.completedItems} / {task.totalItems}
+                            </div>
+                            <div className="text-slate-400 text-sm">completed</div>
+                            <div className="text-orange-400 text-sm">
+                              {task.totalItems - task.completedItems} remaining
+                            </div>
+                          </div>
+                          
+                          <button 
+                            onClick={() => updateTaskProgress(task.id, 1)}
+                            disabled={task.completedItems >= task.totalItems}
+                            className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-yellow-400 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            +
+                          </button>
+                          
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-white">
+                              {task.totalItems > 0 ? Math.round((task.completedItems / task.totalItems) * 100) : 0}%
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <Button 
+                          variant="outline" 
+                          className="w-full border-yellow-600 text-yellow-400 hover:bg-yellow-600 hover:text-black"
+                        >
+                          Show Details
+                        </Button>
+                      </>
+                    )}
+                    
+                    {teammateCompletion && (
+                      <div className="text-center py-4">
+                        <div className="text-green-400 font-medium">
+                          This task has been completed by your teammate
+                        </div>
+                        <div className="text-slate-400 text-sm mt-1">
+                          No further action needed
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>

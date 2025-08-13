@@ -1824,6 +1824,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get team task progress - shows completion status from all team members
+  app.get("/api/team-task-progress/:assignmentId", async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      console.log(`🤝 Fetching team task progress for assignment: ${assignmentId}`);
+      
+      // Get all contractors assigned to this job
+      const assignments = await storage.getJobAssignments();
+      const teamAssignments = assignments.filter((a: any) => a.id === assignmentId);
+      
+      if (teamAssignments.length === 0) {
+        return res.json([]);
+      }
+      
+      // Get task progress from all team members
+      const teamProgress: any[] = [];
+      
+      for (const assignment of teamAssignments) {
+        const contractorProgress = await storage.getTaskProgress(assignment.contractorName, assignmentId);
+        
+        contractorProgress.forEach((progress: any) => {
+          teamProgress.push({
+            ...progress,
+            completedBy: assignment.contractorName,
+            completedByFirstName: assignment.contractorName.split(' ')[0]
+          });
+        });
+      }
+      
+      console.log(`🤝 Found ${teamProgress.length} completed tasks across team members`);
+      res.json(teamProgress);
+    } catch (error) {
+      console.error("Error fetching team task progress:", error);
+      res.status(500).json({ error: "Failed to fetch team task progress" });
+    }
+  });
+
   app.post("/api/task-progress", async (req, res) => {
     try {
       const progress = await storage.createTaskProgress(req.body);
