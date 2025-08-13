@@ -754,44 +754,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* GPS Time Tracker Card */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center mb-4">
-            <i className="fas fa-clock text-yellow-600 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-600">GPS Time Tracker</h3>
-          </div>
-          
-          <div className="text-center space-y-4">
-            <div className="flex items-center justify-center space-x-2 text-slate-400">
-              <i className="fas fa-map-marker-alt"></i>
-              <span>Location unknown</span>
-            </div>
-            
-            <div className="text-6xl font-mono font-bold text-blue-400">
-              {currentTime}
-            </div>
-            
-            <Button
-              onClick={handleStartWork}
-              className={`w-full py-4 text-lg font-medium ${
-                isTracking 
-                  ? 'bg-red-600 hover:bg-red-700' 
-                  : 'bg-green-600 hover:bg-green-700'
-              } text-white`}
-            >
-              <i className={`fas ${isTracking ? 'fa-stop' : 'fa-play'} mr-2`}></i>
-              {isTracking ? 'Stop Work' : 'Start Work (GPS Verified)'}
-            </Button>
-            
-            <div className="text-slate-400 text-sm">
-              Ready to start GPS-verified time tracking
-            </div>
-            
-            <div className="text-red-400 text-xs">
-              TESTING MODE: Work hour restrictions disabled
-            </div>
-          </div>
-        </div>
+
 
         {/* Priority Issues Card - Admin reports problems */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
