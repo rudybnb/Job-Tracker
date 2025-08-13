@@ -330,16 +330,7 @@ export default function AdminDashboard() {
                     ✨ Review Applications ✨
                   </button>
                   
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/live-clock-monitor';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-green-400 bg-green-900/20"
-                  >
-                    <i className="fas fa-broadcast-tower mr-3 w-4"></i>
-                    📡 Live Clock Monitor 📡
-                  </button>
+
                   
                   <button 
                     onClick={() => {
@@ -1004,13 +995,19 @@ export default function AdminDashboard() {
             <span className="text-xs">Jobs</span>
           </button>
           <button 
+            onClick={() => window.location.href = '/live-clock-monitor'}
+            className="py-3 px-4 text-slate-400 hover:text-white"
+          >
+            <i className="fas fa-broadcast-tower block mb-1"></i>
+            <span className="text-xs">Live Monitor</span>
+          </button>
+          <button 
             onClick={() => window.location.href = '/admin-task-monitor'}
             className="py-3 px-4 text-slate-400 hover:text-white"
           >
             <i className="fas fa-user-cog block mb-1"></i>
             <span className="text-xs">Admin</span>
           </button>
-
           <button 
             onClick={() => window.location.href = '/upload'}
             className="py-3 px-4 text-slate-400 hover:text-white"
