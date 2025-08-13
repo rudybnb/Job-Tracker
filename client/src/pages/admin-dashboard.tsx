@@ -559,12 +559,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Live Clock Monitoring - Expanded Daily Use */}
+        {/* Live Clock Monitoring - Simple Clean Layout */}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <i className="fas fa-users text-green-500"></i>
-              <h3 className="text-lg font-semibold text-green-500">Live Clock Monitoring</h3>
+              <h3 className="text-green-500 text-lg font-semibold">Live Clock Monitoring</h3>
             </div>
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
@@ -580,53 +579,30 @@ export default function AdminDashboard() {
             </div>
           </div>
           
-          {/* Currently Active Workers - Expanded Grid */}
-          <div className="mb-6">
-            <h4 className="text-white font-medium mb-3 flex items-center">
-              <i className="fas fa-clock text-yellow-500 mr-2"></i>
+          {/* Active Workers - Simple */}
+          <div className="mb-4">
+            <h4 className="text-white font-medium mb-3">
               Active Workers ({activeSessions.length})
             </h4>
             {activeSessions.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="space-y-2">
                 {activeSessions.map((session: any) => (
-                  <div key={session.id} className="bg-slate-700/50 border border-slate-600 rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2 min-w-0">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <div className="min-w-0">
-                          <div className="text-white font-medium text-sm truncate">{session.contractorName}</div>
-                          <div className="text-slate-400 text-xs">
-                            Started {session.startedAt || new Date(session.startTime).toLocaleTimeString('en-GB', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-yellow-400 font-bold text-sm">
-                          {session.duration || 'Calculating...'}
-                        </div>
-                      </div>
-                    </div>
+                  <div key={session.id} className="text-white">
+                    {session.contractorName} - Active
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-slate-400 text-center py-4">
-                <i className="fas fa-clock text-slate-500 text-2xl mb-2"></i>
-                <div>No workers currently active</div>
+              <div className="text-slate-400">
+                No workers currently active
               </div>
             )}
           </div>
 
-          {/* Recent Activities - Expanded */}
-          <div className="mb-6">
-            <h4 className="text-white font-medium mb-3 flex items-center justify-between">
-              <div className="flex items-center">
-                <i className="fas fa-history text-blue-500 mr-2"></i>
-                Recent Activities (Last 24h)
-              </div>
+          {/* Recent Activities - Simple */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-white font-medium">Recent Activities (Last 24h)</h4>
               <div className="text-slate-400 text-xs">
                 Current: {new Date().toLocaleTimeString('en-GB', {
                   timeZone: 'Europe/London',
@@ -634,23 +610,23 @@ export default function AdminDashboard() {
                   minute: '2-digit'
                 })}
               </div>
-            </h4>
+            </div>
             {recentActivities.length > 0 ? (
-              <div className="space-y-1 max-h-48 overflow-y-auto">
-                {recentActivities.slice(0, 8).map((activity: any) => (
-                  <div key={activity.id} className="bg-slate-700/40 rounded p-2 flex items-center justify-between">
+              <div className="space-y-1">
+                {recentActivities.slice(0, 4).map((activity: any) => (
+                  <div key={activity.id} className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <div className={`w-1.5 h-1.5 rounded-full ${
                         activity.activity === 'clock_in' ? 'bg-green-500' : 'bg-red-500'
                       }`}></div>
-                      <div className="text-white text-sm truncate">{activity.contractorName}</div>
-                      <div className={`text-xs px-1.5 py-0.5 rounded ${
+                      <span className="text-white text-sm">{activity.contractorName}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
                         activity.activity === 'clock_in' 
                           ? 'bg-green-900 text-green-300' 
                           : 'bg-red-900 text-red-300'
                       }`}>
                         {activity.activity === 'clock_in' ? 'In' : 'Out'}
-                      </div>
+                      </span>
                     </div>
                     <div className="text-slate-400 text-xs">
                       {activity.actualTime || new Date(activity.timestamp).toLocaleTimeString('en-GB', {
@@ -663,83 +639,8 @@ export default function AdminDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="text-slate-400 text-center py-3">
-                <i className="fas fa-history text-slate-500 text-xl mb-2"></i>
-                <div>No recent activity</div>
-              </div>
-            )}
-          </div>
-
-          {/* Today's Daily Hours Summary - Expanded */}
-          <div>
-            <h4 className="text-white font-medium mb-3 flex items-center justify-between">
-              <div className="flex items-center">
-                <i className="fas fa-calendar-day text-orange-500 mr-2"></i>
-                Today's Daily Hours ({dailySummary.length} contractors)
-              </div>
-              <div className="text-slate-400 text-xs">
-                {todaySessions.length} sessions total
-              </div>
-            </h4>
-            {dailySummary.length > 0 ? (
-              <div className="space-y-3">
-                {/* Daily Summary by Contractor */}
-                <div className="grid grid-cols-1 gap-3">
-                  {dailySummary.map((contractor: any) => (
-                    <div key={contractor.contractorName} className="bg-slate-700 rounded p-3 border border-slate-600">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-white font-medium text-sm">{contractor.contractorName}</div>
-                        <div className="flex items-center space-x-2">
-                          {contractor.activeSession && (
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                          )}
-                          <div className="text-yellow-400 font-bold text-lg">
-                            {contractor.totalDailyHours}h
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-slate-400 text-xs mb-2">
-                        {contractor.sessions.length} session{contractor.sessions.length !== 1 ? 's' : ''} today
-                        {contractor.activeSession && (
-                          <span className="text-green-400 ml-2">• Currently Active</span>
-                        )}
-                      </div>
-                      
-                      {/* Individual Sessions */}
-                      <div className="space-y-1">
-                        {contractor.sessions.map((session: any, index: number) => (
-                          <div key={session.id} className="bg-slate-800 rounded p-2 text-xs">
-                            <div className="flex items-center justify-between">
-                              <div className="text-slate-300">
-                                Session {index + 1}: {
-                                  session.startTime ? new Date(session.startTime).toLocaleTimeString('en-GB', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  }) : 'Unknown'
-                                } - {
-                                  session.endTime 
-                                    ? new Date(session.endTime).toLocaleTimeString('en-GB', {
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      })
-                                    : session.status === 'active' ? 'Active' : 'Ongoing'
-                                }
-                              </div>
-                              <div className="text-yellow-400 font-medium">
-                                {session.totalHours}h
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="text-slate-400 text-center py-3">
-                <i className="fas fa-calendar-day text-slate-500 text-xl mb-2"></i>
-                <div>No sessions today</div>
+              <div className="text-slate-400">
+                No recent activity
               </div>
             )}
           </div>
