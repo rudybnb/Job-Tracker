@@ -1,6 +1,55 @@
 # ERdesignandbuild - GPS Time Tracking & Job Management System
 ## Changelog
 
+### Version 1.3.10 - TEAM TASK VISIBILITY & COORDINATION SYSTEM (August 13, 2025 - 8:07 PM)
+
+#### ✅ **NEW FEATURE: Real-Time Team Task Completion Visibility**
+**Feature**: Contractors can now see which tasks their teammates have already completed
+**Benefit**: Prevents duplicate work and improves team coordination on shared job sites
+
+#### 🔧 **Technical Implementation**
+- **Cross-Assignment Team Detection**: System identifies teammates working on same job location automatically
+- **Real-Time Task Status**: Tasks completed by teammates show green borders with "Completed by [Name]" indicators
+- **Smart Task Filtering**: Progress controls hidden for tasks already done by teammates
+- **Team Progress API**: New `/api/team-task-progress/:assignmentId` endpoint aggregates all team member completions
+- **Assignment-Based Coordination**: Works across different assignment IDs for contractors on same job
+- **Live Task Synchronization**: Task completion status updates in real-time across all team members
+
+#### 🎯 **Team Coordination Features**
+- **Visual Indicators**: Completed tasks display with green checkmarks and teammate identification
+- **Duplicate Prevention**: Contractors cannot tick tasks already completed by teammates
+- **Clear Messaging**: "This task has been completed by your teammate" notifications
+- **Assignment Linking**: Automatically groups contractors working on same job (e.g., "Timi" at "BR6 9HH")
+- **Task ID Matching**: Robust task identification system ensures proper cross-team visibility
+
+#### 📊 **Database Integration**
+- **Multi-Assignment Queries**: System queries all assignments for same job location
+- **Task Progress Aggregation**: Combines completion data from all team members
+- **Real-Time Updates**: Task completion immediately visible to all team members
+- **Assignment Status Filtering**: Only includes active ('assigned') contractors in team coordination
+
+#### 🛠️ **Workflow Process**
+1. **Team Assignment**: Multiple contractors assigned to same job location (e.g., Marius + Dalwayne on "Timi")
+2. **Task Completion**: When Dalwayne completes "Fit Toilet" task
+3. **Real-Time Update**: Marius immediately sees task marked as "Completed by Dalwayne"
+4. **Duplicate Prevention**: Marius cannot tick the same task, avoiding duplicate work
+5. **Progress Coordination**: Both contractors maintain individual progress while seeing team status
+
+#### ✅ **Critical Bug Fixes**
+- **Assignment Initialization**: Fixed `activeAssignment` variable access error preventing task loading
+- **Team Task Matching**: Corrected task ID matching between CSV-generated and database-stored tasks
+- **Cross-Assignment Coordination**: Enabled team visibility across different assignment IDs
+- **Task Progress Synchronization**: Resolved issue where teammates couldn't see each other's completed work
+
+#### 🧪 **Testing Verified**
+- **Team Assignment Detection**: Successfully identifies Marius and Dalwayne as teammates on "Timi" job
+- **Task Completion Visibility**: Dalwayne's completed tasks appear with green indicators for Marius
+- **Duplicate Prevention**: Confirmed teammates cannot complete same tasks independently
+- **Real-Time Updates**: Task status changes immediately visible across all team members
+- **API Response Validation**: Team progress endpoint returns proper completion data
+
+---
+
 ### Version 1.3.9 - TEAM ASSIGNMENT & TASK DISPLAY IMPROVEMENTS (August 13, 2025 - 7:28 PM)
 
 #### ✅ **NEW FEATURE: Team Assignment System for Multi-Contractor Jobs**
