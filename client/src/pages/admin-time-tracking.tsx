@@ -56,13 +56,24 @@ function LogoutButton() {
 }
 
 export default function AdminTimeTracking() {
-  // Calculate the current Friday as default week ending
+  // Calculate the current week ending (most recent Friday that includes today)
   const getCurrentFridayWeekEnding = () => {
     const now = new Date();
     const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
-    const daysToFriday = currentDay <= 5 ? (5 - currentDay) : (7 - currentDay + 5);
-    const currentFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
-    return currentFriday.toISOString().split('T')[0];
+    
+    // If today is Saturday (6) or Sunday (0), we want last Friday
+    // If today is Monday-Friday (1-5), we want this Friday
+    let daysToFriday;
+    if (currentDay === 0) { // Sunday
+      daysToFriday = -2; // Go back 2 days to Friday
+    } else if (currentDay === 6) { // Saturday  
+      daysToFriday = -1; // Go back 1 day to Friday
+    } else { // Monday-Friday
+      daysToFriday = 5 - currentDay; // Go forward to this Friday
+    }
+    
+    const weekEndingFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
+    return weekEndingFriday.toISOString().split('T')[0];
   };
   
   const [selectedWeek, setSelectedWeek] = useState(getCurrentFridayWeekEnding()); // Current week ending Friday
@@ -85,6 +96,13 @@ export default function AdminTimeTracking() {
     sessionsCount: number;
   }>({
     queryKey: ['/api/admin/time-tracking', selectedWeek],
+    queryFn: async () => {
+      const response = await fetch(`/api/admin/time-tracking?weekEnding=${selectedWeek}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch time tracking data');
+      }
+      return response.json();
+    },
     enabled: !!selectedWeek
   });
 
