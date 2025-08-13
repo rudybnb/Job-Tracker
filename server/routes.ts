@@ -2111,14 +2111,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all work sessions for today
+  // Get all work sessions for today with daily hours calculation
   app.get("/api/admin/today-sessions", async (req, res) => {
     try {
       console.log("📊 Fetching today's work sessions for admin monitoring");
       
       const todaySessions = await storage.getTodayWorkSessions();
       
-      res.json(todaySessions);
+      // Group sessions by contractor for daily totals
+      const contractorDailyTotals = todaySessions.reduce((acc: any, session: any) => {
+        const contractorName = session.contractorName;
+        if (!acc[contractorName]) {
+          acc[contractorName] = {
+            contractorName,
+            sessions: [],
+            totalDailyHours: 0,
+            activeSession: null
+          };
+        }
+        
+        const hours = parseFloat(session.totalHours || '0');
+        acc[contractorName].sessions.push(session);
+        acc[contractorName].totalDailyHours += hours;
+        
+        if (session.status === 'active') {
+          acc[contractorName].activeSession = session;
+        }
+        
+        return acc;
+      }, {});
+      
+      // Convert to array and format
+      const dailySummary = Object.values(contractorDailyTotals).map((contractor: any) => ({
+        ...contractor,
+        totalDailyHours: contractor.totalDailyHours.toFixed(2)
+      }));
+      
+      console.log(`📊 Today's sessions: ${todaySessions.length} total, ${dailySummary.length} contractors`);
+      dailySummary.forEach((contractor: any) => {
+        console.log(`   👤 ${contractor.contractorName}: ${contractor.totalDailyHours}h (${contractor.sessions.length} sessions)`);
+      });
+      
+      res.json({
+        sessions: todaySessions,
+        dailySummary: dailySummary,
+        totalSessions: todaySessions.length,
+        totalContractors: dailySummary.length
+      });
     } catch (error) {
       console.error("Error fetching today's sessions:", error);
       res.status(500).json({ error: "Failed to fetch today's sessions" });

@@ -549,7 +549,32 @@ export class DatabaseStorage implements IStorage {
       return sessionDate.getTime() === today.getTime();
     });
 
-    return todaySessions;
+    // Calculate total hours for each session
+    const sessionsWithHours = todaySessions.map(session => {
+      let totalHours = 0;
+      
+      if (session.endTime) {
+        // Completed session - calculate actual hours
+        const startTime = new Date(session.startTime);
+        const endTime = new Date(session.endTime);
+        const diffMs = endTime.getTime() - startTime.getTime();
+        totalHours = diffMs / (1000 * 60 * 60); // Convert to hours
+      } else {
+        // Active session - calculate current elapsed time
+        const startTime = new Date(session.startTime);
+        const now = new Date();
+        const diffMs = now.getTime() - startTime.getTime();
+        totalHours = diffMs / (1000 * 60 * 60); // Convert to hours
+      }
+      
+      return {
+        ...session,
+        totalHours: totalHours.toFixed(2),
+        status: session.endTime ? 'completed' as const : 'active' as const
+      };
+    });
+
+    return sessionsWithHours;
   }
 
   // Money and GPS calculation helper method
