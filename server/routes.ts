@@ -428,6 +428,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'DA17': { latitude: '51.4851', longitude: '0.1540' },
       'DA7 6HJ': { latitude: '51.4851', longitude: '0.1540' }, // Xavier Jones location
       'DA7': { latitude: '51.4851', longitude: '0.1540' },
+      'BR6 9HH': { latitude: '51.3671', longitude: '0.0977' }, // Orpington site
+      'BR6': { latitude: '51.3671', longitude: '0.0977' },
       'BR9': { latitude: '51.4612', longitude: '0.1388' },
       'SE9': { latitude: '51.4629', longitude: '0.0789' },
       'DA8': { latitude: '51.4891', longitude: '0.2245' },
@@ -443,37 +445,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add more as needed
     };
     
-    // Extract postcode from location string (handles "City, POSTCODE" format)
-    const upperLocation = location.toUpperCase().trim();
+    // Clean and normalize location string
+    let cleanLocation = location
+      .replace(/["\\\n]/g, '') // Remove quotes and escape characters
+      .trim()
+      .toUpperCase();
+    
+    // Debug logging
+    console.log(`🔎 GPS lookup for "${location}": cleaned to "${cleanLocation}"`);
     
     // Try to extract postcode pattern (letters followed by numbers and letters)
     const postcodePattern = /([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})/;
-    const postcodeMatch = upperLocation.match(postcodePattern);
+    const postcodeMatch = cleanLocation.match(postcodePattern);
     
     if (postcodeMatch) {
       const extractedPostcode = postcodeMatch[1].trim();
+      console.log(`🎯 Extracted postcode: ${extractedPostcode}`);
+      
       if (postcodeMap[extractedPostcode]) {
+        console.log(`✅ Found coordinates for ${extractedPostcode}`);
         return postcodeMap[extractedPostcode];
       }
       
       // Try partial match with area code only
       const postcodePrefix = extractedPostcode.split(' ')[0];
       if (postcodeMap[postcodePrefix]) {
+        console.log(`✅ Found coordinates for prefix ${postcodePrefix}`);
         return postcodeMap[postcodePrefix];
       }
     }
     
     // Fallback: try direct match with entire location string
-    if (postcodeMap[upperLocation]) {
-      return postcodeMap[upperLocation];
+    if (postcodeMap[cleanLocation]) {
+      console.log(`✅ Found direct match for ${cleanLocation}`);
+      return postcodeMap[cleanLocation];
     }
     
-    // Try partial matches (first part before space)
-    const locationPrefix = upperLocation.split(' ')[0];
-    if (postcodeMap[locationPrefix]) {
-      return postcodeMap[locationPrefix];
-    }
-    
+    console.log(`❌ No GPS coordinates found for: ${cleanLocation}`);
     return null;
   }
 

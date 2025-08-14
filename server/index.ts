@@ -60,6 +60,8 @@ async function startAutomaticLogoutService() {
       'DA17': { latitude: '51.4851', longitude: '0.1540' },
       'DA7 6HJ': { latitude: '51.4851', longitude: '0.1540' },
       'DA7': { latitude: '51.4851', longitude: '0.1540' },
+      'BR6 9HH': { latitude: '51.3671', longitude: '0.0977' },
+      'BR6': { latitude: '51.3671', longitude: '0.0977' },
       'BR9': { latitude: '51.4612', longitude: '0.1388' },
       'SE9': { latitude: '51.4629', longitude: '0.0789' },
       'DA8': { latitude: '51.4891', longitude: '0.2245' },
