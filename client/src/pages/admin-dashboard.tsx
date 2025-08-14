@@ -432,12 +432,12 @@ export default function AdminDashboard() {
                   <button 
                     onClick={() => {
                       setShowAvatarDropdown(false);
-                      toast({ title: "Project Estimation", description: "Opening project estimation & materials..." });
+                      toast({ title: "Contract Cashflow", description: "Opening contract cashflow management..." });
                     }}
                     className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
                   >
                     <i className="fas fa-calculator mr-3 w-4"></i>
-                    Project Estimation & Materials
+                    CONTRACT CASHFLOW
                   </button>
                   
                   <button 
