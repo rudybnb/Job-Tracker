@@ -111,29 +111,21 @@ export default function LiveClockMonitor() {
           {activeLoading ? (
             <div className="text-slate-400">Loading...</div>
           ) : activeSessions.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {activeSessions.map((session: any) => (
-                <div key={session.id} className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-3 h-3 rounded-full ${
-                        session.workingHours >= 6 ? 'bg-blue-500' :      // 6+ hours = blue
-                        session.workingHours >= 4 ? 'bg-green-500' :     // 4+ hours = green
-                        session.workingHours >= 2 ? 'bg-yellow-500' :    // 2+ hours = yellow
-                        session.workingHours >= 1 ? 'bg-orange-500' :    // 1+ hours = orange
-                        'bg-red-500'                                      // < 1 hour = red
-                      }`}></div>
-                      <span className="text-white font-medium text-sm">{session.contractorName}</span>
-                    </div>
-                    
-                    {/* Time squares with color coding */}
-                    <div className="flex space-x-1">
-                      <div className="w-8 h-8 bg-red-600 rounded border border-red-500 flex items-center justify-center">
-                        <div className="text-white text-xs font-mono">08:45</div>
+                <div key={session.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
+                    <span className="text-white font-medium">{session.contractorName}</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-white text-sm px-2 py-1 bg-green-700 rounded">In</span>
                       </div>
-                      <div className="w-8 h-8 bg-slate-700 border border-slate-600 rounded flex items-center justify-center">
-                        <div className="text-slate-400 text-xs font-mono">--:--</div>
-                      </div>
+                      <span className="text-slate-300 text-sm">08:45:00</span>
                     </div>
                   </div>
                 </div>
