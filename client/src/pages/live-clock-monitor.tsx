@@ -114,10 +114,29 @@ export default function LiveClockMonitor() {
           {activeLoading ? (
             <div className="text-slate-400">Loading...</div>
           ) : activeSessions.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {activeSessions.map((session: any) => (
-                <div key={session.id} className="text-slate-300 bg-slate-700/30 rounded px-3 py-2 border border-slate-600/30">
-                  {session.contractorName} - Active
+                <div key={session.id} className="bg-slate-700/30 rounded-lg p-3 border border-slate-600/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-white font-medium">{session.contractorName}</span>
+                      <span className="text-xs px-2 py-1 bg-green-900/60 text-green-300 border border-green-700/30 rounded">
+                        Active
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-yellow-400 font-mono text-lg">
+                        {session.duration}
+                      </div>
+                      <div className="text-slate-400 text-xs">
+                        Started {session.startedAt}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400">
+                    📍 {session.jobSiteLocation}
+                  </div>
                 </div>
               ))}
             </div>

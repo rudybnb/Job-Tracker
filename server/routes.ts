@@ -2133,8 +2133,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const activeSessions = await storage.getActiveWorkSessions();
       
-      // Calculate session duration for each active session
-      const sessionsWithDuration = activeSessions.map(session => {
+      // Clean up contractor names and filter to latest session per contractor
+      const cleanedSessions = new Map();
+      
+      activeSessions.forEach(session => {
+        // Clean contractor name (trim whitespace, fix known issues)
+        let cleanName = session.contractorName.trim();
+        if (cleanName === 'Dalwayne Bailey') {
+          cleanName = 'Dalwayne Diedericks';
+        }
+        
+        // Keep only the latest session for each contractor
+        const existing = cleanedSessions.get(cleanName);
+        if (!existing || new Date(session.startTime) > new Date(existing.startTime)) {
+          cleanedSessions.set(cleanName, {
+            ...session,
+            contractorName: cleanName
+          });
+        }
+      });
+      
+      // Calculate session duration for each unique active session
+      const sessionsWithDuration = Array.from(cleanedSessions.values()).map(session => {
         const startTime = new Date(session.startTime);
         const now = new Date();
         const durationMs = now.getTime() - startTime.getTime();
