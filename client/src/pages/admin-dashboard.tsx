@@ -361,16 +361,7 @@ export default function AdminDashboard() {
                     Contractor Onboarding
                   </button>
                   
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "Cost Analysis", description: "Opening HBXL vs Daily cost analysis..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-chart-bar mr-3 w-4"></i>
-                    HBXL vs Daily Cost Analysis
-                  </button>
+
                   
                   <button 
                     onClick={() => {
@@ -440,16 +431,7 @@ export default function AdminDashboard() {
                     AI Agent Management
                   </button>
                   
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "Supplier Comparison", description: "Opening supplier price comparison..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-dollar-sign mr-3 w-4"></i>
-                    Supplier Price Comparison
-                  </button>
+
                   
                   <button 
                     onClick={() => {
