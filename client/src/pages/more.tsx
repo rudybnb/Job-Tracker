@@ -183,7 +183,7 @@ export default function More() {
       startTime: startTimeStr,
       endTime: endTimeStr,
       hoursWorked: Math.min(hoursWorked, 8), // Display hours worked, max 8 for pay
-      hourlyRate: authenticHourlyRate, // Use contractor's actual rate
+      hourlyRate: contractorInfo.hourlyRate, // Use contractor's actual rate
       grossEarnings: correctGrossEarnings, // Use contractor's actual calculation
       gpsVerified: true
     };
