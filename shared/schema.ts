@@ -419,6 +419,11 @@ export const projectMaster = pgTable("project_master", {
   labourBudget: text("labour_budget").notNull(),
   materialBudget: text("material_budget").notNull(),
   
+  // Enhanced financial tracking from CSV uploads
+  weeklyBreakdown: text("weekly_breakdown"), // JSON of weekly cash flow data
+  supplierBreakdown: text("supplier_breakdown"), // JSON of supplier payment schedules
+  resourceBreakdown: text("resource_breakdown"), // JSON of detailed resource tracking
+  
   // Current status
   status: text("status").default("active").notNull(), // "planning", "active", "completed", "on_hold"
   completionPercent: text("completion_percent").default("0").notNull(),

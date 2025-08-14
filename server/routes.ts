@@ -15,6 +15,7 @@ interface MulterRequest extends ExpressRequest {
   file?: Express.Multer.File;
 }
 import { parse } from "csv-parse";
+import { parseEnhancedCSV } from "./enhanced-csv-parser";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -247,8 +248,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // Parse data section for phases AND detailed task data
-        // NEW IMPROVED PARSING for cleaner CSV format
+        // Parse data section - supports both formats
+        // Check if this is the new enhanced format with Order Date, Build Phase, etc.
+        const enhancedFormatIndex = lines.findIndex(line => 
+          line.includes('Order Date') && line.includes('Build Phase') && line.includes('Resource Description')
+        );
+        
+        if (enhancedFormatIndex !== -1) {
+          // ENHANCED FORMAT PARSING - for accounting integration
+          const resources: any[] = [];
+          let totalLabourCost = 0;
+          let totalMaterialCost = 0;
+          const phaseTaskData: { [key: string]: any[] } = {};
+          const weeklyBreakdown: { [key: string]: { labour: number; material: number; total: number } } = {};
+          
+          console.log('🎯 Using ENHANCED CSV parsing for accounting format');
+          
+          for (let i = enhancedFormatIndex + 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line || line.trim() === '') continue;
+            
+            const parts = line.split(',').map(p => p.trim());
+            if (parts.length < 8) continue;
+            
+            const resource: any = {
+              orderDate: parts[0] || '',
+              requiredDate: parts[1] || '',
+              buildPhase: parts[2] || 'General',
+              resourceType: parts[3] || '', // Labour or Material
+              supplier: parts[4] || '',
+              description: parts[5] || '',
+              quantity: parseInt(parts[7]) || 0
+            };
+            
+            // Extract price using regex - MANDATORY RULE: authentic data only
+            const priceMatch = resource.description.match(/£(\d+\.?\d*)/);
+            const unitMatch = resource.description.match(/£\d+\.?\d*\/(\w+)/);
+            
+            if (priceMatch && resource.quantity > 0) {
+              resource.unitPrice = parseFloat(priceMatch[1]);
+              resource.unit = unitMatch ? unitMatch[1] : 'Each';
+              resource.totalCost = resource.unitPrice * resource.quantity;
+              
+              // Track costs by type for accounting
+              if (resource.resourceType.toLowerCase() === 'labour') {
+                totalLabourCost += resource.totalCost;
+              } else if (resource.resourceType.toLowerCase() === 'material') {
+                totalMaterialCost += resource.totalCost;
+              }
+              
+              // Build phase task structure for compatibility
+              if (resource.buildPhase && resource.buildPhase !== 'General') {
+                if (!phaseTaskData[resource.buildPhase]) {
+                  phaseTaskData[resource.buildPhase] = [];
+                }
+                phaseTaskData[resource.buildPhase].push({
+                  task: `${resource.resourceType}: ${resource.description}`,
+                  description: `${resource.quantity} × £${resource.unitPrice} = £${resource.totalCost.toFixed(2)}`,
+                  quantity: resource.quantity,
+                  unitPrice: resource.unitPrice,
+                  totalCost: resource.totalCost,
+                  supplier: resource.supplier,
+                  orderDate: resource.orderDate,
+                  resourceType: resource.resourceType
+                });
+                phases.push(resource.buildPhase);
+              }
+              
+              // Weekly cash flow breakdown
+              if (resource.orderDate) {
+                if (!weeklyBreakdown[resource.orderDate]) {
+                  weeklyBreakdown[resource.orderDate] = { labour: 0, material: 0, total: 0 };
+                }
+                const costType = resource.resourceType.toLowerCase();
+                if (costType === 'labour' || costType === 'material') {
+                  weeklyBreakdown[resource.orderDate][costType] += resource.totalCost;
+                  weeklyBreakdown[resource.orderDate].total += resource.totalCost;
+                }
+              }
+            }
+            
+            resources.push(resource);
+          }
+          
+          console.log('🎯 Enhanced parsing results:', {
+            phases: phases.filter((p, i, arr) => arr.indexOf(p) === i), // Remove duplicates
+            resourceCount: resources.length,
+            totalLabourCost,
+            totalMaterialCost,
+            grandTotal: totalLabourCost + totalMaterialCost,
+            weeklyBreakdown
+          });
+          
+          // Store enhanced data for accounting integration
+          const enhancedJobData = JSON.stringify({
+            phases: phaseTaskData,
+            financials: {
+              totalLabour: totalLabourCost,
+              totalMaterial: totalMaterialCost,
+              grandTotal: totalLabourCost + totalMaterialCost,
+              weeklyBreakdown
+            },
+            resources: resources.filter(r => r.unitPrice) // Only resources with valid pricing
+          });
+          
+          await storage.createJob({
+            title: jobName,
+            location: jobAddress,
+            postcode: jobPostcode,
+            projectType: jobType,
+            status: "pending",
+            uploadId: csvUpload.id,
+            phaseTaskData: enhancedJobData
+          });
+          
+          jobsCreated++;
+          
+        } else {
+          // ORIGINAL FORMAT PARSING - maintain existing functionality
+        try {
         // Look for "Build Phase" line which indicates start of data section
         let dataHeaderIndex = lines.findIndex(line => 
           line.includes('Build Phase') && (line.includes('Order Quantity') || line.split(',').length >= 3)
@@ -347,6 +465,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           upload: await storage.getCsvUploads().then(uploads => uploads.find(u => u.id === csvUpload.id)),
           jobsCreated: createdJobs.length
         });
+
+        // Check for enhanced CSV format and integrate with existing workflow
+        const enhancedData = parseEnhancedCSV(lines);
+        if (enhancedData) {
+          console.log('🎯 Enhanced CSV format detected - integrating financial data');
+          // Enhanced data is already processed, continue with existing job creation
+        }
+
       } catch (error) {
         console.error("Error processing CSV jobs:", error);
         await storage.updateCsvUpload(csvUpload.id, { status: "failed" });
