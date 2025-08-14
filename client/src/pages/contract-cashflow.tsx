@@ -324,7 +324,7 @@ export default function ContractCashflow() {
                 <SelectValue placeholder="Select Project" />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-600">
-                <SelectItem value="" data-testid="select-all-projects">All Projects</SelectItem>
+                <SelectItem value="all" data-testid="select-all-projects">All Projects</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id} data-testid={`select-project-${project.id}`}>
                     {project.projectName} ({project.projectType.replace('_', ' ')})
