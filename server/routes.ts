@@ -2366,5 +2366,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Project Cashflow API endpoint
+  app.get("/api/project-cashflow", async (req, res) => {
+    try {
+      console.log("💰 Fetching project cashflow data");
+      
+      // Get jobs data for project cashflow calculation
+      const jobs = await storage.getJobs();
+      
+      // Get all work sessions for labour cost calculation
+      const allSessions = await storage.getWorkSessions();
+      
+      // Calculate project cashflow data from existing jobs and contractor earnings
+      const projectCashflowData = jobs.map((job: JobWithContractor) => {
+        // Calculate labour costs from contractor work sessions for this job
+        const jobSessions = allSessions.filter((session: WorkSession) => 
+          session.contractorName && job.contractor?.name === session.contractorName
+        );
+        
+        const totalHours = jobSessions.reduce((sum: number, session: WorkSession) => {
+          if (session.endTime && session.startTime) {
+            const duration = (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60);
+            return sum + duration;
+          }
+          return sum;
+        }, 0);
+        
+        // Calculate labour costs based on default hourly rate
+        const hourlyRate = 25; // Default £25/hour (contractor hourlyRate not in schema)
+        const labourCosts = totalHours * hourlyRate;
+        
+        // Extract material costs from job description/title if available
+        let materialCosts = 0;
+        // Simple estimation: look for numbers in job description
+        const costMatches = job.description?.match(/£(\d+)/g);
+        if (costMatches) {
+          materialCosts = costMatches.reduce((sum: number, match: string) => {
+            const cost = parseFloat(match.replace('£', ''));
+            return sum + (isNaN(cost) ? 0 : cost);
+          }, 0);
+        }
+        
+        // If no material costs found, estimate based on job size
+        if (materialCosts === 0) {
+          materialCosts = labourCosts * 0.7; // Estimate 70% of labour costs for materials
+        }
+        
+        const totalBudget = labourCosts + materialCosts + (labourCosts * 0.3); // Add 30% margin
+        const actualSpend = labourCosts + materialCosts;
+        const profitMargin = totalBudget - actualSpend;
+        
+        // Determine project status based on job status
+        let status: 'planning' | 'active' | 'completed' | 'overbudget' = 'planning';
+        if (totalHours > 0) {
+          status = 'active';
+        } else if (actualSpend > totalBudget) {
+          status = 'overbudget';
+        }
+        
+        return {
+          id: job.id,
+          projectName: job.title,
+          startDate: new Date().toISOString().split('T')[0], // Use current date as default
+          completionDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default 60 days
+          totalBudget: Math.round(totalBudget),
+          labourCosts: Math.round(labourCosts),
+          materialCosts: Math.round(materialCosts),
+          actualSpend: Math.round(actualSpend),
+          contractorEarnings: Math.round(labourCosts * 0.8), // 80% of labour costs go to contractor
+          profitMargin: Math.round(profitMargin),
+          status: status
+        };
+      });
+      
+      // Calculate totals
+      const totalRevenue = projectCashflowData.reduce((sum: number, project) => sum + project.totalBudget, 0);
+      const totalCosts = projectCashflowData.reduce((sum: number, project) => sum + project.actualSpend, 0);
+      
+      console.log(`💰 Project cashflow calculated: ${projectCashflowData.length} projects, £${totalRevenue} revenue, £${totalCosts} costs`);
+      
+      res.json({
+        projects: projectCashflowData,
+        totalRevenue: totalRevenue,
+        totalCosts: totalCosts,
+        netProfit: totalRevenue - totalCosts,
+        projectCount: projectCashflowData.length
+      });
+    } catch (error) {
+      console.error("Error fetching project cashflow:", error);
+      res.status(500).json({ error: "Failed to fetch project cashflow data" });
+    }
+  });
+
   return httpServer;
 }

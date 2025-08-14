@@ -432,7 +432,7 @@ export default function AdminDashboard() {
                   <button 
                     onClick={() => {
                       setShowAvatarDropdown(false);
-                      toast({ title: "Contract Cashflow", description: "Opening contract cashflow management..." });
+                      window.location.href = '/contract-cashflow';
                     }}
                     className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
                   >

@@ -31,6 +31,7 @@ import AdminSettings from "@/pages/admin-settings";
 import AdminInspections from "@/pages/admin-inspections";
 import AdminInspection from "@/pages/admin-inspection";
 import TelegramMessages from "@/pages/telegram-messages";
+import ContractCashflow from "@/pages/contract-cashflow";
 
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -182,6 +183,11 @@ function Router() {
         <Route path="/admin-site-inspections" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AdminInspections />
+          </ProtectedRoute>
+        )} />
+        <Route path="/contract-cashflow" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <ContractCashflow />
           </ProtectedRoute>
         )} />
 
