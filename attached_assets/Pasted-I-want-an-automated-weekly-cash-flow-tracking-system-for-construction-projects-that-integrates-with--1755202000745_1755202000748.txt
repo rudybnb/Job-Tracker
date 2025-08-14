@@ -1,0 +1,64 @@
+I want an automated weekly cash flow tracking system for construction projects that integrates with our labour tracking and material purchasing records. This must work for jobs that are:
+
+Labour only
+
+Labour + materials
+
+Materials only
+
+Key Requirements:
+
+Data Entry & Source
+
+Labour Data: Pulled automatically from our contractor time tracking app (daily and hourly rates already set for each worker).
+
+Material Data: Pulled from purchase logs or invoices uploaded each week.
+
+Accountant Weekly Cash Flow: Accountant uploads or inputs a prepared weekly cash flow sheet that includes forecasted spend for that week.
+
+Logic Flow:
+
+Step 1: At the start of each week, accountant uploads/enters forecasted spend for labour and materials.
+
+Step 2: System imports actual labour costs from contractor time logs and material costs from purchases made that week.
+
+Step 3: Compare actual spend vs forecast for that week.
+
+Step 4: Update running totals:
+
+Cumulative spend to date
+
+Remaining project budget
+
+Step 5: Link spend data to progress data (% completion based on work done).
+
+Step 6: Store all weekly records for historical reporting.
+
+Weekly Monitoring Dashboard
+
+Show:
+
+Actual weekly spend (labour, materials, total)
+
+Planned weekly spend (from accountant forecast)
+
+Difference between planned vs actual
+
+Cumulative spend to date
+
+Remaining budget
+
+% of project completed vs % of budget spent
+
+Timeline Integration
+
+Track all spending against project start and finish dates.
+
+Show progress bar for timeline and budget usage side by side.
+
+Multiple Project Support
+
+Must allow for multiple concurrent projects, each with its own start/end dates, budget, and tracking dashboard.
+
+Goal:
+I want to clearly see weekly outgoings for labour and/or materials, compare them against both forecasted weekly spend and the total quoted price, and track this against the project timeline so I can monitor profit, loss, and budget health in real time — without needing to manually re-enter data from time tracking or material purchases.

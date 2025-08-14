@@ -2543,5 +2543,290 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced Weekly Cash Flow Tracking System - MANDATORY RULE: AUTHENTIC DATA ONLY
+  
+  // Project Master Management
+  app.get("/api/weekly-cashflow/projects", async (req, res) => {
+    try {
+      console.log("📋 API: Fetching project masters for weekly cash flow tracking");
+      
+      // Authentication check - MANDATORY RULE
+      const session = req.session as any;
+      const currentAdmin = session?.adminName;
+      
+      if (!currentAdmin) {
+        console.log("❌ Unauthorized access to weekly cash flow data");
+        res.status(401).json({ error: "Admin authentication required" });
+        return;
+      }
+      
+      const projects = await storage.getProjectMasters();
+      console.log(`✅ Retrieved ${projects.length} project masters`);
+      
+      res.json({ projects, message: "Authentic project data loaded" });
+    } catch (error) {
+      console.error("Error fetching project masters:", error);
+      res.status(500).json({ error: "Failed to fetch project masters" });
+    }
+  });
+
+  app.post("/api/weekly-cashflow/projects", async (req, res) => {
+    try {
+      console.log("🆕 API: Creating new project master");
+      
+      const session = req.session as any;
+      const currentAdmin = session?.adminName;
+      
+      if (!currentAdmin) {
+        res.status(401).json({ error: "Admin authentication required" });
+        return;
+      }
+
+      const projectData = {
+        ...req.body,
+        createdBy: currentAdmin,
+        status: "active"
+      };
+
+      const project = await storage.createProjectMaster(projectData);
+      console.log(`✅ Created project master: ${project.projectName}`);
+      
+      res.json({ project, message: "Project created successfully" });
+    } catch (error) {
+      console.error("Error creating project master:", error);
+      res.status(500).json({ error: "Failed to create project" });
+    }
+  });
+
+  // Weekly Cash Flow Data Management
+  app.get("/api/weekly-cashflow/weeks", async (req, res) => {
+    try {
+      console.log("📊 API: Fetching weekly cashflow data");
+      
+      const session = req.session as any;
+      const currentAdmin = session?.adminName;
+      
+      if (!currentAdmin) {
+        res.status(401).json({ error: "Admin authentication required" });
+        return;
+      }
+
+      const projectId = req.query.projectId as string;
+      const weeklyData = await storage.getProjectCashflowWeekly(projectId);
+      
+      // Enhance with calculated labour costs from authentic work sessions
+      for (let week of weeklyData) {
+        if (week.weekStartDate && week.weekEndDate && week.projectId) {
+          const calculatedLabourCost = await storage.calculateWeeklyLabourCosts(
+            week.projectId, 
+            week.weekStartDate, 
+            week.weekEndDate
+          );
+          
+          // Update actual labour cost with authentic calculation
+          week.actualLabourCostCalculated = calculatedLabourCost.toFixed(2);
+          
+          // Calculate variance
+          const forecastedLabour = parseFloat(week.forecastedLabourCost) || 0;
+          week.labourVarianceCalculated = (calculatedLabourCost - forecastedLabour).toFixed(2);
+        }
+      }
+      
+      console.log(`✅ Retrieved ${weeklyData.length} weekly cashflow records`);
+      res.json({ weeklyData, message: "Authentic weekly data with calculated labour costs" });
+    } catch (error) {
+      console.error("Error fetching weekly cashflow:", error);
+      res.status(500).json({ error: "Failed to fetch weekly cashflow data" });
+    }
+  });
+
+  app.post("/api/weekly-cashflow/weeks", async (req, res) => {
+    try {
+      console.log("💰 API: Creating weekly cashflow forecast");
+      
+      const session = req.session as any;
+      const currentAdmin = session?.adminName;
+      
+      if (!currentAdmin) {
+        res.status(401).json({ error: "Admin authentication required" });
+        return;
+      }
+
+      const weeklyData = {
+        ...req.body,
+        dataValidated: false,
+        validatedBy: null,
+        labourDataSource: "work_sessions", // MANDATORY: Only authentic source
+      };
+
+      // Auto-calculate actual labour costs from authentic work sessions
+      if (weeklyData.projectId && weeklyData.weekStartDate && weeklyData.weekEndDate) {
+        const actualLabourCost = await storage.calculateWeeklyLabourCosts(
+          weeklyData.projectId,
+          weeklyData.weekStartDate,
+          weeklyData.weekEndDate
+        );
+        
+        weeklyData.actualLabourCost = actualLabourCost.toFixed(2);
+        weeklyData.labourVariance = (actualLabourCost - (parseFloat(weeklyData.forecastedLabourCost) || 0)).toFixed(2);
+        
+        console.log(`📊 Calculated actual labour cost: £${actualLabourCost.toFixed(2)}`);
+      }
+
+      const cashflow = await storage.createProjectCashflowWeekly(weeklyData);
+      console.log(`✅ Created weekly cashflow: ${cashflow.projectName} - ${cashflow.weekStartDate}`);
+      
+      res.json({ cashflow, message: "Weekly forecast created with authentic labour calculations" });
+    } catch (error) {
+      console.error("Error creating weekly cashflow:", error);
+      res.status(500).json({ error: "Failed to create weekly cashflow" });
+    }
+  });
+
+  // Material Purchases Management  
+  app.get("/api/weekly-cashflow/materials", async (req, res) => {
+    try {
+      console.log("🛒 API: Fetching material purchases");
+      
+      const session = req.session as any;
+      const currentAdmin = session?.adminName;
+      
+      if (!currentAdmin) {
+        res.status(401).json({ error: "Admin authentication required" });
+        return;
+      }
+
+      const projectId = req.query.projectId as string;
+      const weekStart = req.query.weekStart as string;
+      
+      const materials = await storage.getMaterialPurchases(projectId, weekStart);
+      console.log(`✅ Retrieved ${materials.length} material purchase records`);
+      
+      res.json({ materials, message: "Authentic material purchase data loaded" });
+    } catch (error) {
+      console.error("Error fetching material purchases:", error);
+      res.status(500).json({ error: "Failed to fetch material purchases" });
+    }
+  });
+
+  app.post("/api/weekly-cashflow/materials", async (req, res) => {
+    try {
+      console.log("🛒 API: Creating material purchase record");
+      
+      const session = req.session as any;
+      const currentAdmin = session?.adminName;
+      
+      if (!currentAdmin) {
+        res.status(401).json({ error: "Admin authentication required" });
+        return;
+      }
+
+      const materialData = {
+        ...req.body,
+        uploadedBy: currentAdmin,
+        dataSource: req.body.dataSource || "manual_entry"
+      };
+
+      const material = await storage.createMaterialPurchase(materialData);
+      console.log(`✅ Created material purchase: ${material.supplierName} - £${material.totalCost}`);
+      
+      res.json({ material, message: "Material purchase recorded successfully" });
+    } catch (error) {
+      console.error("Error creating material purchase:", error);
+      res.status(500).json({ error: "Failed to create material purchase" });
+    }
+  });
+
+  // Weekly Dashboard Data - Comprehensive Analytics
+  app.get("/api/weekly-cashflow/dashboard", async (req, res) => {
+    try {
+      console.log("📈 API: Generating weekly cash flow dashboard data");
+      
+      const session = req.session as any;
+      const currentAdmin = session?.adminName;
+      
+      if (!currentAdmin) {
+        res.status(401).json({ error: "Admin authentication required" });
+        return;
+      }
+
+      const projectId = req.query.projectId as string;
+      
+      // Fetch all related data
+      const [projects, weeklyData, materials] = await Promise.all([
+        storage.getProjectMasters(),
+        storage.getProjectCashflowWeekly(projectId),
+        storage.getMaterialPurchases(projectId)
+      ]);
+
+      // Calculate dashboard metrics
+      let totalForecastedSpend = 0;
+      let totalActualSpend = 0;
+      let totalLabourVariance = 0;
+      let totalMaterialVariance = 0;
+
+      // Process weekly data with authentic calculations
+      for (let week of weeklyData) {
+        // Calculate authentic labour costs
+        if (week.weekStartDate && week.weekEndDate && week.projectId) {
+          const calculatedLabourCost = await storage.calculateWeeklyLabourCosts(
+            week.projectId,
+            week.weekStartDate, 
+            week.weekEndDate
+          );
+          
+          week.actualLabourCostCalculated = calculatedLabourCost;
+          totalActualSpend += calculatedLabourCost;
+          
+          const forecastedLabour = parseFloat(week.forecastedLabourCost) || 0;
+          totalForecastedSpend += forecastedLabour;
+          totalLabourVariance += (calculatedLabourCost - forecastedLabour);
+        }
+
+        // Add material costs
+        const materialCost = parseFloat(week.actualMaterialCost) || 0;
+        const forecastedMaterialCost = parseFloat(week.forecastedMaterialCost) || 0;
+        totalActualSpend += materialCost;
+        totalForecastedSpend += forecastedMaterialCost;
+        totalMaterialVariance += (materialCost - forecastedMaterialCost);
+      }
+
+      // Calculate project progress based on authentic data
+      const currentProject = projects.find(p => p.id === projectId);
+      const projectProgress = currentProject ? parseFloat(currentProject.completionPercent) || 0 : 0;
+      const budgetUsed = currentProject ? (totalActualSpend / parseFloat(currentProject.totalBudget)) * 100 : 0;
+
+      const dashboardData = {
+        summary: {
+          totalProjects: projects.length,
+          activeProjects: projects.filter(p => p.status === 'active').length,
+          totalForecastedSpend: totalForecastedSpend.toFixed(2),
+          totalActualSpend: totalActualSpend.toFixed(2),
+          totalVariance: (totalActualSpend - totalForecastedSpend).toFixed(2),
+          labourVariance: totalLabourVariance.toFixed(2),
+          materialVariance: totalMaterialVariance.toFixed(2),
+          projectProgress: projectProgress.toFixed(1),
+          budgetUsed: budgetUsed.toFixed(1)
+        },
+        projects,
+        weeklyData,
+        materials: materials.slice(0, 10), // Recent materials only
+        authenticity: {
+          dataSource: "database_work_sessions",
+          calculationMethod: "authentic_pay_rates",
+          lastUpdated: new Date().toISOString(),
+          complianceLevel: "mandatory_rules_enforced"
+        }
+      };
+
+      console.log(`✅ Dashboard data generated - ${projects.length} projects, ${weeklyData.length} weeks`);
+      res.json(dashboardData);
+      
+    } catch (error) {
+      console.error("Error generating dashboard data:", error);
+      res.status(500).json({ error: "Failed to generate dashboard data" });
+    }
+  });
+
   return httpServer;
 }

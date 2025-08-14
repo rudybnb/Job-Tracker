@@ -324,6 +324,119 @@ export const insertAdminInspectionSchema = createInsertSchema(adminInspections).
   createdAt: true,
 });
 
+// Weekly Cash Flow Tracking System - MANDATORY RULE: AUTHENTIC DATA ONLY
+export const projectCashflowWeekly = pgTable("project_cashflow_weekly", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: text("project_id").notNull(), // Links to jobs table
+  projectName: text("project_name").notNull(),
+  weekStartDate: text("week_start_date").notNull(), // YYYY-MM-DD format
+  weekEndDate: text("week_end_date").notNull(),
+  weekNumber: text("week_number").notNull(), // Week 1, Week 2, etc.
+  
+  // Forecasted spend (entered by accountant)
+  forecastedLabourCost: text("forecasted_labour_cost").default("0").notNull(),
+  forecastedMaterialCost: text("forecasted_material_cost").default("0").notNull(),
+  forecastedTotalSpend: text("forecasted_total_spend").default("0").notNull(),
+  
+  // Actual spend (calculated from authentic sources)
+  actualLabourCost: text("actual_labour_cost").default("0").notNull(), // From work_sessions
+  actualMaterialCost: text("actual_material_cost").default("0").notNull(), // From material_purchases
+  actualTotalSpend: text("actual_total_spend").default("0").notNull(),
+  
+  // Budget tracking
+  cumulativeSpend: text("cumulative_spend").default("0").notNull(),
+  remainingBudget: text("remaining_budget").default("0").notNull(),
+  projectCompletionPercent: text("project_completion_percent").default("0").notNull(),
+  budgetUsedPercent: text("budget_used_percent").default("0").notNull(),
+  
+  // Variance analysis
+  labourVariance: text("labour_variance").default("0").notNull(), // actual - forecasted
+  materialVariance: text("material_variance").default("0").notNull(),
+  totalVariance: text("total_variance").default("0").notNull(),
+  
+  // Data sources and validation
+  labourDataSource: text("labour_data_source").default("work_sessions").notNull(), // "work_sessions"
+  materialDataSource: text("material_data_source").default("manual").notNull(), // "uploaded_invoices", "manual", "none"
+  dataValidated: boolean("data_validated").default(false).notNull(),
+  validatedBy: text("validated_by"),
+  validatedAt: timestamp("validated_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertProjectCashflowWeeklySchema = createInsertSchema(projectCashflowWeekly).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Material Purchases Tracking - MANDATORY RULE: CSV/INVOICE DATA ONLY
+export const materialPurchases = pgTable("material_purchases", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: text("project_id").notNull(),
+  projectName: text("project_name").notNull(),
+  purchaseWeek: text("purchase_week").notNull(), // YYYY-MM-DD of week start
+  
+  // Purchase details - AUTHENTIC DATA ONLY
+  supplierName: text("supplier_name").notNull(),
+  invoiceNumber: text("invoice_number").notNull(),
+  purchaseDate: text("purchase_date").notNull(),
+  itemDescription: text("item_description").notNull(),
+  quantity: text("quantity").notNull(),
+  unitCost: text("unit_cost").notNull(),
+  totalCost: text("total_cost").notNull(),
+  category: text("category").notNull(), // "materials", "tools", "equipment", "consumables"
+  
+  // Data source validation
+  dataSource: text("data_source").notNull().default("uploaded_invoice"), // "uploaded_invoice", "csv_import", "manual_entry"
+  invoiceFileUrl: text("invoice_file_url"), // URL to uploaded invoice PDF/image
+  uploadedBy: text("uploaded_by").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Project Master Data - Links all cash flow data
+export const projectMaster = pgTable("project_master", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectName: text("project_name").notNull().unique(),
+  clientName: text("client_name").notNull(),
+  projectType: text("project_type").notNull(), // "labour_only", "labour_materials", "materials_only"
+  
+  // Project timeline
+  startDate: text("start_date").notNull(),
+  estimatedEndDate: text("estimated_end_date").notNull(),
+  actualEndDate: text("actual_end_date"),
+  
+  // Budget information - AUTHENTIC DATA ONLY
+  totalBudget: text("total_budget").notNull(),
+  quotedPrice: text("quoted_price").notNull(),
+  labourBudget: text("labour_budget").notNull(),
+  materialBudget: text("material_budget").notNull(),
+  
+  // Current status
+  status: text("status").default("active").notNull(), // "planning", "active", "completed", "on_hold"
+  completionPercent: text("completion_percent").default("0").notNull(),
+  
+  // Data source validation
+  budgetDataSource: text("budget_data_source").notNull(), // "contract_csv", "quote_upload", "manual_entry"
+  createdBy: text("created_by").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertProjectMasterSchema = createInsertSchema(projectMaster).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertInspectionNotificationSchema = createInsertSchema(inspectionNotifications).omit({
   id: true,
   createdAt: true,

@@ -22,9 +22,12 @@ import {
   type InspectionNotification,
   type InsertInspectionNotification,
   type TaskProgress,
-  type InsertTaskProgress
+  type InsertTaskProgress,
+  insertProjectCashflowWeeklySchema,
+  insertMaterialPurchaseSchema,
+  insertProjectMasterSchema
 } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults, projectCashflowWeekly, materialPurchases, projectMaster } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, inArray, sql } from "drizzle-orm";
 
@@ -105,6 +108,17 @@ export interface IStorage {
   
   // Pay rates - Mandatory Rule #2: DATA INTEGRITY
   getContractorPayRate(contractorName: string): Promise<number>;
+  
+  // Weekly Cash Flow Tracking - MANDATORY RULE: AUTHENTIC DATA ONLY
+  getProjectMasters(): Promise<any[]>;
+  createProjectMaster(project: any): Promise<any>;
+  updateProjectMaster(id: string, updates: any): Promise<any>;
+  getProjectCashflowWeekly(projectId?: string): Promise<any[]>;
+  createProjectCashflowWeekly(cashflow: any): Promise<any>;
+  updateProjectCashflowWeekly(id: string, updates: any): Promise<any>;
+  getMaterialPurchases(projectId?: string, weekStart?: string): Promise<any[]>;
+  createMaterialPurchase(purchase: any): Promise<any>;
+  calculateWeeklyLabourCosts(projectId: string, weekStart: string, weekEnd: string): Promise<number>;
   
   // Stats
   getStats(): Promise<{
@@ -1062,6 +1076,111 @@ export class DatabaseStorage implements IStorage {
       console.error('❌ Error updating temporary departure:', error);
       throw error;
     }
+  }
+
+  // Weekly Cash Flow Tracking Implementation - MANDATORY RULE: AUTHENTIC DATA ONLY
+  async getProjectMasters(): Promise<any[]> {
+    console.log("📋 Fetching project masters from database");
+    return await db.select().from(projectMaster).orderBy(desc(projectMaster.createdAt));
+  }
+
+  async createProjectMaster(project: any): Promise<any> {
+    console.log("🆕 Creating new project master:", project.projectName);
+    const [created] = await db.insert(projectMaster).values(project).returning();
+    return created;
+  }
+
+  async updateProjectMaster(id: string, updates: any): Promise<any> {
+    console.log("🔄 Updating project master:", id);
+    const [updated] = await db
+      .update(projectMaster)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(projectMaster.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getProjectCashflowWeekly(projectId?: string): Promise<any[]> {
+    console.log("📊 Fetching weekly cashflow data", projectId ? `for project: ${projectId}` : "for all projects");
+    let query = db.select().from(projectCashflowWeekly);
+    
+    if (projectId) {
+      query = query.where(eq(projectCashflowWeekly.projectId, projectId));
+    }
+    
+    return await query.orderBy(desc(projectCashflowWeekly.weekStartDate));
+  }
+
+  async createProjectCashflowWeekly(cashflow: any): Promise<any> {
+    console.log("💰 Creating weekly cashflow record:", cashflow.projectName, cashflow.weekStartDate);
+    const [created] = await db.insert(projectCashflowWeekly).values(cashflow).returning();
+    return created;
+  }
+
+  async updateProjectCashflowWeekly(id: string, updates: any): Promise<any> {
+    console.log("🔄 Updating weekly cashflow record:", id);
+    const [updated] = await db
+      .update(projectCashflowWeekly)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(projectCashflowWeekly.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getMaterialPurchases(projectId?: string, weekStart?: string): Promise<any[]> {
+    console.log("🛒 Fetching material purchases", projectId ? `for project: ${projectId}` : "for all projects");
+    let query = db.select().from(materialPurchases);
+    
+    if (projectId && weekStart) {
+      query = query.where(and(
+        eq(materialPurchases.projectId, projectId),
+        eq(materialPurchases.purchaseWeek, weekStart)
+      ));
+    } else if (projectId) {
+      query = query.where(eq(materialPurchases.projectId, projectId));
+    }
+    
+    return await query.orderBy(desc(materialPurchases.createdAt));
+  }
+
+  async createMaterialPurchase(purchase: any): Promise<any> {
+    console.log("🛒 Creating material purchase record:", purchase.supplierName, purchase.totalCost);
+    const [created] = await db.insert(materialPurchases).values(purchase).returning();
+    return created;
+  }
+
+  async calculateWeeklyLabourCosts(projectId: string, weekStart: string, weekEnd: string): Promise<number> {
+    console.log("💼 Calculating weekly labour costs for project:", projectId, "week:", weekStart, "to", weekEnd);
+    
+    // Get work sessions within the week timeframe
+    const sessions = await db.select()
+      .from(workSessions)
+      .where(and(
+        sql`DATE(${workSessions.startTime}) >= ${weekStart}`,
+        sql`DATE(${workSessions.startTime}) <= ${weekEnd}`,
+        eq(workSessions.status, "completed")
+      ));
+
+    let totalLabourCost = 0;
+
+    // Calculate costs based on authentic pay rates and work hours
+    for (const session of sessions) {
+      if (session.totalHours && session.contractorName) {
+        const payRate = await this.getContractorPayRate(session.contractorName);
+        
+        // Parse total hours (format: "08:11:19" -> decimal hours)
+        const timeParts = session.totalHours.split(':');
+        const hours = parseInt(timeParts[0]) + (parseInt(timeParts[1]) / 60) + (parseInt(timeParts[2]) / 3600);
+        
+        const sessionCost = hours * payRate;
+        totalLabourCost += sessionCost;
+        
+        console.log(`  💰 ${session.contractorName}: ${hours.toFixed(2)}h × £${payRate}/h = £${sessionCost.toFixed(2)}`);
+      }
+    }
+
+    console.log(`📊 Total weekly labour cost: £${totalLabourCost.toFixed(2)}`);
+    return totalLabourCost;
   }
 }
 
