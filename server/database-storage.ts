@@ -26,7 +26,7 @@ import {
 } from "@shared/schema";
 import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, like, inArray } from "drizzle-orm";
+import { eq, desc, and, or, like, inArray, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Contractors
@@ -578,6 +578,27 @@ export class DatabaseStorage implements IStorage {
     return sessionsWithHours;
   }
 
+  // Get authentic pay rate from database - Mandatory Rule #2: DATA INTEGRITY
+  private async getContractorPayRate(contractorName: string): Promise<number> {
+    try {
+      const [contractor] = await db.select().from(contractorApplications)
+        .where(sql`CONCAT(${contractorApplications.firstName}, ' ', ${contractorApplications.lastName}) = ${contractorName}`)
+        .limit(1);
+      
+      if (contractor?.adminPayRate) {
+        const rate = parseFloat(contractor.adminPayRate);
+        console.log(`💰 Authentic pay rate for ${contractorName}: £${rate.toFixed(2)}/hour`);
+        return rate;
+      }
+      
+      console.log(`⚠️ No pay rate found for ${contractorName} - using system default`);
+      return 25.00;
+    } catch (error) {
+      console.error(`❌ Error getting pay rate for ${contractorName}:`, error);
+      return 25.00;
+    }
+  }
+
   async getFirstMorningClockIn(contractorName: string): Promise<WorkSession | undefined> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -612,8 +633,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Money and GPS calculation helper method
-  private calculateEarnings(startTime: Date, endTime: Date, hoursWorked: number) {
-    const baseRate = 25.00; // £25/hour standard rate
+  private async calculateEarnings(contractorName: string, startTime: Date, endTime: Date, hoursWorked: number) {
+    // Get authentic pay rate from database - Mandatory Rule #2: DATA INTEGRITY
+    const payRate = await this.getContractorPayRate(contractorName);
+    const baseRate = payRate || 25.00; // Fallback only if database unavailable
     
     // Check if weekend work for overtime calculation
     const dayOfWeek = startTime.getDay();

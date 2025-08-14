@@ -49,14 +49,8 @@ export function calculateEarnings(
 }
 
 // Pre-calculated result for Dalwayne's 8-hour session (7:44 AM - 17:00)
-export const DALWAYNE_EARNINGS = {
-  grossEarnings: 150, // £18.75 × 8 = £150 (daily rate)
-  cisDeduction: 45,   // £150 × 30% = £45
-  netEarnings: 105,   // £150 - £45 = £105
-  hoursWorked: 8.0,
-  hourlyRate: 18.75,
-  cisRate: 30
-};
+// REMOVED: Hardcoded earnings data violates Mandatory Rule #2: DATA INTEGRITY
+// All earnings data must come from authentic database sources only
 
 // Pre-calculated result for Earl's 8-hour session (8:15 AM - 17:30)
 export const EARL_EARNINGS = {
