@@ -166,14 +166,18 @@ export default function LiveClockMonitor() {
                           <div key={activity.id} className="flex items-center justify-between bg-slate-800/40 rounded-md px-3 py-2 border border-slate-600/20">
                             <div className="flex items-center space-x-3">
                               <div className={`w-1.5 h-1.5 rounded-full ${
-                                activity.activity === 'clock_in' ? 'bg-green-500' : 'bg-red-500'
+                                activity.activity === 'clock_in' ? 'bg-green-500' : 
+                                activity.activity === 'temporarily_away' ? 'bg-yellow-500' : 'bg-red-500'
                               }`}></div>
                               <span className={`text-xs px-2 py-1 rounded-md font-medium ${
                                 activity.activity === 'clock_in' 
                                   ? 'bg-green-900/60 text-green-300 border border-green-700/30' 
+                                  : activity.activity === 'temporarily_away'
+                                  ? 'bg-yellow-900/60 text-yellow-300 border border-yellow-700/30'
                                   : 'bg-red-900/60 text-red-300 border border-red-700/30'
                               }`}>
-                                {activity.activity === 'clock_in' ? 'In' : 'Out'}
+                                {activity.activity === 'clock_in' ? 'In' : 
+                                 activity.activity === 'temporarily_away' ? 'Away' : 'Out'}
                               </span>
                             </div>
                             <div className="text-slate-400 text-sm font-mono">

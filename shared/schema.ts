@@ -6,7 +6,7 @@ import { z } from "zod";
 export const jobStatusEnum = pgEnum("job_status", ["pending", "assigned", "completed"]);
 export const contractorStatusEnum = pgEnum("contractor_status", ["available", "busy", "unavailable"]);
 export const uploadStatusEnum = pgEnum("upload_status", ["processing", "processed", "failed"]);
-export const sessionStatusEnum = pgEnum("session_status", ["active", "completed", "cancelled"]);
+export const sessionStatusEnum = pgEnum("session_status", ["active", "completed", "cancelled", "temporarily_away"]);
 
 export const contractors = pgTable("contractors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -114,6 +114,24 @@ export const workSessions = pgTable("work_sessions", {
   endLongitude: text("end_longitude"),
   status: sessionStatusEnum("status").default("active"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Temporary departure tracking for contractors during work hours
+export const temporaryDepartures = pgTable("temporary_departures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorName: text("contractor_name").notNull(),
+  workSessionId: varchar("work_session_id").references(() => workSessions.id),
+  departureTime: timestamp("departure_time").notNull(),
+  returnTime: timestamp("return_time"),
+  status: text("status").notNull().default("away"), // "away" or "returned"
+  distanceFromSite: text("distance_from_site"), // Distance in meters
+  nearestJobSite: text("nearest_job_site"), // Which job site they're away from
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTemporaryDepartureSchema = createInsertSchema(temporaryDepartures).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const insertContractorSchema = createInsertSchema(contractors).omit({

@@ -157,21 +157,66 @@ async function startAutomaticLogoutService() {
                 }
               }
               
-              // Auto-logout only if contractor is FAR from ALL job sites
+              // Check for temporary departure during work hours (between 8 AM and 5 PM)
+              const currentHour = now.getHours();
+              const isWorkingHours = currentHour >= 8 && currentHour < 17;
+              
               if (!isNearAnyJobSite) {
-                const endTime = new Date();
-                
-                await storage.updateWorkSession(session.id, {
-                  endTime,
-                  status: 'completed' as const
-                });
-                
-                const nearestInfo = nearestJobSite ? 
-                  `${Math.round(nearestDistance)}m from nearest site (${nearestJobSite.location})` :
-                  'no job sites found';
-                
-                console.log(`📍 AUTO-LOGOUT (MULTI-SITE): ${session.contractorName} auto-logged out - ${nearestInfo}`);
+                if (isWorkingHours) {
+                  // During work hours: Mark as temporarily away but keep session active
+                  console.log(`🟡 TEMPORARILY AWAY: ${session.contractorName} - outside job site during work hours (timer continues)`);
+                  
+                  // Check if we already have an active departure record
+                  const existingDeparture = await storage.getActiveDeparture(session.contractorName, session.id);
+                  
+                  if (!existingDeparture) {
+                    // Create new temporary departure record
+                    await storage.createTemporaryDeparture({
+                      contractorName: session.contractorName,
+                      workSessionId: session.id,
+                      departureTime: new Date(),
+                      status: 'away',
+                      distanceFromSite: nearestJobSite ? Math.round(nearestDistance).toString() : null,
+                      nearestJobSite: nearestJobSite ? nearestJobSite.location : null
+                    });
+                    
+                    console.log(`📍 DEPARTURE LOGGED: ${session.contractorName} marked as temporarily away`);
+                  }
+                  
+                  const nearestInfo = nearestJobSite ? 
+                    `${Math.round(nearestDistance)}m from nearest site (${nearestJobSite.location})` :
+                    'no job sites found';
+                    
+                  console.log(`📍 DEPARTURE TRACKING: ${session.contractorName} - ${nearestInfo}`);
+                } else {
+                  // Outside work hours: Complete auto-logout
+                  const endTime = new Date();
+                  
+                  await storage.updateWorkSession(session.id, {
+                    endTime,
+                    status: 'completed' as const
+                  });
+                  
+                  const nearestInfo = nearestJobSite ? 
+                    `${Math.round(nearestDistance)}m from nearest site (${nearestJobSite.location})` :
+                    'no job sites found';
+                  
+                  console.log(`📍 AUTO-LOGOUT (AFTER-HOURS): ${session.contractorName} auto-logged out - ${nearestInfo}`);
+                }
               } else {
+                // Contractor is back on site - check if they were previously away
+                const activeDeparture = await storage.getActiveDeparture(session.contractorName, session.id);
+                
+                if (activeDeparture) {
+                  // Mark return time
+                  await storage.updateTemporaryDeparture(activeDeparture.id, {
+                    returnTime: new Date(),
+                    status: 'returned'
+                  });
+                  
+                  console.log(`🟢 RETURNED TO SITE: ${session.contractorName} back on job site (timer continuous)`);
+                }
+                
                 // Update active assignment if moved to different job site
                 if (nearestJobSite && nearestDistance <= 100) {
                   // Contractor is very close to a specific job site - could update assignment

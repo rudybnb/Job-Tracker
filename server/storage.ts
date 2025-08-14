@@ -73,6 +73,11 @@ export interface IStorage {
   createTaskInspectionResult(result: InsertTaskInspectionResult): Promise<TaskInspectionResult>;
   updateTaskInspectionResult(id: string, result: Partial<TaskInspectionResult>): Promise<TaskInspectionResult | undefined>;
   
+  // Temporary Departures
+  getActiveDeparture(contractorName: string, sessionId: string): Promise<any>;
+  createTemporaryDeparture(departure: any): Promise<any>;
+  updateTemporaryDeparture(id: string, departure: any): Promise<any>;
+  
   // Contractor Assignments
   getContractorAssignments(contractorName?: string): Promise<ContractorAssignment[]>;
   createContractorAssignment(assignment: InsertContractorAssignment): Promise<ContractorAssignment>;

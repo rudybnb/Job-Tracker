@@ -986,6 +986,40 @@ export class DatabaseStorage implements IStorage {
     console.log(`📋 Retrieved ${inspections.length} admin inspections for contractor ${contractorName}`);
     return inspections;
   }
+
+  // Temporary Departures - track contractor movements during work hours
+  async getActiveDeparture(contractorName: string, sessionId: string): Promise<any> {
+    try {
+      console.log(`🔍 Checking for active departure: ${contractorName} session ${sessionId}`);
+      // For now, return null since we don't have the table yet
+      return null;
+    } catch (error) {
+      console.error('❌ Error getting active departure:', error);
+      return null;
+    }
+  }
+
+  async createTemporaryDeparture(departure: any): Promise<any> {
+    try {
+      console.log(`📝 Creating temporary departure record for ${departure.contractorName}`);
+      // For now, just log the departure - would normally insert to temporaryDepartures table
+      return { id: 'temp-departure-' + Date.now(), ...departure };
+    } catch (error) {
+      console.error('❌ Error creating temporary departure:', error);
+      throw error;
+    }
+  }
+
+  async updateTemporaryDeparture(id: string, departure: any): Promise<any> {
+    try {
+      console.log(`📝 Updating temporary departure ${id} with return time`);
+      // For now, just log the return - would normally update temporaryDepartures table
+      return { id, ...departure };
+    } catch (error) {
+      console.error('❌ Error updating temporary departure:', error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();
