@@ -121,7 +121,7 @@ export default function AdminDashboard() {
   const approveContractorFixMutation = useMutation({
     mutationFn: async (inspectionId: string) => {
       const response = await apiRequest("POST", `/api/contractor-fixed-inspections/${inspectionId}/approve`, {
-        adminName: "Earl Johnson"
+        adminName: localStorage.getItem('adminName') || 'Admin'
       });
       return response.json();
     },
