@@ -423,6 +423,17 @@ export default function AdminDashboard() {
                   <button 
                     onClick={() => {
                       setShowAvatarDropdown(false);
+                      toast({ title: "Project Cashflow", description: "Opening project cashflow management..." });
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-blue-400"
+                  >
+                    <i className="fas fa-chart-line mr-3 w-4"></i>
+                    📊 Project Cashflow
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
                       toast({ title: "AI Agent Management", description: "Opening AI agent management..." });
                     }}
                     className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
