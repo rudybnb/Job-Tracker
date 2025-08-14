@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { DatabaseStorage } from "./database-storage";
 
 const storage = new DatabaseStorage();
-import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema, insertAdminSettingSchema, insertJobAssignmentSchema } from "@shared/schema";
+import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema, insertAdminSettingSchema, insertJobAssignmentSchema, JobWithContractor, WorkSession } from "@shared/schema";
 import { TelegramService } from "./telegram";
 import multer from "multer";
 import type { Request as ExpressRequest } from "express";
@@ -2394,7 +2394,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Calculate labour costs based on default hourly rate
         const hourlyRate = 25; // Default £25/hour (contractor hourlyRate not in schema)
-        const labourCosts = totalHours * hourlyRate;
+        
+        // If no actual hours worked yet, estimate based on project type and add realistic estimates
+        let estimatedHours = totalHours;
+        console.log(`💰 Project "${job.title}": totalHours=${totalHours}, jobSessions=${jobSessions.length}`);
+        if (estimatedHours === 0) {
+          if (job.title.toLowerCase().includes('flat') || job.title.toLowerCase().includes('bedroom')) {
+            estimatedHours = 240; // 6 weeks x 40 hours = 240 hours for flat renovation
+          } else if (job.title.toLowerCase().includes('extension')) {
+            estimatedHours = 400; // 10 weeks for extension
+          } else if (job.title.toLowerCase().includes('kitchen')) {
+            estimatedHours = 160; // 4 weeks for kitchen
+          } else {
+            // Default estimation for any project - minimum realistic hours
+            estimatedHours = 160; // Default 4 weeks for any construction project
+          }
+        }
+        
+        const labourCosts = estimatedHours * hourlyRate;
         
         // Extract material costs from job description/title if available
         let materialCosts = 0;
@@ -2407,9 +2424,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }, 0);
         }
         
-        // If no material costs found, estimate based on job size
+        // If no material costs found, add realistic estimates based on project type
         if (materialCosts === 0) {
-          materialCosts = labourCosts * 0.7; // Estimate 70% of labour costs for materials
+          // Add base material costs for typical construction projects
+          if (job.title.toLowerCase().includes('flat') || job.title.toLowerCase().includes('bedroom')) {
+            materialCosts = 8500; // Typical flat renovation materials
+          } else if (job.title.toLowerCase().includes('extension')) {
+            materialCosts = 15000; // Extension materials
+          } else if (job.title.toLowerCase().includes('kitchen')) {
+            materialCosts = 12000; // Kitchen renovation
+          } else {
+            materialCosts = Math.max(5000, labourCosts * 0.7); // Minimum £5k or 70% of labour
+          }
         }
         
         const totalBudget = labourCosts + materialCosts + (labourCosts * 0.3); // Add 30% margin
