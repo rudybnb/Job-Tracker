@@ -95,10 +95,9 @@ export default function LiveClockMonitor() {
         </div>
       </div>
 
-      {/* Live Clock Monitoring Section */}
-      <div className="p-4 space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+      {/* Simplified Live Monitor */}
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-6">
           <h3 className="text-green-500 text-lg font-semibold">Live Clock Monitoring</h3>
           <div className="flex items-center space-x-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -106,119 +105,47 @@ export default function LiveClockMonitor() {
           </div>
         </div>
         
-        {/* Active Workers Section */}
-        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
-          <h4 className="text-white text-base font-medium mb-3">
-            Active Workers ({activeSessions.length})
-          </h4>
+        <div className="space-y-4">
+          <h4 className="text-white text-base font-medium">Active Workers ({activeSessions.length})</h4>
+          
           {activeLoading ? (
             <div className="text-slate-400">Loading...</div>
           ) : activeSessions.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {activeSessions.map((session: any) => (
-                <div key={session.id} className="bg-slate-700/30 rounded-lg p-3 border border-slate-600/30">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-white font-medium">{session.contractorName}</span>
-                      <span className="text-xs px-2 py-1 bg-green-900/60 text-green-300 border border-green-700/30 rounded">
-                        Active
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-yellow-400 font-mono text-lg">
-                        {session.duration}
-                      </div>
-                      <div className="text-slate-400 text-xs">
-                        Started {session.startedAt}
-                      </div>
-                    </div>
+                <div key={session.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="text-white font-medium text-lg">{session.contractorName}</span>
+                    <span className="text-yellow-400 font-mono text-xl">{session.duration}</span>
+                    <span className="text-xs px-2 py-1 bg-green-900/60 text-green-300 border border-green-700/30 rounded">
+                      Active
+                    </span>
+                    <span className="text-slate-400 text-sm ml-auto">Started {session.startedAt}</span>
                   </div>
-                  <div className="mt-2 text-xs text-slate-400">
-                    📍 {session.jobSiteLocation}
+                  <div className="text-xs text-slate-400 mb-3">📍 {session.jobSiteLocation}</div>
+                  
+                  {/* Red squares for morning in and evening out times */}
+                  <div className="flex space-x-3">
+                    <div className="w-20 h-20 bg-red-600 rounded-lg border-2 border-red-500 flex flex-col items-center justify-center shadow-lg">
+                      <div className="text-white text-xs font-bold">MORNING</div>
+                      <div className="text-white text-lg font-mono font-bold">{session.startedAt}</div>
+                    </div>
+                    <div className="w-20 h-20 bg-slate-700 border-2 border-slate-600 rounded-lg flex flex-col items-center justify-center shadow-lg">
+                      <div className="text-slate-400 text-xs font-bold">EVENING</div>
+                      <div className="text-slate-400 text-lg font-mono font-bold">--:--</div>
+                    </div>
+                    <div className="w-20 h-20 bg-slate-800 border-2 border-slate-700 rounded-lg flex flex-col items-center justify-center shadow-lg">
+                      <div className="text-slate-500 text-xs font-bold">STATUS</div>
+                      <div className="text-green-400 text-sm font-bold">ACTIVE</div>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-slate-500 text-center py-4">
-              No workers currently active
-            </div>
+            <div className="text-slate-500 text-center py-8">No workers currently active</div>
           )}
-        </div>
-
-        {/* Recent Activities Section */}
-        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
-          <div className="flex justify-between items-center mb-4">
-            <h4 className="text-white text-base font-medium">Recent Activities (Last 24h)</h4>
-            <div className="text-slate-400 text-sm">
-              Current: {new Date().toLocaleTimeString('en-GB', {
-                timeZone: 'Europe/London',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </div>
-          </div>
-{activitiesLoading ? (
-              <div className="text-slate-400">Loading...</div>
-            ) : recentActivities.length > 0 ? (
-              <div className="space-y-3">
-                {(() => {
-                  // Group activities by contractor
-                  const groupedActivities = recentActivities.reduce((groups: any, activity: any) => {
-                    const name = activity.contractorName;
-                    if (!groups[name]) {
-                      groups[name] = [];
-                    }
-                    groups[name].push(activity);
-                    return groups;
-                  }, {});
-
-                  return Object.entries(groupedActivities).map(([contractorName, activities]: [string, any]) => (
-                    <div key={contractorName} className="bg-slate-700/30 rounded-lg p-3 border border-slate-600/40 mb-3">
-                      <div className="font-medium text-slate-200 mb-3 flex items-center">
-                        <div className="w-2 h-2 bg-slate-500 rounded-full mr-2"></div>
-                        {contractorName}
-                      </div>
-                      <div className="space-y-2 ml-4">
-                        {activities.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((activity: any) => (
-                          <div key={activity.id} className="flex items-center justify-between bg-slate-800/40 rounded-md px-3 py-2 border border-slate-600/20">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-1.5 h-1.5 rounded-full ${
-                                activity.activity === 'clock_in' ? 'bg-green-500' : 
-                                activity.activity === 'temporarily_away' ? 'bg-yellow-500' : 'bg-red-500'
-                              }`}></div>
-                              <span className={`text-xs px-2 py-1 rounded-md font-medium ${
-                                activity.activity === 'clock_in' 
-                                  ? 'bg-green-900/60 text-green-300 border border-green-700/30' 
-                                  : activity.activity === 'temporarily_away'
-                                  ? 'bg-yellow-900/60 text-yellow-300 border border-yellow-700/30'
-                                  : 'bg-red-900/60 text-red-300 border border-red-700/30'
-                              }`}>
-                                {activity.activity === 'clock_in' ? 'In' : 
-                                 activity.activity === 'temporarily_away' ? 'Away' : 'Out'}
-                              </span>
-                            </div>
-                            <div className="text-slate-400 text-sm font-mono">
-                              {activity.actualTime || new Date(activity.timestamp).toLocaleTimeString('en-GB', {
-                                timeZone: 'Europe/London',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit'
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
-            ) : (
-              <div className="text-slate-500 text-center py-4">
-                No recent activity
-              </div>
-            )}
         </div>
       </div>
     </div>

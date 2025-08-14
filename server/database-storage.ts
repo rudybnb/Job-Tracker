@@ -72,6 +72,7 @@ export interface IStorage {
   getActiveWorkSessions(): Promise<WorkSession[]>;
   getRecentClockActivities(): Promise<any[]>;
   getTodayWorkSessions(): Promise<WorkSession[]>;
+  getFirstMorningClockIn(contractorName: string): Promise<WorkSession | undefined>;
   
   // Admin Settings
   getAdminSettings(): Promise<AdminSetting[]>;
