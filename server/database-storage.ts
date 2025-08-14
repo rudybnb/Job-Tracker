@@ -578,6 +578,26 @@ export class DatabaseStorage implements IStorage {
     return sessionsWithHours;
   }
 
+  async getFirstMorningClockIn(contractorName: string): Promise<WorkSession | undefined> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const [session] = await db.select().from(workSessions)
+      .where(
+        and(
+          like(workSessions.contractorName, `%${contractorName}%`),
+          gte(workSessions.startTime, today.toISOString()),
+          lt(workSessions.startTime, tomorrow.toISOString())
+        )
+      )
+      .orderBy(workSessions.startTime)
+      .limit(1);
+    
+    return session;
+  }
+
   async getWorkSessionsForWeek(startDate: Date, endDate: Date): Promise<WorkSession[]> {
     console.log(`🗓️ Fetching work sessions between ${startDate.toDateString()} and ${endDate.toDateString()}`);
     

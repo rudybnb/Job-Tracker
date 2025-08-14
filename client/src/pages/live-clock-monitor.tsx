@@ -95,7 +95,7 @@ export default function LiveClockMonitor() {
         </div>
       </div>
 
-      {/* Simplified Live Monitor */}
+      {/* Simple Live Monitor Layout */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-green-500 text-lg font-semibold">Live Clock Monitoring</h3>
@@ -114,30 +114,28 @@ export default function LiveClockMonitor() {
             <div className="space-y-4">
               {activeSessions.map((session: any) => (
                 <div key={session.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-white font-medium text-lg">{session.contractorName}</span>
-                    <span className="text-yellow-400 font-mono text-xl">{session.duration}</span>
-                    <span className="text-xs px-2 py-1 bg-green-900/60 text-green-300 border border-green-700/30 rounded">
-                      Active
-                    </span>
-                    <span className="text-slate-400 text-sm ml-auto">Started {session.startedAt}</span>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-white font-medium text-lg">{session.contractorName}</span>
+                    </div>
+                    <div className="text-yellow-400 font-mono text-xl">{session.duration}</div>
                   </div>
-                  <div className="text-xs text-slate-400 mb-3">📍 {session.jobSiteLocation}</div>
+                  <div className="text-xs text-slate-400 mb-4">📍 {session.jobSiteLocation}</div>
                   
-                  {/* Red squares for morning in and evening out times */}
+                  {/* Red squares for morning/evening times and status */}
                   <div className="flex space-x-3">
-                    <div className="w-20 h-20 bg-red-600 rounded-lg border-2 border-red-500 flex flex-col items-center justify-center shadow-lg">
+                    <div className="w-16 h-16 bg-red-600 rounded border-2 border-red-500 flex flex-col items-center justify-center">
                       <div className="text-white text-xs font-bold">MORNING</div>
-                      <div className="text-white text-lg font-mono font-bold">{session.startedAt}</div>
+                      <div className="text-white text-sm font-mono">{session.startedAt}</div>
                     </div>
-                    <div className="w-20 h-20 bg-slate-700 border-2 border-slate-600 rounded-lg flex flex-col items-center justify-center shadow-lg">
+                    <div className="w-16 h-16 bg-slate-700 border-2 border-slate-600 rounded flex flex-col items-center justify-center">
                       <div className="text-slate-400 text-xs font-bold">EVENING</div>
-                      <div className="text-slate-400 text-lg font-mono font-bold">--:--</div>
+                      <div className="text-slate-400 text-sm font-mono">--:--</div>
                     </div>
-                    <div className="w-20 h-20 bg-slate-800 border-2 border-slate-700 rounded-lg flex flex-col items-center justify-center shadow-lg">
-                      <div className="text-slate-500 text-xs font-bold">STATUS</div>
-                      <div className="text-green-400 text-sm font-bold">ACTIVE</div>
+                    <div className="w-16 h-16 bg-green-700 border-2 border-green-600 rounded flex flex-col items-center justify-center">
+                      <div className="text-white text-xs font-bold">STATUS</div>
+                      <div className="text-green-300 text-sm font-bold">ACTIVE</div>
                     </div>
                   </div>
                 </div>

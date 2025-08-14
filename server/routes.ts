@@ -2153,45 +2153,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      // Calculate session duration and get morning start time for each unique active session
-      const sessionsWithDuration = await Promise.all(
-        Array.from(cleanedSessions.values()).map(async (session) => {
-          const startTime = new Date(session.startTime);
-          const now = new Date();
-          const durationMs = now.getTime() - startTime.getTime();
-          const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
-          const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-          
-          // Get the first morning clock-in time for this contractor today
-          const morningStartQuery = await storage.getFirstMorningClockIn(session.contractorName);
-          const morningTime = morningStartQuery ? 
-            new Date(morningStartQuery.startTime).toLocaleTimeString('en-GB', {
-              timeZone: 'Europe/London',
-              hour: '2-digit',
-              minute: '2-digit'
-            }) : startTime.toLocaleTimeString('en-GB', {
-              timeZone: 'Europe/London',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-          
-          return {
-            ...session,
-            duration: `${durationHours}h ${durationMinutes}m`,
-            durationMs: durationMs,
-            isActive: true,
-            status: 'clocked_in',
-            workingHours: durationHours,
-            workingMinutes: durationMinutes,
-            startedAt: startTime.toLocaleTimeString('en-GB', {
-              timeZone: 'Europe/London',
-              hour: '2-digit',
-              minute: '2-digit'
-            }),
-            morningStartTime: morningTime
-          };
-        })
-      );
+      // Calculate session duration for each unique active session
+      const sessionsWithDuration = Array.from(cleanedSessions.values()).map(session => {
+        const startTime = new Date(session.startTime);
+        const now = new Date();
+        const durationMs = now.getTime() - startTime.getTime();
+        const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+        const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        return {
+          ...session,
+          duration: `${durationHours}h ${durationMinutes}m`,
+          durationMs: durationMs,
+          isActive: true,
+          status: 'clocked_in',
+          workingHours: durationHours,
+          workingMinutes: durationMinutes,
+          startedAt: startTime.toLocaleTimeString('en-GB', {
+            timeZone: 'Europe/London',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        };
+      });
       
       console.log(`📈 Found ${sessionsWithDuration.length} active sessions`);
       res.json(sessionsWithDuration);
