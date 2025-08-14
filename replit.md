@@ -72,6 +72,8 @@ The application offers a complete workflow with distinct role-based interfaces f
 
 **Real-Time GPS Tracking System (August 2025)**: Comprehensive GPS proximity monitoring with in-memory location tracking (`server/location-tracker.ts`) and enhanced automatic logout service that uses contractors' current GPS coordinates instead of start coordinates. Features 500-meter auto-logout threshold, 30-second monitoring cycles, and dual logout rules (5:00 PM + GPS proximity) for complete payroll protection and workforce compliance.
 
+**Account-Specific Cashflow System (August 2025)**: Project Cashflow feature now implements proper authentication-aware data filtering. Admin accounts have full access to all project data and financial metrics, while contractor accounts (including Earl's account) only see projects specifically assigned to them. System enforces account isolation with 0 figures for unassigned contractors and authentic database metrics for admin oversight.
+
 ## External Dependencies
 
 ### Database Services

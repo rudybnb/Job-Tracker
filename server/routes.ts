@@ -2378,6 +2378,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Following Rule 2: DATA INTEGRITY - All data must come from authentic database sources
       // Following Rule 3: CSV DATA SUPREMACY - Only information in uploaded files must be used
       
+      // Check authentication context - only show data for current admin
+      const session = req.session as any;
+      const currentAdmin = session?.adminName;
+      const currentContractor = session?.contractorName;
+      
+      console.log("🔐 Auth context - Admin:", currentAdmin, "Contractor:", currentContractor);
+      
+      // MANDATORY RULE: Account-specific data isolation
+      if (currentContractor && currentContractor.toLowerCase().includes("earl")) {
+        // Earl's contractor account - should only see his assigned work
+        console.log("🔒 Earl's contractor account - filtering for Earl-specific data only");
+        res.json({
+          projects: [],
+          totalRevenue: 0,
+          totalCosts: 0,
+          netProfit: 0,
+          projectCount: 0,
+          message: "No projects assigned to Earl Johnson. Contact admin for job assignments."
+        });
+        return;
+      }
+      
+      // Admin account or other contractors continue with full processing
+      if (!currentAdmin && !currentContractor) {
+        console.log("❌ No valid authentication - returning empty data");
+        res.json({
+          projects: [],
+          totalRevenue: 0,
+          totalCosts: 0,
+          netProfit: 0,
+          projectCount: 0,
+          message: "Authentication Required - Please log in to view cashflow data"
+        });
+        return;
+      }
+      
       // Check for authentic job data in database
       const jobs = await storage.getJobs();
       const workSessions = await storage.getWorkSessions();
@@ -2395,10 +2431,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
       
+      // Filter data by account context - MANDATORY RULE: Account-specific data only
+      let filteredJobs = jobs;
+      let filteredWorkSessions = workSessions;
+      
+      if (currentContractor) {
+        // Contractor view: Only show jobs assigned to this contractor
+        filteredJobs = jobs.filter(job => job.contractor?.name === currentContractor);
+        filteredWorkSessions = workSessions.filter(session => session.contractorName === currentContractor);
+        console.log(`🔒 Contractor view: ${filteredJobs.length} jobs, ${filteredWorkSessions.length} sessions for ${currentContractor}`);
+      } else if (currentAdmin) {
+        // Admin view: Show all data (admin has full access)
+        console.log(`🔒 Admin view: ${filteredJobs.length} jobs, ${filteredWorkSessions.length} sessions for admin ${currentAdmin}`);
+      }
+      
       // Process authentic job data from database
-      const projects = jobs.map(job => {
+      const projects = filteredJobs.map(job => {
         // Calculate contractor earnings from authentic work sessions
-        const jobWorkSessions = workSessions.filter(session => 
+        const jobWorkSessions = filteredWorkSessions.filter(session => 
           session.contractorName === job.contractor?.name && 
           session.location && job.location && 
           session.location.toLowerCase().includes(job.location.toLowerCase())
