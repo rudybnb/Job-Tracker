@@ -437,7 +437,7 @@ export default function AdminDashboard() {
                     className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
                   >
                     <i className="fas fa-pound-sign mr-3 w-4"></i>
-                    CONTRACT CASHFLOW
+                    CONTRACT CASHFLOW 
                   </button>
                   
                   <button 
