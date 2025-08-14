@@ -2345,11 +2345,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Calculate CIS deduction
         contractor.cisDeduction = contractor.grossEarnings * contractor.cisRate;
         
-        // Calculate net earnings (minimum £100 daily protection)
-        contractor.netEarnings = Math.max(
-          contractor.grossEarnings - contractor.cisDeduction,
-          100 * Math.ceil(hoursWorked / 8) // £100 minimum per day worked
-        );
+        // Calculate net earnings - match individual contractor calculation method
+        contractor.netEarnings = contractor.grossEarnings - contractor.cisDeduction;
         
         // Round all monetary values
         contractor.grossEarnings = Math.round(contractor.grossEarnings * 100) / 100;
