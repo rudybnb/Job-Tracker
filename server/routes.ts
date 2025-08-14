@@ -219,6 +219,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const lines = csvContent.split('\n').map(line => line.trim()).filter(line => line);
         console.log('🔍 CSV Lines:', lines.slice(0, 10));
         
+        let jobsCreated = 0; // Initialize counter
+        
         // Extract header information (first 4 lines)
         let jobName = "Data Missing from CSV";
         let jobAddress = "Data Missing from CSV";
@@ -354,10 +356,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           await storage.createJob({
             title: jobName,
-            location: jobAddress,
-            postcode: jobPostcode,
-            projectType: jobType,
+            location: `${jobAddress}, ${jobPostcode}`,
             status: "pending",
+            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             uploadId: csvUpload.id,
             phaseTaskData: enhancedJobData
           });
@@ -366,8 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
         } else {
           // ORIGINAL FORMAT PARSING - maintain existing functionality
-        try {
-        // Look for "Build Phase" line which indicates start of data section
+          // Look for "Build Phase" line which indicates start of data section
         let dataHeaderIndex = lines.findIndex(line => 
           line.includes('Build Phase') && (line.includes('Order Quantity') || line.split(',').length >= 3)
         );
@@ -473,6 +473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Enhanced data is already processed, continue with existing job creation
         }
 
+        }
       } catch (error) {
         console.error("Error processing CSV jobs:", error);
         await storage.updateCsvUpload(csvUpload.id, { status: "failed" });
