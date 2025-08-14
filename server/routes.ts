@@ -2302,13 +2302,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         }
         
-        // Calculate session hours
-        let sessionHours = 0;
-        if (session.endTime) {
-          const startTime = new Date(session.startTime);
-          const endTime = new Date(session.endTime);
-          sessionHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-        }
+        // Use authentic database totalHours - Mandatory Rule #2: DATA INTEGRITY
+        const sessionHours = parseFloat(session.totalHours || "0");
         
         acc[contractorName].sessions.push({
           ...session,
@@ -2328,19 +2323,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const hoursWorked = contractor.hoursWorked;
         const hourlyRate = contractor.hourlyRate;
         
-        // Check for weekend overtime
-        const hasWeekendWork = contractor.sessions.some((session: any) => {
-          const sessionDate = new Date(session.startTime);
-          const dayOfWeek = sessionDate.getDay();
-          return dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+        // Weekend overtime disabled to match individual contractor calculations
+        // Original hourlyRate used consistently
+        
+        // Calculate gross earnings using same logic as individual contractor pages
+        // Apply daily rate cap of hourlyRate * 8 for 8+ hour days, hourly rate for partial days
+        let grossEarnings = 0;
+        contractor.sessions.forEach((session: any) => {
+          const sessionHours = parseFloat(session.sessionHours);
+          const isFullDay = sessionHours >= 8;
+          const dailyRate = hourlyRate * 8; // £150 for Dalwayne, £200 for Marius
+          
+          if (isFullDay) {
+            grossEarnings += dailyRate; // Pay daily rate for 8+ hours
+          } else {
+            grossEarnings += sessionHours * hourlyRate; // Pay hourly for partial days
+          }
         });
-        
-        if (hasWeekendWork) {
-          contractor.hourlyRate = hourlyRate * 1.5; // 1.5x overtime
-        }
-        
-        // Calculate gross earnings
-        contractor.grossEarnings = hoursWorked * contractor.hourlyRate;
+        contractor.grossEarnings = grossEarnings;
         
         // Calculate CIS deduction
         contractor.cisDeduction = contractor.grossEarnings * contractor.cisRate;
