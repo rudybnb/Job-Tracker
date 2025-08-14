@@ -586,11 +586,7 @@ export class DatabaseStorage implements IStorage {
     
     const [session] = await db.select().from(workSessions)
       .where(
-        and(
-          like(workSessions.contractorName, `%${contractorName}%`),
-          gte(workSessions.startTime, today.toISOString()),
-          lt(workSessions.startTime, tomorrow.toISOString())
-        )
+        like(workSessions.contractorName, `%${contractorName}%`)
       )
       .orderBy(workSessions.startTime)
       .limit(1);
