@@ -11,6 +11,22 @@ export default function ContractorIdCapture() {
   const [telegramId, setTelegramId] = useState("");
   const { toast } = useToast();
 
+  // Known contractor Telegram IDs
+  const knownContractors = [
+    { name: "Marius Andronache", telegramId: "8006717361", status: "Active" },
+    { name: "Dalwayne Diedericks", telegramId: "8016744652", status: "Active" },
+    { name: "Earl", telegramId: "6792554033", status: "Active" },
+    { name: "Muhammed", telegramId: "5209713845", status: "Active" }
+  ];
+
+  const handleCopyTelegramId = (telegramId: string, name: string) => {
+    navigator.clipboard.writeText(telegramId);
+    toast({
+      title: "Telegram ID Copied",
+      description: `${name}'s Telegram ID: ${telegramId}`
+    });
+  };
+
   const handleCopyFormMessage = () => {
     const formMessage = `🔨 ERdesignandbuild Contractor Application
 
@@ -79,6 +95,47 @@ ERdesignandbuild Team`;
           <User className="h-8 w-8 text-yellow-600 mr-3" />
           <h1 className="text-2xl font-bold">Contractor ID Capture</h1>
         </div>
+
+        {/* Current Contractor Telegram IDs */}
+        <Card className="bg-slate-800 border-slate-700 mb-6">
+          <CardHeader>
+            <CardTitle className="text-yellow-600 flex items-center">
+              <MessageCircle className="h-5 w-5 mr-2" />
+              📱 Current Contractor Telegram IDs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {knownContractors.map((contractor, index) => (
+                <div key={index} className="flex items-center justify-between bg-slate-700 p-3 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center">
+                      <span className="text-black font-bold text-xs">
+                        {contractor.name.split(' ').map(n => n[0]).join('').slice(0,2)}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-medium text-white">{contractor.name}</div>
+                      <div className="text-sm text-slate-400">ID: {contractor.telegramId}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs bg-green-900 text-green-300 px-2 py-1 rounded">
+                      {contractor.status}
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={() => handleCopyTelegramId(contractor.telegramId, contractor.name)}
+                      className="bg-yellow-600 hover:bg-yellow-700 text-black"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="bg-slate-800 border-slate-700 mb-6">
           <CardHeader>
