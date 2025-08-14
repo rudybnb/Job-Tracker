@@ -43,9 +43,13 @@ export default function ContractCashflow() {
       }
     } catch (error) {
       console.error('Error fetching project cashflow:', error);
+      // Clear any existing data since we can't load authentic data
+      setProjects([]);
+      setTotalRevenue(0);
+      setTotalCosts(0);
       toast({
-        title: "Data Loading Error",
-        description: "Unable to load project cashflow data from database",
+        title: "Authentic Data Required",
+        description: "Only authentic accounting data permitted. Upload Excel/CSV files with real financial data.",
         variant: "destructive"
       });
     }
