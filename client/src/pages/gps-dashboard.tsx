@@ -923,29 +923,70 @@ export default function GPSDashboard() {
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
-        <div className="grid grid-cols-3 text-center">
-          <button 
-            onClick={() => window.location.href = '/'}
-            className="py-3 px-4 text-yellow-400"
-          >
-            <i className="fas fa-home block mb-1"></i>
-            <span className="text-xs">Dashboard</span>
-          </button>
-          <button 
-            onClick={() => window.location.href = '/jobs'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
-          >
-            <i className="fas fa-briefcase block mb-1"></i>
-            <span className="text-xs">Jobs</span>
-          </button>
-          <button 
-            onClick={() => window.location.href = '/more'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
-          >
-            <i className="fas fa-ellipsis-h block mb-1"></i>
-            <span className="text-xs">More</span>
-          </button>
-        </div>
+        {/* Show foreman tab only for Dalwayne */}
+        {contractorName && (contractorName.toLowerCase().includes('dalwayne') || contractorName.toLowerCase().includes('diedericks')) ? (
+          <div className="grid grid-cols-4 text-center">
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="py-3 px-4 text-yellow-400"
+              data-testid="nav-dashboard"
+            >
+              <i className="fas fa-home block mb-1"></i>
+              <span className="text-xs">Dashboard</span>
+            </button>
+            <button 
+              onClick={() => window.location.href = '/jobs'}
+              className="py-3 px-4 text-slate-400 hover:text-white"
+              data-testid="nav-jobs"
+            >
+              <i className="fas fa-briefcase block mb-1"></i>
+              <span className="text-xs">Jobs</span>
+            </button>
+            <button 
+              onClick={() => window.location.href = '/foreman'}
+              className="py-3 px-4 text-slate-400 hover:text-white"
+              data-testid="nav-foreman"
+            >
+              <i className="fas fa-users block mb-1"></i>
+              <span className="text-xs">Foreman</span>
+            </button>
+            <button 
+              onClick={() => window.location.href = '/more'}
+              className="py-3 px-4 text-slate-400 hover:text-white"
+              data-testid="nav-more"
+            >
+              <i className="fas fa-ellipsis-h block mb-1"></i>
+              <span className="text-xs">More</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 text-center">
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="py-3 px-4 text-yellow-400"
+              data-testid="nav-dashboard"
+            >
+              <i className="fas fa-home block mb-1"></i>
+              <span className="text-xs">Dashboard</span>
+            </button>
+            <button 
+              onClick={() => window.location.href = '/jobs'}
+              className="py-3 px-4 text-slate-400 hover:text-white"
+              data-testid="nav-jobs"
+            >
+              <i className="fas fa-briefcase block mb-1"></i>
+              <span className="text-xs">Jobs</span>
+            </button>
+            <button 
+              onClick={() => window.location.href = '/more'}
+              className="py-3 px-4 text-slate-400 hover:text-white"
+              data-testid="nav-more"
+            >
+              <i className="fas fa-ellipsis-h block mb-1"></i>
+              <span className="text-xs">More</span>
+            </button>
+          </div>
+        )}
       </div>
       
       {/* Add bottom padding to account for fixed navigation */}
