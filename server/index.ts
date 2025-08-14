@@ -116,8 +116,10 @@ async function startAutomaticLogoutService() {
           try {
             // Get real-time location from location tracker
             const currentLocation = getContractorLocation(session.contractorName.trim());
+            console.log(`🔍 Checking GPS for ${session.contractorName.trim()}: ${currentLocation ? 'LOCATION FOUND' : 'NO LOCATION DATA'}`);
             
             if (currentLocation) {
+              console.log(`📍 Location found for ${session.contractorName}: ${currentLocation.latitude}, ${currentLocation.longitude}`);
               // Multi-site detection: Check proximity to ALL job sites
               const allJobs = await storage.getJobs();
               let nearestJobSite = null;
@@ -157,9 +159,17 @@ async function startAutomaticLogoutService() {
                 }
               }
               
+              // Debug GPS proximity logic
+              console.log(`🔍 GPS DEBUG for ${session.contractorName}:`);
+              console.log(`   📍 Current GPS: ${currentLocation.latitude}, ${currentLocation.longitude}`);
+              console.log(`   🏗️ Nearest site: ${nearestJobSite ? nearestJobSite.location : 'NONE FOUND'}`);
+              console.log(`   📏 Distance: ${Math.round(nearestDistance)}m`);
+              console.log(`   ✅ Within range (500m)? ${isNearAnyJobSite}`);
+              
               // Check for temporary departure during work hours (between 8 AM and 5 PM)
               const currentHour = now.getHours();
               const isWorkingHours = currentHour >= 8 && currentHour < 17;
+              console.log(`   🕐 Working hours (8-17)? ${isWorkingHours} (current: ${currentHour})`);
               
               if (!isNearAnyJobSite) {
                 if (isWorkingHours) {
@@ -250,16 +260,32 @@ async function startAutomaticLogoutService() {
                   const contractorLon = parseFloat(session.startLongitude);
                   
                   const distance = calculateGPSDistance(contractorLat, contractorLon, jobSiteLat, jobSiteLon);
+                  const currentHour = now.getHours();
+                  const isWorkingHours = currentHour >= 8 && currentHour < 17;
+                  
+                  console.log(`🔍 FALLBACK GPS CHECK for ${session.contractorName}:`);
+                  console.log(`   📍 Start GPS: ${session.startLatitude}, ${session.startLongitude}`);
+                  console.log(`   🏗️ Job site: ${workLocation}`);
+                  console.log(`   📏 Distance: ${Math.round(distance)}m`);
+                  console.log(`   🕐 Working hours (8-17)? ${isWorkingHours} (current: ${currentHour})`);
                   
                   if (distance > 500) {
-                    const endTime = new Date();
-                    
-                    await storage.updateWorkSession(session.id, {
-                      endTime,
-                      status: 'completed' as const
-                    });
-                    
-                    console.log(`📍 AUTO-LOGOUT (GPS-FALLBACK): ${session.contractorName} auto-logged out - ${Math.round(distance)}m from job site (${workLocation})`);
+                    if (isWorkingHours) {
+                      // During work hours: Allow temporary departure - don't auto-logout
+                      console.log(`🟡 TEMPORARILY AWAY (FALLBACK): ${session.contractorName} - ${Math.round(distance)}m from job site during work hours (timer continues)`);
+                    } else {
+                      // After hours: Auto-logout
+                      const endTime = new Date();
+                      
+                      await storage.updateWorkSession(session.id, {
+                        endTime,
+                        status: 'completed' as const
+                      });
+                      
+                      console.log(`📍 AUTO-LOGOUT (GPS-FALLBACK): ${session.contractorName} auto-logged out - ${Math.round(distance)}m from job site (${workLocation})`);
+                    }
+                  } else {
+                    console.log(`✅ CONTRACTOR ON SITE (FALLBACK): ${session.contractorName} within ${Math.round(distance)}m of ${workLocation} - session continues`);
                   }
                 }
               }

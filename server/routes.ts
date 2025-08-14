@@ -1192,12 +1192,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const validatedSession = insertWorkSessionSchema.parse(sessionData);
-      const session = await storage.createWorkSession(validatedSession);
+      console.log("🔍 Work session data before validation:", JSON.stringify(sessionData, null, 2));
+      
+      const validationResult = insertWorkSessionSchema.safeParse(sessionData);
+      if (!validationResult.success) {
+        console.error("❌ Work session validation failed:", validationResult.error.errors);
+        return res.status(400).json({ 
+          error: "Invalid work session data", 
+          details: validationResult.error.errors,
+          receivedData: sessionData
+        });
+      }
+      
+      const session = await storage.createWorkSession(validationResult.data);
+      console.log("✅ Work session created successfully:", session.id);
       res.status(201).json(session);
     } catch (error) {
-      console.error("Error creating work session:", error);
-      res.status(400).json({ error: "Failed to create work session" });
+      console.error("❌ Error creating work session:", error);
+      if (error instanceof Error) {
+        console.error("❌ Error details:", error.message);
+        console.error("❌ Error stack:", error.stack);
+      }
+      res.status(400).json({ error: "Failed to create work session", details: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
