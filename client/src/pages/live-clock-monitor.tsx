@@ -116,21 +116,23 @@ export default function LiveClockMonitor() {
                 <div key={session.id} className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div className={`w-3 h-3 rounded-full ${
+                        session.workingHours >= 6 ? 'bg-blue-500' :      // 6+ hours = blue
+                        session.workingHours >= 4 ? 'bg-green-500' :     // 4+ hours = green
+                        session.workingHours >= 2 ? 'bg-yellow-500' :    // 2+ hours = yellow
+                        session.workingHours >= 1 ? 'bg-orange-500' :    // 1+ hours = orange
+                        'bg-red-500'                                      // < 1 hour = red
+                      }`}></div>
                       <span className="text-white font-medium text-sm">{session.contractorName}</span>
-                      <div className="text-yellow-400 font-mono text-sm">{session.duration}</div>
                     </div>
                     
-                    {/* Compact squares inline */}
+                    {/* Time squares with color coding */}
                     <div className="flex space-x-1">
-                      <div className="w-8 h-8 bg-red-600 rounded border border-red-500 flex flex-col items-center justify-center">
+                      <div className="w-8 h-8 bg-red-600 rounded border border-red-500 flex items-center justify-center">
                         <div className="text-white text-xs font-mono">08:45</div>
                       </div>
-                      <div className="w-8 h-8 bg-slate-700 border border-slate-600 rounded flex flex-col items-center justify-center">
+                      <div className="w-8 h-8 bg-slate-700 border border-slate-600 rounded flex items-center justify-center">
                         <div className="text-slate-400 text-xs font-mono">--:--</div>
-                      </div>
-                      <div className="w-8 h-8 bg-green-700 border border-green-600 rounded flex items-center justify-center">
-                        <div className="text-green-300 text-xs">✓</div>
                       </div>
                     </div>
                   </div>
