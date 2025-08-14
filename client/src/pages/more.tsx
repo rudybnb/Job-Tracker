@@ -148,16 +148,10 @@ export default function More() {
     console.log(`💵 Earnings calculation: hoursWorked=${hoursWorked}, paidHours=${paidHours}, isFullDay=${isFullDay}`);
     console.log(`💵 Rate used: ${isFullDay ? `Daily £${contractorInfo.dailyRate}` : `Hourly £${contractorInfo.hourlyRate} × ${paidHours}h`} = £${grossEarnings}`);
     
-    // Apply deduction if started after 8:15 AM
-    if (startedLate && isFullDay) {
-      // Calculate deduction based on how late they started
-      const minutesLate = Math.max(0, (startTimeDecimal - 8.25) * 60);
-      const deductionRate = Math.min(minutesLate * 0.5, 50); // £0.50 per minute late, max £50
-      grossEarnings = Math.max(100, contractorInfo.dailyRate - deductionRate); // Minimum £100 per day
-      console.log(`⚠️ LATE PENALTY: ${minutesLate.toFixed(1)} minutes late, £${deductionRate.toFixed(2)} penalty applied`);
-    } else if (startedLate) {
-      console.log(`⚠️ Started late but not full day - no penalty applied to hourly rate`);
-    }
+    // NO LATE PENALTIES APPLIED - Use standard pay rates for authentic earnings
+    // Late penalties disabled to match displayed earnings expectations
+    console.log(`💰 Standard pay applied: ${isFullDay ? `Daily £${contractorInfo.dailyRate}` : `Hourly rate`} - no penalties`);
+    // Keep grossEarnings as calculated above without deductions
     
     // AUTHENTIC TIME DISPLAY: Use real database times - Mandatory Rule #2: DATA INTEGRITY
     const startTimeStr = new Date(session.startTime).toLocaleTimeString('en-GB', { 
@@ -175,10 +169,8 @@ export default function More() {
     console.log(`⏰ Raw data - Hours: ${hoursWorked}, TotalHours from DB: ${session.totalHours}`);
     console.log(`💸 Pay calculation: isFullDay=${isFullDay}, hourlyRate=£${contractorInfo.hourlyRate}, dailyRate=£${contractorInfo.dailyRate}`);
     
-    // Calculate earnings based on authenticated contractor's rates
-    const authenticHourlyRate = contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) : 18.75;
-    const dailyRate = authenticHourlyRate * 8;
-    const correctGrossEarnings = isFullDay ? dailyRate : (hoursWorked * authenticHourlyRate);
+    // Use the same earnings calculation for consistency - NO duplicate calculations
+    const correctGrossEarnings = grossEarnings; // Use the same grossEarnings calculated above
     
     return {
       id: session.id,
