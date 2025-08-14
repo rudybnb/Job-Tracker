@@ -105,8 +105,8 @@ export default function ForemanDashboard() {
       <div className="bg-slate-800 border-b border-slate-700 px-4 py-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-yellow-400">Foreman Dashboard</h1>
-            <p className="text-slate-400 text-sm mt-1">Project oversight and team coordination</p>
+            <h1 className="text-2xl font-bold text-yellow-400">Jobs Assigned</h1>
+            <p className="text-slate-400 text-sm mt-1">All team assignments and deadlines</p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right">
@@ -347,7 +347,7 @@ export default function ForemanDashboard() {
             data-testid="nav-foreman"
           >
             <i className="fas fa-users block mb-1"></i>
-            <span className="text-xs">Foreman</span>
+            <span className="text-xs">Jobs Assigned</span>
           </button>
           <button 
             onClick={() => window.location.href = '/more'}

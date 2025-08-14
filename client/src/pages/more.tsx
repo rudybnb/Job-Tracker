@@ -503,7 +503,7 @@ export default function More() {
               data-testid="nav-foreman"
             >
               <i className="fas fa-users block mb-1"></i>
-              <span className="text-xs">Foreman</span>
+              <span className="text-xs">Jobs Assigned</span>
             </button>
             <button className="py-3 px-4 text-yellow-400" data-testid="nav-more">
               <i className="fas fa-ellipsis-h block mb-1"></i>

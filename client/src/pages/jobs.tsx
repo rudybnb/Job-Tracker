@@ -174,7 +174,7 @@ export default function Jobs() {
               data-testid="nav-foreman"
             >
               <i className="fas fa-users block mb-1"></i>
-              <span className="text-xs">Foreman</span>
+              <span className="text-xs">Jobs Assigned</span>
             </button>
             <button 
               onClick={() => window.location.href = '/more'}
