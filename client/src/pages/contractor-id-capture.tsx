@@ -9,14 +9,16 @@ export default function ContractorIdCapture() {
   const [contractorName, setContractorName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [telegramId, setTelegramId] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const { toast } = useToast();
 
-  // Known contractor Telegram IDs
+  // Known contractor Telegram IDs and login credentials
   const knownContractors = [
-    { name: "Marius Andronache", telegramId: "8006717361", status: "Active" },
-    { name: "Dalwayne Diedericks", telegramId: "8016744652", status: "Active" },
-    { name: "Earl", telegramId: "6792554033", status: "Active" },
-    { name: "Muhammed", telegramId: "5209713845", status: "Active" }
+    { name: "Marius Andronache", telegramId: "8006717361", username: "marius", password: "marius123", status: "Active" },
+    { name: "Dalwayne Diedericks", telegramId: "8016744652", username: "dalwayne", password: "dalwayne123", status: "Active" },
+    { name: "Earl", telegramId: "6792554033", username: "earl", password: "earl123", status: "Active" },
+    { name: "Muhammed", telegramId: "5209713845", username: "muhammed", password: "muhammed123", status: "Active" }
   ];
 
   const handleCopyTelegramId = (telegramId: string, name: string) => {
@@ -24,6 +26,15 @@ export default function ContractorIdCapture() {
     toast({
       title: "Telegram ID Copied",
       description: `${name}'s Telegram ID: ${telegramId}`
+    });
+  };
+
+  const handleCopyCredentials = (username: string, password: string, name: string) => {
+    const credentials = `Username: ${username}\nPassword: ${password}`;
+    navigator.clipboard.writeText(credentials);
+    toast({
+      title: "Login Credentials Copied",
+      description: `${name}'s login credentials copied to clipboard`
     });
   };
 
@@ -55,10 +66,10 @@ ERdesignandbuild Team`;
   };
 
   const handleSaveContractor = () => {
-    if (!contractorName || !phoneNumber) {
+    if (!contractorName || !phoneNumber || !username || !password) {
       toast({
         title: "Missing Information",
-        description: "Please enter contractor name and phone number",
+        description: "Please enter contractor name, phone number, username, and password",
         variant: "destructive"
       });
       return;
@@ -69,6 +80,8 @@ ERdesignandbuild Team`;
       name: contractorName,
       phone: phoneNumber,
       telegramId: telegramId || 'Not provided',
+      username: username,
+      password: password,
       dateAdded: new Date().toISOString(),
       status: 'pending_application'
     };
@@ -79,13 +92,15 @@ ERdesignandbuild Team`;
 
     toast({
       title: "Contractor Added",
-      description: `${contractorName} has been added to your contact list`
+      description: `${contractorName} has been added with login credentials`
     });
 
     // Clear form
     setContractorName("");
     setPhoneNumber("");
     setTelegramId("");
+    setUsername("");
+    setPassword("");
   };
 
   return (
@@ -117,6 +132,9 @@ ERdesignandbuild Team`;
                     <div>
                       <div className="font-medium text-white">{contractor.name}</div>
                       <div className="text-sm text-slate-400">ID: {contractor.telegramId}</div>
+                      <div className="text-xs text-slate-500">
+                        Username: {contractor.username} | Password: {contractor.password}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -127,8 +145,17 @@ ERdesignandbuild Team`;
                       size="sm"
                       onClick={() => handleCopyTelegramId(contractor.telegramId, contractor.name)}
                       className="bg-yellow-600 hover:bg-yellow-700 text-black"
+                      data-testid={`copy-telegram-${contractor.name.toLowerCase().replace(' ', '-')}`}
                     >
                       <Copy className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleCopyCredentials(contractor.username, contractor.password, contractor.name)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      data-testid={`copy-credentials-${contractor.name.toLowerCase().replace(' ', '-')}`}
+                    >
+                      <User className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
@@ -172,6 +199,35 @@ ERdesignandbuild Team`;
                 onChange={(e) => setTelegramId(e.target.value)}
                 placeholder="e.g., @username or user ID number"
                 className="bg-slate-700 border-slate-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Login Username
+                <span className="text-slate-400 text-xs ml-2">For contractor portal access</span>
+              </label>
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="e.g., john.smith"
+                className="bg-slate-700 border-slate-600"
+                data-testid="input-username"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Login Password
+                <span className="text-slate-400 text-xs ml-2">For contractor portal access</span>
+              </label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter secure password"
+                className="bg-slate-700 border-slate-600"
+                data-testid="input-password"
               />
             </div>
 
