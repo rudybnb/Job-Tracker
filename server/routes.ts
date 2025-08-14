@@ -428,7 +428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'DA17': { latitude: '51.4851', longitude: '0.1540' },
       'DA7 6HJ': { latitude: '51.4851', longitude: '0.1540' }, // Xavier Jones location
       'DA7': { latitude: '51.4851', longitude: '0.1540' },
-      'BR6 9HH': { latitude: '51.361', longitude: '0.106' }, // Orpington site (actual location)
+      'BR6 9HE': { latitude: '51.361', longitude: '0.106' }, // Orpington site (actual location)
       'BR6': { latitude: '51.361', longitude: '0.106' },
       'BR9': { latitude: '51.4612', longitude: '0.1388' },
       'SE9': { latitude: '51.4629', longitude: '0.0789' },
