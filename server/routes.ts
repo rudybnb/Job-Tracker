@@ -192,9 +192,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         jobsCount: "0"
       });
 
-      // Parse CSV with specific handling for your format
-      const csvContent = req.file.buffer.toString();
-      console.log('🔍 Raw CSV Content:', csvContent.substring(0, 500) + '...');
+      let csvContent: string;
+      
+      // Handle both Excel and CSV files
+      if (req.file.originalname.toLowerCase().endsWith('.xlsx')) {
+        console.log('📊 Processing Excel file:', req.file.originalname);
+        // Parse Excel file
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to CSV format to maintain compatibility with existing parsing logic
+        csvContent = XLSX.utils.sheet_to_csv(worksheet);
+        console.log('🔄 Converted Excel to CSV format');
+      } else {
+        // Parse CSV with specific handling for your format
+        csvContent = req.file.buffer.toString();
+        console.log('📄 Processing CSV file:', req.file.originalname);
+      }
+      
+      console.log('🔍 Raw Content:', csvContent.substring(0, 500) + '...');
       
       try {
         // Manual parsing for your specific CSV format

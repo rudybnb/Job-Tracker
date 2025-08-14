@@ -72,7 +72,7 @@ export default function UploadCsv() {
       workflowHelp.markStepCompleted('job-creation');
       
       toast({
-        title: "CSV Upload Successful",
+        title: "File Upload Successful",
         description: `Created ${data.jobsCreated} job(s) from ${data.upload.filename}`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
@@ -105,10 +105,11 @@ export default function UploadCsv() {
 
 
   const validateFile = (file: File): boolean => {
-    if (!file.name.toLowerCase().endsWith('.csv')) {
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx')) {
       toast({
         title: "Invalid File Type",
-        description: "Please select a CSV file",
+        description: "Please select a CSV file (.csv) or Excel file (.xlsx)",
         variant: "destructive",
       });
       return false;
@@ -337,7 +338,7 @@ export default function UploadCsv() {
       >
         <input
           type="file"
-          accept=".csv"
+          accept=".csv,.xlsx"
           onChange={handleFileSelect}
           className="hidden"
           id="csv-upload"
@@ -350,7 +351,7 @@ export default function UploadCsv() {
             <ContextualTooltip
               id="file-selection-area"
               title="File Selection"
-              content="Select a CSV file with required headers: Name, Address, Post code, Project Type, and Build Phase. Files must be under 10MB and contain authentic job data."
+              content="Select a CSV or Excel file with required headers: Name, Address, Post code, Project Type, and Build Phase. Files must be under 10MB and contain authentic job data."
               type="help"
               placement="top"
             >
@@ -362,7 +363,7 @@ export default function UploadCsv() {
               </label>
             </ContextualTooltip>
             <span className="text-slate-400"> or drag and drop</span>
-            <p className="text-sm text-slate-500 mt-2">CSV files only, up to 10MB</p>
+            <p className="text-sm text-slate-500 mt-2">CSV or Excel files, up to 10MB</p>
           </>
         ) : (
           <div className="flex items-center justify-center space-x-3">
