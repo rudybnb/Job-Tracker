@@ -103,6 +103,9 @@ export interface IStorage {
   markInspectionResolvedByContractor(inspectionId: string, contractorName: string, fixNotes?: string): Promise<any>;
   getContractorFixedInspections(): Promise<any[]>;
   
+  // Pay rates - Mandatory Rule #2: DATA INTEGRITY
+  getContractorPayRate(contractorName: string): Promise<number>;
+  
   // Stats
   getStats(): Promise<{
     totalJobs: number;
@@ -579,7 +582,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Get authentic pay rate from database - Mandatory Rule #2: DATA INTEGRITY
-  private async getContractorPayRate(contractorName: string): Promise<number> {
+  async getContractorPayRate(contractorName: string): Promise<number> {
     try {
       const [contractor] = await db.select().from(contractorApplications)
         .where(sql`CONCAT(${contractorApplications.firstName}, ' ', ${contractorApplications.lastName}) = ${contractorName}`)

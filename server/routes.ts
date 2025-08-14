@@ -2281,16 +2281,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const weekSessions = await storage.getWorkSessionsForWeek(startDate, endDate);
       console.log(`🕐 Found ${weekSessions.length} sessions for the week`);
       
-      // Group by contractor and calculate earnings
-      const contractorEarnings = weekSessions.reduce((acc: any, session: any) => {
+      // Group by contractor and calculate earnings with AUTHENTIC database pay rates
+      const contractorEarnings = weekSessions.reduce(async (accPromise: any, session: any) => {
+        const acc = await accPromise;
         const contractorName = session.contractorName;
         if (!acc[contractorName]) {
+          // Get authentic pay rate from database - Mandatory Rule #2: DATA INTEGRITY
+          const authenticPayRate = await storage.getContractorPayRate(contractorName);
           acc[contractorName] = {
             contractorName,
             sessions: [],
             totalHours: 0,
             hoursWorked: 0,
-            hourlyRate: 25.00, // Base rate
+            hourlyRate: authenticPayRate, // AUTHENTIC database rate only
             grossEarnings: 0,
             cisDeduction: 0,
             netEarnings: 0,
@@ -2315,10 +2318,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         acc[contractorName].hoursWorked += sessionHours;
         
         return acc;
-      }, {});
+      }, Promise.resolve({}));
+      
+      // Await the contractor earnings calculation
+      const resolvedContractorEarnings = await contractorEarnings;
       
       // Calculate earnings for each contractor
-      Object.values(contractorEarnings).forEach((contractor: any) => {
+      Object.values(resolvedContractorEarnings).forEach((contractor: any) => {
         const hoursWorked = contractor.hoursWorked;
         const hourlyRate = contractor.hourlyRate;
         
@@ -2353,7 +2359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Calculate weekly totals
-      const contractors = Object.values(contractorEarnings);
+      const contractors = Object.values(resolvedContractorEarnings);
       const weeklyTotals = {
         totalHours: contractors.reduce((sum: number, c: any) => sum + c.totalHours, 0),
         totalGrossEarnings: contractors.reduce((sum: number, c: any) => sum + c.grossEarnings, 0),
