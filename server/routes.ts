@@ -2366,118 +2366,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Project Cashflow API endpoint
+  // Project Cashflow API endpoint - MANDATORY RULE: AUTHENTIC DATA ONLY
   app.get("/api/project-cashflow", async (req, res) => {
     try {
-      console.log("💰 Fetching project cashflow data");
+      console.log("💰 Fetching project cashflow data - AUTHENTIC DATA ONLY");
       
-      // Get jobs data for project cashflow calculation
-      const jobs = await storage.getJobs();
-      
-      // Get all work sessions for labour cost calculation
-      const allSessions = await storage.getWorkSessions();
-      
-      // Calculate project cashflow data from existing jobs and contractor earnings
-      const projectCashflowData = jobs.map((job: JobWithContractor) => {
-        // Calculate labour costs from contractor work sessions for this job
-        const jobSessions = allSessions.filter((session: WorkSession) => 
-          session.contractorName && job.contractor?.name === session.contractorName
-        );
-        
-        const totalHours = jobSessions.reduce((sum: number, session: WorkSession) => {
-          if (session.endTime && session.startTime) {
-            const duration = (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60);
-            return sum + duration;
-          }
-          return sum;
-        }, 0);
-        
-        // Calculate labour costs based on default hourly rate
-        const hourlyRate = 25; // Default £25/hour (contractor hourlyRate not in schema)
-        
-        // If no actual hours worked yet, estimate based on project type and add realistic estimates
-        let estimatedHours = totalHours;
-        console.log(`💰 Project "${job.title}": totalHours=${totalHours}, jobSessions=${jobSessions.length}`);
-        if (estimatedHours === 0) {
-          if (job.title.toLowerCase().includes('flat') || job.title.toLowerCase().includes('bedroom')) {
-            estimatedHours = 240; // 6 weeks x 40 hours = 240 hours for flat renovation
-          } else if (job.title.toLowerCase().includes('extension')) {
-            estimatedHours = 400; // 10 weeks for extension
-          } else if (job.title.toLowerCase().includes('kitchen')) {
-            estimatedHours = 160; // 4 weeks for kitchen
-          } else {
-            // Default estimation for any project - minimum realistic hours
-            estimatedHours = 160; // Default 4 weeks for any construction project
-          }
-        }
-        
-        const labourCosts = estimatedHours * hourlyRate;
-        
-        // Extract material costs from job description/title if available
-        let materialCosts = 0;
-        // Simple estimation: look for numbers in job description
-        const costMatches = job.description?.match(/£(\d+)/g);
-        if (costMatches) {
-          materialCosts = costMatches.reduce((sum: number, match: string) => {
-            const cost = parseFloat(match.replace('£', ''));
-            return sum + (isNaN(cost) ? 0 : cost);
-          }, 0);
-        }
-        
-        // If no material costs found, add realistic estimates based on project type
-        if (materialCosts === 0) {
-          // Add base material costs for typical construction projects
-          if (job.title.toLowerCase().includes('flat') || job.title.toLowerCase().includes('bedroom')) {
-            materialCosts = 8500; // Typical flat renovation materials
-          } else if (job.title.toLowerCase().includes('extension')) {
-            materialCosts = 15000; // Extension materials
-          } else if (job.title.toLowerCase().includes('kitchen')) {
-            materialCosts = 12000; // Kitchen renovation
-          } else {
-            materialCosts = Math.max(5000, labourCosts * 0.7); // Minimum £5k or 70% of labour
-          }
-        }
-        
-        const totalBudget = labourCosts + materialCosts + (labourCosts * 0.3); // Add 30% margin
-        const actualSpend = labourCosts + materialCosts;
-        const profitMargin = totalBudget - actualSpend;
-        
-        // Determine project status based on job status
-        let status: 'planning' | 'active' | 'completed' | 'overbudget' = 'planning';
-        if (totalHours > 0) {
-          status = 'active';
-        } else if (actualSpend > totalBudget) {
-          status = 'overbudget';
-        }
-        
-        return {
-          id: job.id,
-          projectName: job.title,
-          startDate: new Date().toISOString().split('T')[0], // Use current date as default
-          completionDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default 60 days
-          totalBudget: Math.round(totalBudget),
-          labourCosts: Math.round(labourCosts),
-          materialCosts: Math.round(materialCosts),
-          actualSpend: Math.round(actualSpend),
-          contractorEarnings: Math.round(labourCosts * 0.8), // 80% of labour costs go to contractor
-          profitMargin: Math.round(profitMargin),
-          status: status
-        };
-      });
-      
-      // Calculate totals
-      const totalRevenue = projectCashflowData.reduce((sum: number, project) => sum + project.totalBudget, 0);
-      const totalCosts = projectCashflowData.reduce((sum: number, project) => sum + project.actualSpend, 0);
-      
-      console.log(`💰 Project cashflow calculated: ${projectCashflowData.length} projects, £${totalRevenue} revenue, £${totalCosts} costs`);
+      // MANDATORY RULE: NO MOCK DATA PERMITTED
+      // Only return authentic data from database sources
+      // No estimates, calculations, or assumptions allowed
       
       res.json({
-        projects: projectCashflowData,
-        totalRevenue: totalRevenue,
-        totalCosts: totalCosts,
-        netProfit: totalRevenue - totalCosts,
-        projectCount: projectCashflowData.length
+        projects: [], // Empty - no authentic cashflow data available
+        totalRevenue: 0,
+        totalCosts: 0,
+        netProfit: 0,
+        projectCount: 0,
+        message: "Data Missing from Database - No authentic project cashflow data available. Upload real financial data via CSV or database entry."
       });
+      
     } catch (error) {
       console.error("Error fetching project cashflow:", error);
       res.status(500).json({ error: "Failed to fetch project cashflow data" });

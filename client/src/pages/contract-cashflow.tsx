@@ -52,37 +52,13 @@ export default function ContractCashflow() {
   };
 
   const loadSampleProjects = () => {
-    const sampleProjects: ProjectCashflow[] = [
-      {
-        id: "1",
-        projectName: "Flat 111 - 2 Bedroom Refurbishment",
-        startDate: "2025-01-15",
-        completionDate: "2025-03-15",
-        totalBudget: 25000,
-        labourCosts: 12000,
-        materialCosts: 8500,
-        actualSpend: 20500,
-        contractorEarnings: 9600,
-        profitMargin: 4500,
-        status: 'active'
-      },
-      {
-        id: "2", 
-        projectName: "Chatham Extension Project",
-        startDate: "2025-02-01",
-        completionDate: "2025-04-30",
-        totalBudget: 45000,
-        labourCosts: 22000,
-        materialCosts: 15000,
-        actualSpend: 18500,
-        contractorEarnings: 14400,
-        profitMargin: 26500,
-        status: 'planning'
-      }
-    ];
-    setProjects(sampleProjects);
-    setTotalRevenue(70000);
-    setTotalCosts(39000);
+    // MANDATORY RULE: NO MOCK DATA PERMITTED
+    // Only authentic database data allowed
+    toast({
+      title: "Data Missing from Database",
+      description: "No authentic project cashflow data available. Upload real projects via CSV or database.",
+      variant: "destructive"
+    });
   };
 
   const getStatusColor = (status: string) => {
