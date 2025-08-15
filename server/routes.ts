@@ -1482,6 +1482,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manual logout endpoint for contractors
+  app.post("/api/work-sessions/:contractorName/logout", async (req, res) => {
+    try {
+      console.log(`🔓 Manual logout request for: ${req.params.contractorName}`);
+      
+      const contractorName = req.params.contractorName;
+      const activeSession = await storage.getActiveWorkSession(contractorName);
+      
+      if (!activeSession) {
+        return res.status(404).json({ error: "No active work session found" });
+      }
+      
+      // End the session with current time and GPS coordinates if provided
+      const endTime = new Date();
+      const updateData: any = {
+        endTime,
+        status: 'completed' as const
+      };
+      
+      // Add end GPS coordinates if provided in request body
+      if (req.body.latitude && req.body.longitude) {
+        updateData.endLatitude = req.body.latitude.toString();
+        updateData.endLongitude = req.body.longitude.toString();
+        console.log(`📍 Manual logout with GPS: ${req.body.latitude}, ${req.body.longitude}`);
+      }
+      
+      const updatedSession = await storage.updateWorkSession(activeSession.id, updateData);
+      
+      console.log(`✅ Manual logout successful for ${contractorName} at ${endTime.toLocaleTimeString()}`);
+      res.json({ 
+        success: true, 
+        message: `Successfully logged out ${contractorName}`,
+        session: updatedSession
+      });
+      
+    } catch (error) {
+      console.error("❌ Manual logout failed:", error);
+      res.status(500).json({ error: "Failed to logout contractor" });
+    }
+  });
+
   // Helper function to calculate GPS distance
   function calculateGPSDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371000; // Earth's radius in meters
