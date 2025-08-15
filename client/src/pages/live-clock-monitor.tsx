@@ -125,7 +125,13 @@ export default function LiveClockMonitor() {
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                         <span className="text-white text-sm px-2 py-1 bg-green-700 rounded">In</span>
                       </div>
-                      <span className="text-slate-300 text-sm">08:45:00</span>
+                      <span className="text-slate-300 text-sm">
+                        {session.startTime ? new Date(session.startTime).toLocaleTimeString('en-GB', { 
+                          timeZone: 'Europe/London',
+                          hour: '2-digit', 
+                          minute: '2-digit'
+                        }) : '07:45'}
+                      </span>
                     </div>
                   </div>
                 </div>
