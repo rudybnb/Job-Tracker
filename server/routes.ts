@@ -323,8 +323,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   weeklyBreakdown[resource.orderDate] = { labour: 0, material: 0, total: 0 };
                 }
                 const costType = resource.resourceType.toLowerCase();
-                if (costType === 'labour' || costType === 'material') {
-                  weeklyBreakdown[resource.orderDate][costType] += resource.totalCost;
+                if (costType === 'labour') {
+                  weeklyBreakdown[resource.orderDate].labour += resource.totalCost;
+                  weeklyBreakdown[resource.orderDate].total += resource.totalCost;
+                } else if (costType === 'material') {
+                  weeklyBreakdown[resource.orderDate].material += resource.totalCost;
                   weeklyBreakdown[resource.orderDate].total += resource.totalCost;
                 }
               }
@@ -368,112 +371,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // ORIGINAL FORMAT PARSING - maintain existing functionality
           // Look for "Build Phase" line which indicates start of data section
-        let dataHeaderIndex = lines.findIndex(line => 
-          line.includes('Build Phase') && (line.includes('Order Quantity') || line.split(',').length >= 3)
-        );
-        
-        // Fallback: look for any line with "Build Phase" or similar phase indicators
-        if (dataHeaderIndex === -1) {
-          dataHeaderIndex = lines.findIndex(line => 
-            line.includes('Build Phase') || line.includes('Phase') || 
-            line.includes('Order') || line.includes('Date')
+          let dataHeaderIndex = lines.findIndex(line => 
+            line.includes('Build Phase') && (line.includes('Order Quantity') || line.split(',').length >= 3)
           );
-        }
-        
-        let phaseTaskData: Record<string, Array<{description: string, quantity: number, task: string}>> = {};
-        
-        if (dataHeaderIndex >= 0) {
-          // NEW IMPROVED PARSING: Handle the cleaner CSV structure
-          // Column structure: [Empty, Phase/Task Description, Empty, Quantity]
-          console.log('🎯 Using IMPROVED CSV parsing for cleaner format');
           
-          let currentPhase = "";
-          
-          // Process lines after the "Build Phase" header
-          for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line || line.trim() === '') continue;
-            
-            const columns = line.split(',').map(col => col.trim());
-            
-            // Skip lines with less than 3 columns
-            if (columns.length < 3) continue;
-            
-            const col1 = columns[0] || ''; // Usually empty for tasks
-            const col2 = columns[1] || ''; // Phase name or task description 
-            const col3 = columns[2] || ''; // Task description (if col2 is phase)
-            const col4 = columns[3] || '0'; // Quantity
-            
-            // Check if this is a phase line (col2 has phase name, col3 is empty)
-            if (col2 && !col3 && col1 === '') {
-              currentPhase = col2;
-              if (!phases.includes(currentPhase)) {
-                phases.push(currentPhase);
-              }
-              if (!phaseTaskData[currentPhase]) {
-                phaseTaskData[currentPhase] = [];
-              }
-            } 
-            // Check if this is a task line (col3 has task description)
-            else if (col3 && currentPhase) {
-              const taskDescription = col3.replace(/"/g, '').trim(); // Clean quotes
-              const quantity = parseInt(col4) || 0;
-              
-              if (taskDescription && taskDescription !== '') {
-                phaseTaskData[currentPhase].push({
-                  description: taskDescription,
-                  quantity: quantity,
-                  task: `Install ${taskDescription.toLowerCase()}`
-                });
-              }
-            }
+          // Fallback: look for any line with "Build Phase" or similar phase indicators
+          if (dataHeaderIndex === -1) {
+            dataHeaderIndex = lines.findIndex(line => 
+              line.includes('Build Phase') || line.includes('Phase') || 
+              line.includes('Order') || line.includes('Date')
+            );
           }
           
-          console.log('🎯 IMPROVED parsing results:', {
-            phases: phases,
-            phaseTaskDataKeys: Object.keys(phaseTaskData),
-            totalTasks: Object.values(phaseTaskData).reduce((sum, tasks) => sum + tasks.length, 0)
+          let phaseTaskData: Record<string, Array<{description: string, quantity: number, task: string}>> = {};
+          
+          if (dataHeaderIndex >= 0) {
+            // NEW IMPROVED PARSING: Handle the cleaner CSV structure
+            // Column structure: [Empty, Phase/Task Description, Empty, Quantity]
+            console.log('🎯 Using IMPROVED CSV parsing for cleaner format');
+            
+            let currentPhase = "";
+            
+            // Process lines after the "Build Phase" header
+            for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
+              const line = lines[i];
+              if (!line || line.trim() === '') continue;
+              
+              const columns = line.split(',').map(col => col.trim());
+              
+              // Skip lines with less than 3 columns
+              if (columns.length < 3) continue;
+              
+              const col1 = columns[0] || ''; // Usually empty for tasks
+              const col2 = columns[1] || ''; // Phase name or task description 
+              const col3 = columns[2] || ''; // Task description (if col2 is phase)
+              const col4 = columns[3] || '0'; // Quantity
+              
+              // Check if this is a phase line (col2 has phase name, col3 is empty)
+              if (col2 && !col3 && col1 === '') {
+                currentPhase = col2;
+                if (!phases.includes(currentPhase)) {
+                  phases.push(currentPhase);
+                }
+                if (!phaseTaskData[currentPhase]) {
+                  phaseTaskData[currentPhase] = [];
+                }
+              } 
+              // Check if this is a task line (col3 has task description)
+              else if (col3 && currentPhase) {
+                const taskDescription = col3.replace(/"/g, '').trim(); // Clean quotes
+                const quantity = parseInt(col4) || 0;
+                
+                if (taskDescription && taskDescription !== '') {
+                  phaseTaskData[currentPhase].push({
+                    description: taskDescription,
+                    quantity: quantity,
+                    task: `Install ${taskDescription.toLowerCase()}`
+                  });
+                }
+              }
+            }
+            
+            console.log('🎯 IMPROVED parsing results:', {
+              phases: phases,
+              phaseTaskDataKeys: Object.keys(phaseTaskData),
+              totalTasks: Object.values(phaseTaskData).reduce((sum, tasks) => sum + tasks.length, 0)
+            });
+          }
+          
+          console.log('🎯 Extracted Phase Task Data:', Object.keys(phaseTaskData).map(phase => 
+            `${phase}: ${phaseTaskData[phase].length} tasks`
+          ));
+
+          console.log('🎯 CSV Data Extracted:', { jobName, jobAddress, jobPostcode, jobType, phases });
+
+          const jobs = [{
+            title: jobName,
+            description: jobType,
+            location: `${jobAddress}, ${jobPostcode}`,
+            status: "pending" as const,
+            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            notes: `Project Type: ${jobType}`,
+            phases: phases.join(', ') || "Data Missing from CSV",
+            uploadId: csvUpload.id,
+            phaseTaskData: JSON.stringify(phaseTaskData)
+          }];
+
+          const createdJobs = await storage.createJobsFromCsv(jobs, csvUpload.id);
+          jobsCreated = createdJobs.length;
+            
+          await storage.updateCsvUpload(csvUpload.id, {
+            status: "processed",
+            jobsCount: createdJobs.length.toString()
           });
         }
+
+        // Final response with job creation results
+        const finalUpload = await storage.getCsvUploads().then(uploads => uploads.find(u => u.id === csvUpload.id));
         
-        console.log('🎯 Extracted Phase Task Data:', Object.keys(phaseTaskData).map(phase => 
-          `${phase}: ${phaseTaskData[phase].length} tasks`
-        ));
-
-        console.log('🎯 CSV Data Extracted:', { jobName, jobAddress, jobPostcode, jobType, phases });
-
-        const jobs = [{
-          title: jobName,
-          description: jobType,
-          location: `${jobAddress}, ${jobPostcode}`,
-          status: "pending" as const,
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          notes: `Project Type: ${jobType}`,
-          phases: phases.join(', ') || "Data Missing from CSV",
-          uploadId: csvUpload.id,
-          phaseTaskData: JSON.stringify(phaseTaskData)
-        }];
-
-        const createdJobs = await storage.createJobsFromCsv(jobs, csvUpload.id);
-          
-        await storage.updateCsvUpload(csvUpload.id, {
-          status: "processed",
-          jobsCount: createdJobs.length.toString()
-        });
-
         res.json({
-          upload: await storage.getCsvUploads().then(uploads => uploads.find(u => u.id === csvUpload.id)),
-          jobsCreated: createdJobs.length
+          upload: finalUpload,
+          jobsCreated: jobsCreated
         });
-
-        // Check for enhanced CSV format and integrate with existing workflow
-        const enhancedData = parseEnhancedCSV(lines);
-        if (enhancedData) {
-          console.log('🎯 Enhanced CSV format detected - integrating financial data');
-          // Enhanced data is already processed, continue with existing job creation
-        }
-
-        }
       } catch (error) {
         console.error("Error processing CSV jobs:", error);
         await storage.updateCsvUpload(csvUpload.id, { status: "failed" });
