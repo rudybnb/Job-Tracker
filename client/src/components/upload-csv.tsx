@@ -257,7 +257,7 @@ export default function UploadCsv() {
       }
 
       console.log('✅ CSV PARSING DEBUG:', {
-        isOriginalFormat,
+        enhancedFormat: enhancedFormatIndex !== -1,
         rawLines: lines.slice(0, 5),
         extracted: { jobName, jobAddress, jobPostcode, jobType, phases }
       });
