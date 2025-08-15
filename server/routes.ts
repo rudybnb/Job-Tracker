@@ -738,18 +738,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete job assignment
+  // Delete job assignment - MAXIMUM PROTECTION AGAINST DATA LOSS
   app.delete("/api/job-assignments/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      console.log("🗑️ Deleting job assignment:", id);
+      console.log("🚨🚨🚨 ASSIGNMENT DELETION ATTEMPT:", id);
       
-      await storage.deleteJobAssignment(id);
+      // EMERGENCY PROTECTION: Block ALL deletions until investigation complete
+      console.log("🛑 EMERGENCY PROTECTION: Assignment deletion temporarily disabled");
+      return res.status(403).json({ 
+        error: "Assignment deletion temporarily disabled for data protection",
+        message: "System protecting against data loss - contact admin to delete assignments",
+        timestamp: new Date().toISOString(),
+        attemptedId: id
+      });
       
-      res.status(200).json({ message: "Assignment deleted successfully" });
     } catch (error) {
-      console.error("Error deleting job assignment:", error);
-      res.status(500).json({ error: "Failed to delete job assignment" });
+      console.error("Error in protected delete endpoint:", error);
+      res.status(500).json({ error: "Deletion protection active" });
     }
   });
 
