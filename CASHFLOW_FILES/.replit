@@ -1,0 +1,13 @@
+run = "npm run dev"
+modules = ["nodejs-20", "web"]
+
+[deployment]
+run = ["sh", "-c", "npm run build && npm start"]
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[[ports]]
+localPort = 5173
+externalPort = 5173
