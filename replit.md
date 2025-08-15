@@ -19,6 +19,7 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
 - **Rule 8: LIVE DATA ONLY** - System now uses live production data exclusively. No temporary, test, or placeholder data permitted. All backup information must be correct and retained.
 - **Rule 9: AUTOMATION SUPREMACY** - All systems must work automatically without manual intervention. Manual time fixes, Telegram ID setup, or data corrections are prohibited.
 - **Rule 10: LOCATION DISPLAY ACCURACY** - Work sessions must display meaningful location names (like "Chatham, ME5 9GX") instead of GPS coordinates for accounting purposes. System automatically maps GPS data to proper job locations.
+- **Rule 11: NO DUPLICATE ASSIGNMENTS** - System must prevent creation of multiple assignments for same contractor/job combination. Each contractor gets exactly one active assignment per job site to prevent confusion and deletion cascades.
 - Always verify what is currently working before making changes
 - These rules are mandatory and must be followed at all times to prevent regression and data corruption
 
