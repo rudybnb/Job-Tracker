@@ -231,7 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // LOCKED DOWN PARSING LOGIC - DO NOT CHANGE THIS EVER
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
-          if (line.startsWith('Name,') || line.startsWith('name,')) {
+          if (line.startsWith('Name,') || line.startsWith('name,') || line.startsWith('Name ,') || line.startsWith('name ,')) {
             // Extract everything after "Name," or "name," and remove trailing commas
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobName = extracted || "Data Missing from CSV";
@@ -239,9 +239,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Extract everything after first comma and remove trailing commas
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobAddress = extracted || "Data Missing from CSV";
-          } else if (line.startsWith('Post code,')) {
+          } else if (line.startsWith('Post code,') || line.startsWith('Post Code,') || line.startsWith('Post Code ,')) {
             // Extract everything after "Post code," and remove trailing commas
-            const extracted = line.substring(10).replace(/,+$/, '').trim().toUpperCase();
+            const commaIndex = line.indexOf(',');
+            const extracted = line.substring(commaIndex + 1).replace(/,+$/, '').trim().toUpperCase();
             jobPostcode = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Project Type,')) {
             // Extract everything after "Project Type," and remove trailing commas
