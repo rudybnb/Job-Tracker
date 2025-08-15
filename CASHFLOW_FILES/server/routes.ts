@@ -622,3 +622,89 @@ async function extractMaterialsFromSheet(data: any[], sheetName: string, extract
     console.error('Error extracting materials:', error);
   }
 }
+
+// Export routes
+router.get('/export/excel', async (req, res) => {
+  try {
+    const data = await storage.exportData();
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="cashflow-export-${new Date().toISOString().split('T')[0]}.csv"`);
+    
+    let csvContent = 'Type,Name,Amount,Date,Description\n';
+    
+    data.contractors.forEach(contractor => {
+      csvContent += `Contractor,"${contractor.name}",${contractor.hourlyRate},${new Date().toISOString().split('T')[0]},"Pay Rate"\n`;
+    });
+    
+    data.jobs.forEach(job => {
+      csvContent += `Job,"${job.address}",${job.budget || 0},${new Date().toISOString().split('T')[0]},"${job.description || 'Job Budget'}"\n`;
+    });
+    
+    data.materials.forEach(material => {
+      csvContent += `Material,"${material.description}",${material.cost},${new Date().toISOString().split('T')[0]},"Material Cost"\n`;
+    });
+    
+    res.send(csvContent);
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ error: 'Failed to export data' });
+  }
+});
+
+router.get('/export/pdf', async (req, res) => {
+  try {
+    const data = await storage.exportData();
+    
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Disposition', `attachment; filename="cashflow-report-${new Date().toISOString().split('T')[0]}.html"`);
+    
+    const htmlReport = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Cash Flow Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          h1, h2 { color: #333; }
+        </style>
+      </head>
+      <body>
+        <h1>Cash Flow Report - ${new Date().toLocaleDateString()}</h1>
+        
+        <h2>Contractors (${data.contractors.length})</h2>
+        <table>
+          <tr><th>Name</th><th>Hourly Rate</th></tr>
+          ${data.contractors.map(c => `<tr><td>${c.name}</td><td>£${c.hourlyRate}</td></tr>`).join('')}
+        </table>
+        
+        <h2>Jobs (${data.jobs.length})</h2>
+        <table>
+          <tr><th>Address</th><th>Budget</th><th>Description</th></tr>
+          ${data.jobs.map(j => `<tr><td>${j.address}</td><td>£${j.budget || 0}</td><td>${j.description || 'N/A'}</td></tr>`).join('')}
+        </table>
+        
+        <h2>Materials (${data.materials.length})</h2>
+        <table>
+          <tr><th>Description</th><th>Cost</th></tr>
+          ${data.materials.map(m => `<tr><td>${m.description}</td><td>£${m.cost}</td></tr>`).join('')}
+        </table>
+      </body>
+      </html>
+    `;
+    
+    res.send(htmlReport);
+  } catch (error) {
+    console.error('PDF export error:', error);
+    res.status(500).json({ error: 'Failed to generate PDF report' });
+  }
+});
+
+app.use('/api', router);
+
+const httpServer = createServer(app);
+return httpServer;
+}

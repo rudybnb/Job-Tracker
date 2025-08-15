@@ -135,6 +135,34 @@ export function Dashboard() {
           </div>
         </div>
 
+        {/* Export Section */}
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-8 mb-8">
+          <h2 className="text-xl font-bold text-white mb-6">Export Data</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <button 
+              onClick={() => window.open('/api/export/excel', '_blank')}
+              className="bg-green-600 hover:bg-green-700 p-6 rounded-lg transition-colors flex items-center"
+            >
+              <FileSpreadsheet className="w-8 h-8 text-white mr-4" />
+              <div className="text-left">
+                <h3 className="text-white font-semibold text-lg">Export to Excel</h3>
+                <p className="text-green-100 text-sm">Download complete cash flow data as XLSX</p>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => window.open('/api/export/pdf', '_blank')}
+              className="bg-red-600 hover:bg-red-700 p-6 rounded-lg transition-colors flex items-center"
+            >
+              <FileSpreadsheet className="w-8 h-8 text-white mr-4" />
+              <div className="text-left">
+                <h3 className="text-white font-semibold text-lg">Export to PDF</h3>
+                <p className="text-red-100 text-sm">Generate professional cash flow report</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
         {/* Navigation Cards */}
         <div className="grid md:grid-cols-3 gap-6">
           <Link href="/weekly-report">
