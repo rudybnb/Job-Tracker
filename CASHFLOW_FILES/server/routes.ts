@@ -1,10 +1,102 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
+import * as XLSX from 'xlsx';
 import { DatabaseStorage } from './database-storage.js';
 import { startOfWeek, endOfWeek, format, parseISO } from 'date-fns';
 
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow XLSX and CSV files
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        file.mimetype === 'application/vnd.ms-excel' ||
+        file.mimetype === 'text/csv' ||
+        file.originalname.endsWith('.xlsx') ||
+        file.originalname.endsWith('.xls') ||
+        file.originalname.endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only XLSX, XLS, and CSV files are allowed'));
+    }
+  }
+});
+
 export function cashflowRoutes(storage: DatabaseStorage) {
   const router = Router();
+
+  // POST /api/import-xlsx - Upload XLSX file and extract all data automatically
+  router.post('/import-xlsx', upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      console.log('📁 Processing XLSX file:', req.file.originalname);
+      
+      // Parse the XLSX file
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheetNames = workbook.SheetNames;
+      
+      if (sheetNames.length === 0) {
+        return res.status(400).json({ error: 'No sheets found in the file' });
+      }
+
+      let extractedData = {
+        contractors: [],
+        jobs: [],
+        workSessions: [],
+        materials: [],
+        summary: {
+          contractorsFound: 0,
+          jobsFound: 0,
+          workSessionsFound: 0,
+          materialsFound: 0
+        }
+      };
+
+      // Process each sheet in the workbook
+      for (const sheetName of sheetNames) {
+        const worksheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        console.log(`📊 Processing sheet: ${sheetName} with ${data.length} rows`);
+        
+        // Extract contractors automatically (look for names and rates)
+        await extractContractorsFromSheet(data, sheetName, extractedData, storage);
+        
+        // Extract jobs/projects (look for job names, addresses, budgets)
+        await extractJobsFromSheet(data, sheetName, extractedData, storage);
+        
+        // Extract work sessions (look for dates, times, contractor names)
+        await extractWorkSessionsFromSheet(data, sheetName, extractedData, storage);
+        
+        // Extract material costs (look for descriptions, costs, quantities)
+        await extractMaterialsFromSheet(data, sheetName, extractedData, storage);
+      }
+
+      console.log('✅ Data extraction complete:', extractedData.summary);
+      
+      res.json({
+        success: true,
+        message: 'XLSX file processed successfully',
+        data: extractedData,
+        fileName: req.file.originalname,
+        sheetsProcessed: sheetNames
+      });
+      
+    } catch (error) {
+      console.error('❌ Error processing XLSX file:', error);
+      res.status(500).json({ 
+        error: 'Failed to process XLSX file',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 
   // GET /api/contractors - Get all contractors with their rates
   router.get('/contractors', async (req, res) => {
@@ -276,4 +368,257 @@ export function cashflowRoutes(storage: DatabaseStorage) {
   });
 
   return router;
+}
+
+// XLSX Data extraction functions - automatically detect and extract data
+async function extractContractorsFromSheet(data: any[], sheetName: string, extractedData: any, storage: DatabaseStorage) {
+  try {
+    // Look for contractor data patterns - names with hourly rates
+    const contractorPatterns = [
+      /contractor/i, /worker/i, /employee/i, /staff/i, /name/i, /person/i
+    ];
+    
+    const ratePatterns = [
+      /rate/i, /pay/i, /hour/i, /wage/i, /cost/i, /£/i, /price/i
+    ];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      if (!Array.isArray(row) || row.length < 2) continue;
+      
+      // Check each cell for contractor name and rate patterns
+      for (let j = 0; j < row.length - 1; j++) {
+        const cell = String(row[j] || '').trim();
+        const nextCell = String(row[j + 1] || '').trim();
+        
+        // If current cell looks like a name and next cell looks like a rate
+        if (cell && cell.length > 2 && 
+            (/^[a-zA-Z\s]+$/.test(cell) || contractorPatterns.some(p => p.test(cell))) &&
+            (/^\d+(\.\d+)?$/.test(nextCell) || /£\d+/.test(nextCell))) {
+          
+          const name = cell.replace(/contractor|worker|employee|staff/i, '').trim();
+          const rate = parseFloat(nextCell.replace(/[£$]/g, ''));
+          
+          if (name.length > 1 && rate > 0 && rate < 1000) { // reasonable rate check
+            const contractor = {
+              name: name,
+              payRate: rate.toString(),
+              cisRegistered: true, // default
+              emergencyContact: '',
+              phoneNumber: '',
+              email: `${name.toLowerCase().replace(/\s+/g, '.')}@company.com`
+            };
+            
+            extractedData.contractors.push(contractor);
+            extractedData.summary.contractorsFound++;
+            console.log(`👷 Found contractor: ${name} at £${rate}/hour`);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting contractors:', error);
+  }
+}
+
+async function extractJobsFromSheet(data: any[], sheetName: string, extractedData: any, storage: DatabaseStorage) {
+  try {
+    // Look for job/project data patterns
+    const jobPatterns = [
+      /job/i, /project/i, /site/i, /address/i, /location/i, /property/i
+    ];
+    
+    const budgetPatterns = [
+      /budget/i, /cost/i, /price/i, /quote/i, /estimate/i, /total/i, /amount/i
+    ];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      if (!Array.isArray(row) || row.length < 2) continue;
+      
+      // Look for job descriptions with addresses or budgets
+      for (let j = 0; j < row.length - 1; j++) {
+        const cell = String(row[j] || '').trim();
+        const nextCell = String(row[j + 1] || '').trim();
+        
+        // Check for job names with addresses
+        if (cell && cell.length > 5 && 
+            (jobPatterns.some(p => p.test(cell)) || 
+             /^\d+\s+[a-zA-Z\s,]+/.test(cell) || // Looks like address
+             /[a-zA-Z\s]+(road|street|avenue|way|close|drive|lane)/i.test(cell))) {
+          
+          const jobName = cell.length > 50 ? cell.substring(0, 50) + '...' : cell;
+          const address = nextCell || cell;
+          
+          // Look for budget in nearby cells
+          let budget = 0;
+          for (let k = j; k < Math.min(j + 5, row.length); k++) {
+            const cellValue = String(row[k] || '').trim();
+            const numValue = parseFloat(cellValue.replace(/[£$,]/g, ''));
+            if (!isNaN(numValue) && numValue > 1000 && numValue < 1000000) {
+              budget = numValue;
+              break;
+            }
+          }
+          
+          const job = {
+            name: jobName,
+            address: address,
+            projectType: 'Construction',
+            status: 'active',
+            startDate: new Date(),
+            estimatedEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            budget: budget || 50000 // default budget if not found
+          };
+          
+          extractedData.jobs.push(job);
+          extractedData.summary.jobsFound++;
+          console.log(`🏗️ Found job: ${jobName} (Budget: £${budget || 'TBD'})`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting jobs:', error);
+  }
+}
+
+async function extractWorkSessionsFromSheet(data: any[], sheetName: string, extractedData: any, storage: DatabaseStorage) {
+  try {
+    // Look for work session patterns - dates, times, contractor names
+    const datePatterns = [
+      /\d{1,2}\/\d{1,2}\/\d{2,4}/, // MM/DD/YYYY or DD/MM/YYYY
+      /\d{4}-\d{2}-\d{2}/, // YYYY-MM-DD
+      /\d{1,2}-\d{1,2}-\d{2,4}/ // DD-MM-YYYY
+    ];
+    
+    const timePatterns = [
+      /\d{1,2}:\d{2}/, // HH:MM
+      /\d{1,2}\.\d{2}/ // HH.MM
+    ];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      if (!Array.isArray(row) || row.length < 3) continue;
+      
+      let foundDate = null;
+      let foundStartTime = null;
+      let foundEndTime = null;
+      let foundContractor = null;
+      
+      // Scan row for date, time, and contractor patterns
+      for (let j = 0; j < row.length; j++) {
+        const cell = String(row[j] || '').trim();
+        
+        // Check for date
+        if (!foundDate && datePatterns.some(p => p.test(cell))) {
+          try {
+            foundDate = new Date(cell);
+            if (isNaN(foundDate.getTime())) {
+              foundDate = null;
+            }
+          } catch (e) {
+            foundDate = null;
+          }
+        }
+        
+        // Check for times
+        if (timePatterns.some(p => p.test(cell))) {
+          if (!foundStartTime) {
+            foundStartTime = cell;
+          } else if (!foundEndTime) {
+            foundEndTime = cell;
+          }
+        }
+        
+        // Check for contractor names (from already found contractors)
+        if (!foundContractor && cell.length > 2) {
+          const matchingContractor = extractedData.contractors.find((c: any) => 
+            cell.toLowerCase().includes(c.name.toLowerCase()) ||
+            c.name.toLowerCase().includes(cell.toLowerCase())
+          );
+          if (matchingContractor) {
+            foundContractor = matchingContractor.name;
+          }
+        }
+      }
+      
+      // If we have enough data, create a work session
+      if (foundDate && foundStartTime && foundEndTime && foundContractor) {
+        const startDateTime = new Date(foundDate);
+        const endDateTime = new Date(foundDate);
+        
+        // Parse times
+        const [startHour, startMin] = foundStartTime.split(/[:.]/).map(Number);
+        const [endHour, endMin] = foundEndTime.split(/[:.]/).map(Number);
+        
+        startDateTime.setHours(startHour, startMin || 0);
+        endDateTime.setHours(endHour, endMin || 0);
+        
+        const session = {
+          contractorName: foundContractor,
+          startTime: startDateTime,
+          endTime: endDateTime,
+          locationName: extractedData.jobs[0]?.address || 'Site Location',
+          gpsLat: 51.5074, // default London coordinates
+          gpsLng: -0.1278,
+          notes: `Imported from ${sheetName}`
+        };
+        
+        extractedData.workSessions.push(session);
+        extractedData.summary.workSessionsFound++;
+        console.log(`⏱️ Found work session: ${foundContractor} (${foundStartTime}-${foundEndTime})`);
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting work sessions:', error);
+  }
+}
+
+async function extractMaterialsFromSheet(data: any[], sheetName: string, extractedData: any, storage: DatabaseStorage) {
+  try {
+    // Look for material/cost patterns
+    const materialPatterns = [
+      /material/i, /supply/i, /equipment/i, /tool/i, /cement/i, /brick/i, /wood/i, /steel/i
+    ];
+    
+    const costPatterns = [
+      /cost/i, /price/i, /amount/i, /total/i, /£/i, /\$/i
+    ];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      if (!Array.isArray(row) || row.length < 2) continue;
+      
+      // Look for material descriptions with costs
+      for (let j = 0; j < row.length - 1; j++) {
+        const cell = String(row[j] || '').trim();
+        const nextCell = String(row[j + 1] || '').trim();
+        
+        // Check if cell contains material description and next cell contains cost
+        if (cell && cell.length > 3 &&
+            (materialPatterns.some(p => p.test(cell)) || cell.length > 10) &&
+            (/^\d+(\.\d+)?$/.test(nextCell.replace(/[£$,]/g, '')))) {
+          
+          const cost = parseFloat(nextCell.replace(/[£$,]/g, ''));
+          
+          if (cost > 0 && cost < 100000) { // reasonable cost check
+            const material = {
+              description: cell,
+              cost: cost,
+              quantity: 1,
+              unit: 'item',
+              jobId: extractedData.jobs[0]?.name || 'General',
+              date: new Date()
+            };
+            
+            extractedData.materials.push(material);
+            extractedData.summary.materialsFound++;
+            console.log(`🧱 Found material: ${cell} (£${cost})`);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting materials:', error);
+  }
 }

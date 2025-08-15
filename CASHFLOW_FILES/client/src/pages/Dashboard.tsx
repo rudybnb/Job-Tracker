@@ -1,174 +1,165 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { DollarSign, Clock, Users, Briefcase, TrendingUp, TrendingDown } from 'lucide-react';
-
-interface DashboardData {
-  thisWeek: {
-    labourCosts: number;
-    materialCosts: number;
-    totalCosts: number;
-    hoursWorked: number;
-    activeContractors: number;
-    activeSessions: number;
-  };
-  projects: {
-    activeJobs: number;
-    totalBudget: number;
-    spent: number;
-    remaining: number;
-  };
-  contractors: Array<{
-    id: string;
-    name: string;
-    hourlyRate: number;
-    thisWeekHours: number;
-    thisWeekEarnings: number;
-  }>;
-}
+import { Link } from 'wouter';
+import { 
+  TrendingUp, 
+  Users, 
+  Calendar, 
+  DollarSign,
+  Upload,
+  FileSpreadsheet,
+  AlertCircle,
+  CheckCircle
+} from 'lucide-react';
 
 export function Dashboard() {
-  const { data: dashboardData, isLoading, error } = useQuery<DashboardData>({
-    queryKey: ['dashboard-summary'],
-    queryFn: async () => {
-      const response = await fetch('/api/dashboard-summary');
-      if (!response.ok) throw new Error('Failed to fetch dashboard data');
-      return response.json();
-    },
-  });
-
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-slate-700 rounded mb-6 w-64"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-32 bg-slate-700 rounded-lg"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="bg-red-900/20 border border-red-800 rounded-lg p-6">
-          <h2 className="text-red-400 font-semibold mb-2">Error Loading Dashboard</h2>
-          <p className="text-red-300">Failed to load dashboard data. Please check your connection.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!dashboardData) return null;
-
-  const StatCard = ({ 
-    title, 
-    value, 
-    icon: Icon, 
-    trend, 
-    trendValue 
-  }: {
-    title: string;
-    value: string | number;
-    icon: any;
-    trend?: 'up' | 'down';
-    trendValue?: string;
-  }) => (
-    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-      <div className="flex items-center justify-between mb-4">
-        <div className="p-2 bg-amber-500/10 rounded-lg">
-          <Icon className="h-6 w-6 text-amber-500" />
-        </div>
-        {trend && (
-          <div className={`flex items-center text-sm ${trend === 'up' ? 'text-green-400' : 'text-red-400'}`}>
-            {trend === 'up' ? <TrendingUp className="h-4 w-4 mr-1" /> : <TrendingDown className="h-4 w-4 mr-1" />}
-            {trendValue}
-          </div>
-        )}
-      </div>
-      <div className="text-2xl font-bold text-white mb-1">{value}</div>
-      <div className="text-slate-400 text-sm">{title}</div>
-    </div>
-  );
-
   return (
-    <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Cash Flow Dashboard</h1>
-        <p className="text-slate-400">Weekly financial overview and contractor tracking</p>
-      </div>
+    <div className="min-h-screen bg-slate-900 p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-3">Cash Flow Dashboard</h1>
+          <p className="text-slate-400 text-lg">
+            Track project finances, contractor earnings, and material costs in real-time.
+          </p>
+        </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          title="This Week Labour Costs"
-          value={`£${dashboardData.thisWeek.labourCosts.toLocaleString()}`}
-          icon={DollarSign}
-        />
-        <StatCard
-          title="Hours Worked"
-          value={`${dashboardData.thisWeek.hoursWorked.toFixed(1)}h`}
-          icon={Clock}
-        />
-        <StatCard
-          title="Active Contractors"
-          value={dashboardData.thisWeek.activeContractors}
-          icon={Users}
-        />
-        <StatCard
-          title="Active Projects"
-          value={dashboardData.projects.activeJobs}
-          icon={Briefcase}
-        />
-      </div>
+        {/* Quick Start Section */}
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-8 mb-8">
+          <div className="flex items-center mb-6">
+            <Upload className="w-8 h-8 text-amber-400 mr-3" />
+            <div>
+              <h2 className="text-xl font-bold text-white">Get Started</h2>
+              <p className="text-slate-400">Import your XLSX file to set up everything automatically</p>
+            </div>
+          </div>
 
-      {/* Contractor Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <h2 className="text-xl font-semibold text-white mb-4">Contractor Performance</h2>
-          <div className="space-y-4">
-            {dashboardData.contractors.map(contractor => (
-              <div key={contractor.id} className="flex justify-between items-center p-4 bg-slate-900/50 rounded-lg">
-                <div>
-                  <div className="text-white font-medium">{contractor.name}</div>
-                  <div className="text-slate-400 text-sm">
-                    £{contractor.hourlyRate}/hour • {contractor.thisWeekHours.toFixed(1)}h this week
+          <div className="grid md:grid-cols-2 gap-6">
+            <Link href="/import">
+              <div className="bg-slate-700 p-6 rounded-lg border-2 border-dashed border-slate-600 hover:border-amber-400 transition-colors cursor-pointer group">
+                <div className="flex items-center mb-4">
+                  <FileSpreadsheet className="w-12 h-12 text-amber-400 group-hover:scale-110 transition-transform" />
+                  <div className="ml-4">
+                    <h3 className="text-lg font-semibold text-white">Import XLSX Data</h3>
+                    <p className="text-slate-400 text-sm">Upload your file to extract all data automatically</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-white font-semibold">£{contractor.thisWeekEarnings.toFixed(2)}</div>
-                  <div className="text-slate-400 text-sm">This Week</div>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div>
+                    <div className="text-amber-400 text-sm font-medium">👷</div>
+                    <div className="text-slate-400 text-xs">Contractors</div>
+                  </div>
+                  <div>
+                    <div className="text-blue-400 text-sm font-medium">🏗️</div>
+                    <div className="text-slate-400 text-xs">Jobs</div>
+                  </div>
+                  <div>
+                    <div className="text-green-400 text-sm font-medium">⏱️</div>
+                    <div className="text-slate-400 text-xs">Time Data</div>
+                  </div>
+                  <div>
+                    <div className="text-purple-400 text-sm font-medium">🧱</div>
+                    <div className="text-slate-400 text-xs">Materials</div>
+                  </div>
                 </div>
               </div>
-            ))}
+            </Link>
+
+            <div className="bg-slate-700 p-6 rounded-lg">
+              <h3 className="text-lg font-semibold text-white mb-4">What Gets Imported</h3>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <CheckCircle className="w-5 h-5 text-green-400 mr-3" />
+                  <span className="text-slate-300">Contractor names and pay rates</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="w-5 h-5 text-green-400 mr-3" />
+                  <span className="text-slate-300">Job addresses and budgets</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="w-5 h-5 text-green-400 mr-3" />
+                  <span className="text-slate-300">Work session times and dates</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="w-5 h-5 text-green-400 mr-3" />
+                  <span className="text-slate-300">Material costs and descriptions</span>
+                </div>
+                <div className="flex items-center mt-4">
+                  <AlertCircle className="w-5 h-5 text-amber-400 mr-3" />
+                  <span className="text-slate-400 text-sm">Only job quotes need to be added manually</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <h2 className="text-xl font-semibold text-white mb-4">Weekly Summary</h2>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Labour Costs</span>
-              <span className="text-white font-semibold">£{dashboardData.thisWeek.labourCosts.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Material Costs</span>
-              <span className="text-white font-semibold">£{dashboardData.thisWeek.materialCosts.toLocaleString()}</span>
-            </div>
-            <div className="border-t border-slate-700 pt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-white font-medium">Total Costs</span>
-                <span className="text-amber-400 font-bold text-lg">£{dashboardData.thisWeek.totalCosts.toLocaleString()}</span>
+        {/* Quick Stats */}
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">This Week Labour</p>
+                <p className="text-2xl font-bold text-white">£0.00</p>
               </div>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Active Sessions</span>
-              <span className="text-white">{dashboardData.thisWeek.activeSessions}</span>
+              <TrendingUp className="w-8 h-8 text-amber-400" />
             </div>
           </div>
+
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">Active Contractors</p>
+                <p className="text-2xl font-bold text-white">0</p>
+              </div>
+              <Users className="w-8 h-8 text-blue-400" />
+            </div>
+          </div>
+
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">Hours This Week</p>
+                <p className="text-2xl font-bold text-white">0.0</p>
+              </div>
+              <Calendar className="w-8 h-8 text-green-400" />
+            </div>
+          </div>
+
+          <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">Material Costs</p>
+                <p className="text-2xl font-bold text-white">£0.00</p>
+              </div>
+              <DollarSign className="w-8 h-8 text-purple-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Cards */}
+        <div className="grid md:grid-cols-3 gap-6">
+          <Link href="/weekly-report">
+            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer">
+              <FileSpreadsheet className="w-12 h-12 text-amber-400 mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">Weekly Reports</h3>
+              <p className="text-slate-400">Generate detailed weekly cash flow reports</p>
+            </div>
+          </Link>
+
+          <Link href="/projects">
+            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer">
+              <TrendingUp className="w-12 h-12 text-blue-400 mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">Project Analysis</h3>
+              <p className="text-slate-400">Track project costs and profitability</p>
+            </div>
+          </Link>
+
+          <Link href="/contractors">
+            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer">
+              <Users className="w-12 h-12 text-green-400 mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">Contractor Earnings</h3>
+              <p className="text-slate-400">Monitor individual contractor performance</p>
+            </div>
+          </Link>
         </div>
       </div>
     </div>

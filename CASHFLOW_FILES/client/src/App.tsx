@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { WeeklyReport } from './pages/WeeklyReport';
 import { ProjectAnalysis } from './pages/ProjectAnalysis';
 import { ContractorEarnings } from './pages/ContractorEarnings';
+import { ImportData } from './pages/ImportData';
 import { Settings } from './pages/Settings';
 import { Navigation } from './components/Navigation';
 import './index.css';
@@ -29,6 +30,7 @@ function App() {
           <main className="pb-20">
             <Switch>
               <Route path="/" component={Dashboard} />
+              <Route path="/import" component={ImportData} />
               <Route path="/weekly-report" component={WeeklyReport} />
               <Route path="/projects" component={ProjectAnalysis} />
               <Route path="/contractors" component={ContractorEarnings} />
