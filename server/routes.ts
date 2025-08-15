@@ -231,7 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // LOCKED DOWN PARSING LOGIC - DO NOT CHANGE THIS EVER
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
-          if (line.startsWith('Name,') || line.startsWith('name,')) {
+          if (line.startsWith('Name ,') || line.startsWith('Name,') || line.startsWith('name,')) {
             // Extract everything after "Name," or "name," and remove trailing commas
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobName = extracted || "Data Missing from CSV";
@@ -239,9 +239,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Extract everything after first comma and remove trailing commas
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobAddress = extracted || "Data Missing from CSV";
-          } else if (line.startsWith('Post code,')) {
-            // Extract everything after "Post code," and remove trailing commas
-            const extracted = line.substring(10).replace(/,+$/, '').trim().toUpperCase();
+          } else if (line.startsWith('Post Code ,') || line.startsWith('Post code,')) {
+            // Extract everything after "Post code," and remove trailing commas - handle space in "Post Code "
+            const colonIndex = line.indexOf(',');
+            const extracted = line.substring(colonIndex + 1).replace(/,+$/, '').trim().toUpperCase();
             jobPostcode = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Project Type,')) {
             // Extract everything after "Project Type," and remove trailing commas
@@ -299,22 +300,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 totalMaterialCost += resource.totalCost;
               }
               
-              // Build phase task structure for compatibility
-              if (resource.buildPhase && resource.buildPhase !== 'General') {
-                if (!phaseTaskData[resource.buildPhase]) {
-                  phaseTaskData[resource.buildPhase] = [];
-                }
-                phaseTaskData[resource.buildPhase].push({
-                  task: `${resource.resourceType}: ${resource.description}`,
-                  description: `${resource.quantity} × £${resource.unitPrice} = £${resource.totalCost.toFixed(2)}`,
-                  quantity: resource.quantity,
-                  unitPrice: resource.unitPrice,
-                  totalCost: resource.totalCost,
-                  supplier: resource.supplier,
-                  orderDate: resource.orderDate,
-                  resourceType: resource.resourceType
-                });
-                phases.push(resource.buildPhase);
+              // Build phase task structure for compatibility - collect ALL phases from CSV
+              let phaseName = resource.buildPhase && resource.buildPhase.trim() !== '' ? resource.buildPhase : 'General Works';
+              
+              if (!phaseTaskData[phaseName]) {
+                phaseTaskData[phaseName] = [];
+              }
+              phaseTaskData[phaseName].push({
+                task: `${resource.resourceType}: ${resource.description}`,
+                description: `${resource.quantity} × £${resource.unitPrice} = £${resource.totalCost.toFixed(2)}`,
+                quantity: resource.quantity,
+                unitPrice: resource.unitPrice,
+                totalCost: resource.totalCost,
+                supplier: resource.supplier,
+                orderDate: resource.orderDate,
+                resourceType: resource.resourceType
+              });
+              
+              // Add phase to phases array if not already present
+              if (!phases.includes(phaseName)) {
+                phases.push(phaseName);
               }
               
               // Weekly cash flow breakdown
@@ -336,13 +341,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             resources.push(resource);
           }
           
+          // Remove duplicate phases
+          phases = phases.filter((p, i, arr) => arr.indexOf(p) === i);
+          
           console.log('🎯 Enhanced parsing results:', {
-            phases: phases.filter((p, i, arr) => arr.indexOf(p) === i), // Remove duplicates
+            phases: phases,
             resourceCount: resources.length,
             totalLabourCost,
             totalMaterialCost,
             grandTotal: totalLabourCost + totalMaterialCost,
-            weeklyBreakdown
+            weeklyBreakdown,
+            detectedPhases: Object.keys(phaseTaskData)
           });
           
           // Store enhanced data for accounting integration
@@ -359,9 +368,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           await storage.createJob({
             title: jobName,
+            description: jobType,
             location: `${jobAddress}, ${jobPostcode}`,
             status: "pending",
             dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            notes: `Project Type: ${jobType}`,
+            phases: phases.join(', ') || "Data Missing from CSV",
             uploadId: csvUpload.id,
             phaseTaskData: enhancedJobData
           });
@@ -469,8 +481,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Final response with job creation results
         const finalUpload = await storage.getCsvUploads().then(uploads => uploads.find(u => u.id === csvUpload.id));
         
+        // Update the CSV upload status to processed
+        await storage.updateCsvUpload(csvUpload.id, {
+          status: "processed",
+          jobsCount: jobsCreated.toString()
+        });
+        
         res.json({
-          upload: finalUpload,
+          upload: {
+            ...finalUpload,
+            status: "processed",
+            jobsCount: jobsCreated.toString()
+          },
           jobsCreated: jobsCreated
         });
       } catch (error) {
