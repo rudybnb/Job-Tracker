@@ -231,7 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // LOCKED DOWN PARSING LOGIC - DO NOT CHANGE THIS EVER
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
-          if (line.startsWith('Name,') || line.startsWith('name,') || line.startsWith('Name ,') || line.startsWith('name ,')) {
+          if (line.startsWith('Name,') || line.startsWith('name,')) {
             // Extract everything after "Name," or "name," and remove trailing commas
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobName = extracted || "Data Missing from CSV";
@@ -239,10 +239,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Extract everything after first comma and remove trailing commas
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobAddress = extracted || "Data Missing from CSV";
-          } else if (line.startsWith('Post code,') || line.startsWith('Post Code,') || line.startsWith('Post Code ,')) {
+          } else if (line.startsWith('Post code,')) {
             // Extract everything after "Post code," and remove trailing commas
-            const commaIndex = line.indexOf(',');
-            const extracted = line.substring(commaIndex + 1).replace(/,+$/, '').trim().toUpperCase();
+            const extracted = line.substring(10).replace(/,+$/, '').trim().toUpperCase();
             jobPostcode = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Project Type,')) {
             // Extract everything after "Project Type," and remove trailing commas
@@ -267,8 +266,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log('🎯 Using ENHANCED CSV parsing for accounting format');
           
-          let currentBuildPhase = ''; // Track current phase across rows
-          
           for (let i = enhancedFormatIndex + 1; i < lines.length; i++) {
             const line = lines[i];
             if (!line || line.trim() === '') continue;
@@ -285,13 +282,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               description: parts[5] || '',
               quantity: parseInt(parts[7]) || 0
             };
-            
-            // Handle CSV format where Build Phase is only specified on first row of each phase
-            if (resource.buildPhase && resource.buildPhase !== '' && resource.buildPhase !== 'General') {
-              currentBuildPhase = resource.buildPhase;
-            } else if (currentBuildPhase && (resource.buildPhase === '' || resource.buildPhase === 'General')) {
-              resource.buildPhase = currentBuildPhase;
-            }
             
             // Extract price using regex - MANDATORY RULE: authentic data only
             const priceMatch = resource.description.match(/£(\d+\.?\d*)/);
@@ -334,13 +324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
                 const costType = resource.resourceType.toLowerCase();
                 if (costType === 'labour' || costType === 'material') {
-                  const breakdownEntry = weeklyBreakdown[resource.orderDate];
-                  if (costType === 'labour') {
-                    breakdownEntry.labour += resource.totalCost;
-                  } else if (costType === 'material') {
-                    breakdownEntry.material += resource.totalCost;
-                  }
-                  breakdownEntry.total += resource.totalCost;
+                  weeklyBreakdown[resource.orderDate][costType] += resource.totalCost;
+                  weeklyBreakdown[resource.orderDate].total += resource.totalCost;
                 }
               }
             }
@@ -379,19 +364,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           jobsCreated++;
-          
-          // Update CSV status and send response for enhanced format
-          await storage.updateCsvUpload(csvUpload.id, {
-            status: "processed",
-            jobsCount: jobsCreated.toString()
-          });
-
-          res.json({
-            upload: await storage.getCsvUploads().then(uploads => uploads.find(u => u.id === csvUpload.id)),
-            jobsCreated: jobsCreated
-          });
-          
-          return; // Exit here for enhanced format
           
         } else {
           // ORIGINAL FORMAT PARSING - maintain existing functionality
@@ -738,24 +710,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete job assignment - MAXIMUM PROTECTION AGAINST DATA LOSS
+  // Delete job assignment
   app.delete("/api/job-assignments/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      console.log("🚨🚨🚨 ASSIGNMENT DELETION ATTEMPT:", id);
+      console.log("🗑️ Deleting job assignment:", id);
       
-      // EMERGENCY PROTECTION: Block ALL deletions until investigation complete
-      console.log("🛑 EMERGENCY PROTECTION: Assignment deletion temporarily disabled");
-      return res.status(403).json({ 
-        error: "Assignment deletion temporarily disabled for data protection",
-        message: "System protecting against data loss - contact admin to delete assignments",
-        timestamp: new Date().toISOString(),
-        attemptedId: id
-      });
+      await storage.deleteJobAssignment(id);
       
+      res.status(200).json({ message: "Assignment deleted successfully" });
     } catch (error) {
-      console.error("Error in protected delete endpoint:", error);
-      res.status(500).json({ error: "Deletion protection active" });
+      console.error("Error deleting job assignment:", error);
+      res.status(500).json({ error: "Failed to delete job assignment" });
     }
   });
 
@@ -1485,47 +1451,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating work session:", error);
       res.status(400).json({ error: "Failed to update work session" });
-    }
-  });
-
-  // Manual logout endpoint for contractors
-  app.post("/api/work-sessions/:contractorName/logout", async (req, res) => {
-    try {
-      console.log(`🔓 Manual logout request for: ${req.params.contractorName}`);
-      
-      const contractorName = req.params.contractorName;
-      const activeSession = await storage.getActiveWorkSession(contractorName);
-      
-      if (!activeSession) {
-        return res.status(404).json({ error: "No active work session found" });
-      }
-      
-      // End the session with current time and GPS coordinates if provided
-      const endTime = new Date();
-      const updateData: any = {
-        endTime,
-        status: 'completed' as const
-      };
-      
-      // Add end GPS coordinates if provided in request body
-      if (req.body.latitude && req.body.longitude) {
-        updateData.endLatitude = req.body.latitude.toString();
-        updateData.endLongitude = req.body.longitude.toString();
-        console.log(`📍 Manual logout with GPS: ${req.body.latitude}, ${req.body.longitude}`);
-      }
-      
-      const updatedSession = await storage.updateWorkSession(activeSession.id, updateData);
-      
-      console.log(`✅ Manual logout successful for ${contractorName} at ${endTime.toLocaleTimeString()}`);
-      res.json({ 
-        success: true, 
-        message: `Successfully logged out ${contractorName}`,
-        session: updatedSession
-      });
-      
-    } catch (error) {
-      console.error("❌ Manual logout failed:", error);
-      res.status(500).json({ error: "Failed to logout contractor" });
     }
   });
 

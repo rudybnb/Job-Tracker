@@ -143,9 +143,9 @@ export default function UploadCsv() {
       let jobType = "Data Missing from CSV";
       let phases: string[] = [];
 
-      // Check if it's the original format (Name,Xavier jones or name,Flat1 or BBXL format Name ,Queens way)
+      // Check if it's the original format (Name,Xavier jones or name,Flat1)
       const isOriginalFormat = lines.some(line => 
-        (line.startsWith('Name,') || line.startsWith('name,') || line.startsWith('Name ,') || line.startsWith('name ,')) && !line.includes('Address,Postcode')
+        (line.startsWith('Name,') || line.startsWith('name,')) && !line.includes('Address,Postcode')
       );
       
       if (isOriginalFormat) {
@@ -153,7 +153,7 @@ export default function UploadCsv() {
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
           
-          if (line.startsWith('Name,') || line.startsWith('name,') || line.startsWith('Name ,') || line.startsWith('name ,')) {
+          if (line.startsWith('Name,') || line.startsWith('name,')) {
             // Extract everything after "Name," or "name," and remove trailing commas
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobName = extracted || "Data Missing from CSV";
@@ -161,10 +161,9 @@ export default function UploadCsv() {
             // Extract everything after first comma and remove trailing commas  
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobAddress = extracted || "Data Missing from CSV";
-          } else if (line.startsWith('Post code,') || line.startsWith('Post Code,') || line.startsWith('Post Code ,')) {
+          } else if (line.startsWith('Post code,')) {
             // Extract everything after "Post code," and remove trailing commas
-            const commaIndex = line.indexOf(',');
-            const extracted = line.substring(commaIndex + 1).replace(/,+$/, '').trim().toUpperCase();
+            const extracted = line.substring(10).replace(/,+$/, '').trim().toUpperCase();
             jobPostcode = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Project Type,')) {
             // Extract everything after "Project Type," and remove trailing commas

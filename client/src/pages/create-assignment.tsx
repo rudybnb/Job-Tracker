@@ -102,8 +102,8 @@ export default function CreateAssignment() {
           name: job.title,
           location: job.location,
           status: job.status,
-          phases: job.phases ? job.phases.split(',').map(p => p.trim()) : [],
-          phaseData: job.phases ? job.phases.split(',').map(p => p.trim()).reduce((acc: any, phase: string) => {
+          phases: job.phases ? job.phases.split(', ') : [],
+          phaseData: job.phases ? job.phases.split(', ').reduce((acc: any, phase: string) => {
             acc[phase] = [];
             return acc;
           }, {}) : {}
