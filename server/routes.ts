@@ -325,8 +325,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
                 const costType = resource.resourceType.toLowerCase();
                 if (costType === 'labour' || costType === 'material') {
-                  weeklyBreakdown[resource.orderDate][costType] += resource.totalCost;
-                  weeklyBreakdown[resource.orderDate].total += resource.totalCost;
+                  const breakdownEntry = weeklyBreakdown[resource.orderDate];
+                  if (costType === 'labour') {
+                    breakdownEntry.labour += resource.totalCost;
+                  } else if (costType === 'material') {
+                    breakdownEntry.material += resource.totalCost;
+                  }
+                  breakdownEntry.total += resource.totalCost;
                 }
               }
             }
@@ -365,6 +370,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           jobsCreated++;
+          
+          // Update CSV status and send response for enhanced format
+          await storage.updateCsvUpload(csvUpload.id, {
+            status: "processed",
+            jobsCount: jobsCreated.toString()
+          });
+
+          res.json({
+            upload: await storage.getCsvUploads().then(uploads => uploads.find(u => u.id === csvUpload.id)),
+            jobsCreated: jobsCreated
+          });
+          
+          return; // Exit here for enhanced format
           
         } else {
           // ORIGINAL FORMAT PARSING - maintain existing functionality
