@@ -267,6 +267,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log('🎯 Using ENHANCED CSV parsing for accounting format');
           
+          let currentBuildPhase = ''; // Track current phase across rows
+          
           for (let i = enhancedFormatIndex + 1; i < lines.length; i++) {
             const line = lines[i];
             if (!line || line.trim() === '') continue;
@@ -283,6 +285,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               description: parts[5] || '',
               quantity: parseInt(parts[7]) || 0
             };
+            
+            // Handle CSV format where Build Phase is only specified on first row of each phase
+            if (resource.buildPhase && resource.buildPhase !== '' && resource.buildPhase !== 'General') {
+              currentBuildPhase = resource.buildPhase;
+            } else if (currentBuildPhase && (resource.buildPhase === '' || resource.buildPhase === 'General')) {
+              resource.buildPhase = currentBuildPhase;
+            }
             
             // Extract price using regex - MANDATORY RULE: authentic data only
             const priceMatch = resource.description.match(/£(\d+\.?\d*)/);
