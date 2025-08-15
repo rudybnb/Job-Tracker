@@ -157,7 +157,7 @@ function ApplicationCard({ application, onStatusUpdate, onAdminUpdate }: Applica
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">• Account Number:</span>
-                <span className="font-medium text-slate-800">{application.accountNumber ? `****${application.accountNumber.slice(-4)}` : "Not provided"}</span>
+                <span className="font-medium text-slate-800">{application.accountNumber || "Not provided"}</span>
               </div>
             </div>
           </div>
