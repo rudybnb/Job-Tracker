@@ -231,25 +231,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // LOCKED DOWN PARSING LOGIC - DO NOT CHANGE THIS EVER
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
+          console.log(`🔍 Parsing line ${i}: "${line}"`);
+          
           if (line.startsWith('Name ,') || line.startsWith('Name,') || line.startsWith('name,')) {
             // Extract everything after "Name," or "name," and remove trailing commas
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobName = extracted || "Data Missing from CSV";
+            console.log(`📝 Extracted job name: "${jobName}"`);
           } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
             // Extract everything after first comma and remove trailing commas
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobAddress = extracted || "Data Missing from CSV";
+            console.log(`📍 Extracted job address: "${jobAddress}"`);
           } else if (line.startsWith('Post Code ,') || line.startsWith('Post code,')) {
             // Extract everything after "Post code," and remove trailing commas - handle space in "Post Code "
             const colonIndex = line.indexOf(',');
             const extracted = line.substring(colonIndex + 1).replace(/,+$/, '').trim().toUpperCase();
             jobPostcode = extracted || "Data Missing from CSV";
+            console.log(`📮 Extracted job postcode: "${jobPostcode}"`);
           } else if (line.startsWith('Project Type,')) {
             // Extract everything after "Project Type," and remove trailing commas
             const extracted = line.substring(13).replace(/,+$/, '').trim();
             jobType = extracted || "Data Missing from CSV";
+            console.log(`🏗️ Extracted job type: "${jobType}"`);
           }
         }
+        
+        console.log('🎯 Final extracted data:', { jobName, jobAddress, jobPostcode, jobType });
 
         // Parse data section - supports both formats
         // Check if this is the new enhanced format with Order Date, Build Phase, etc.

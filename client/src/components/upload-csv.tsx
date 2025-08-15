@@ -143,67 +143,116 @@ export default function UploadCsv() {
       let jobType = "Data Missing from CSV";
       let phases: string[] = [];
 
-      // Check if it's the original format (Name,Xavier jones or name,Flat1)
-      const isOriginalFormat = lines.some(line => 
-        (line.startsWith('Name,') || line.startsWith('name,')) && !line.includes('Address,Postcode')
+      // Enhanced parsing for the new accounting CSV format
+      const enhancedFormatIndex = lines.findIndex(line => 
+        line.includes('Order Date') && line.includes('Build Phase') && line.includes('Resource Description')
       );
       
-      if (isOriginalFormat) {
-        // LOCKED DOWN PARSING LOGIC - NEVER CHANGE THIS SECTION
+      if (enhancedFormatIndex !== -1) {
+        // ENHANCED FORMAT PARSING - for accounting integration
+        console.log('🎯 Using ENHANCED CSV parsing for frontend preview');
+        
+        // Extract header information (first 4 lines)
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
           const line = lines[i];
           
-          if (line.startsWith('Name,') || line.startsWith('name,')) {
-            // Extract everything after "Name," or "name," and remove trailing commas
+          if (line.startsWith('Name ,') || line.startsWith('Name,') || line.startsWith('name,')) {
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobName = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
-            // Extract everything after first comma and remove trailing commas  
             const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
             jobAddress = extracted || "Data Missing from CSV";
-          } else if (line.startsWith('Post code,')) {
-            // Extract everything after "Post code," and remove trailing commas
-            const extracted = line.substring(10).replace(/,+$/, '').trim().toUpperCase();
+          } else if (line.startsWith('Post Code ,') || line.startsWith('Post code,')) {
+            const colonIndex = line.indexOf(',');
+            const extracted = line.substring(colonIndex + 1).replace(/,+$/, '').trim().toUpperCase();
             jobPostcode = extracted || "Data Missing from CSV";
           } else if (line.startsWith('Project Type,')) {
-            // Extract everything after "Project Type," and remove trailing commas
             const extracted = line.substring(13).replace(/,+$/, '').trim();
             jobType = extracted || "Data Missing from CSV";
           }
         }
-
-        // Parse data section for build phases
-        const dataHeaderIndex = lines.findIndex(line => 
-          line.includes('Order Date') && line.includes('Build Phase')
+        
+        // Parse phases from enhanced CSV data
+        const phaseSet = new Set<string>();
+        for (let i = enhancedFormatIndex + 1; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line || line.trim() === '') continue;
+          
+          const parts = line.split(',').map(p => p.trim());
+          if (parts.length < 8) continue;
+          
+          const buildPhase = parts[2] || '';
+          if (buildPhase && buildPhase.trim() !== '') {
+            phaseSet.add(buildPhase);
+          } else {
+            phaseSet.add('General Works');
+          }
+        }
+        phases = Array.from(phaseSet);
+        
+      } else {
+        // Check if it's the original format (Name,Xavier jones or name,Flat1)
+        const isOriginalFormat = lines.some(line => 
+          (line.startsWith('Name,') || line.startsWith('name,')) && !line.includes('Address,Postcode')
         );
         
-        if (dataHeaderIndex >= 0) {
-          const headers = lines[dataHeaderIndex].split(',').map(h => h.trim());
-          const phaseColumnIndex = headers.indexOf('Build Phase');
+        if (isOriginalFormat) {
+          // LOCKED DOWN PARSING LOGIC - NEVER CHANGE THIS SECTION
+          for (let i = 0; i < Math.min(lines.length, 5); i++) {
+            const line = lines[i];
+            
+            if (line.startsWith('Name,') || line.startsWith('name,')) {
+              // Extract everything after "Name," or "name," and remove trailing commas
+              const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
+              jobName = extracted || "Data Missing from CSV";
+            } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
+              // Extract everything after first comma and remove trailing commas  
+              const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
+              jobAddress = extracted || "Data Missing from CSV";
+            } else if (line.startsWith('Post code,')) {
+              // Extract everything after "Post code," and remove trailing commas
+              const extracted = line.substring(10).replace(/,+$/, '').trim().toUpperCase();
+              jobPostcode = extracted || "Data Missing from CSV";
+            } else if (line.startsWith('Project Type,')) {
+              // Extract everything after "Project Type," and remove trailing commas
+              const extracted = line.substring(13).replace(/,+$/, '').trim();
+              jobType = extracted || "Data Missing from CSV";
+            }
+          }
+
+          // Parse data section for build phases
+          const dataHeaderIndex = lines.findIndex(line => 
+            line.includes('Order Date') && line.includes('Build Phase')
+          );
           
-          if (phaseColumnIndex >= 0) {
-            for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
-              const values = lines[i].split(',').map(v => v.trim());
-              const phase = values[phaseColumnIndex];
-              if (phase && phase !== '' && !phases.includes(phase)) {
-                phases.push(phase);
+          if (dataHeaderIndex >= 0) {
+            const headers = lines[dataHeaderIndex].split(',').map(h => h.trim());
+            const phaseColumnIndex = headers.indexOf('Build Phase');
+            
+            if (phaseColumnIndex >= 0) {
+              for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                const phase = values[phaseColumnIndex];
+                if (phase && phase !== '' && !phases.includes(phase)) {
+                  phases.push(phase);
+                }
               }
             }
           }
-        }
-      } else {
-        // NEW TABLE FORMAT: Name,Address,Postcode,ProjectType,BuildPhases
-        if (lines.length >= 2) {
-          const firstDataLine = lines[1];
-          const dataParts = firstDataLine.split(',');
-          
-          jobName = dataParts[0]?.trim() || "Data Missing";
-          jobAddress = dataParts[1]?.trim() || "Data Missing";
-          jobPostcode = dataParts[2]?.trim()?.toUpperCase() || "Data Missing";
-          jobType = dataParts[3]?.trim() || "Data Missing";
-          const buildPhasesStr = dataParts[4]?.trim().replace(/"/g, '') || "";
-          
-          phases = buildPhasesStr ? buildPhasesStr.split(',').map(p => p.trim()).filter(p => p) : [];
+        } else {
+          // NEW TABLE FORMAT: Name,Address,Postcode,ProjectType,BuildPhases
+          if (lines.length >= 2) {
+            const firstDataLine = lines[1];
+            const dataParts = firstDataLine.split(',');
+            
+            jobName = dataParts[0]?.trim() || "Data Missing";
+            jobAddress = dataParts[1]?.trim() || "Data Missing";
+            jobPostcode = dataParts[2]?.trim()?.toUpperCase() || "Data Missing";
+            jobType = dataParts[3]?.trim() || "Data Missing";
+            const buildPhasesStr = dataParts[4]?.trim().replace(/"/g, '') || "";
+            
+            phases = buildPhasesStr ? buildPhasesStr.split(',').map(p => p.trim()).filter(p => p) : [];
+          }
         }
       }
 
