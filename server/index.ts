@@ -151,8 +151,8 @@ async function startAutomaticLogoutService() {
                       };
                     }
                     
-                    // Check if within working range of ANY job site (500m threshold)
-                    if (distance <= 500) {
+                    // Check if within working range of ANY job site (2 mile threshold = 3220m)
+                    if (distance <= 3220) {
                       isNearAnyJobSite = true;
                     }
                   }
@@ -164,7 +164,7 @@ async function startAutomaticLogoutService() {
               console.log(`   📍 Current GPS: ${currentLocation.latitude}, ${currentLocation.longitude}`);
               console.log(`   🏗️ Nearest site: ${nearestJobSite ? nearestJobSite.location : 'NONE FOUND'}`);
               console.log(`   📏 Distance: ${Math.round(nearestDistance)}m`);
-              console.log(`   ✅ Within range (500m)? ${isNearAnyJobSite}`);
+              console.log(`   ✅ Within range (3220m = 2 miles)? ${isNearAnyJobSite}`);
               
               // Check for temporary departure during work hours (between 8 AM and 5 PM)
               const currentHour = now.getHours();
@@ -227,8 +227,8 @@ async function startAutomaticLogoutService() {
                   console.log(`🟢 RETURNED TO SITE: ${session.contractorName} back on job site (timer continuous)`);
                 }
                 
-                // Update active assignment if moved to different job site
-                if (nearestJobSite && nearestDistance <= 100) {
+                // Update active assignment if moved to different job site  
+                if (nearestJobSite && nearestDistance <= 3220) {
                   // Contractor is very close to a specific job site - could update assignment
                   const currentAssignments = await storage.getContractorAssignments(session.contractorName.trim());
                   

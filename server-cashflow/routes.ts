@@ -1561,8 +1561,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               };
             }
             
-            // Check if within login range (100m) of this site
-            if (distance <= 100) {
+            // Check if within login range (2 miles = 3220m) of this site
+            if (distance <= 3220) {
               authorizedSites.push({
                 location: job.location,
                 distance: Math.round(distance),
@@ -1585,14 +1585,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const nearestInfo = nearestJobSite ? 
           `${Math.round(nearestDistance)}m from ${nearestJobSite.location}` :
           'no job sites found';
-        console.log(`❌ TOO FAR: ${contractorName} not within 100m of any job site - ${nearestInfo}`);
+        console.log(`❌ TOO FAR: ${contractorName} not within 3220m (2 miles) of any job site - ${nearestInfo}`);
       }
       
       res.json({
         withinRange,
         authorizedSites,
         nearestJobSite,
-        allowedDistance: 100,
+        allowedDistance: 3220, // 2 miles in meters
         message: withinRange ? 
           `Access granted to ${authorizedSites.length} job site(s)` :
           `Must be within 100m of a job site to clock in`

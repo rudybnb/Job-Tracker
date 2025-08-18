@@ -1636,8 +1636,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               };
             }
             
-            // Check if within login range (100m) of this site
-            if (distance <= 100) {
+            // Check if within login range (2 miles = 3.22km = 3220m) of this site
+            if (distance <= 3220) {
               authorizedSites.push({
                 location: job.location,
                 distance: Math.round(distance),
