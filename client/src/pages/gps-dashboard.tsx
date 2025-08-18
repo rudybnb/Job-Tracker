@@ -398,7 +398,7 @@ export default function GPSDashboard() {
         workSiteLocation.longitude
       );
       
-      const isWithinRange = distance <= 3.22; // 2 mile radius (3.22km)
+      const isWithinRange = distance <= 3.5; // 3.5km radius
       const isValidTime = isWithinWorkingHours(isTracking); // Allow clock out after hours
       const canSignIn = isWithinRange && isValidTime;
       
