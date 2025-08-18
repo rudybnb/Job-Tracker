@@ -2,6 +2,16 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { DatabaseStorage } from "./database-storage";
 
+// Session interface for type safety
+interface SessionRequest extends Express.Request {
+  session?: {
+    adminName?: string;
+    contractorName?: string;
+    contractorId?: string;
+    [key: string]: any;
+  };
+}
+
 const storage = new DatabaseStorage();
 import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema, insertAdminSettingSchema, insertJobAssignmentSchema, JobWithContractor, WorkSession } from "@shared/schema";
 import { TelegramService } from "./telegram";
@@ -2626,9 +2636,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Following Rule 3: CSV DATA SUPREMACY - Only information in uploaded files must be used
       
       // Check authentication context - only show data for current admin
-      const session = req.session as any;
-      const currentAdmin = session?.adminName;
-      const currentContractor = session?.contractorName;
+      const currentAdmin = (req as SessionRequest).session?.adminName;
+      const currentContractor = (req as SessionRequest).session?.contractorName;
       
       console.log("🔐 Auth context - Admin:", currentAdmin, "Contractor:", currentContractor);
       
@@ -2697,18 +2706,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Calculate contractor earnings from authentic work sessions
         const jobWorkSessions = filteredWorkSessions.filter(session => 
           session.contractorName === job.contractor?.name && 
-          session.location && job.location && 
-          session.location.toLowerCase().includes(job.location.toLowerCase())
+          session.jobSiteLocation && job.location && 
+          session.jobSiteLocation.toLowerCase().includes(job.location.toLowerCase())
         );
         
-        const totalHours = jobWorkSessions.reduce((sum, session) => sum + (session.totalHours || 0), 0);
+        const totalHours = jobWorkSessions.reduce((sum, session) => {
+          const hours = typeof session.totalHours === 'string' ? parseFloat(session.totalHours) : (session.totalHours || 0);
+          return sum + hours;
+        }, 0);
         const contractorEarnings = Math.round(totalHours * 18); // £18/hour from authentic rate
         
         return {
           id: job.id,
           projectName: `${job.title} - ${job.location}`,
           startDate: job.startDate || new Date().toISOString().split('T')[0],
-          completionDate: job.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          completionDate: job.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           totalBudget: Math.round(contractorEarnings * 1.3), // 30% markup
           labourCosts: contractorEarnings,
           materialCosts: 0, // Material costs not tracked in current system
@@ -2751,8 +2763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("📋 API: Fetching project masters for weekly cash flow tracking");
       
       // Authentication check - MANDATORY RULE
-      const session = req.session as any;
-      const currentAdmin = session?.adminName;
+      const currentAdmin = (req as SessionRequest).session?.adminName;
       
       if (!currentAdmin) {
         console.log("❌ Unauthorized access to weekly cash flow data");
@@ -2803,8 +2814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("📊 API: Fetching weekly cashflow data");
       
-      const session = req.session as any;
-      const currentAdmin = session?.adminName;
+      const currentAdmin = (req as SessionRequest).session?.adminName;
       
       if (!currentAdmin) {
         res.status(401).json({ error: "Admin authentication required" });
@@ -2844,8 +2854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("💰 API: Creating weekly cashflow forecast");
       
-      const session = req.session as any;
-      const currentAdmin = session?.adminName;
+      const currentAdmin = (req as SessionRequest).session?.adminName;
       
       if (!currentAdmin) {
         res.status(401).json({ error: "Admin authentication required" });
@@ -2888,8 +2897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("🛒 API: Fetching material purchases");
       
-      const session = req.session as any;
-      const currentAdmin = session?.adminName;
+      const currentAdmin = (req as SessionRequest).session?.adminName;
       
       if (!currentAdmin) {
         res.status(401).json({ error: "Admin authentication required" });
@@ -2913,8 +2921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("🛒 API: Creating material purchase record");
       
-      const session = req.session as any;
-      const currentAdmin = session?.adminName;
+      const currentAdmin = (req as SessionRequest).session?.adminName;
       
       if (!currentAdmin) {
         res.status(401).json({ error: "Admin authentication required" });
