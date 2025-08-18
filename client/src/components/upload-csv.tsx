@@ -145,7 +145,7 @@ export default function UploadCsv() {
 
       // Enhanced parsing for the new accounting CSV format
       const enhancedFormatIndex = lines.findIndex(line => 
-        line.includes('Order Date') && line.includes('Build Phase') && line.includes('Resource Description')
+        line.includes('Order Date') && line.includes('Build Phase') && (line.includes('Resource Description') || line.includes('Type of Resource'))
       );
       
       if (enhancedFormatIndex !== -1) {
@@ -172,20 +172,34 @@ export default function UploadCsv() {
           }
         }
         
-        // Parse phases from enhanced CSV data
+        // Parse phases from enhanced CSV data - find Build Phase column dynamically
         const phaseSet = new Set<string>();
-        for (let i = enhancedFormatIndex + 1; i < lines.length; i++) {
-          const line = lines[i];
-          if (!line || line.trim() === '') continue;
-          
-          const parts = line.split(',').map(p => p.trim());
-          if (parts.length < 8) continue;
-          
-          const buildPhase = parts[2] || '';
-          if (buildPhase && buildPhase.trim() !== '') {
-            phaseSet.add(buildPhase);
-          } else {
-            phaseSet.add('General Works');
+        const headerLine = lines[enhancedFormatIndex];
+        const headers = headerLine.split(',').map(h => h.trim());
+        const buildPhaseColumnIndex = headers.findIndex(h => 
+          h.toLowerCase().includes('build phase') || h.toLowerCase().includes('phase')
+        );
+        
+        console.log('🔍 Phase column detection:', { 
+          headerLine, 
+          headers, 
+          buildPhaseColumnIndex,
+          foundHeader: headers[buildPhaseColumnIndex] 
+        });
+        
+        if (buildPhaseColumnIndex >= 0) {
+          for (let i = enhancedFormatIndex + 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line || line.trim() === '') continue;
+            
+            const parts = line.split(',').map(p => p.trim());
+            if (parts.length <= buildPhaseColumnIndex) continue;
+            
+            const buildPhase = parts[buildPhaseColumnIndex] || '';
+            if (buildPhase && buildPhase.trim() !== '' && buildPhase.toLowerCase() !== 'material' && buildPhase.toLowerCase() !== 'labour') {
+              phaseSet.add(buildPhase);
+              console.log('✅ Found phase:', buildPhase);
+            }
           }
         }
         phases = Array.from(phaseSet);

@@ -35,7 +35,7 @@ interface EnhancedJobData {
 
 export function parseEnhancedCSV(lines: string[]): EnhancedJobData | null {
   const enhancedFormatIndex = lines.findIndex(line => 
-    line.includes('Order Date') && line.includes('Build Phase') && line.includes('Resource Description')
+    line.includes('Order Date') && line.includes('Build Phase') && (line.includes('Resource Description') || line.includes('Type of Resource'))
   );
   
   if (enhancedFormatIndex === -1) {
@@ -85,7 +85,7 @@ export function parseEnhancedCSV(lines: string[]): EnhancedJobData | null {
       }
 
       // Build phase task structure for compatibility
-      if (resource.buildPhase && resource.buildPhase !== 'General') {
+      if (resource.buildPhase && resource.buildPhase !== 'General' && resource.buildPhase.toLowerCase() !== 'material' && resource.buildPhase.toLowerCase() !== 'labour') {
         if (!phaseTaskData[resource.buildPhase]) {
           phaseTaskData[resource.buildPhase] = [];
         }
@@ -102,6 +102,7 @@ export function parseEnhancedCSV(lines: string[]): EnhancedJobData | null {
         
         if (!phases.includes(resource.buildPhase)) {
           phases.push(resource.buildPhase);
+          console.log('🎯 Enhanced parser found phase:', resource.buildPhase);
         }
       }
 
