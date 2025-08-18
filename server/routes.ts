@@ -272,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Parse data section - supports both formats
         // Check if this is the new enhanced format with Order Date, Build Phase, etc.
         const enhancedFormatIndex = lines.findIndex(line => 
-          line.includes('Order Date') && line.includes('Build Phase') && line.includes('Resource Description')
+          line.includes('Order Date') && line.includes('Build Phase') && (line.includes('Resource Description') || line.includes('Type of Resource'))
         );
         
         if (enhancedFormatIndex !== -1) {
@@ -282,6 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let totalMaterialCost = 0;
           const phaseTaskData: { [key: string]: any[] } = {};
           const weeklyBreakdown: { [key: string]: { labour: number; material: number; total: number } } = {};
+          let phases: string[] = [];
           
           console.log('🎯 Using ENHANCED CSV parsing for accounting format');
           
@@ -343,7 +344,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               
               // Build phase task structure - MANDATORY RULE: use only authentic CSV data
-              let phaseName = resource.buildPhase && resource.buildPhase.trim() !== '' ? resource.buildPhase : 'General Works';
+              let phaseName = resource.buildPhase && resource.buildPhase.trim() !== '' && 
+                              resource.buildPhase.toLowerCase() !== 'material' && 
+                              resource.buildPhase.toLowerCase() !== 'labour' ? 
+                              resource.buildPhase : 'General Works';
               
               if (!phaseTaskData[phaseName]) {
                 phaseTaskData[phaseName] = [];
