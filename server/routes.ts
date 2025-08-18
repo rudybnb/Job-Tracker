@@ -285,13 +285,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let phases: string[] = [];
           
           console.log('🎯 Using ENHANCED CSV parsing for accounting format');
+          console.log('🔍 Enhanced format index:', enhancedFormatIndex);
+          console.log('🔍 Lines to process:', lines.length - enhancedFormatIndex - 1);
           
           for (let i = enhancedFormatIndex + 1; i < lines.length; i++) {
             const line = lines[i];
             if (!line || line.trim() === '') continue;
             
+            console.log(`🔍 Processing line ${i}: "${line}"`);
             const parts = line.split(',').map(p => p.trim());
-            if (parts.length < 8) continue;
+            console.log(`🔍 Parts (${parts.length}):`, parts);
+            if (parts.length < 7) {
+              console.log(`❌ Skipping line ${i} - only ${parts.length} columns`);
+              continue; // Need at least 7 columns for enhanced format
+            }
             
             const resource: any = {
               orderDate: parts[0] || '',
@@ -300,7 +307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               resourceType: parts[3] || '', // Labour or Material
               supplier: parts[4] || '',
               description: parts[5] || '',
-              quantity: parseInt(parts[7]) || 0
+              quantity: parseInt(parts[6]) || 0
             };
             
             // Process ALL resources with valid descriptions (HBXL format often doesn't include prices)
