@@ -308,21 +308,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 totalMaterialCost += resource.totalCost;
               }
               
-              // Build phase task structure for compatibility - collect ALL phases from CSV
+              // Build phase task structure - MANDATORY RULE: use only authentic CSV data
               let phaseName = resource.buildPhase && resource.buildPhase.trim() !== '' ? resource.buildPhase : 'General Works';
               
               if (!phaseTaskData[phaseName]) {
                 phaseTaskData[phaseName] = [];
               }
+              // Create meaningful task descriptions from actual CSV data
+              let taskDescription = resource.description;
+              let taskName = resource.description;
+              
+              // Clean up description for better readability
+              if (resource.resourceType.toLowerCase() === 'labour') {
+                taskName = `${resource.description.replace(/£.*/, '').trim()}`;
+                taskDescription = `${taskName} (${resource.quantity} ${resource.unit || 'Hours'}) - ${resource.supplier}`;
+              } else {
+                taskName = resource.description.replace(/£.*/, '').trim();
+                taskDescription = `${taskName} (${resource.quantity} ${resource.unit || 'Each'}) - ${resource.supplier}`;
+              }
+              
               phaseTaskData[phaseName].push({
-                task: `${resource.resourceType}: ${resource.description}`,
-                description: `${resource.quantity} × £${resource.unitPrice} = £${resource.totalCost.toFixed(2)}`,
+                task: taskName,
+                description: taskDescription,
                 quantity: resource.quantity,
                 unitPrice: resource.unitPrice,
                 totalCost: resource.totalCost,
                 supplier: resource.supplier,
                 orderDate: resource.orderDate,
-                resourceType: resource.resourceType
+                resourceType: resource.resourceType,
+                unit: resource.unit || 'Each',
+                costBreakdown: `${resource.quantity} × £${resource.unitPrice} = £${resource.totalCost.toFixed(2)}`
               });
               
               // Add phase to phases array if not already present
@@ -360,6 +375,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             grandTotal: totalLabourCost + totalMaterialCost,
             weeklyBreakdown,
             detectedPhases: Object.keys(phaseTaskData)
+          });
+          
+          // Debug: Show detailed phase task data
+          console.log('🔍 BUILD PHASES AND SUB-TASKS EXTRACTED:');
+          Object.keys(phaseTaskData).forEach(phase => {
+            console.log(`📋 Phase: ${phase} (${phaseTaskData[phase].length} tasks)`);
+            phaseTaskData[phase].forEach((task, index) => {
+              console.log(`  ├─ ${index + 1}. ${task.task} (${task.resourceType})`);
+              console.log(`  │   Quantity: ${task.quantity} ${task.unit}`);
+              console.log(`  │   Cost: £${task.totalCost?.toFixed(2) || '0.00'}`);
+              console.log(`  │   Supplier: ${task.supplier}`);
+            });
           });
           
           // Store enhanced data for accounting integration
