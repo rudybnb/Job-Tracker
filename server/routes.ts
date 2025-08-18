@@ -302,20 +302,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
               quantity: parseInt(parts[7]) || 0
             };
             
-            // Extract price using regex - MANDATORY RULE: authentic data only
-            const priceMatch = resource.description.match(/£(\d+\.?\d*)/);
-            const unitMatch = resource.description.match(/£\d+\.?\d*\/(\w+)/);
-            
-            if (priceMatch && resource.quantity > 0) {
-              resource.unitPrice = parseFloat(priceMatch[1]);
-              resource.unit = unitMatch ? unitMatch[1] : 'Each';
-              resource.totalCost = resource.unitPrice * resource.quantity;
+            // Process ALL resources with valid descriptions (HBXL format often doesn't include prices)
+            if (resource.description && resource.description.trim() !== '') {
+              // Extract price using regex - MANDATORY RULE: authentic data only
+              const priceMatch = resource.description.match(/£(\d+\.?\d*)/);
+              const unitMatch = resource.description.match(/£\d+\.?\d*\/(\w+)/);
               
-              // Track costs by type for accounting
-              if (resource.resourceType.toLowerCase() === 'labour') {
-                totalLabourCost += resource.totalCost;
-              } else if (resource.resourceType.toLowerCase() === 'material') {
-                totalMaterialCost += resource.totalCost;
+              // Set pricing info if available
+              if (priceMatch && resource.quantity > 0) {
+                resource.unitPrice = parseFloat(priceMatch[1]);
+                resource.unit = unitMatch ? unitMatch[1] : 'Each';
+                resource.totalCost = resource.unitPrice * resource.quantity;
+                
+                // Track costs by type for accounting
+                if (resource.resourceType.toLowerCase() === 'labour') {
+                  totalLabourCost += resource.totalCost;
+                } else if (resource.resourceType.toLowerCase() === 'material') {
+                  totalMaterialCost += resource.totalCost;
+                }
+                
+                // Weekly cash flow breakdown
+                if (resource.orderDate) {
+                  if (!weeklyBreakdown[resource.orderDate]) {
+                    weeklyBreakdown[resource.orderDate] = { labour: 0, material: 0, total: 0 };
+                  }
+                  const costType = resource.resourceType.toLowerCase();
+                  if (costType === 'labour') {
+                    weeklyBreakdown[resource.orderDate].labour += resource.totalCost;
+                    weeklyBreakdown[resource.orderDate].total += resource.totalCost;
+                  } else if (costType === 'material') {
+                    weeklyBreakdown[resource.orderDate].material += resource.totalCost;
+                    weeklyBreakdown[resource.orderDate].total += resource.totalCost;
+                  }
+                }
+              } else {
+                // No price data - normal for HBXL format
+                resource.unitPrice = 0;
+                resource.unit = resource.resourceType.toLowerCase() === 'labour' ? 'Hours' : 'Each';
+                resource.totalCost = 0;
               }
               
               // Build phase task structure - MANDATORY RULE: use only authentic CSV data
@@ -324,17 +348,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (!phaseTaskData[phaseName]) {
                 phaseTaskData[phaseName] = [];
               }
-              // Create meaningful task descriptions from actual CSV data
-              let taskDescription = resource.description;
-              let taskName = resource.description;
               
-              // Clean up description for better readability
-              if (resource.resourceType.toLowerCase() === 'labour') {
-                taskName = `${resource.description.replace(/£.*/, '').trim()}`;
-                taskDescription = `${taskName} (${resource.quantity} ${resource.unit || 'Hours'}) - ${resource.supplier}`;
+              // Create meaningful task descriptions from actual CSV data
+              let taskName = resource.description.replace(/£.*/, '').trim();
+              let taskDescription;
+              
+              if (resource.unitPrice > 0) {
+                // Has pricing information
+                taskDescription = `${taskName} (${resource.quantity} ${resource.unit}) - ${resource.supplier} - £${resource.totalCost.toFixed(2)}`;
               } else {
-                taskName = resource.description.replace(/£.*/, '').trim();
-                taskDescription = `${taskName} (${resource.quantity} ${resource.unit || 'Each'}) - ${resource.supplier}`;
+                // No pricing (typical HBXL format)
+                taskDescription = `${taskName} (${resource.quantity} ${resource.unit}) - ${resource.supplier}`;
               }
               
               phaseTaskData[phaseName].push({
@@ -346,28 +370,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 supplier: resource.supplier,
                 orderDate: resource.orderDate,
                 resourceType: resource.resourceType,
-                unit: resource.unit || 'Each',
-                costBreakdown: `${resource.quantity} × £${resource.unitPrice} = £${resource.totalCost.toFixed(2)}`
+                unit: resource.unit,
+                costBreakdown: resource.unitPrice > 0 ? `${resource.quantity} × £${resource.unitPrice} = £${resource.totalCost.toFixed(2)}` : 'Price not specified in CSV'
               });
               
               // Add phase to phases array if not already present
               if (!phases.includes(phaseName)) {
                 phases.push(phaseName);
-              }
-              
-              // Weekly cash flow breakdown
-              if (resource.orderDate) {
-                if (!weeklyBreakdown[resource.orderDate]) {
-                  weeklyBreakdown[resource.orderDate] = { labour: 0, material: 0, total: 0 };
-                }
-                const costType = resource.resourceType.toLowerCase();
-                if (costType === 'labour') {
-                  weeklyBreakdown[resource.orderDate].labour += resource.totalCost;
-                  weeklyBreakdown[resource.orderDate].total += resource.totalCost;
-                } else if (costType === 'material') {
-                  weeklyBreakdown[resource.orderDate].material += resource.totalCost;
-                  weeklyBreakdown[resource.orderDate].total += resource.totalCost;
-                }
               }
             }
             
