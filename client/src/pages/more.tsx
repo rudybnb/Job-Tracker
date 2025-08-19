@@ -154,16 +154,9 @@ export default function More() {
     // Keep grossEarnings as calculated above without deductions
     
     // AUTHENTIC TIME DISPLAY: Use real database times - Mandatory Rule #2: DATA INTEGRITY
-    const startTimeStr = new Date(session.startTime).toLocaleTimeString('en-GB', { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      hour12: false 
-    });
-    const endTimeStr = session.endTime ? new Date(session.endTime).toLocaleTimeString('en-GB', { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      hour12: false 
-    }) : 'Active';
+    // FIXED: Use UTC times directly to show correct 08:00-17:00 instead of timezone-adjusted 09:00-18:00
+    const startTimeStr = new Date(session.startTime).toISOString().substring(11, 16); // Extract HH:MM from UTC
+    const endTimeStr = session.endTime ? new Date(session.endTime).toISOString().substring(11, 16) : 'Active';
     const lateStatus = startedLate ? ' (LATE)' : '';
     console.log(`💰 Session ${session.id}: ${Math.min(hoursWorked, 8)} hours paid (${startTimeStr}-${endTimeStr}), started ${startTimeStr}${lateStatus} = £${grossEarnings.toFixed(2)}`);
     console.log(`⏰ Raw data - Hours: ${hoursWorked}, TotalHours from DB: ${session.totalHours}`);
