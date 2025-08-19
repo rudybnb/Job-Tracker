@@ -38,6 +38,36 @@ export default function LiveClockMonitor() {
     refetchInterval: 15000 // Refresh every 15 seconds
   });
 
+  // Fetch contractor locations for live GPS tracking
+  const [contractorLocations, setContractorLocations] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (activeSessions.length > 0) {
+      const fetchLocations = async () => {
+        const locations: Record<string, any> = {};
+        
+        for (const session of activeSessions) {
+          try {
+            const response = await fetch(`/api/contractor-location/${encodeURIComponent(session.contractorName)}`);
+            if (response.ok) {
+              const locationData = await response.json();
+              locations[session.contractorName] = locationData;
+            }
+          } catch (error) {
+            console.log(`No GPS location for ${session.contractorName}`);
+          }
+        }
+        
+        setContractorLocations(locations);
+      };
+
+      fetchLocations();
+      const locationInterval = setInterval(fetchLocations, 30000); // Update every 30 seconds
+
+      return () => clearInterval(locationInterval);
+    }
+  }, [activeSessions]);
+
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       <LogoutButton />
@@ -112,24 +142,61 @@ export default function LiveClockMonitor() {
             <div className="text-slate-400">Loading...</div>
           ) : activeSessions.length > 0 ? (
             <div className="space-y-4">
-              {activeSessions.map((session: any) => (
-                <div key={session.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
-                    <span className="text-white font-medium">{session.contractorName}</span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+              {activeSessions.map((session: any) => {
+                const location = contractorLocations[session.contractorName];
+                const hasLocation = location && location.latitude && location.longitude;
+                
+                return (
+                  <div key={session.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-2 h-2 rounded-full ${hasLocation ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                        <span className="text-white font-medium">{session.contractorName}</span>
+                      </div>
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-white text-sm px-2 py-1 bg-green-700 rounded">In</span>
+                        <span className="text-white text-xs px-2 py-1 bg-green-700 rounded">Active</span>
                       </div>
-                      <span className="text-slate-300 text-sm">08:45:00</span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-sm">Start Time</span>
+                        <span className="text-slate-300 text-sm">
+                          {session.startTime ? new Date(session.startTime).toLocaleTimeString('en-GB', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          }) : 'Unknown'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-sm">Location</span>
+                        <span className={`text-xs px-2 py-1 rounded ${hasLocation ? 'bg-green-700 text-white' : 'bg-yellow-700 text-white'}`}>
+                          {hasLocation ? 'GPS Tracked' : 'No GPS Signal'}
+                        </span>
+                      </div>
+                      
+                      {hasLocation && (
+                        <div className="text-xs text-slate-400 mt-2">
+                          Last GPS: {new Date(location.lastUpdate).toLocaleTimeString('en-GB', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })}
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-sm">Job Site</span>
+                        <span className="text-slate-300 text-sm">
+                          {session.jobSiteLocation || 'Unknown'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-slate-500 text-center py-8">No workers currently active</div>

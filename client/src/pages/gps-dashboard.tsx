@@ -204,6 +204,24 @@ export default function GPSDashboard() {
   // Type guard for assignments
   const typedAssignments = assignments as any[];
 
+  // Send GPS location updates to server for live tracking
+  const sendLocationUpdate = async (latitude: number, longitude: number) => {
+    try {
+      await fetch('/api/update-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contractorName: contractorName,
+          latitude,
+          longitude
+        })
+      });
+      console.log(`📍 Location sent to live monitor: ${latitude}, ${longitude}`);
+    } catch (error) {
+      console.error('❌ Failed to send location update:', error);
+    }
+  };
+
   // Get Saturday overtime setting from admin settings
   const { data: saturdayOvertimeSetting } = useQuery({
     queryKey: ["/api/admin-settings/saturday_overtime"],
@@ -309,11 +327,17 @@ export default function GPSDashboard() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({
+          const newLocation = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             accuracy: position.coords.accuracy
-          });
+          };
+          setUserLocation(newLocation);
+          
+          // Send location to live monitor if user is clocked in
+          if (isTracking && contractorName) {
+            sendLocationUpdate(newLocation.latitude, newLocation.longitude);
+          }
         },
         (error) => {
           console.log("Geolocation error:", error);
@@ -438,6 +462,42 @@ export default function GPSDashboard() {
       });
     }
   }, [userLocation, workSiteLocation]);
+
+  // Continuous GPS tracking for live monitor - update location every 30 seconds when clocked in
+  useEffect(() => {
+    let locationInterval: NodeJS.Timeout;
+    
+    if (isTracking && contractorName && userLocation) {
+      console.log('📍 Starting continuous GPS tracking for live monitor');
+      
+      locationInterval = setInterval(() => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const currentLocation = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy
+              };
+              setUserLocation(currentLocation);
+              sendLocationUpdate(currentLocation.latitude, currentLocation.longitude);
+            },
+            (error) => {
+              console.log('❌ GPS update failed:', error);
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+          );
+        }
+      }, 30000); // Update every 30 seconds
+    }
+
+    return () => {
+      if (locationInterval) {
+        clearInterval(locationInterval);
+        console.log('📍 Stopped continuous GPS tracking');
+      }
+    };
+  }, [isTracking, contractorName, userLocation]);
 
   // Timer effect - maintains timer across page navigation + automatic logout at 5 PM
   useEffect(() => {
@@ -576,6 +636,12 @@ export default function GPSDashboard() {
       };
 
       startSessionMutation.mutate(sessionData);
+      
+      // Send initial GPS location to live monitor
+      if (userLocation && contractorName) {
+        sendLocationUpdate(userLocation.latitude, userLocation.longitude);
+        console.log('📍 Initial GPS location sent to live monitor at clock-in');
+      }
       
       // Persist to localStorage for UI consistency
       localStorage.setItem('gps_timer_active', 'true');
