@@ -242,6 +242,15 @@ export default function More() {
     console.log("Weekly Export Data:", exportData);
   };
 
+  // Generate contractor initials from name
+  const getContractorInitials = (name: string) => {
+    const nameParts = name.split(' ');
+    if (nameParts.length >= 2) {
+      return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
+    }
+    return nameParts[0].substring(0, 2).toUpperCase();
+  };
+
   const handleMenuAction = (action: string) => {
     setContractorDropdownOpen(false);
     if (action === "Sign Out & Switch Account") {
@@ -280,13 +289,13 @@ export default function More() {
               onClick={() => setContractorDropdownOpen(!contractorDropdownOpen)}
               className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4 hover:bg-yellow-700 transition-colors"
             >
-              <span className="text-white font-bold text-sm">DD</span>
+              <span className="text-white font-bold text-sm">{getContractorInitials(contractorName)}</span>
             </button>
             
             {contractorDropdownOpen && (
               <div className="absolute right-0 top-10 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50">
                 <div className="px-4 py-3 border-b border-slate-600">
-                  <div className="text-yellow-400 font-semibold">Dalwayne Diedericks</div>
+                  <div className="text-yellow-400 font-semibold">{contractorName}</div>
                 </div>
                 
                 <div className="py-2">
