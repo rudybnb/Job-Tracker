@@ -269,7 +269,7 @@ async function startAutomaticLogoutService() {
                   console.log(`   📏 Distance: ${Math.round(distance)}m`);
                   console.log(`   🕐 Working hours (8-17)? ${isWorkingHours} (current: ${currentHour})`);
                   
-                  if (distance > 500) {
+                  if (distance > 3500) {
                     if (isWorkingHours) {
                       // During work hours: Allow temporary departure - don't auto-logout
                       console.log(`🟡 TEMPORARILY AWAY (FALLBACK): ${session.contractorName} - ${Math.round(distance)}m from job site during work hours (timer continues)`);
@@ -300,7 +300,7 @@ async function startAutomaticLogoutService() {
       if (currentMinute % 5 === 0 && currentHour < 17) {
         const activeSessions = await storage.getAllActiveSessions();
         if (activeSessions.length > 0) {
-          console.log(`🕐 MULTI-SITE MONITORING: ${activeSessions.length} active contractors, auto-logout at 5:00 PM or if >500m from ALL sites`);
+          console.log(`🕐 MULTI-SITE MONITORING: ${activeSessions.length} active contractors, auto-logout at 5:00 PM or if >3500m from ALL sites`);
         }
       }
       
