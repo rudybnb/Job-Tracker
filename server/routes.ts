@@ -3035,5 +3035,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contractor earnings endpoint for MORE page verification
+  app.get("/api/contractor-earnings/:contractorName", async (req, res) => {
+    try {
+      const contractorName = decodeURIComponent(req.params.contractorName);
+      console.log(`💰 Getting earnings for contractor: ${contractorName}`);
+      
+      // Calculate current week ending (Friday)
+      const now = new Date();
+      const currentDay = now.getDay();
+      const daysToFriday = currentDay <= 5 ? (5 - currentDay) : (7 - currentDay + 5);
+      const weekEndingFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
+      const weekEnding = weekEndingFriday.toISOString().split('T')[0];
+      
+      // Calculate week start (Saturday, 6 days before Friday)
+      const weekStart = new Date(weekEndingFriday);
+      weekStart.setDate(weekEndingFriday.getDate() - 6);
+      
+      // Get work sessions for this week
+      const weekSessions = await storage.getWorkSessionsForWeek(weekStart, weekEndingFriday);
+      const contractorSessions = weekSessions.filter(session => session.contractorName === contractorName);
+      
+      // Get authentic pay rate
+      const payRate = await storage.getContractorPayRate(contractorName);
+      
+      // Calculate earnings
+      const totalHours = contractorSessions.reduce((sum, session) => {
+        const hours = typeof session.totalHours === 'string' ? parseFloat(session.totalHours) : (session.totalHours || 0);
+        return sum + hours;
+      }, 0);
+      
+      const grossEarnings = totalHours * payRate;
+      const cisDeduction = grossEarnings * 0.30; // 30% CIS
+      const netEarnings = grossEarnings - cisDeduction;
+      
+      // Format sessions for display
+      const formattedSessions = contractorSessions.map(session => ({
+        id: session.id,
+        jobName: session.jobSiteLocation || 'Unknown Job',
+        location: session.jobSiteLocation || 'Unknown Location',
+        date: new Date(session.startTime).toLocaleDateString('en-GB'),
+        startTime: new Date(session.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        endTime: session.endTime ? new Date(session.endTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Active',
+        hoursWorked: typeof session.totalHours === 'string' ? parseFloat(session.totalHours) : (session.totalHours || 0),
+        hourlyRate: payRate,
+        grossEarnings: (typeof session.totalHours === 'string' ? parseFloat(session.totalHours) : (session.totalHours || 0)) * payRate,
+        gpsVerified: true
+      }));
+      
+      const weeklyEarnings = {
+        weekEnding,
+        totalHours: totalHours,
+        grossEarnings: grossEarnings,
+        cisDeduction: cisDeduction,
+        netEarnings: netEarnings,
+        cisRate: 0.30,
+        sessions: formattedSessions
+      };
+      
+      console.log(`💰 ${contractorName}: ${totalHours}h, £${grossEarnings} gross, £${netEarnings} net`);
+      res.json(weeklyEarnings);
+      
+    } catch (error) {
+      console.error("Error fetching contractor earnings:", error);
+      res.status(500).json({ error: "Failed to fetch contractor earnings" });
+    }
+  });
+
   return httpServer;
 }
