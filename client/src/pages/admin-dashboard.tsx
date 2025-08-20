@@ -78,10 +78,7 @@ export default function AdminDashboard() {
     refetchInterval: 10000, // Refresh every 10 seconds for real-time tracking
   });
 
-  const { data: recentActivities = [] } = useQuery<any[]>({
-    queryKey: ["/api/admin/recent-activities"],
-    refetchInterval: 30000, // Refresh every 30 seconds
-  });
+
 
   const { data: todaySessionsData } = useQuery<{
     sessions: any[];
