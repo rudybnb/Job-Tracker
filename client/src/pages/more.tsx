@@ -68,13 +68,15 @@ export default function More() {
   };
 
   // Get contractor name from localStorage - MUST be specific to logged-in user
-  const contractorName = localStorage.getItem('contractorName');
-  if (!contractorName) {
-    // If no contractor logged in, redirect to login
-    window.location.href = '/login';
-    return null;
-  }
-  const contractorFirstName = contractorName.split(' ')[0];
+  const contractorName = localStorage.getItem('contractorName') || '';
+  const contractorFirstName = contractorName ? contractorName.split(' ')[0] : '';
+  
+  // Redirect if no contractor name found, but after all hooks are called
+  useEffect(() => {
+    if (!contractorName) {
+      window.location.href = '/login';
+    }
+  }, [contractorName]);
 
   // Map contractor first names to their usernames for API calls
   const getUsernameFromFirstName = (firstName: string) => {
@@ -266,6 +268,16 @@ export default function More() {
       description: `Opening ${action} interface...`,
     });
   };
+
+  // Guard clause - don't render if no contractor data
+  if (!contractorName) {
+    return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-yellow-400 mb-2">Redirecting to login...</div>
+        <div className="animate-spin w-6 h-6 border-2 border-yellow-400 border-t-transparent rounded-full mx-auto"></div>
+      </div>
+    </div>;
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
