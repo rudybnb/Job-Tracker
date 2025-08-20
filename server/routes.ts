@@ -2415,27 +2415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get recent clock activities (last 24 hours)
-  app.get("/api/admin/recent-activities", async (req, res) => {
-    try {
-      console.log("📊 Fetching recent clock activities for admin monitoring");
-      
-      const recentActivities = await storage.getRecentClockActivities();
-      
-      // Debug logging for timestamp verification
-      console.log(`🕐 Current server time: ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}`);
-      console.log(`📋 Recent activities found: ${recentActivities.length}`);
-      
-      recentActivities.slice(0, 3).forEach((activity, index) => {
-        console.log(`⏰ Activity ${index + 1}: ${activity.contractorName} ${activity.activity} at ${activity.actualTime || 'raw: ' + activity.timestamp}`);
-      });
-      
-      res.json(recentActivities);
-    } catch (error) {
-      console.error("Error fetching recent activities:", error);
-      res.status(500).json({ error: "Failed to fetch recent activities" });
-    }
-  });
+
 
   // Get all work sessions for today with daily hours calculation
   app.get("/api/admin/today-sessions", async (req, res) => {
