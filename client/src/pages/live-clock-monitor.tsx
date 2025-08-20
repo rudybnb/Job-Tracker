@@ -201,6 +201,52 @@ export default function LiveClockMonitor() {
           ) : (
             <div className="text-slate-500 text-center py-8">No workers currently active</div>
           )}
+          
+          {/* Recent Activities Section */}
+          <div className="mt-8">
+            <h4 className="text-white text-base font-medium mb-4">Recent Activities</h4>
+            
+            {activitiesLoading ? (
+              <div className="text-slate-400">Loading recent activities...</div>
+            ) : recentActivities.length > 0 ? (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {recentActivities.slice(0, 10).map((activity: any) => (
+                  <div key={activity.id} className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-2 h-2 rounded-full ${
+                          activity.activity === 'clock_in' ? 'bg-green-500' : 'bg-red-500'
+                        }`}></div>
+                        <div>
+                          <span className="text-white text-sm font-medium">{activity.contractorName}</span>
+                          <span className={`ml-2 text-xs px-2 py-1 rounded ${
+                            activity.activity === 'clock_in' 
+                              ? 'bg-green-700 text-white' 
+                              : 'bg-red-700 text-white'
+                          }`}>
+                            {activity.activity === 'clock_in' ? 'Clocked In' : 'Clocked Out'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-slate-300 text-sm">{activity.actualTime}</div>
+                        <div className="text-slate-500 text-xs">{activity.fullDateTime?.split(',')[0]}</div>
+                      </div>
+                    </div>
+                    
+                    {activity.location && (
+                      <div className="text-slate-400 text-xs mt-2 flex items-center">
+                        <i className="fas fa-map-marker-alt mr-1"></i>
+                        {activity.location}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-slate-500 text-center py-4">No recent activities</div>
+            )}
+          </div>
         </div>
       </div>
     </div>
