@@ -1392,9 +1392,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("🕐 Creating work session:", req.body);
       
       // Convert string dates to Date objects for validation
+      let startTime = req.body.startTime ? new Date(req.body.startTime) : new Date();
+      
+      // STANDARDIZE LOGIN TIMES: Login between 7:45-8:15 AM counts as 7:45 AM start
+      const startHour = startTime.getHours();
+      const startMinute = startTime.getMinutes();
+      
+      // Check if login is between 7:45 AM (7:45) and 8:15 AM (8:15)
+      const isInStandardPeriod = (startHour === 7 && startMinute >= 45) || 
+                                (startHour === 8 && startMinute <= 15);
+      
+      if (isInStandardPeriod) {
+        // Set start time to 7:45 AM sharp for full day's pay
+        const standardStartTime = new Date(startTime);
+        standardStartTime.setHours(7, 45, 0, 0);
+        startTime = standardStartTime;
+        console.log(`🕐 STANDARD WORK TIME: Login at ${req.body.startTime} standardized to 7:45 AM for full day's pay`);
+      }
+      
       const sessionData = {
         ...req.body,
-        startTime: req.body.startTime ? new Date(req.body.startTime) : new Date(),
+        startTime: startTime,
         endTime: req.body.endTime ? new Date(req.body.endTime) : undefined
       };
 
