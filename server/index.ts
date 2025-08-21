@@ -95,6 +95,8 @@ async function startAutomaticLogoutService() {
       
       // Force logout at 5:00 PM exactly
       if (currentHour >= 17) {
+        console.log(`🕐 5PM AUTO-LOGOUT CHECK: Current time is ${currentHour}:${currentMinute.toString().padStart(2, '0')}, found ${allSessions.length} active sessions to logout`);
+        
         for (const session of allSessions) {
           // Calculate end time as 5:00 PM sharp
           const endTime = new Date(session.startTime);
@@ -106,9 +108,16 @@ async function startAutomaticLogoutService() {
             status: 'completed' as const
           });
           
-          console.log(`🕐 AUTO-LOGOUT (5PM): ${session.contractorName} clocked out at 5:00 PM`);
+          console.log(`🕐 AUTO-LOGOUT (5PM): ${session.contractorName} clocked out at 5:00 PM (session ID: ${session.id})`);
         }
       } else {
+        // Show countdown to 5 PM during working hours
+        if (currentMinute % 10 === 0 && allSessions.length > 0) {
+          const minutesTo5PM = (17 - currentHour) * 60 - currentMinute;
+          console.log(`⏰ AUTO-LOGOUT COUNTDOWN: ${allSessions.length} active sessions will auto-logout in ${minutesTo5PM} minutes at 5:00 PM`);
+        }
+        
+        // Start GPS proximity check during working hours (before 5 PM)
         // GPS proximity check during working hours (before 5 PM)
         const { getContractorLocation } = await import('./location-tracker');
         
