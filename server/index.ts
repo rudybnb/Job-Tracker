@@ -307,7 +307,7 @@ async function startAutomaticLogoutService() {
     } catch (error) {
       console.error("❌ Error in automatic logout service:", error);
     }
-  }, 30000); // Check every 30 seconds
+  }, 120000); // Check every 2 minutes to reduce aggressive auto-logout
 }
 
 (async () => {
