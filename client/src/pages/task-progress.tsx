@@ -126,64 +126,37 @@ export default function TaskProgress() {
       let newTasks: TaskProgressData[] = [];
       
       try {
-        // Get the uploaded jobs data that contains CSV task items
-        const jobsResponse = await fetch('/api/uploaded-jobs');
-        const uploadedJobs = await jobsResponse.json();
+        // RESTORED VERSION 1.3.4 WORKING LOGIC - Get jobs with phaseTaskData
+        const jobsResponse = await fetch('/api/jobs');
+        const allJobs = await jobsResponse.json();
         
-        // Find the job that matches this assignment - RESTORED WORKING LOGIC
-        console.log('🔍 Looking for job:', activeAssignment.hbxlJob);
-        console.log('🔍 Available jobs:', uploadedJobs.map((j: any) => j.name));
+        console.log('🎯 VERSION 1.3.4 RESTORATION - Looking for job:', activeAssignment.hbxlJob);
+        console.log('🎯 Available jobs:', allJobs.map((j: any) => j.title));
         
-        // FIXED: Job matching logic - Handle all assignment-to-job mapping scenarios
-        console.log('🔍 Matching logic - Assignment:', activeAssignment.hbxlJob, 'at', activeAssignment.workLocation);
-        const matchingJob = uploadedJobs.find((job: any) => {
-          console.log('🔍 Checking job:', job.name, 'postcode:', job.postcode, 'address:', job.address);
+        // WORKING VERSION 1.3.4 JOB MATCHING - Find job that matches assignment
+        const matchingJob = allJobs.find((job: any) => {
+          console.log('🔍 Checking job:', job.title, 'location:', job.location);
           
-          // Method 1: Direct name match (exact)
-          if (job.name === activeAssignment.hbxlJob) {
-            console.log('✅ Direct name match found');
+          // Method 1: Direct title match (exact)
+          if (job.title === activeAssignment.hbxlJob) {
+            console.log('✅ Direct title match found');
             return true;
           }
           
-          // Method 2: Partial name match for "Flat12 2Bedroom" vs "Flat1 2Bedroom" 
-          if (job.name && activeAssignment.hbxlJob) {
-            const jobNameClean = job.name.toLowerCase().replace(/\s+/g, '');
-            const assignmentNameClean = activeAssignment.hbxlJob.toLowerCase().replace(/\s+/g, '');
-            if (jobNameClean.includes('flat') && assignmentNameClean.includes('flat')) {
-              console.log('✅ Flat assignment match found');
+          // Method 2: Location-based matching (job location contains assignment location)
+          if (job.location && activeAssignment.workLocation) {
+            if (job.location.toLowerCase().includes(activeAssignment.workLocation.toLowerCase())) {
+              console.log('✅ Location-based match found');
               return true;
             }
           }
           
-          // Method 3: Xavier jones special case - both "Flat 2" and "Xavier jones" assignments map to Xavier jones job
-          if (job.name.toLowerCase().includes('xavier')) {
-            if (activeAssignment.hbxlJob.toLowerCase().includes('xavier') || 
-                activeAssignment.hbxlJob.toLowerCase().includes('flat')) {
-              console.log('✅ Xavier jones special case match');
-              return true;
-            }
-          }
-          
-          // Method 4: Address-based matching - job address contains assignment location
-          if (job.address && activeAssignment.workLocation) {
-            if (job.address.toLowerCase().includes(activeAssignment.workLocation.toLowerCase())) {
-              console.log('✅ Address-based match found');
-              return true;
-            }
-          }
-          
-          // Method 5: Postcode match (direct)
-          if (job.postcode === activeAssignment.workLocation) {
-            console.log('✅ Postcode match found');
-            return true;
-          }
-          
-          // Method 6: Partial postcode match (DA17 5DB matches DA17)
-          if (job.postcode && activeAssignment.workLocation) {
-            const jobPostcodePrefix = job.postcode.split(' ')[0];
-            const assignmentLocationPrefix = activeAssignment.workLocation.split(' ')[0];
-            if (jobPostcodePrefix === assignmentLocationPrefix) {
-              console.log('✅ Partial postcode match found');
+          // Method 3: Partial title match for variations
+          if (job.title && activeAssignment.hbxlJob) {
+            const jobTitleClean = job.title.toLowerCase().replace(/\s+/g, '');
+            const assignmentTitleClean = activeAssignment.hbxlJob.toLowerCase().replace(/\s+/g, '');
+            if (jobTitleClean.includes('flat') && assignmentTitleClean.includes('flat')) {
+              console.log('✅ Partial title match found');
               return true;
             }
           }
@@ -191,33 +164,50 @@ export default function TaskProgress() {
           return false;
         });
         
-        console.log('🔍 Found matching job:', matchingJob?.name);
+        console.log('🎯 Found matching job with phaseTaskData:', matchingJob?.title);
         
-        if (matchingJob && matchingJob.phaseData) {
+        // VERSION 1.3.4 WORKING EXTRACTION - Use phaseTaskData field
+        if (matchingJob && matchingJob.phaseTaskData) {
           let taskId = 1;
           
-          // Use the correct phase data structure - CSV data is already parsed
-          const phaseData = matchingJob.phaseData;
-          console.log('🔍 Phase data found:', Object.keys(phaseData));
-          console.log('🔍 Assignment phases:', activeAssignment.buildPhases);
+          // Parse the JSON phaseTaskData field - this contains the authentic CSV data
+          let phaseTaskDataParsed: any = {};
+          try {
+            if (typeof matchingJob.phaseTaskData === 'string') {
+              phaseTaskDataParsed = JSON.parse(matchingJob.phaseTaskData);
+            } else {
+              phaseTaskDataParsed = matchingJob.phaseTaskData;
+            }
+          } catch (parseError) {
+            console.error('❌ Error parsing phaseTaskData:', parseError);
+            phaseTaskDataParsed = {};
+          }
           
-          // Create tasks from real CSV data for each assigned phase - Column G contains quantities
+          // Get the phases object from parsed data
+          const phasesData = phaseTaskDataParsed.phases || {};
+          console.log('🎯 Parsed phases data:', Object.keys(phasesData));
+          console.log('🎯 Assignment build phases:', activeAssignment.buildPhases);
+          
+          // Create tasks from authentic CSV data for each assigned phase
           activeAssignment.buildPhases.forEach((phase: string) => {
-            console.log(`🔍 Processing phase: ${phase}`);
-            if (phaseData[phase]) {
-              console.log(`✅ Found data for phase ${phase}:`, phaseData[phase].length, 'items');
-              // Use actual CSV items for this phase with Column G quantities
-              phaseData[phase].forEach((item: any, index: number) => {
-                // Extract quantity from Column G - this is what contractors track with +/- buttons
-                const quantityFromColumnG = parseInt(item.quantity) || 1;
-                console.log(`📝 Adding task ${index + 1}:`, item.description, 'Qty:', quantityFromColumnG);
+            console.log(`🎯 Processing build phase: ${phase}`);
+            if (phasesData[phase] && Array.isArray(phasesData[phase])) {
+              console.log(`✅ Found authentic data for phase ${phase}:`, phasesData[phase].length, 'tasks');
+              
+              // Use the authentic CSV task data from Version 1.3.4
+              phasesData[phase].forEach((item: any, index: number) => {
+                // Extract quantity - this is the authentic CSV quantity
+                const quantityFromCSV = parseInt(item.quantity) || 1;
+                const taskDescription = item.description || item.task || `${phase} Task`;
+                
+                console.log(`📝 VERSION 1.3.4 Task ${index + 1}:`, taskDescription, 'Qty:', quantityFromCSV);
                 
                 newTasks.push({
-                  id: `${phase}-${taskId++}`, // Phase-specific ID to prevent cross-contamination
-                  title: item.description || item.task || `${phase} Task`,
-                  description: item.description || item.task || '',
+                  id: `${phase}-${taskId++}`,
+                  title: taskDescription,
+                  description: taskDescription,
                   area: phase,
-                  totalItems: quantityFromColumnG, // Column G quantity - key for progress tracking
+                  totalItems: quantityFromCSV, // Authentic CSV quantity
                   completedItems: 0,
                   status: "not started" as const
                 });
