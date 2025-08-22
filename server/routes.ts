@@ -295,9 +295,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`🔍 Processing line ${i}: "${line}"`);
             const parts = line.split(',').map(p => p.trim());
             console.log(`🔍 Parts (${parts.length}):`, parts);
-            if (parts.length < 7) {
-              console.log(`❌ Skipping line ${i} - only ${parts.length} columns`);
-              continue; // Need at least 7 columns for enhanced format
+            if (parts.length < 6) {
+              console.log(`❌ Skipping line ${i} - only ${parts.length} columns (need at least 6)`);
+              continue; // Need at least 6 columns: Order Date, Required Date, Build Phase, Resource Type, Description, Quantity
             }
             
             const resource: any = {
@@ -305,9 +305,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               requiredDate: parts[1] || '',
               buildPhase: parts[2] || 'General',
               resourceType: parts[3] || '', // Labour or Material
-              supplier: parts[4] || '',
-              description: parts[5] || '',
-              quantity: parseInt(parts[6]) || 0
+              description: parts[4] || '', // Description in column 5 for 6-column format
+              quantity: parseInt(parts[5]) || 0, // Quantity in column 6 for 6-column format
+              supplier: parts[6] || 'Not specified' // Supplier might be in column 7 if available
             };
             
             // Process ALL resources with valid descriptions (HBXL format often doesn't include prices)
