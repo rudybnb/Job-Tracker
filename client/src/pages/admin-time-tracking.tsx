@@ -61,15 +61,15 @@ export default function AdminTimeTracking() {
     const now = new Date();
     const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
     
-    // If today is Saturday (6) or Sunday (0), we want last Friday
-    // If today is Monday-Friday (1-5), we want this Friday
     let daysToFriday;
-    if (currentDay === 0) { // Sunday
-      daysToFriday = -2; // Go back 2 days to Friday
-    } else if (currentDay === 6) { // Saturday  
-      daysToFriday = -1; // Go back 1 day to Friday
-    } else { // Monday-Friday
-      daysToFriday = 5 - currentDay; // Go forward to this Friday
+    if (currentDay === 5) { // Today is Friday
+      daysToFriday = 0;
+    } else if (currentDay === 6) { // Saturday - go back 1 day to Friday
+      daysToFriday = -1;
+    } else if (currentDay === 0) { // Sunday - go back 2 days to Friday
+      daysToFriday = -2;
+    } else { // Monday-Thursday - go forward to this Friday
+      daysToFriday = 5 - currentDay;
     }
     
     const weekEndingFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
@@ -119,19 +119,31 @@ export default function AdminTimeTracking() {
     const weeks = [];
     const now = new Date();
     
-    // Find the most recent Friday (or today if it's Friday)
+    // Find the most recent Friday (including today if it's Friday)
+    let daysToFriday;
     const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
-    const daysToFriday = currentDay <= 5 ? (5 - currentDay) : (7 - currentDay + 5);
+    
+    if (currentDay === 5) { // Today is Friday
+      daysToFriday = 0;
+    } else if (currentDay === 6) { // Saturday - go back 1 day to Friday
+      daysToFriday = -1;
+    } else if (currentDay === 0) { // Sunday - go back 2 days to Friday
+      daysToFriday = -2;
+    } else { // Monday-Thursday - go forward to this Friday
+      daysToFriday = 5 - currentDay;
+    }
+    
     const mostRecentFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
     
     for (let i = 0; i < 12; i++) {
       const weekEndingFriday = new Date(mostRecentFriday.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
       const weekEnding = weekEndingFriday.toISOString().split('T')[0];
-      const weekLabel = `Week ending ${weekEndingFriday.toLocaleDateString('en-UK', { 
+      const weekLabel = `Week ending ${weekEndingFriday.toLocaleDateString('en-GB', { 
+        weekday: 'short',
         day: 'numeric', 
         month: 'short', 
         year: 'numeric' 
-      })} (Fri)`;
+      })}`;
       weeks.push({ value: weekEnding, label: weekLabel });
     }
     return weeks;
