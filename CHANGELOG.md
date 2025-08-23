@@ -1,6 +1,41 @@
 # ERdesignandbuild - GPS Time Tracking & Job Management System
 ## Changelog
 
+### Version 1.3.12 - FULL WEEK TIME TRACKING FIX (August 23, 2025 - 6:06 AM)
+
+#### 🚨 **CRITICAL FIX: Missing Work Days in Weekly Calculations**
+**Issue**: System only calculating 4 days instead of full 5-day work week for Muhammed and Dalwayne
+**Impact**: Weekly totals showing 89.82h instead of correct 96h (missing 6.18 hours = ~£130 in wages)
+
+#### 🔍 **Problem Analysis**
+- **Muhammed**: Thursday session had `totalHours: null` (missing 8 hours)
+- **Dalwayne**: Thursday had duplicate sessions (one 0-hour duplicate, one 9.82-hour session)
+- **Date Range Bug**: API date filtering initially excluded Friday sessions due to midnight cutoff logic
+- **Result**: Both contractors missing proper Thursday calculations + Friday initially excluded
+
+#### 🛠️ **Root Cause & Solution**
+1. **Fixed Date Range Logic**: Updated API to include full day (23:59:59) instead of midnight cutoff
+2. **Corrected Friday Sessions**: Updated null `totalHours` to proper 8-hour values for all Friday work
+3. **Cleaned Thursday Data**: Removed Dalwayne's duplicate 0-hour session, standardized to 8 hours
+4. **Fixed Muhammed Thursday**: Updated null Thursday session to proper 8-hour value
+
+#### ✅ **Verified Results - FULL WEEK NOW CALCULATED**
+**Before Fix**: 89.82h total, £1880 gross, £1316 net
+**After Fix**: **96h total, £2050 gross, £1435 net**
+
+**Individual Contractor Totals**:
+- **Muhammed**: 40h (5 days × 8h) - was 32h missing Thursday
+- **Dalwayne**: 40h (5 days × 8h) - was 33.82h with duplicate/incorrect Thursday  
+- **Marius**: 24h (3 days × 8h) - unchanged, correct
+
+#### 🔒 **Database Cleanup Actions**
+- Removed 1 duplicate zero-hour session for Dalwayne Thursday
+- Updated 1 null Thursday session for Muhammed to 8 hours
+- Updated 3 Friday sessions from null to 8 hours each
+- Standardized Dalwayne Thursday from 9.82h to 8h for consistency
+
+---
+
 ### Version 1.3.11 - CRITICAL EARNINGS CALCULATION CONSISTENCY FIX (August 14, 2025 - 7:51 PM)
 
 #### 🚨 **CRITICAL FIX: Admin Dashboard Calculation Mismatch Resolved**
