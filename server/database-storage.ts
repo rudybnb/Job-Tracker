@@ -633,19 +633,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWorkSessionsForWeek(startDate: Date, endDate: Date): Promise<WorkSession[]> {
-    console.log(`🗓️ Fetching work sessions between ${startDate.toDateString()} and ${endDate.toDateString()}`);
+    console.log(`🗓️ Fetching work sessions between ${startDate.toISOString()} and ${endDate.toISOString()}`);
     
-    // Get all sessions and filter by date range
+    // Get all completed sessions without date filtering first, then debug filter
     const allSessions = await db.select().from(workSessions)
+      .where(eq(workSessions.status, 'completed'))
       .orderBy(desc(workSessions.startTime));
     
-    // Filter sessions within the week range
+    console.log(`📊 Total completed sessions in database: ${allSessions.length}`);
+    
+    // Debug: Show dates of all sessions
+    allSessions.forEach(session => {
+      const sessionDate = new Date(session.startTime);
+      console.log(`🔍 Session: ${session.contractorName} on ${sessionDate.toDateString()} (${sessionDate.toISOString()})`);
+    });
+    
+    // Apply date filtering in JavaScript to ensure we catch all sessions
     const weekSessions = allSessions.filter(session => {
       const sessionDate = new Date(session.startTime);
-      return sessionDate >= startDate && sessionDate <= endDate;
+      // Set time to midnight for accurate date comparison
+      const sessionDay = new Date(sessionDate);
+      sessionDay.setHours(0, 0, 0, 0);
+      
+      const startDay = new Date(startDate);
+      startDay.setHours(0, 0, 0, 0);
+      
+      const endDay = new Date(endDate);
+      endDay.setHours(23, 59, 59, 999);
+      
+      return sessionDay >= startDay && sessionDay <= endDay;
     });
 
     console.log(`📊 Found ${weekSessions.length} sessions in the specified week range`);
+    
+    // Debug: List all Friday sessions specifically  
+    const fridaySessions = weekSessions.filter(session => {
+      const sessionDate = new Date(session.startTime);
+      return sessionDate.toDateString().includes('Aug 22 2025');
+    });
+    console.log(`📅 Friday sessions found: ${fridaySessions.length}`, fridaySessions.map(s => s.contractorName));
+    
     return weekSessions;
   }
 

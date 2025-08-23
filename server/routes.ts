@@ -2498,10 +2498,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "weekEnding parameter required" });
       }
       
-      // Calculate week start and end dates
+      // Calculate week start and end dates - ensure we include the full week ending day
       const endDate = new Date(weekEnding);
-      const startDate = new Date(endDate);
-      startDate.setDate(endDate.getDate() - 6); // 7 days back
+      endDate.setHours(23, 59, 59, 999); // Include full last day
+      const startDate = new Date(weekEnding);
+      startDate.setDate(startDate.getDate() - 6); // 7 days back
+      startDate.setHours(0, 0, 0, 0); // Start of first day
       
       console.log(`📅 Week range: ${startDate.toDateString()} to ${endDate.toDateString()}`);
       
