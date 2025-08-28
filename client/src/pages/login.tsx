@@ -47,6 +47,21 @@ export default function Login() {
       return;
     }
     
+    // Admin login for Maria Johnson
+    if (username === "maria.johnson" && password === "MariaAdmin2025!") {
+      localStorage.setItem('userRole', 'admin');
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('adminName', "Maria Johnson");
+      localStorage.setItem('adminEmail', "maria.johnson@erbuildanddesign.co.uk");
+      console.log('✅ Maria Johnson admin login successful - role set to admin');
+      window.location.href = '/admin';
+      toast({
+        title: "Login Successful",
+        description: "Welcome back, Maria! (Admin Mode)",
+      });
+      return;
+    }
+    
     // Check contractor credentials from database
     try {
       const response = await fetch('/api/contractor-login', {
