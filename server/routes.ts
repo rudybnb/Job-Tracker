@@ -672,6 +672,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'ME1': { latitude: '51.388000', longitude: '0.505000' },
       'ME7 1BT': { latitude: '51.388800', longitude: '0.548900' }, // Gillingham site
       'ME7': { latitude: '51.388800', longitude: '0.548900' },
+      'CT15 7PG': { latitude: '51.2544', longitude: '1.3045' }, // Bramling site for Mohamed
+      'CT15': { latitude: '51.2544', longitude: '1.3045' },
       // Add more as needed
     };
     

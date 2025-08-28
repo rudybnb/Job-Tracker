@@ -70,6 +70,8 @@ async function startAutomaticLogoutService() {
       'SG1': { latitude: '51.8721', longitude: '-0.2015' },
       'ME5 9GX': { latitude: '51.335996', longitude: '0.530215' },
       'ME5': { latitude: '51.335996', longitude: '0.530215' },
+      'CT15 7PG': { latitude: '51.2544', longitude: '1.3045' }, // Bramling site for Mohamed
+      'CT15': { latitude: '51.2544', longitude: '1.3045' },
     };
     
     const upperPostcode = postcode.toUpperCase().trim();
