@@ -228,14 +228,14 @@ export default function AdminTimeTracking() {
         </div>
       </div>
 
-      {/* Admin Time Tracking Badge */}
+      {/* Admin Time Tracking Badge - NO EXPORT BUTTON */}
       <div className="bg-blue-600 px-4 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <i className="fas fa-clock text-white mr-2"></i>
             <div>
-              <span className="text-white font-medium text-sm">Time Tracking Dashboard</span>
-              <div className="text-blue-100 text-xs">Monitor contractor earnings by job</div>
+              <span className="text-white font-medium text-sm">Time Tracking Dashboard - Week View Only</span>
+              <div className="text-blue-100 text-xs">Monitor contractor earnings by job - Export Removed</div>
             </div>
           </div>
           <div>
