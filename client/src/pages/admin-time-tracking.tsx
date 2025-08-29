@@ -238,7 +238,7 @@ export default function AdminTimeTracking() {
               <div className="text-blue-100 text-xs">Monitor contractor earnings by job</div>
             </div>
           </div>
-          <div className="flex space-x-2">
+          <div>
             <Select value={selectedWeek} onValueChange={setSelectedWeek}>
               <SelectTrigger className="w-48 bg-blue-700 text-white border-blue-500">
                 <SelectValue />
