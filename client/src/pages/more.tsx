@@ -128,6 +128,11 @@ export default function More() {
   };
   
   console.log(`💼 Contractor Info: ${contractorInfo.name}, £${hourlyRate}/hr, £${contractorInfo.dailyRate}/day, CIS: ${contractorInfo.cisRate}%`);
+  console.log(`🔍 DEBUG - contractorName from localStorage: "${contractorName}"`);
+  console.log(`🔍 DEBUG - contractorFirstName: "${contractorFirstName}"`);
+  console.log(`🔍 DEBUG - username for API: "${username}"`);
+  console.log(`🔍 DEBUG - realWorkSessions count: ${realWorkSessions.length}`);
+  console.log(`🔍 DEBUG - hourlyRate: ${hourlyRate}`);
 
   // Convert real work sessions to our format with proper payment calculation
   const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
