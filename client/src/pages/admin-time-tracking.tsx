@@ -76,7 +76,7 @@ export default function AdminTimeTracking() {
     return weekEndingFriday.toISOString().split('T')[0];
   };
   
-  const [selectedWeek, setSelectedWeek] = useState(getCurrentFridayWeekEnding()); // Current week ending Friday
+  const [selectedWeek] = useState(getCurrentFridayWeekEnding()); // Fixed to current week only
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const { toast } = useToast();
 
@@ -228,15 +228,19 @@ export default function AdminTimeTracking() {
         </div>
       </div>
 
-      {/* EXPORT DISABLED - View Only Mode */}
-      <div className="bg-green-600 px-4 py-2">
+      {/* Simple Header - Current Week Only */}
+      <div className="bg-slate-800 px-4 py-3 border-b border-slate-600">
         <div className="flex items-center justify-center">
-          <div className="flex items-center">
-            <i className="fas fa-eye text-white mr-2"></i>
-            <div>
-              <span className="text-white font-medium text-sm">VIEW ONLY - Export Functionality Disabled</span>
-              <div className="text-green-100 text-xs">Week Selection: {selectedWeek}</div>
-            </div>
+          <div className="text-center">
+            <h1 className="text-white font-semibold text-lg">Weekly Time Tracking Report</h1>
+            <p className="text-slate-300 text-sm">
+              Week Ending: {new Date(selectedWeek).toLocaleDateString('en-GB', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </p>
           </div>
         </div>
       </div>
