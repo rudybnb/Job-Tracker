@@ -2623,75 +2623,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`📤 Exporting detailed time tracking data for week ending: ${weekEnding}`);
       
-      // Get the data directly using the same logic as the main endpoint
-      const endDate = new Date(weekEnding);
-      endDate.setHours(23, 59, 59, 999);
-      const startDate = new Date(endDate);
-      startDate.setDate(endDate.getDate() - 6);
-      startDate.setHours(0, 0, 0, 0);
-      
-      console.log(`📅 Week range: ${startDate.toDateString()} to ${endDate.toDateString()}`);
-      console.log(`🗓️ Fetching work sessions between ${startDate.toISOString()} and ${endDate.toISOString()}`);
-      
-      // Get all completed work sessions in the date range
-      const weekSessions = await storage.getWorkSessionsByDateRange(
-        startDate.toISOString(),
-        endDate.toISOString()
-      );
-      
-      console.log(`🕐 Found ${weekSessions.length} sessions for the week`);
-      
-      // Group sessions by contractor and calculate earnings
-      const contractorEarnings: { [contractorName: string]: any } = {};
-      
-      for (const session of weekSessions) {
-        if (!contractorEarnings[session.contractorName]) {
-          const contractor = await storage.getContractorByName(session.contractorName);
-          const hourlyRate = contractor?.payRate || 0;
-          console.log(`💰 Authentic pay rate for ${session.contractorName}: £${hourlyRate}/hour`);
-          
-          contractorEarnings[session.contractorName] = {
-            contractorName: session.contractorName,
-            sessions: [],
-            totalHours: 0,
-            hourlyRate,
-            grossEarnings: 0,
-            cisDeduction: 0,
-            netEarnings: 0,
-            cisRate: contractor?.cisRate || 0.3,
-            gpsVerified: true
-          };
-        }
-        
-        const contractor = contractorEarnings[session.contractorName];
-        const sessionHours = parseFloat(session.totalHours) || 0;
-        
-        contractor.sessions.push({
-          ...session,
-          sessionHours: sessionHours.toFixed(2)
-        });
-        contractor.totalHours += sessionHours;
-      }
-      
-      // Calculate earnings for each contractor
-      const resolvedContractorEarnings = contractorEarnings;
-      Object.values(resolvedContractorEarnings).forEach((contractor: any) => {
-        contractor.grossEarnings = contractor.totalHours * contractor.hourlyRate;
-        contractor.cisDeduction = contractor.grossEarnings * contractor.cisRate;
-        contractor.netEarnings = contractor.grossEarnings - contractor.cisDeduction;
-        
-        // Round to 2 decimal places
-        contractor.grossEarnings = Math.round(contractor.grossEarnings * 100) / 100;
-        contractor.cisDeduction = Math.round(contractor.cisDeduction * 100) / 100;
-        contractor.netEarnings = Math.round(contractor.netEarnings * 100) / 100;
-        contractor.totalHours = Math.round(contractor.totalHours * 100) / 100;
-      });
-      
-      const timeTrackingData = {
-        contractors: Object.values(resolvedContractorEarnings),
-        weekStart: startDate.toISOString().split('T')[0],
-        weekEnd: endDate.toISOString().split('T')[0]
-      };
+      // Get the same data as the main endpoint by making internal request
+      const timeTrackingResponse = await fetch(`http://localhost:5000/api/admin/time-tracking?weekEnding=${weekEnding}`);
+      const timeTrackingData = await timeTrackingResponse.json();
       
       // Generate detailed CSV content with daily breakdown
       let csvContent = "Contractor Name,Date,Day,Start Time,End Time,Hours Worked,Location,Hourly Rate,Daily Gross Pay,Daily CIS Deduction,Daily Net Pay\n";
@@ -2749,9 +2683,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add weekly totals row
       csvContent += `"WEEK TOTALS","${timeTrackingData.weekStart} to ${timeTrackingData.weekEnd}","","","",${weeklyTotals.totalHours.toFixed(2)},"All Sites","",£${weeklyTotals.totalGrossPay.toFixed(2)},£${weeklyTotals.totalCisDeduction.toFixed(2)},£${weeklyTotals.totalNetPay.toFixed(2)}\n`;
       
-      // Set headers for CSV download
+      // Set headers for CSV download with strong cache-busting
       res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="weekly-earnings-detailed-${weekEnding}.csv"`);
+      res.setHeader('Content-Disposition', `attachment; filename="weekly-earnings-detailed-${weekEnding}-${Date.now()}.csv"`);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       
       res.send(csvContent);
     } catch (error) {
