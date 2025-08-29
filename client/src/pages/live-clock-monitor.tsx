@@ -101,7 +101,7 @@ export default function LiveClockMonitor() {
                 </button>
                 
                 <button 
-                  onClick={() => window.location.href = '/admin-time-tracking'}
+                  onClick={() => window.location.href = '/payroll-overview'}
                   className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-white"
                 >
                   <i className="fas fa-clock mr-3 w-4"></i>
