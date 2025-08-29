@@ -143,10 +143,10 @@ export default function More() {
     const startedLate = startTimeDecimal > 8.25;
     console.log(`⏰ Start time check: ${startTimeDecimal.toFixed(2)} vs 8.25 (8:15 AM) - Late: ${startedLate}`);
     
-    // Daily rate covers maximum 8 hours. If worked 8+ hours, pay daily rate (£150)
-    const paidHours = Math.min(hoursWorked, 8); // Cap paid hours at 8 for daily rate calculation
-    const isFullDay = hoursWorked >= 8; // Full day if worked 8+ hours
-    let grossEarnings = isFullDay ? contractorInfo.dailyRate : (paidHours * contractorInfo.hourlyRate);
+    // Pay for actual hours worked - no capping at 8 hours
+    const paidHours = hoursWorked; // Pay for all hours worked
+    const isFullDay = hoursWorked >= 8; // Full day if worked 8+ hours  
+    let grossEarnings = hoursWorked * contractorInfo.hourlyRate; // Always use hourly rate × actual hours
     
     console.log(`💵 Earnings calculation: hoursWorked=${hoursWorked}, paidHours=${paidHours}, isFullDay=${isFullDay}`);
     console.log(`💵 Rate used: ${isFullDay ? `Daily £${contractorInfo.dailyRate}` : `Hourly £${contractorInfo.hourlyRate} × ${paidHours}h`} = £${grossEarnings}`);
@@ -178,7 +178,7 @@ export default function More() {
       }).split('/').reverse().join('-'), // Convert DD/MM/YYYY to YYYY-MM-DD
       startTime: startTimeStr,
       endTime: endTimeStr,
-      hoursWorked: Math.min(hoursWorked, 8), // Display hours worked, max 8 for pay
+      hoursWorked: hoursWorked, // Display actual hours worked
       hourlyRate: contractorInfo.hourlyRate, // Use contractor's actual rate
       grossEarnings: correctGrossEarnings, // Use contractor's actual calculation
       gpsVerified: true
