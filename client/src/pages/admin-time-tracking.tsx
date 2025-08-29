@@ -228,29 +228,15 @@ export default function AdminTimeTracking() {
         </div>
       </div>
 
-      {/* Admin Time Tracking Badge - NO EXPORT BUTTON */}
-      <div className="bg-red-600 px-4 py-2">
-        <div className="flex items-center justify-between">
+      {/* EXPORT DISABLED - View Only Mode */}
+      <div className="bg-green-600 px-4 py-2">
+        <div className="flex items-center justify-center">
           <div className="flex items-center">
-            <i className="fas fa-clock text-white mr-2"></i>
+            <i className="fas fa-eye text-white mr-2"></i>
             <div>
-              <span className="text-white font-medium text-sm">Time Tracking Dashboard - Week View Only</span>
-              <div className="text-blue-100 text-xs">Monitor contractor earnings by job - Export Removed</div>
+              <span className="text-white font-medium text-sm">VIEW ONLY - Export Functionality Disabled</span>
+              <div className="text-green-100 text-xs">Week Selection: {selectedWeek}</div>
             </div>
-          </div>
-          <div>
-            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-              <SelectTrigger className="w-48 bg-blue-700 text-white border-blue-500">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {getWeekOptions().map(week => (
-                  <SelectItem key={week.value} value={week.value}>
-                    {week.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
       </div>

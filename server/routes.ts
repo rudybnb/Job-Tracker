@@ -2613,88 +2613,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Export time tracking data as CSV with daily breakdown
+  // Export functionality disabled - endpoint returns error
   app.get("/api/admin/time-tracking/export", async (req, res) => {
-    try {
-      const weekEnding = req.query.weekEnding as string;
-      if (!weekEnding) {
-        return res.status(400).json({ error: "weekEnding parameter required" });
-      }
-      
-      console.log(`📤 Exporting detailed time tracking data for week ending: ${weekEnding}`);
-      
-      // Get the same data as the main endpoint by making internal request
-      const timeTrackingResponse = await fetch(`http://localhost:5000/api/admin/time-tracking?weekEnding=${weekEnding}`);
-      const timeTrackingData = await timeTrackingResponse.json();
-      
-      // Generate detailed CSV content with daily breakdown
-      let csvContent = "Contractor Name,Date,Day,Start Time,End Time,Hours Worked,Location,Hourly Rate,Daily Gross Pay,Daily CIS Deduction,Daily Net Pay\n";
-      
-      let weeklyTotals = {
-        totalHours: 0,
-        totalGrossPay: 0,
-        totalCisDeduction: 0,
-        totalNetPay: 0
-      };
-      
-      timeTrackingData.contractors.forEach((contractor: any) => {
-        // Add each daily session
-        contractor.sessions.forEach((session: any) => {
-          const sessionDate = new Date(session.startTime);
-          const endTime = session.endTime ? new Date(session.endTime) : null;
-          
-          // Format date and day
-          const dateString = sessionDate.toLocaleDateString('en-GB'); // DD/MM/YYYY format
-          const dayString = sessionDate.toLocaleDateString('en-GB', { weekday: 'long' });
-          
-          // Format times
-          const startTimeString = sessionDate.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false 
-          });
-          const endTimeString = endTime ? endTime.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false 
-          }) : 'In Progress';
-          
-          // Calculate daily earnings for this session
-          const hoursWorked = parseFloat(session.totalHours) || 0;
-          const hourlyRate = contractor.hourlyRate;
-          const dailyGrossPay = hoursWorked * hourlyRate;
-          const dailyCisDeduction = dailyGrossPay * (contractor.cisRate || 0.2); // Default 20% CIS
-          const dailyNetPay = dailyGrossPay - dailyCisDeduction;
-          
-          // Add to weekly totals
-          weeklyTotals.totalHours += hoursWorked;
-          weeklyTotals.totalGrossPay += dailyGrossPay;
-          weeklyTotals.totalCisDeduction += dailyCisDeduction;
-          weeklyTotals.totalNetPay += dailyNetPay;
-          
-          csvContent += `"${contractor.contractorName}","${dateString}","${dayString}","${startTimeString}","${endTimeString}",${hoursWorked.toFixed(2)},"${session.jobSiteLocation}",£${hourlyRate.toFixed(2)},£${dailyGrossPay.toFixed(2)},£${dailyCisDeduction.toFixed(2)},£${dailyNetPay.toFixed(2)}\n`;
-        });
-        
-        // Add contractor subtotal
-        csvContent += `"${contractor.contractorName} - SUBTOTAL","","","","",${contractor.totalHours.toFixed(2)},"Multiple Sites",£${contractor.hourlyRate.toFixed(2)},£${contractor.grossEarnings.toFixed(2)},£${contractor.cisDeduction.toFixed(2)},£${contractor.netEarnings.toFixed(2)}\n`;
-        csvContent += "\n"; // Empty line between contractors
-      });
-      
-      // Add weekly totals row
-      csvContent += `"WEEK TOTALS","${timeTrackingData.weekStart} to ${timeTrackingData.weekEnd}","","","",${weeklyTotals.totalHours.toFixed(2)},"All Sites","",£${weeklyTotals.totalGrossPay.toFixed(2)},£${weeklyTotals.totalCisDeduction.toFixed(2)},£${weeklyTotals.totalNetPay.toFixed(2)}\n`;
-      
-      // Set headers for CSV download with strong cache-busting
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="weekly-earnings-detailed-${weekEnding}-${Date.now()}.csv"`);
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      
-      res.send(csvContent);
-    } catch (error) {
-      console.error("Error exporting detailed time tracking data:", error);
-      res.status(500).json({ error: "Failed to export detailed time tracking data" });
-    }
+    res.status(404).json({ error: "Export functionality has been disabled" });
   });
 
   // Project Cashflow API endpoint - MANDATORY RULE: AUTHENTIC DATA ONLY
