@@ -133,6 +133,8 @@ export default function More() {
   console.log(`🔍 DEBUG - username for API: "${username}"`);
   console.log(`🔍 DEBUG - realWorkSessions count: ${realWorkSessions.length}`);
   console.log(`🔍 DEBUG - hourlyRate: ${hourlyRate}`);
+  console.log(`🔍 DEBUG - selectedWeek: "${selectedWeek}"`);
+  console.log(`🔍 DEBUG - workSessions processed count: ${workSessions.length}`);
 
   // Convert real work sessions to our format with proper payment calculation
   const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
@@ -195,6 +197,11 @@ export default function More() {
       const sessionDate = new Date(session.date);
       const weekEndDate = new Date(selectedWeek);
       const weekStartDate = new Date(weekEndDate.getTime() - 6 * 24 * 60 * 60 * 1000);
+      
+      // DEBUG: Log the filtering logic for Muhammad's sessions
+      console.log(`🔍 Week filter check: Session ${session.date} (${sessionDate.toISOString()}) vs Week ${weekStartDate.toISOString()} to ${weekEndDate.toISOString()}`);
+      console.log(`🔍 Is in range: ${sessionDate >= weekStartDate && sessionDate <= weekEndDate}`);
+      
       return sessionDate >= weekStartDate && sessionDate <= weekEndDate;
     });
 
