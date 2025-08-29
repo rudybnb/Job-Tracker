@@ -265,7 +265,7 @@ export default function AdminTimeTracking() {
               className="bg-blue-700 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition-colors"
             >
               <i className="fas fa-download mr-1"></i>
-              Export Detailed
+              Export Daily Details
             </button>
           </div>
         </div>
