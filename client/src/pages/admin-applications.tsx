@@ -90,7 +90,7 @@ function ApplicationCard({ application, onStatusUpdate, onAdminUpdate }: Applica
       </CardHeader>
       <CardContent className="pt-6">{/* Remove the redundant info grid */}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 text-sm">
           {/* Tax & CIS Information */}
           <div className="bg-slate-50 p-4 rounded-lg border">
             <h4 className="font-semibold mb-3 text-slate-800 text-base">Tax & CIS Information</h4>
@@ -112,6 +112,32 @@ function ApplicationCard({ application, onStatusUpdate, onAdminUpdate }: Applica
               <div className="flex justify-between">
                 <span className="text-slate-600">• Valid CSCS:</span>
                 <span className="font-medium text-slate-800">{application.hasValidCscs === "true" ? "Yes" : "No"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Banking Details */}
+          <div className="bg-slate-50 p-4 rounded-lg border">
+            <h4 className="font-semibold mb-3 text-slate-800 text-base flex items-center gap-2">
+              <PoundSterling className="w-4 h-4" />
+              Banking Details
+            </h4>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-600">• Bank Name:</span>
+                <span className="font-medium text-slate-800">{application.bankName || "Not provided"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">• Account Holder:</span>
+                <span className="font-medium text-slate-800">{application.accountHolderName || "Not provided"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">• Sort Code:</span>
+                <span className="font-medium text-slate-800">{application.sortCode || "Not provided"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">• Account Number:</span>
+                <span className="font-medium text-slate-800">{application.accountNumber || "Not provided"}</span>
               </div>
             </div>
           </div>
