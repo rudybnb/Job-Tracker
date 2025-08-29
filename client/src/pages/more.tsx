@@ -83,7 +83,7 @@ export default function More() {
     switch (firstName.toLowerCase()) {
       case 'earl': return 'earl.johnson';
       case 'dalwayne': return 'dalwayne';
-      case 'muhammed': return 'mohamed'; // Fixed: Map Muhammed to correct database username "mohamed"
+      case 'mohamed': return 'mohamed'; // Fixed: Map Mohamed to correct database username "mohamed"
       default: return firstName.toLowerCase();
     }
   };
@@ -128,13 +128,8 @@ export default function More() {
   };
   
   console.log(`💼 Contractor Info: ${contractorInfo.name}, £${hourlyRate}/hr, £${contractorInfo.dailyRate}/day, CIS: ${contractorInfo.cisRate}%`);
-  console.log(`🔍 DEBUG - contractorName from localStorage: "${contractorName}"`);
-  console.log(`🔍 DEBUG - contractorFirstName: "${contractorFirstName}"`);
-  console.log(`🔍 DEBUG - username for API: "${username}"`);
-  console.log(`🔍 DEBUG - realWorkSessions count: ${realWorkSessions.length}`);
-  console.log(`🔍 DEBUG - hourlyRate: ${hourlyRate}`);
-  console.log(`🔍 DEBUG - selectedWeek: "${selectedWeek}"`);
-  console.log(`🔍 DEBUG - workSessions processed count: ${workSessions.length}`);
+  // Debug: Verify data loading for earnings calculation
+  console.log(`💼 Loading data: ${contractorFirstName} (${realWorkSessions.length} sessions) - £${hourlyRate}/hr`);
 
   // Convert real work sessions to our format with proper payment calculation
   const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
@@ -198,9 +193,7 @@ export default function More() {
       const weekEndDate = new Date(selectedWeek);
       const weekStartDate = new Date(weekEndDate.getTime() - 6 * 24 * 60 * 60 * 1000);
       
-      // DEBUG: Log the filtering logic for Muhammad's sessions
-      console.log(`🔍 Week filter check: Session ${session.date} (${sessionDate.toISOString()}) vs Week ${weekStartDate.toISOString()} to ${weekEndDate.toISOString()}`);
-      console.log(`🔍 Is in range: ${sessionDate >= weekStartDate && sessionDate <= weekEndDate}`);
+      // Week filtering: Check if session falls within selected week range
       
       return sessionDate >= weekStartDate && sessionDate <= weekEndDate;
     });
