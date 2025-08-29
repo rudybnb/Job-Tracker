@@ -254,8 +254,10 @@ export default function AdminTimeTracking() {
             <button 
               onClick={() => {
                 if (selectedWeek) {
-                  window.open(`/api/admin/time-tracking/export?weekEnding=${selectedWeek}`, '_blank');
-                  toast({ title: "Export Data", description: "Time tracking data exported successfully!" });
+                  // Add timestamp to prevent caching issues
+                  const timestamp = new Date().getTime();
+                  window.open(`/api/admin/time-tracking/export?weekEnding=${selectedWeek}&t=${timestamp}`, '_blank');
+                  toast({ title: "Export Data", description: "Detailed weekly earnings exported successfully!" });
                 } else {
                   toast({ title: "Export Error", description: "Please select a week to export", variant: "destructive" });
                 }
@@ -263,7 +265,7 @@ export default function AdminTimeTracking() {
               className="bg-blue-700 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition-colors"
             >
               <i className="fas fa-download mr-1"></i>
-              Export
+              Export Detailed
             </button>
           </div>
         </div>
