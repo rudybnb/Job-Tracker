@@ -229,7 +229,7 @@ export default function AdminTimeTracking() {
       </div>
 
       {/* Admin Time Tracking Badge - NO EXPORT BUTTON */}
-      <div className="bg-blue-600 px-4 py-2">
+      <div className="bg-red-600 px-4 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <i className="fas fa-clock text-white mr-2"></i>
