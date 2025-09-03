@@ -2519,10 +2519,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let detectedLocation = session.jobSiteLocation; // Default to stored location
         
         if (session.startLatitude && session.startLongitude) {
+          console.log(`🔍 Attempting reverse geocoding for ${session.contractorName}: GPS ${session.startLatitude}, ${session.startLongitude}`);
+          
           const detectedPostcode = reverseGeocode(
             parseFloat(session.startLatitude), 
             parseFloat(session.startLongitude)
           );
+          
+          console.log(`🔍 Reverse geocode result for ${session.contractorName}: ${detectedPostcode}`);
           
           if (detectedPostcode) {
             if (detectedPostcode.startsWith('SG1')) {
@@ -2537,7 +2541,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               detectedLocation = detectedPostcode;
             }
             console.log(`📍 Auto-detected location for ${session.contractorName}: ${detectedLocation} from GPS ${session.startLatitude}, ${session.startLongitude}`);
+          } else {
+            console.log(`❌ No postcode detected for ${session.contractorName} at GPS ${session.startLatitude}, ${session.startLongitude}`);
           }
+        } else {
+          console.log(`❌ No GPS coordinates available for ${session.contractorName}`);
         }
         
         return {
