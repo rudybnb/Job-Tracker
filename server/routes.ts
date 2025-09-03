@@ -646,6 +646,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to calculate distance using Haversine formula (in kilometers)  
+  function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  // Dynamic function to find nearest assigned job site for a contractor
+  async function findNearestAssignedJobSite(contractorName: string, currentLat: number, currentLng: number): Promise<{location: string, distance: number} | null> {
+    console.log(`🔍 Finding nearest assigned job site for ${contractorName} at GPS ${currentLat}, ${currentLng}`);
+    
+    try {
+      // Get all active assignments for this contractor
+      const assignments = await storage.getContractorAssignments(contractorName);
+      
+      if (!assignments || assignments.length === 0) {
+        console.log(`❌ No assignments found for contractor: ${contractorName}`);
+        return null;
+      }
+      
+      let nearestAssignment: any = null;
+      let shortestDistance = Infinity;
+      
+      // Check all assignments to find which one the contractor is closest to
+      for (const assignment of assignments) {
+        if (assignment.latitude && assignment.longitude) {
+          const distance = calculateDistance(
+            currentLat,
+            currentLng,
+            parseFloat(assignment.latitude),
+            parseFloat(assignment.longitude)
+          );
+          
+          console.log(`📏 Distance to ${assignment.workLocation}: ${distance.toFixed(2)}km`);
+          
+          if (distance < shortestDistance) {
+            shortestDistance = distance;
+            nearestAssignment = assignment;
+          }
+        } else {
+          console.log(`⚠️  Assignment ${assignment.id} has no GPS coordinates: ${assignment.workLocation}`);
+        }
+      }
+      
+      // Only return if within reasonable proximity (3.5km like the original system)
+      if (nearestAssignment && shortestDistance <= 3.5) {
+        console.log(`🎯 Found nearest assigned job site: ${nearestAssignment.workLocation} (${shortestDistance.toFixed(2)}km away)`);
+        return {
+          location: nearestAssignment.workLocation,
+          distance: shortestDistance
+        };
+      } else {
+        console.log(`❌ No nearby assigned job sites found (closest: ${nearestAssignment?.workLocation} at ${shortestDistance.toFixed(2)}km)`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`Error finding nearest job site for ${contractorName}:`, error);
+      return null;
+    }
+  }
+
   // Reverse geocoding: Convert GPS coordinates to nearest postcode
   function reverseGeocode(latitude: number, longitude: number): string | null {
     const lat = parseFloat(latitude.toString());
@@ -2508,41 +2574,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Calculate session duration and detect current location for each unique active session
-      const sessionsWithDuration = Array.from(cleanedSessions.values()).map(session => {
+      const sessionsWithDuration = await Promise.all(Array.from(cleanedSessions.values()).map(async (session) => {
         const startTime = new Date(session.startTime);
         const now = new Date();
         const durationMs = now.getTime() - startTime.getTime();
         const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
         const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
         
-        // Detect current location from GPS coordinates using reverse geocoding
+        // Detect current location by finding nearest assigned job site (DYNAMIC SYSTEM)
         let detectedLocation = session.jobSiteLocation; // Default to stored location
         
         if (session.startLatitude && session.startLongitude) {
-          console.log(`🔍 Attempting reverse geocoding for ${session.contractorName}: GPS ${session.startLatitude}, ${session.startLongitude}`);
+          console.log(`🔍 Finding nearest assigned job site for ${session.contractorName}: GPS ${session.startLatitude}, ${session.startLongitude}`);
           
-          const detectedPostcode = reverseGeocode(
+          const nearestSite = await findNearestAssignedJobSite(
+            session.contractorName,
             parseFloat(session.startLatitude), 
             parseFloat(session.startLongitude)
           );
           
-          console.log(`🔍 Reverse geocode result for ${session.contractorName}: ${detectedPostcode}`);
-          
-          if (detectedPostcode) {
-            if (detectedPostcode.startsWith('SG1')) {
-              detectedLocation = `Stevenage, ${detectedPostcode}`;
-            } else if (detectedPostcode.startsWith('CT15')) {
-              detectedLocation = `Bramling, ${detectedPostcode}`;
-            } else if (detectedPostcode.startsWith('ME5')) {
-              detectedLocation = `Chatham, ${detectedPostcode}`;
-            } else if (detectedPostcode.startsWith('BR6')) {
-              detectedLocation = `Orpington, ${detectedPostcode}`;
-            } else {
-              detectedLocation = detectedPostcode;
-            }
-            console.log(`📍 Auto-detected location for ${session.contractorName}: ${detectedLocation} from GPS ${session.startLatitude}, ${session.startLongitude}`);
+          if (nearestSite) {
+            detectedLocation = nearestSite.location;
+            console.log(`📍 Dynamic location detected for ${session.contractorName}: ${nearestSite.location} (${nearestSite.distance.toFixed(2)}km away)`);
           } else {
-            console.log(`❌ No postcode detected for ${session.contractorName} at GPS ${session.startLatitude}, ${session.startLongitude}`);
+            console.log(`❌ No nearby assigned job sites found for ${session.contractorName} at GPS ${session.startLatitude}, ${session.startLongitude}`);
           }
         } else {
           console.log(`❌ No GPS coordinates available for ${session.contractorName}`);
@@ -2563,7 +2618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             minute: '2-digit'
           })
         };
-      });
+      }));
       
       console.log(`📈 Found ${sessionsWithDuration.length} active sessions`);
       res.json(sessionsWithDuration);
