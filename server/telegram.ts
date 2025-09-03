@@ -39,7 +39,7 @@ export class TelegramService {
       } else if (params.contractorName.toLowerCase().includes('earl')) {
         chatId = '6792554033'; // Earl Johnson
       } else if (params.contractorName.toLowerCase().includes('hamza')) {
-        chatId = '7617462316'; // Hamza Aouichaoui - needs correct Telegram ID
+        chatId = '8108393007'; // Hamza Aouichaoui
       } else if (params.contractorName.toLowerCase().includes('muhammed') || params.contractorName.toLowerCase().includes('midou')) {
         chatId = '5209713845'; // Muhammed/Midou
       }
