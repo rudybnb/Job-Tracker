@@ -697,13 +697,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
     
-    // Only return if within reasonable distance (0.01 degrees ≈ 1km)
-    if (shortestDistance < 0.01 && closestPostcode) {
+    // Increased tolerance - 0.05 degrees ≈ 5km (more lenient for GPS variations)
+    if (shortestDistance < 0.05 && closestPostcode) {
       console.log(`📍 Found closest postcode: ${closestPostcode} (distance: ${shortestDistance.toFixed(6)})`);
       return closestPostcode;
     }
     
-    console.log(`❌ No nearby postcode found (closest: ${shortestDistance.toFixed(6)})`);
+    console.log(`❌ No nearby postcode found (closest: ${closestPostcode} at ${shortestDistance.toFixed(6)} degrees distance)`);
     return null;
   }
 
@@ -2507,7 +2507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      // Calculate session duration for each unique active session
+      // Calculate session duration and detect current location for each unique active session
       const sessionsWithDuration = Array.from(cleanedSessions.values()).map(session => {
         const startTime = new Date(session.startTime);
         const now = new Date();
@@ -2515,8 +2515,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
         const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
         
+        // Detect current location from GPS coordinates using reverse geocoding
+        let detectedLocation = session.jobSiteLocation; // Default to stored location
+        
+        if (session.startLatitude && session.startLongitude) {
+          const detectedPostcode = reverseGeocode(
+            parseFloat(session.startLatitude), 
+            parseFloat(session.startLongitude)
+          );
+          
+          if (detectedPostcode) {
+            if (detectedPostcode.startsWith('SG1')) {
+              detectedLocation = `Stevenage, ${detectedPostcode}`;
+            } else if (detectedPostcode.startsWith('CT15')) {
+              detectedLocation = `Bramling, ${detectedPostcode}`;
+            } else if (detectedPostcode.startsWith('ME5')) {
+              detectedLocation = `Chatham, ${detectedPostcode}`;
+            } else if (detectedPostcode.startsWith('BR6')) {
+              detectedLocation = `Orpington, ${detectedPostcode}`;
+            } else {
+              detectedLocation = detectedPostcode;
+            }
+            console.log(`📍 Auto-detected location for ${session.contractorName}: ${detectedLocation} from GPS ${session.startLatitude}, ${session.startLongitude}`);
+          }
+        }
+        
         return {
           ...session,
+          jobSiteLocation: detectedLocation, // Use detected location instead of stored
           duration: `${durationHours}h ${durationMinutes}m`,
           durationMs: durationMs,
           isActive: true,
