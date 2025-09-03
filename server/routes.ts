@@ -646,6 +646,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reverse geocoding: Convert GPS coordinates to nearest postcode
+  function reverseGeocode(latitude: number, longitude: number): string | null {
+    const lat = parseFloat(latitude.toString());
+    const lng = parseFloat(longitude.toString());
+    
+    console.log(`🔄 Reverse geocoding for coordinates: ${lat}, ${lng}`);
+    
+    // Simple postcode map for lookup
+    const postcodeMap: { [key: string]: { latitude: string; longitude: string } } = {
+      'DA17 5DB': { latitude: '51.4851', longitude: '0.1540' },
+      'DA17': { latitude: '51.4851', longitude: '0.1540' },
+      'DA7 6HJ': { latitude: '51.4851', longitude: '0.1540' },
+      'DA7': { latitude: '51.4851', longitude: '0.1540' },
+      'BR6 9HE': { latitude: '51.361', longitude: '0.106' },
+      'BR6': { latitude: '51.361', longitude: '0.106' },
+      'BR9': { latitude: '51.4612', longitude: '0.1388' },
+      'SE9': { latitude: '51.4629', longitude: '0.0789' },
+      'DA8': { latitude: '51.4891', longitude: '0.2245' },
+      'DA1': { latitude: '51.4417', longitude: '0.2056' },
+      'SG1 1EH': { latitude: '51.8721', longitude: '-0.2015' },
+      'SG1 1AE': { latitude: '51.902844', longitude: '-0.201658' }, // Correct postcode
+      'SG1': { latitude: '51.8721', longitude: '-0.2015' },
+      'ME5 9GX': { latitude: '51.335996', longitude: '0.530215' },
+      'ME5': { latitude: '51.335996', longitude: '0.530215' },
+      'ME1 1AA': { latitude: '51.388000', longitude: '0.505000' },
+      'ME1': { latitude: '51.388000', longitude: '0.505000' },
+      'ME7 1BT': { latitude: '51.388800', longitude: '0.548900' },
+      'ME7': { latitude: '51.388800', longitude: '0.548900' },
+      'CT15 7PG': { latitude: '51.2544', longitude: '1.3045' },
+      'CT15': { latitude: '51.2544', longitude: '1.3045' },
+    };
+    
+    // Calculate distance to each known postcode
+    let closestPostcode = null;
+    let shortestDistance = Infinity;
+    
+    for (const [postcode, coords] of Object.entries(postcodeMap)) {
+      const postcodeLatitude = parseFloat(coords.latitude);
+      const postcodeLongitude = parseFloat(coords.longitude);
+      
+      // Calculate distance using simplified formula
+      const latDiff = lat - postcodeLatitude;
+      const lngDiff = lng - postcodeLongitude;
+      const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+      
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        closestPostcode = postcode;
+      }
+    }
+    
+    // Only return if within reasonable distance (0.01 degrees ≈ 1km)
+    if (shortestDistance < 0.01 && closestPostcode) {
+      console.log(`📍 Found closest postcode: ${closestPostcode} (distance: ${shortestDistance.toFixed(6)})`);
+      return closestPostcode;
+    }
+    
+    console.log(`❌ No nearby postcode found (closest: ${shortestDistance.toFixed(6)})`);
+    return null;
+  }
+
   // Helper function to get GPS coordinates from UK postcode
   function getPostcodeCoordinates(location: string): { latitude: string; longitude: string } | null {
     if (!location || typeof location !== 'string') {
@@ -717,6 +778,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`❌ No GPS coordinates found for: ${cleanLocation}`);
     return null;
   }
+
+  // Test endpoint for reverse geocoding
+  app.post("/api/test-reverse-geocode", (req, res) => {
+    try {
+      const { latitude, longitude } = req.body;
+      const postcode = reverseGeocode(latitude, longitude);
+      res.json({ latitude, longitude, detectedPostcode: postcode });
+    } catch (error) {
+      res.status(500).json({ error: "Reverse geocoding failed" });
+    }
+  });
+
+  // Update work session location based on GPS coordinates
+  app.post("/api/update-session-locations", async (req, res) => {
+    try {
+      const activeSessions = await storage.getActiveSessions();
+      let updatedCount = 0;
+      
+      for (const session of activeSessions) {
+        if (session.startLatitude && session.startLongitude) {
+          const detectedPostcode = reverseGeocode(
+            parseFloat(session.startLatitude), 
+            parseFloat(session.startLongitude)
+          );
+          
+          if (detectedPostcode && detectedPostcode.startsWith('SG1')) {
+            // Update the session location to the correct postcode
+            await storage.updateWorkSession(session.id, {
+              jobSiteLocation: `Stevenage, ${detectedPostcode}`
+            });
+            console.log(`📍 Updated session ${session.id} location to: Stevenage, ${detectedPostcode}`);
+            updatedCount++;
+          }
+        }
+      }
+      
+      res.json({ message: `Updated ${updatedCount} session locations` });
+    } catch (error) {
+      console.error("Error updating session locations:", error);
+      res.status(500).json({ error: "Failed to update locations" });
+    }
+  });
 
   app.post("/api/job-assignments", async (req, res) => {
     try {
