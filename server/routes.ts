@@ -665,7 +665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'DA8': { latitude: '51.4891', longitude: '0.2245' },
       'DA1': { latitude: '51.4417', longitude: '0.2056' },
       'SG1 1EH': { latitude: '51.8721', longitude: '-0.2015' },
-      'SG1 1EA': { latitude: '51.902653', longitude: '-0.201678' }, // Dalwayne's location
+      'SG1 1AE': { latitude: '51.902844', longitude: '-0.201658' }, // Correct postcode - Hamza & Dalwayne location
       'SG1': { latitude: '51.8721', longitude: '-0.2015' },
       'ME5 9GX': { latitude: '51.335996', longitude: '0.530215' }, // Chatham main site
       'ME5': { latitude: '51.335996', longitude: '0.530215' },
