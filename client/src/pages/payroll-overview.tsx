@@ -110,7 +110,7 @@ export default function AdminTimeTracking() {
     
     // Create summary sheet data
     const summaryData = [
-      ['Weekly Payroll Report'],
+      ['Weekly Payroll Report - Accounting Export'],
       [`Week ending: ${new Date(weekEnding).toLocaleDateString('en-GB', { 
         weekday: 'long', 
         day: 'numeric', 
@@ -127,43 +127,91 @@ export default function AdminTimeTracking() {
       ['']
     ];
 
-    // Create detailed contractor data
-    const contractorData = [
-      ['Contractor Details'],
+    // Create detailed daily breakdown for accounting
+    const dailyBreakdownData = [
+      ['Daily Breakdown for Accounting'],
       [''],
-      ['Contractor Name', 'Hourly Rate', 'Total Hours', 'Sessions', 'Gross Earnings', 'CIS Deduction', 'Net Pay']
-    ];
-
-    contractors.forEach(contractor => {
-      contractorData.push([
-        contractor.contractorName,
-        `£${contractor.hourlyRate.toFixed(2)}`,
-        contractor.totalHours.toFixed(1),
-        contractor.sessions.length,
-        `£${contractor.grossEarnings.toFixed(2)}`,
-        `£${contractor.cisDeduction.toFixed(2)}`,
-        `£${contractor.netEarnings.toFixed(2)}`
-      ]);
-    });
-
-    // Create detailed sessions data
-    const sessionsData = [
-      ['Work Sessions Details'],
-      [''],
-      ['Contractor', 'Date', 'Location', 'Hours', 'Start Time', 'End Time']
+      ['Contractor', 'Date', 'Day', 'Location', 'Hours', 'Hourly Rate', 'Daily Gross', 'CIS Deduction', 'Daily Net', 'Start Time', 'End Time']
     ];
 
     contractors.forEach(contractor => {
       contractor.sessions.forEach(session => {
         const startDate = new Date(session.startTime);
         const endDate = new Date(session.endTime);
+        const dailyHours = parseFloat(session.totalHours);
+        const dailyGross = dailyHours * contractor.hourlyRate;
+        const dailyCIS = dailyGross * contractor.cisRate;
+        const dailyNet = dailyGross - dailyCIS;
+
+        dailyBreakdownData.push([
+          contractor.contractorName,
+          startDate.toLocaleDateString('en-GB'),
+          startDate.toLocaleDateString('en-GB', { weekday: 'long' }),
+          session.jobSiteLocation || 'Location data missing',
+          dailyHours.toFixed(1),
+          `£${contractor.hourlyRate.toFixed(2)}`,
+          `£${dailyGross.toFixed(2)}`,
+          `£${dailyCIS.toFixed(2)}`,
+          `£${dailyNet.toFixed(2)}`,
+          startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+        ]);
+      });
+    });
+
+    // Create contractor totals for accounting
+    const contractorTotalsData = [
+      ['Contractor Totals for Accounting'],
+      [''],
+      ['Contractor Name', 'Total Days Worked', 'Total Hours', 'Hourly Rate', 'Gross Earnings', 'CIS Deduction (30%)', 'Net Pay', 'Primary Location']
+    ];
+
+    contractors.forEach(contractor => {
+      // Find most common location
+      const locationCounts = {};
+      contractor.sessions.forEach(session => {
+        const location = session.jobSiteLocation || 'Unknown';
+        locationCounts[location] = (locationCounts[location] || 0) + 1;
+      });
+      const primaryLocation = Object.keys(locationCounts).reduce((a, b) => 
+        locationCounts[a] > locationCounts[b] ? a : b, 'Unknown'
+      );
+
+      contractorTotalsData.push([
+        contractor.contractorName,
+        contractor.sessions.length,
+        contractor.totalHours.toFixed(1),
+        `£${contractor.hourlyRate.toFixed(2)}`,
+        `£${contractor.grossEarnings.toFixed(2)}`,
+        `£${contractor.cisDeduction.toFixed(2)}`,
+        `£${contractor.netEarnings.toFixed(2)}`,
+        primaryLocation
+      ]);
+    });
+
+    // Create detailed sessions data with rates
+    const sessionsData = [
+      ['Detailed Work Sessions'],
+      [''],
+      ['Contractor', 'Date', 'Location', 'Hours', 'Rate/Hour', 'Daily Earnings', 'Start Time', 'End Time', 'Session ID']
+    ];
+
+    contractors.forEach(contractor => {
+      contractor.sessions.forEach(session => {
+        const startDate = new Date(session.startTime);
+        const endDate = new Date(session.endTime);
+        const dailyEarnings = parseFloat(session.totalHours) * contractor.hourlyRate;
+        
         sessionsData.push([
           contractor.contractorName,
           startDate.toLocaleDateString('en-GB'),
           session.jobSiteLocation || 'Location data missing',
           parseFloat(session.totalHours).toFixed(1),
+          `£${contractor.hourlyRate.toFixed(2)}`,
+          `£${dailyEarnings.toFixed(2)}`,
           startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-          endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+          endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          session.id
         ]);
       });
     });
@@ -175,16 +223,20 @@ export default function AdminTimeTracking() {
     const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
 
-    // Add contractor details sheet
-    const contractorWs = XLSX.utils.aoa_to_sheet(contractorData);
-    XLSX.utils.book_append_sheet(wb, contractorWs, 'Contractor Details');
+    // Add daily breakdown sheet (most important for accounting)
+    const dailyWs = XLSX.utils.aoa_to_sheet(dailyBreakdownData);
+    XLSX.utils.book_append_sheet(wb, dailyWs, 'Daily Breakdown');
 
-    // Add sessions sheet
+    // Add contractor totals sheet
+    const contractorWs = XLSX.utils.aoa_to_sheet(contractorTotalsData);
+    XLSX.utils.book_append_sheet(wb, contractorWs, 'Contractor Totals');
+
+    // Add detailed sessions sheet
     const sessionsWs = XLSX.utils.aoa_to_sheet(sessionsData);
-    XLSX.utils.book_append_sheet(wb, sessionsWs, 'Work Sessions');
+    XLSX.utils.book_append_sheet(wb, sessionsWs, 'Detailed Sessions');
 
     // Generate filename with current date
-    const filename = `payroll_report_${weekEnding.replace(/-/g, '_')}.xlsx`;
+    const filename = `payroll_accounting_${weekEnding.replace(/-/g, '_')}.xlsx`;
 
     // Download file
     XLSX.writeFile(wb, filename);
