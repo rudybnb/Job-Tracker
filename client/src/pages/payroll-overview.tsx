@@ -228,7 +228,7 @@ export default function AdminTimeTracking() {
                           {session.jobSiteLocation || 'Location data missing'}
                         </span>
                         <span className="text-slate-300">
-                          {session.totalHours.toFixed(1)}h
+                          {parseFloat(session.totalHours).toFixed(1)}h
                         </span>
                       </div>
                     ))}
