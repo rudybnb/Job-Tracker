@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import * as XLSX from 'xlsx';
 
 interface ContractorEarnings {
   contractorName: string;
@@ -103,24 +105,119 @@ export default function AdminTimeTracking() {
 
   const contractors = timeTrackingData?.contractors || [];
 
+  const exportToExcel = () => {
+    if (!timeTrackingData) return;
+    
+    // Create summary sheet data
+    const summaryData = [
+      ['Weekly Payroll Report'],
+      [`Week ending: ${new Date(weekEnding).toLocaleDateString('en-GB', { 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+      })}`],
+      [''],
+      ['Summary'],
+      ['Total Hours', totals.totalHours.toFixed(1)],
+      ['Gross Pay', `£${totals.totalGrossEarnings.toFixed(2)}`],
+      ['CIS Deductions', `£${totals.totalCisDeduction.toFixed(2)}`],
+      ['Net Payout', `£${totals.totalNetEarnings.toFixed(2)}`],
+      ['Number of Contractors', totals.contractors],
+      ['']
+    ];
+
+    // Create detailed contractor data
+    const contractorData = [
+      ['Contractor Details'],
+      [''],
+      ['Contractor Name', 'Hourly Rate', 'Total Hours', 'Sessions', 'Gross Earnings', 'CIS Deduction', 'Net Pay']
+    ];
+
+    contractors.forEach(contractor => {
+      contractorData.push([
+        contractor.contractorName,
+        `£${contractor.hourlyRate.toFixed(2)}`,
+        contractor.totalHours.toFixed(1),
+        contractor.sessions.length,
+        `£${contractor.grossEarnings.toFixed(2)}`,
+        `£${contractor.cisDeduction.toFixed(2)}`,
+        `£${contractor.netEarnings.toFixed(2)}`
+      ]);
+    });
+
+    // Create detailed sessions data
+    const sessionsData = [
+      ['Work Sessions Details'],
+      [''],
+      ['Contractor', 'Date', 'Location', 'Hours', 'Start Time', 'End Time']
+    ];
+
+    contractors.forEach(contractor => {
+      contractor.sessions.forEach(session => {
+        const startDate = new Date(session.startTime);
+        const endDate = new Date(session.endTime);
+        sessionsData.push([
+          contractor.contractorName,
+          startDate.toLocaleDateString('en-GB'),
+          session.jobSiteLocation || 'Location data missing',
+          parseFloat(session.totalHours).toFixed(1),
+          startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+        ]);
+      });
+    });
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // Add summary sheet
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+
+    // Add contractor details sheet
+    const contractorWs = XLSX.utils.aoa_to_sheet(contractorData);
+    XLSX.utils.book_append_sheet(wb, contractorWs, 'Contractor Details');
+
+    // Add sessions sheet
+    const sessionsWs = XLSX.utils.aoa_to_sheet(sessionsData);
+    XLSX.utils.book_append_sheet(wb, sessionsWs, 'Work Sessions');
+
+    // Generate filename with current date
+    const filename = `payroll_report_${weekEnding.replace(/-/g, '_')}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(wb, filename);
+  };
+
   return (
     <div className="min-h-screen bg-slate-900">
       <LogoutButton />
       
-      {/* Simple Header - NO EXPORT FUNCTIONALITY */}
+      {/* Header with Export Button */}
       <div className="bg-slate-800 px-6 py-4 border-b border-slate-600">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-bold text-white mb-2">
-            Weekly Payroll Report
-          </h1>
-          <p className="text-slate-300">
-            Week ending {new Date(weekEnding).toLocaleDateString('en-GB', { 
-              weekday: 'long', 
-              day: 'numeric', 
-              month: 'long', 
-              year: 'numeric' 
-            })}
-          </p>
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-2">
+              Weekly Payroll Report
+            </h1>
+            <p className="text-slate-300">
+              Week ending {new Date(weekEnding).toLocaleDateString('en-GB', { 
+                weekday: 'long', 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric' 
+              })}
+            </p>
+          </div>
+          <Button
+            onClick={exportToExcel}
+            className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+            data-testid="button-export-excel"
+          >
+            <Download size={16} />
+            Export to Excel
+          </Button>
         </div>
       </div>
 
