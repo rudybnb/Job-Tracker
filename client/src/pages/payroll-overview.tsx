@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from "lucide-react";
 import * as XLSX from 'xlsx';
 
@@ -40,22 +42,50 @@ function LogoutButton() {
 }
 
 export default function AdminTimeTracking() {
-  // Get current week ending (Friday) - SIMPLE CALCULATION
-  const getCurrentWeekEnding = () => {
+  // Calculate the current week ending (most recent Friday that includes today)
+  const getCurrentFridayWeekEnding = () => {
     const now = new Date();
-    const currentDay = now.getDay();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
+    
+    // If today is Saturday (6) or Sunday (0), we want last Friday
+    // If today is Monday-Friday (1-5), we want this Friday
     let daysToFriday;
+    if (currentDay === 0) { // Sunday
+      daysToFriday = -2; // Go back 2 days to Friday
+    } else if (currentDay === 6) { // Saturday  
+      daysToFriday = -1; // Go back 1 day to Friday
+    } else { // Monday-Friday
+      daysToFriday = 5 - currentDay; // Go forward to this Friday
+    }
     
-    if (currentDay === 5) daysToFriday = 0; // Today is Friday
-    else if (currentDay === 6) daysToFriday = -1; // Saturday
-    else if (currentDay === 0) daysToFriday = -2; // Sunday
-    else daysToFriday = 5 - currentDay; // Monday-Thursday
-    
-    const weekEnding = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
-    return weekEnding.toISOString().split('T')[0];
+    const weekEndingFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
+    return weekEndingFriday.toISOString().split('T')[0];
   };
+  
+  const [selectedWeek, setSelectedWeek] = useState(getCurrentFridayWeekEnding());
 
-  const weekEnding = getCurrentWeekEnding();
+  // Generate week options for the last 12 weeks - ALWAYS ending on Friday
+  const getWeekOptions = () => {
+    const weeks = [];
+    const now = new Date();
+    
+    // Find the most recent Friday (or today if it's Friday)
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
+    const daysToFriday = currentDay <= 5 ? (5 - currentDay) : (7 - currentDay + 5);
+    const mostRecentFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
+    
+    for (let i = 0; i < 12; i++) {
+      const weekEndingFriday = new Date(mostRecentFriday.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
+      const weekEnding = weekEndingFriday.toISOString().split('T')[0];
+      const weekLabel = `Week ending ${weekEndingFriday.toLocaleDateString('en-UK', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+      })} (Fri)`;
+      weeks.push({ value: weekEnding, label: weekLabel });
+    }
+    return weeks;
+  };
 
   // AUTHENTIC DATA ONLY - Fetch from database
   const { data: timeTrackingData, isLoading, error } = useQuery<{
@@ -71,12 +101,13 @@ export default function AdminTimeTracking() {
       contractors: number;
     };
   }>({
-    queryKey: ['/api/admin/time-tracking', weekEnding],
+    queryKey: ['/api/admin/time-tracking', selectedWeek],
     queryFn: async () => {
-      const response = await fetch(`/api/admin/time-tracking?weekEnding=${weekEnding}`);
+      const response = await fetch(`/api/admin/time-tracking?weekEnding=${selectedWeek}`);
       if (!response.ok) throw new Error('Failed to fetch time tracking data');
       return response.json();
-    }
+    },
+    enabled: !!selectedWeek
   });
 
   if (isLoading) {
@@ -235,8 +266,8 @@ export default function AdminTimeTracking() {
     const sessionsWs = XLSX.utils.aoa_to_sheet(sessionsData);
     XLSX.utils.book_append_sheet(wb, sessionsWs, 'Detailed Sessions');
 
-    // Generate filename with current date
-    const filename = `payroll_accounting_${weekEnding.replace(/-/g, '_')}.xlsx`;
+    // Generate filename with selected week date
+    const filename = `payroll_accounting_${selectedWeek.replace(/-/g, '_')}.xlsx`;
 
     // Download file
     XLSX.writeFile(wb, filename);
@@ -246,7 +277,7 @@ export default function AdminTimeTracking() {
     <div className="min-h-screen bg-slate-900">
       <LogoutButton />
       
-      {/* Header with Export Button */}
+      {/* Header with Week Selector and Export Button */}
       <div className="bg-slate-800 px-6 py-4 border-b border-slate-600">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div>
@@ -254,7 +285,7 @@ export default function AdminTimeTracking() {
               Weekly Payroll Report
             </h1>
             <p className="text-slate-300">
-              Week ending {new Date(weekEnding).toLocaleDateString('en-GB', { 
+              Week ending {new Date(selectedWeek).toLocaleDateString('en-GB', { 
                 weekday: 'long', 
                 day: 'numeric', 
                 month: 'long', 
@@ -262,14 +293,28 @@ export default function AdminTimeTracking() {
               })}
             </p>
           </div>
-          <Button
-            onClick={exportToExcel}
-            className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-            data-testid="button-export-excel"
-          >
-            <Download size={16} />
-            Export to Excel
-          </Button>
+          <div className="flex items-center gap-3">
+            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+              <SelectTrigger className="w-56 bg-slate-700 text-white border-slate-600">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {getWeekOptions().map(week => (
+                  <SelectItem key={week.value} value={week.value}>
+                    {week.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={exportToExcel}
+              className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+              data-testid="button-export-excel"
+            >
+              <Download size={16} />
+              Export to Excel
+            </Button>
+          </div>
         </div>
       </div>
 
