@@ -84,6 +84,7 @@ export default function More() {
       case 'earl': return 'earl.johnson';
       case 'dalwayne': return 'dalwayne';
       case 'mohamed': return 'mohamed'; // Fixed: Map Mohamed to correct database username "mohamed"
+      case 'said': return 'said.tiss'; // Fixed: Map SAID to correct database username "said.tiss"
       default: return firstName.toLowerCase();
     }
   };
