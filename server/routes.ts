@@ -3292,6 +3292,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const voiceAgent = new VoiceAgent(storage);
 
   // Voice Agent endpoints for Twilio webhooks
+  // Direct webhook endpoint matching user's Twilio configuration
+  app.post("/webhook/voice-a", async (req, res) => {
+    try {
+      const { From, Digits, SpeechResult } = req.body;
+      console.log(`🎙️ INCOMING CALL via /webhook/voice-a from ${From}, Digits: ${Digits}`);
+      
+      const twimlResponse = await voiceAgent.processVoiceCommand(From, Digits, SpeechResult);
+      res.type('text/xml');
+      res.send(twimlResponse);
+    } catch (error) {
+      console.error("Voice webhook error:", error);
+      res.status(500).send('Internal Server Error');
+    }
+  });
+
   app.post("/api/voice/incoming", async (req, res) => {
     try {
       const { From, Digits, SpeechResult } = req.body;
