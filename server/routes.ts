@@ -2971,8 +2971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("🆕 API: Creating new project master");
       
-      const session = req.session as any;
-      const currentAdmin = session?.adminName;
+      const currentAdmin = (req as SessionRequest).session?.adminName;
       
       if (!currentAdmin) {
         res.status(401).json({ error: "Admin authentication required" });
@@ -3135,8 +3134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("📈 API: Generating weekly cash flow dashboard data");
       
-      const session = req.session as any;
-      const currentAdmin = session?.adminName;
+      const currentAdmin = (req as SessionRequest).session?.adminName;
       
       if (!currentAdmin) {
         res.status(401).json({ error: "Admin authentication required" });
@@ -3296,15 +3294,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/webhook/voice-a", async (req, res) => {
     try {
       const { From, Digits, SpeechResult } = req.body;
-      console.log(`🎙️ INCOMING CALL via /webhook/voice-a from ${From}, Digits: ${Digits}`);
+      console.log(`🎙️ INCOMING CALL via /webhook/voice-a from ${From}, Digits: ${Digits}, Body: ${JSON.stringify(req.body, null, 2)}`);
       
       const twimlResponse = await voiceAgent.processVoiceCommand(From, Digits, SpeechResult);
+      console.log(`📤 Sending TwiML response:`, twimlResponse);
+      
       res.type('text/xml');
       res.send(twimlResponse);
     } catch (error) {
       console.error("Voice webhook error:", error);
-      res.status(500).send('Internal Server Error');
+      res.type('text/xml');
+      res.send('<Response><Say>Sorry, there was an error. Please try again later.</Say></Response>');
     }
+  });
+
+  // Test endpoint to verify webhook is reachable
+  app.get("/webhook/voice-a", (req, res) => {
+    console.log("🧪 Voice webhook GET test - endpoint is reachable");
+    res.send("Voice webhook endpoint is working!");
   });
 
   app.post("/api/voice/incoming", async (req, res) => {

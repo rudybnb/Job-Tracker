@@ -279,10 +279,10 @@ export class VoiceAgent {
         }
       }
 
-      // Main menu
+      // Main menu - use relative path for Twilio callbacks
       return this.generateTwiML(
         `Hello ${contractorName}. Welcome to the contractor voice system. Press 1 to clock in, 2 to clock out, 3 for assignment information, or 4 for earnings information.`,
-        '/voice/handle-input'
+        '/webhook/voice-a'
       );
       
     } catch (error) {
