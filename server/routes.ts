@@ -3430,5 +3430,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ElevenLabs webhook endpoint for Twilio personalization
+  app.post('/webhook/elevenlabs-twilio', async (req, res) => {
+    try {
+      console.log('🎙️ ElevenLabs webhook received:', req.body);
+      
+      const { caller_id, agent_id, called_number, call_sid } = req.body;
+      
+      if (!caller_id) {
+        return res.status(400).json({ error: 'Missing caller_id' });
+      }
+      
+      // Look up contractor by phone number
+      const contractor = await storage.getContractorByPhone(caller_id);
+      
+      if (!contractor) {
+        // Unknown caller - provide generic response
+        return res.json({
+          "type": "conversation_initiation_client_data",
+          "dynamic_variables": {
+            "caller_name": "Unknown Caller",
+            "contractor_status": "unregistered",
+            "phone_number": caller_id
+          },
+          "conversation_config_override": {
+            "agent": {
+              "first_message": "Hello! I don't recognize this phone number. Are you a registered contractor? Please contact your administrator to set up voice access.",
+              "prompt": {
+                "prompt": "You are a construction company voice assistant. The caller is not a registered contractor. Politely inform them they need to contact their administrator to set up voice access. Do not provide any work-related information."
+              }
+            }
+          }
+        });
+      }
+      
+      // Get contractor's current work session, assignments, and earnings
+      const [activeSession, assignments, todayEarnings] = await Promise.all([
+        storage.getActiveWorkSessions(contractor.name).then(sessions => sessions[0] || null),
+        storage.getContractorAssignments(contractor.name),
+        storage.getTodayEarnings(contractor.name)
+      ]);
+      
+      // Prepare dynamic variables with contractor data
+      const dynamicVariables = {
+        "contractor_name": contractor.name,
+        "phone_number": caller_id,
+        "current_status": activeSession ? "clocked_in" : "clocked_out",
+        "clock_in_time": activeSession ? activeSession.startTime : null,
+        "current_location": activeSession ? activeSession.jobSiteLocation : null,
+        "todays_earnings": todayEarnings ? `£${todayEarnings.toFixed(2)}` : "£0.00",
+        "todays_hours": todayEarnings ? (todayEarnings / (contractor.payRate || 20)).toFixed(2) : "0.00",
+        "pay_rate": contractor.payRate ? `£${contractor.payRate}` : "£20.00",
+        "assignment_count": assignments.length,
+        "next_assignment": assignments.length > 0 ? assignments[0].title : "No assignments",
+        "next_location": assignments.length > 0 ? assignments[0].location : "No location"
+      };
+      
+      // Create personalized prompt
+      const personalizedPrompt = `You are a construction company voice assistant speaking with ${contractor.name}. 
+
+Current Information:
+- Status: ${activeSession ? 'Currently clocked in' : 'Currently clocked out'}
+- Today's Earnings: ${dynamicVariables.todays_earnings}
+- Today's Hours: ${dynamicVariables.todays_hours}
+- Pay Rate: ${dynamicVariables.pay_rate}
+- Assignments: ${assignments.length} active
+
+Available Actions:
+1. Clock In/Out: You can process clock in and clock out requests
+2. Check Assignments: Provide current job assignments and locations
+3. Check Earnings: Tell them today's earnings and hours worked
+4. General Help: Answer questions about work schedule and policies
+
+Be friendly, professional, and efficient. Use natural conversation - don't make them press numbers or follow menus.`;
+
+      const response = {
+        "type": "conversation_initiation_client_data",
+        "dynamic_variables": dynamicVariables,
+        "conversation_config_override": {
+          "agent": {
+            "first_message": `Hello ${contractor.name}! I can help you with clocking in or out, checking your assignments, or reviewing your earnings. What would you like to do?`,
+            "prompt": {
+              "prompt": personalizedPrompt
+            },
+            "language": "en"
+          }
+        }
+      };
+      
+      console.log('🎙️ Sending ElevenLabs response for', contractor.name, dynamicVariables);
+      res.json(response);
+      
+    } catch (error) {
+      console.error('❌ ElevenLabs webhook error:', error);
+      res.status(500).json({ 
+        error: 'Internal server error',
+        "type": "conversation_initiation_client_data",
+        "dynamic_variables": {
+          "error": "system_error"
+        },
+        "conversation_config_override": {
+          "agent": {
+            "first_message": "I'm sorry, there's a technical issue. Please try again later or contact your administrator."
+          }
+        }
+      });
+    }
+  });
+
   return httpServer;
 }
