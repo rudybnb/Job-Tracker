@@ -7,11 +7,17 @@ const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
 
 // Initialize client only if credentials are valid
 let client: any = null;
-if (accountSid && authToken && twilioPhone && accountSid.startsWith('AC')) {
-  client = twilio(accountSid, authToken);
+const rawSid = process.env.TWILIO_ACCOUNT_SID;
+const sid = rawSid?.trim();
+const isValidSid = !!sid && /^AC[0-9a-z]{32}$/i.test(sid);
+const fromNumber = process.env.TWILIO_PHONE_NUMBER?.replace(/\s+/g, '');
+
+if (isValidSid && authToken && fromNumber) {
+  client = twilio(sid, authToken);
   console.log('🎙️ Twilio client initialized successfully');
 } else {
   console.log('⚠️ Twilio credentials not configured or invalid. Voice features disabled.');
+  console.log(`Debug: SID valid: ${isValidSid}, Auth token exists: ${!!authToken}, Phone exists: ${!!fromNumber}`);
 }
 
 export interface VoiceAgentResponse {
