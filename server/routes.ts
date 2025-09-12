@@ -3732,27 +3732,61 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           
         case 'get_status':
           try {
-            const [activeSessions, assignments, payRate] = await Promise.all([
+            // Enhanced status with comprehensive Job Tracker data
+            const [activeSessions, assignments, payRate, todayEarnings] = await Promise.all([
               storage.getActiveWorkSessions(contractorFullName),
               storage.getContractorAssignments(contractorFullName),
-              storage.getContractorPayRate(contractorFullName)
+              storage.getContractorPayRate(contractorFullName),
+              storage.calculateDailyEarnings(contractorFullName, new Date().toISOString().split('T')[0])
             ]);
             
             if (activeSessions.length > 0) {
               const session = activeSessions[0];
               const duration = (new Date().getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60);
-              const earnings = duration * payRate;
+              const currentEarnings = duration * payRate;
+              const totalEarningsToday = todayEarnings.netPay || currentEarnings;
+              
+              // Get GPS proximity status if available
+              let locationStatus = "on-site";
+              try {
+                // This would check GPS proximity if tracking is active
+                locationStatus = session.gpsStatus || "on-site";
+              } catch (e) {
+                // GPS tracking may not be available
+              }
               
               result = {
                 success: true,
-                message: `Status: Clocked in at ${session.jobSiteLocation} since ${new Date(session.startTime).toLocaleTimeString('en-GB')}. Hours today: ${duration.toFixed(2)}, Earnings: £${earnings.toFixed(2)}.`,
-                speech: `You're currently clocked in at ${session.jobSiteLocation}. You've worked ${duration.toFixed(1)} hours today and earned £${earnings.toFixed(2)} so far.`
+                message: `Status: Clocked in at ${session.jobSiteLocation} since ${new Date(session.startTime).toLocaleTimeString('en-GB')}. Current session: ${duration.toFixed(1)}h. Today's total: £${totalEarningsToday.toFixed(2)}. Location: ${locationStatus}.`,
+                speech: `You're currently clocked in at ${session.jobSiteLocation}. You started at ${new Date(session.startTime).toLocaleTimeString('en-GB')} and have worked ${duration.toFixed(1)} hours in this session. Your total earnings today are £${totalEarningsToday.toFixed(2)}. You have ${assignments.length} active assignments.`,
+                data: {
+                  status: 'clocked_in',
+                  location: session.jobSiteLocation,
+                  sessionStartTime: session.startTime,
+                  sessionHours: duration,
+                  todayEarnings: totalEarningsToday,
+                  payRate: payRate,
+                  assignments: assignments.length,
+                  locationStatus: locationStatus
+                }
               };
             } else {
+              const totalEarningsToday = todayEarnings.netPay || 0;
+              const nextAssignment = assignments.length > 0 ? assignments[0] : null;
+              
               result = {
                 success: true,
-                message: `Status: Not clocked in. Pay rate: £${payRate}/hour. Assignments: ${assignments.length} active.`,
-                speech: `You're currently not clocked in. Your pay rate is £${payRate} per hour and you have ${assignments.length} active assignments.`
+                message: `Status: Clocked out. Today's earnings: £${totalEarningsToday.toFixed(2)} (Rate: £${payRate}/h). ${assignments.length} assignments pending.`,
+                speech: nextAssignment ? 
+                  `You're currently clocked out. Today you've earned £${totalEarningsToday.toFixed(2)}. Your next assignment is ${nextAssignment.hbxlJob} at ${nextAssignment.workLocation}.` :
+                  `You're currently clocked out. Today you've earned £${totalEarningsToday.toFixed(2)} at £${payRate} per hour. You have ${assignments.length} assignments available.`,
+                data: {
+                  status: 'clocked_out',
+                  todayEarnings: totalEarningsToday,
+                  payRate: payRate,
+                  assignments: assignments.length,
+                  nextAssignment: nextAssignment
+                }
               };
             }
           } catch (error) {
@@ -3767,20 +3801,48 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           
         case 'get_assignments':
           try {
+            // Get comprehensive assignment data from Job Tracker
             const assignments = await storage.getContractorAssignments(contractorFullName);
+            const activeSessions = await storage.getActiveWorkSessions(contractorFullName);
             
             if (assignments.length === 0) {
               result = {
                 success: true,
                 message: 'No active assignments.',
-                speech: 'You currently have no active assignments. Contact your supervisor for new work.'
+                speech: activeSessions.length > 0 ? 
+                  'You currently have no active assignments, but you are clocked in. Please contact your supervisor for work allocation.' :
+                  'You currently have no active assignments. Contact your supervisor for new work.'
               };
             } else {
-              const assignment = assignments[0]; // Get first assignment
+              const assignment = assignments[0]; // Primary assignment
+              const isCurrentlyWorking = activeSessions.length > 0;
+              const currentLocation = isCurrentlyWorking ? activeSessions[0].jobSiteLocation : null;
+              
+              // Check if currently working on the assigned job
+              const workingOnAssignment = currentLocation && 
+                (currentLocation.includes(assignment.workLocation) || assignment.workLocation.includes(currentLocation));
+              
+              let speechMessage;
+              if (isCurrentlyWorking && workingOnAssignment) {
+                speechMessage = `Perfect! You're currently working on your assigned project: ${assignment.hbxlJob} at ${assignment.workLocation}. The deadline is ${assignment.endDate}.`;
+              } else if (isCurrentlyWorking && !workingOnAssignment) {
+                speechMessage = `You're currently clocked in at ${currentLocation}, but your main assignment is ${assignment.hbxlJob} at ${assignment.workLocation}, ending ${assignment.endDate}.`;
+              } else {
+                speechMessage = `Your main assignment is ${assignment.hbxlJob} at ${assignment.workLocation}. The project runs from ${assignment.startDate} to ${assignment.endDate}. ${assignments.length > 1 ? `You also have ${assignments.length - 1} additional assignments.` : ''}`;
+              }
+              
               result = {
                 success: true,
-                message: `Current assignment: ${assignment.hbxlJob} at ${assignment.workLocation}. Start: ${assignment.startDate}, End: ${assignment.endDate}.`,
-                speech: `Your current assignment is ${assignment.hbxlJob} at ${assignment.workLocation}. The project runs from ${assignment.startDate} to ${assignment.endDate}.`
+                message: `Assignment: ${assignment.hbxlJob} at ${assignment.workLocation} (${assignment.startDate} - ${assignment.endDate}). Total assignments: ${assignments.length}. Currently ${isCurrentlyWorking ? 'working' : 'not clocked in'}.`,
+                speech: speechMessage,
+                data: {
+                  primaryAssignment: assignment,
+                  totalAssignments: assignments.length,
+                  currentlyWorking: isCurrentlyWorking,
+                  currentLocation: currentLocation,
+                  workingOnAssignment: workingOnAssignment,
+                  allAssignments: assignments
+                }
               };
             }
           } catch (error) {
@@ -3796,21 +3858,29 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
         // ===== B'ELANNA BUSINESS PA ACTIONS =====
         case 'get_availability':
           try {
-            // Parse parameters from the voice request - would need more sophisticated parsing
-            // For now, using sample data to demonstrate functionality
-            const checkDate = new Date().toISOString().split('T')[0]; // Today
-            const checkTime = "14:00"; // Default check time
-            const durationMinutes = 30;
+            // Check real calendar availability
+            const today = new Date().toISOString().split('T')[0];
+            const currentHour = new Date().getHours();
+            const checkTime = `${currentHour + 1}:00`; // Next hour
+            const durationMinutes = 60;
             
-            const available = await storage.checkAvailability(checkDate, checkTime, durationMinutes);
+            const available = await storage.checkAvailability(today, checkTime, durationMinutes);
+            const todayEvents = await storage.getDayEvents(today);
+            
+            let speechMessage;
+            if (available) {
+              speechMessage = todayEvents.length === 0 ? 
+                "Your schedule is completely clear today. Perfect time for new meetings or appointments." :
+                `You're available at ${checkTime} today, though you have ${todayEvents.length} other appointments scheduled.`;
+            } else {
+              speechMessage = `You're busy at ${checkTime} today. You currently have ${todayEvents.length} items scheduled.`;
+            }
             
             result = {
               success: true,
-              message: `Availability check: ${available ? 'Available' : 'Busy'} at ${checkTime} on ${checkDate}`,
-              speech: available ? 
-                `You're available at ${checkTime} today. Would you like to schedule something?` :
-                `You're busy at ${checkTime} today. I can check other times if you'd like.`,
-              data: { available, date: checkDate, time: checkTime, duration: durationMinutes }
+              message: `Availability: ${available ? 'Available' : 'Busy'} at ${checkTime} today (${todayEvents.length} total events)`,
+              speech: speechMessage,
+              data: { available, date: today, time: checkTime, duration: durationMinutes, totalEvents: todayEvents.length }
             };
           } catch (error) {
             console.error('Get availability error:', error);
