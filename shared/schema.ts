@@ -7,6 +7,7 @@ export const jobStatusEnum = pgEnum("job_status", ["pending", "assigned", "compl
 export const contractorStatusEnum = pgEnum("contractor_status", ["available", "busy", "unavailable"]);
 export const uploadStatusEnum = pgEnum("upload_status", ["processing", "processed", "failed"]);
 export const sessionStatusEnum = pgEnum("session_status", ["active", "completed", "cancelled", "temporarily_away"]);
+export const eventStatusEnum = pgEnum("event_status", ["scheduled", "completed", "cancelled"]);
 
 export const contractors = pgTable("contractors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -371,6 +372,55 @@ export const insertProjectCashflowWeeklySchema = createInsertSchema(projectCashf
   updatedAt: true,
 });
 
+// B'elanna Business PA - Calendar Events and Reminders  
+export const calendarEvents = pgTable("calendar_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  eventDate: text("event_date").notNull(), // YYYY-MM-DD
+  eventTime: text("event_time").notNull(), // HH:MM format
+  durationMinutes: text("duration_minutes").default("30").notNull(),
+  status: eventStatusEnum("status").default("scheduled").notNull(),
+  reminderSet: boolean("reminder_set").default(true).notNull(),
+  eventType: text("event_type").default("reminder").notNull(), // "reminder", "meeting", "appointment"
+  participants: text("participants"), // JSON array of email addresses
+  location: text("location"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+// B'elanna Business PA - Email Management
+export const emailRecords = pgTable("email_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  toAddress: text("to_address").notNull(),
+  fromAddress: text("from_address").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  emailType: text("email_type").default("outgoing").notNull(), // "outgoing", "incoming"
+  status: text("status").default("sent").notNull(), // "sent", "failed", "draft"
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  calendarEventId: varchar("calendar_event_id").references(() => calendarEvents.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// B'elanna Business PA - Meeting Scheduling
+export const meetings = pgTable("meetings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  meetingDate: text("meeting_date").notNull(), // YYYY-MM-DD
+  meetingTime: text("meeting_time").notNull(), // HH:MM format  
+  durationMinutes: text("duration_minutes").default("60").notNull(),
+  location: text("location"),
+  participants: text("participants").notNull(), // JSON array of participant info
+  organizerEmail: text("organizer_email").notNull(),
+  status: eventStatusEnum("status").default("scheduled").notNull(),
+  meetingType: text("meeting_type").default("business").notNull(), // "business", "project", "personal"
+  calendarEventId: varchar("calendar_event_id").references(() => calendarEvents.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Material Purchases Tracking - MANDATORY RULE: CSV/INVOICE DATA ONLY
 export const materialPurchases = pgTable("material_purchases", {
   id: text("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -399,6 +449,25 @@ export const materialPurchases = pgTable("material_purchases", {
 export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({
   id: true,
   createdAt: true,
+});
+
+// B'elanna PA Zod schemas
+export const insertCalendarEventSchema = createInsertSchema(calendarEvents).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
+export const insertEmailRecordSchema = createInsertSchema(emailRecords).omit({
+  id: true,
+  createdAt: true,
+  sentAt: true,
+});
+
+export const insertMeetingSchema = createInsertSchema(meetings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Project Master Data - Links all cash flow data
@@ -472,6 +541,14 @@ export type InsertInspectionNotification = z.infer<typeof insertInspectionNotifi
 export type InspectionNotification = typeof inspectionNotifications.$inferSelect;
 export type InsertTaskProgress = z.infer<typeof insertTaskProgressSchema>;
 export type TaskProgress = typeof taskProgress.$inferSelect;
+
+// B'elanna PA Types
+export type InsertCalendarEvent = z.infer<typeof insertCalendarEventSchema>;
+export type CalendarEvent = typeof calendarEvents.$inferSelect;
+export type InsertEmailRecord = z.infer<typeof insertEmailRecordSchema>;
+export type EmailRecord = typeof emailRecords.$inferSelect;
+export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
+export type Meeting = typeof meetings.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;

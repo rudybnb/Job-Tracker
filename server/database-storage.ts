@@ -23,11 +23,18 @@ import {
   type InsertInspectionNotification,
   type TaskProgress,
   type InsertTaskProgress,
+  // B'elanna PA Types
+  type CalendarEvent,
+  type InsertCalendarEvent,
+  type EmailRecord,
+  type InsertEmailRecord,
+  type Meeting,
+  type InsertMeeting,
   insertProjectCashflowWeeklySchema,
   insertMaterialPurchaseSchema,
   insertProjectMasterSchema
 } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults, projectCashflowWeekly, materialPurchases, projectMaster } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults, projectCashflowWeekly, materialPurchases, projectMaster, calendarEvents, emailRecords, meetings } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, inArray, sql } from "drizzle-orm";
 
@@ -133,6 +140,25 @@ export interface IStorage {
     completedJobs: number;
     activeContractors: number;
   }>;
+
+  // B'elanna Business PA - Calendar Management
+  createCalendarEvent(event: InsertCalendarEvent): Promise<CalendarEvent>;
+  getCalendarEvents(dateFrom?: string, dateTo?: string): Promise<CalendarEvent[]>;
+  getCalendarEvent(id: string): Promise<CalendarEvent | undefined>;
+  updateCalendarEvent(id: string, event: Partial<CalendarEvent>): Promise<CalendarEvent | undefined>;
+  checkAvailability(date: string, time: string, durationMinutes?: number): Promise<boolean>;
+  getDayEvents(date: string): Promise<CalendarEvent[]>;
+  
+  // B'elanna Business PA - Email Management
+  createEmailRecord(email: InsertEmailRecord): Promise<EmailRecord>;
+  getEmailRecords(limit?: number): Promise<EmailRecord[]>;
+  getEmailRecord(id: string): Promise<EmailRecord | undefined>;
+  
+  // B'elanna Business PA - Meeting Scheduling  
+  createMeeting(meeting: InsertMeeting): Promise<Meeting>;
+  getMeetings(dateFrom?: string, dateTo?: string): Promise<Meeting[]>;
+  getMeeting(id: string): Promise<Meeting | undefined>;
+  updateMeeting(id: string, meeting: Partial<Meeting>): Promise<Meeting | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1239,6 +1265,128 @@ export class DatabaseStorage implements IStorage {
 
     console.log(`📊 Total weekly labour cost: £${totalLabourCost.toFixed(2)}`);
     return totalLabourCost;
+  }
+
+  // ===== B'elanna Business PA Implementation =====
+  
+  // Calendar Management
+  async createCalendarEvent(insertEvent: InsertCalendarEvent): Promise<CalendarEvent> {
+    const [event] = await db.insert(calendarEvents).values(insertEvent).returning();
+    console.log('📅 Created calendar event:', event.title);
+    return event;
+  }
+
+  async getCalendarEvents(dateFrom?: string, dateTo?: string): Promise<CalendarEvent[]> {
+    let query = db.select().from(calendarEvents);
+    
+    if (dateFrom && dateTo) {
+      query = query.where(and(
+        sql`${calendarEvents.eventDate} >= ${dateFrom}`,
+        sql`${calendarEvents.eventDate} <= ${dateTo}`
+      ));
+    } else if (dateFrom) {
+      query = query.where(sql`${calendarEvents.eventDate} >= ${dateFrom}`);
+    }
+    
+    return query.orderBy(calendarEvents.eventDate, calendarEvents.eventTime);
+  }
+
+  async getCalendarEvent(id: string): Promise<CalendarEvent | undefined> {
+    const [event] = await db.select().from(calendarEvents).where(eq(calendarEvents.id, id));
+    return event;
+  }
+
+  async updateCalendarEvent(id: string, updateData: Partial<CalendarEvent>): Promise<CalendarEvent | undefined> {
+    const [event] = await db.update(calendarEvents)
+      .set(updateData)
+      .where(eq(calendarEvents.id, id))
+      .returning();
+    return event;
+  }
+
+  async checkAvailability(date: string, time: string, durationMinutes: number = 30): Promise<boolean> {
+    // Get events for the specified date
+    const dayEvents = await this.getDayEvents(date);
+    
+    // Parse the requested time
+    const [requestedHour, requestedMinute] = time.split(':').map(Number);
+    const requestedStartMinutes = requestedHour * 60 + requestedMinute;
+    const requestedEndMinutes = requestedStartMinutes + durationMinutes;
+    
+    // Check for conflicts
+    for (const event of dayEvents) {
+      if (event.status === 'cancelled') continue;
+      
+      const [eventHour, eventMinute] = event.eventTime.split(':').map(Number);
+      const eventStartMinutes = eventHour * 60 + eventMinute;
+      const eventEndMinutes = eventStartMinutes + parseInt(event.durationMinutes);
+      
+      // Check for overlap
+      if (requestedStartMinutes < eventEndMinutes && requestedEndMinutes > eventStartMinutes) {
+        return false; // Conflict found
+      }
+    }
+    
+    return true; // Available
+  }
+
+  async getDayEvents(date: string): Promise<CalendarEvent[]> {
+    return db.select().from(calendarEvents)
+      .where(eq(calendarEvents.eventDate, date))
+      .orderBy(calendarEvents.eventTime);
+  }
+  
+  // Email Management
+  async createEmailRecord(insertEmail: InsertEmailRecord): Promise<EmailRecord> {
+    const [email] = await db.insert(emailRecords).values(insertEmail).returning();
+    console.log('📧 Created email record:', email.subject);
+    return email;
+  }
+
+  async getEmailRecords(limit: number = 50): Promise<EmailRecord[]> {
+    return db.select().from(emailRecords)
+      .orderBy(desc(emailRecords.sentAt))
+      .limit(limit);
+  }
+
+  async getEmailRecord(id: string): Promise<EmailRecord | undefined> {
+    const [email] = await db.select().from(emailRecords).where(eq(emailRecords.id, id));
+    return email;
+  }
+  
+  // Meeting Scheduling
+  async createMeeting(insertMeeting: InsertMeeting): Promise<Meeting> {
+    const [meeting] = await db.insert(meetings).values(insertMeeting).returning();
+    console.log('🤝 Created meeting:', meeting.title);
+    return meeting;
+  }
+
+  async getMeetings(dateFrom?: string, dateTo?: string): Promise<Meeting[]> {
+    let query = db.select().from(meetings);
+    
+    if (dateFrom && dateTo) {
+      query = query.where(and(
+        sql`${meetings.meetingDate} >= ${dateFrom}`,
+        sql`${meetings.meetingDate} <= ${dateTo}`
+      ));
+    } else if (dateFrom) {
+      query = query.where(sql`${meetings.meetingDate} >= ${dateFrom}`);
+    }
+    
+    return query.orderBy(meetings.meetingDate, meetings.meetingTime);
+  }
+
+  async getMeeting(id: string): Promise<Meeting | undefined> {
+    const [meeting] = await db.select().from(meetings).where(eq(meetings.id, id));
+    return meeting;
+  }
+
+  async updateMeeting(id: string, updateData: Partial<Meeting>): Promise<Meeting | undefined> {
+    const [meeting] = await db.update(meetings)
+      .set(updateData)
+      .where(eq(meetings.id, id))
+      .returning();
+    return meeting;
   }
 }
 
