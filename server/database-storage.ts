@@ -109,6 +109,12 @@ export interface IStorage {
   // Pay rates - Mandatory Rule #2: DATA INTEGRITY
   getContractorPayRate(contractorName: string): Promise<number>;
   
+  // Voice Agent Support Methods
+  getContractorByName(contractorName: string): Promise<ContractorApplication | undefined>;
+  getContractorByPhone(phoneNumber: string): Promise<ContractorApplication | undefined>;
+  getActiveWorkSessions(): Promise<WorkSession[]>;
+  getAllActiveSessions(): Promise<WorkSession[]>;
+  
   // Weekly Cash Flow Tracking - MANDATORY RULE: AUTHENTIC DATA ONLY
   getProjectMasters(): Promise<any[]>;
   createProjectMaster(project: any): Promise<any>;
@@ -472,6 +478,31 @@ export class DatabaseStorage implements IStorage {
   async getAllActiveSessions(): Promise<WorkSession[]> {
     return db.select().from(workSessions)
       .where(eq(workSessions.status, "active"));
+  }
+
+  // Voice Agent Support Methods
+  async getContractorByName(contractorName: string): Promise<ContractorApplication | undefined> {
+    const names = contractorName.split(' ');
+    const firstName = names[0];
+    const lastName = names.slice(1).join(' ');
+    
+    const [contractor] = await db.select().from(contractorApplications)
+      .where(
+        and(
+          like(contractorApplications.firstName, `%${firstName}%`),
+          lastName ? like(contractorApplications.lastName, `%${lastName}%`) : sql`1=1`
+        )
+      );
+    return contractor;
+  }
+
+  async getContractorByPhone(phoneNumber: string): Promise<ContractorApplication | undefined> {
+    // Clean the phone number - remove +1, spaces, dashes, etc.
+    const cleanPhone = phoneNumber.replace(/[\+\-\s\(\)]/g, '');
+    
+    const [contractor] = await db.select().from(contractorApplications)
+      .where(like(contractorApplications.phone, `%${cleanPhone.slice(-10)}%`)); // Last 10 digits
+    return contractor;
   }
 
   async getRecentClockActivities(): Promise<any[]> {

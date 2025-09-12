@@ -33,6 +33,7 @@ import AdminInspections from "@/pages/admin-inspections";
 import AdminInspection from "@/pages/admin-inspection";
 import TelegramMessages from "@/pages/telegram-messages";
 import ContractCashflow from "@/pages/contract-cashflow";
+import VoiceControl from "@/pages/voice-control";
 
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -195,6 +196,12 @@ function Router() {
         <Route path="/contract-cashflow" component={() => (
           <ProtectedRoute requiredRole="admin">
             <ContractCashflow />
+          </ProtectedRoute>
+        )} />
+        
+        <Route path="/voice-control" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <VoiceControl />
           </ProtectedRoute>
         )} />
 

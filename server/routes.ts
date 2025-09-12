@@ -15,6 +15,7 @@ interface SessionRequest extends Express.Request {
 const storage = new DatabaseStorage();
 import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema, insertAdminSettingSchema, insertJobAssignmentSchema, JobWithContractor, WorkSession } from "@shared/schema";
 import { TelegramService } from "./telegram";
+import VoiceAgent from "./voice-agent";
 import multer from "multer";
 import type { Request as ExpressRequest } from "express";
 import * as fs from "fs";
@@ -3284,6 +3285,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching contractor earnings:", error);
       res.status(500).json({ error: "Failed to fetch contractor earnings" });
+    }
+  });
+
+  // Initialize Voice Agent
+  const voiceAgent = new VoiceAgent(storage);
+
+  // Voice Agent endpoints for Twilio webhooks
+  app.post("/api/voice/incoming", async (req, res) => {
+    try {
+      const { From, Digits, SpeechResult } = req.body;
+      console.log(`🎙️ Incoming voice call from ${From}, Digits: ${Digits}`);
+      
+      const twimlResponse = await voiceAgent.processVoiceCommand(From, Digits, SpeechResult);
+      
+      res.type('text/xml');
+      res.send(twimlResponse);
+    } catch (error) {
+      console.error("Voice incoming call error:", error);
+      res.status(500).send('<Response><Say>Sorry, there was an error. Please try again later.</Say></Response>');
+    }
+  });
+
+  // Handle DTMF input from voice calls
+  app.post("/api/voice/handle-input", async (req, res) => {
+    try {
+      const { From, Digits } = req.body;
+      console.log(`🎙️ DTMF input from ${From}: ${Digits}`);
+      
+      const twimlResponse = await voiceAgent.processVoiceCommand(From, Digits);
+      
+      res.type('text/xml');
+      res.send(twimlResponse);
+    } catch (error) {
+      console.error("Voice input handling error:", error);
+      res.status(500).send('<Response><Say>Sorry, there was an error processing your input.</Say></Response>');
+    }
+  });
+
+  // Admin endpoint to initiate voice calls
+  app.post("/api/voice/call-contractor", async (req, res) => {
+    try {
+      const { contractorName, phoneNumber, message, type } = req.body;
+      
+      if (!contractorName || !phoneNumber || !message) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+
+      let result;
+      if (type === 'emergency') {
+        result = await voiceAgent.sendEmergencyAlert(contractorName, message);
+      } else {
+        result = await voiceAgent.callContractor(phoneNumber, message);
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Voice call initiation error:", error);
+      res.status(500).json({ error: "Failed to initiate voice call" });
+    }
+  });
+
+  // Endpoint to send job assignment notifications
+  app.post("/api/voice/notify-assignment", async (req, res) => {
+    try {
+      const { contractorName, jobDetails } = req.body;
+      
+      if (!contractorName || !jobDetails) {
+        return res.status(400).json({ error: "Missing contractor name or job details" });
+      }
+
+      const result = await voiceAgent.notifyJobAssignment(contractorName, jobDetails);
+      res.json(result);
+    } catch (error) {
+      console.error("Voice assignment notification error:", error);
+      res.status(500).json({ error: "Failed to send job assignment notification" });
+    }
+  });
+
+  // Voice-based clock in/out endpoint
+  app.post("/api/voice/clock-action", async (req, res) => {
+    try {
+      const { contractorName, action, location } = req.body;
+      
+      if (!contractorName || !action) {
+        return res.status(400).json({ error: "Missing contractor name or action" });
+      }
+
+      const result = await voiceAgent.handleClockAction(contractorName, action, location);
+      res.json(result);
+    } catch (error) {
+      console.error("Voice clock action error:", error);
+      res.status(500).json({ error: "Failed to process clock action" });
+    }
+  });
+
+  // Get contractor info via voice
+  app.post("/api/voice/contractor-info", async (req, res) => {
+    try {
+      const { contractorName, infoType } = req.body;
+      
+      if (!contractorName || !infoType) {
+        return res.status(400).json({ error: "Missing contractor name or info type" });
+      }
+
+      let result;
+      switch (infoType) {
+        case 'assignment':
+          result = await voiceAgent.getAssignmentInfo(contractorName);
+          break;
+        case 'earnings':
+          result = await voiceAgent.getEarningsInfo(contractorName);
+          break;
+        default:
+          result = { success: false, message: 'Invalid information type requested' };
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Voice contractor info error:", error);
+      res.status(500).json({ error: "Failed to get contractor information" });
     }
   });
 
