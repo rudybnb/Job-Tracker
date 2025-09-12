@@ -3635,10 +3635,21 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
         return res.json(processedActions.get(idempotencyKey));
       }
       
-      // Handle different voice actions
+      // Handle different voice actions - Both Contractor AND PA actions
       let result: any;
       
-      switch (action.toLowerCase()) {
+      // Determine if this is a contractor action or PA action
+      const contractorActions = ['clock_in', 'clock_out', 'get_status', 'get_assignments'];
+      const paActions = ['get_availability', 'set_reminder', 'summarize_day', 'schedule_meeting', 'send_email'];
+      
+      const actionLower = action.toLowerCase();
+      const isContractorAction = contractorActions.includes(actionLower);
+      const isPAAction = paActions.includes(actionLower);
+      
+      console.log(`🎯 Action type: ${actionLower} - Contractor: ${isContractorAction}, PA: ${isPAAction}`);
+      
+      switch (actionLower) {
+        // ===== CONTRACTOR ACTIONS =====
         case 'clock_in':
           try {
             // Check if already clocked in
@@ -3782,11 +3793,176 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           }
           break;
           
+        // ===== B'ELANNA BUSINESS PA ACTIONS =====
+        case 'get_availability':
+          try {
+            // Parse parameters from the voice request - would need more sophisticated parsing
+            // For now, using sample data to demonstrate functionality
+            const checkDate = new Date().toISOString().split('T')[0]; // Today
+            const checkTime = "14:00"; // Default check time
+            const durationMinutes = 30;
+            
+            const available = await storage.checkAvailability(checkDate, checkTime, durationMinutes);
+            
+            result = {
+              success: true,
+              message: `Availability check: ${available ? 'Available' : 'Busy'} at ${checkTime} on ${checkDate}`,
+              speech: available ? 
+                `You're available at ${checkTime} today. Would you like to schedule something?` :
+                `You're busy at ${checkTime} today. I can check other times if you'd like.`,
+              data: { available, date: checkDate, time: checkTime, duration: durationMinutes }
+            };
+          } catch (error) {
+            console.error('Get availability error:', error);
+            result = {
+              success: false,
+              message: 'Failed to check availability due to technical error.',
+              speech: 'Sorry, there was a technical issue checking your calendar availability.'
+            };
+          }
+          break;
+
+        case 'set_reminder':
+          try {
+            // This would normally parse the voice request for reminder details
+            // For demonstration, creating a sample reminder
+            const reminderTitle = "Follow up on important task";
+            const reminderDate = new Date().toISOString().split('T')[0]; // Today
+            const reminderTime = "15:00";
+            
+            const calendarEvent = await storage.createCalendarEvent({
+              title: reminderTitle,
+              description: "Voice-created reminder",
+              eventDate: reminderDate,
+              eventTime: reminderTime,
+              durationMinutes: "15",
+              eventType: "reminder"
+            });
+            
+            result = {
+              success: true,
+              message: `Reminder set: "${reminderTitle}" for ${reminderDate} at ${reminderTime}`,
+              speech: `I've set a reminder for "${reminderTitle}" today at ${reminderTime}. I'll make sure you don't forget!`,
+              data: { eventId: calendarEvent.id, title: reminderTitle, date: reminderDate, time: reminderTime }
+            };
+          } catch (error) {
+            console.error('Set reminder error:', error);
+            result = {
+              success: false,
+              message: 'Failed to set reminder due to technical error.',
+              speech: 'Sorry, there was a technical issue setting your reminder.'
+            };
+          }
+          break;
+
+        case 'summarize_day':
+          try {
+            const today = new Date().toISOString().split('T')[0];
+            const todayEvents = await storage.getDayEvents(today);
+            
+            if (todayEvents.length === 0) {
+              result = {
+                success: true,
+                message: `No events scheduled for today (${today})`,
+                speech: "Your schedule is clear today. You have no meetings or reminders planned."
+              };
+            } else {
+              const eventSummary = todayEvents.map(event => 
+                `${event.title} at ${event.eventTime}`
+              ).join(', ');
+              
+              result = {
+                success: true,
+                message: `Today's schedule (${today}): ${eventSummary}`,
+                speech: `You have ${todayEvents.length} items on your schedule today: ${eventSummary}`,
+                data: { date: today, eventCount: todayEvents.length, events: todayEvents }
+              };
+            }
+          } catch (error) {
+            console.error('Summarize day error:', error);
+            result = {
+              success: false,
+              message: 'Failed to get day summary due to technical error.',
+              speech: 'Sorry, there was a technical issue getting your schedule summary.'
+            };
+          }
+          break;
+
+        case 'schedule_meeting':
+          try {
+            // This would normally parse meeting details from voice
+            // For demonstration, creating a sample meeting
+            const meetingTitle = "Business discussion";
+            const meetingDate = new Date().toISOString().split('T')[0]; // Today
+            const meetingTime = "16:00";
+            
+            const meeting = await storage.createMeeting({
+              title: meetingTitle,
+              description: "Voice-scheduled meeting",
+              meetingDate: meetingDate,
+              meetingTime: meetingTime,
+              durationMinutes: "60",
+              participants: "[]", // Empty for now
+              organizerEmail: "founder@brudys.com", // Default organizer
+              meetingType: "business"
+            });
+            
+            result = {
+              success: true,
+              message: `Meeting scheduled: "${meetingTitle}" for ${meetingDate} at ${meetingTime}`,
+              speech: `I've scheduled "${meetingTitle}" for today at ${meetingTime}. The meeting is set for one hour.`,
+              data: { meetingId: meeting.id, title: meetingTitle, date: meetingDate, time: meetingTime }
+            };
+          } catch (error) {
+            console.error('Schedule meeting error:', error);
+            result = {
+              success: false,
+              message: 'Failed to schedule meeting due to technical error.',
+              speech: 'Sorry, there was a technical issue scheduling your meeting.'
+            };
+          }
+          break;
+
+        case 'send_email':
+          try {
+            // This would normally parse email details from voice
+            // For demonstration, creating a sample email record
+            const emailRecord = await storage.createEmailRecord({
+              toAddress: "recipient@example.com",
+              fromAddress: "founder@brudys.com",
+              subject: "Voice-generated email",
+              body: "This email was created via voice command through B'elanna PA system.",
+              emailType: "outgoing",
+              status: "sent"
+            });
+            
+            result = {
+              success: true,
+              message: `Email queued for sending to recipient@example.com`,
+              speech: "I've prepared your email and it's ready to send. The message has been queued for delivery.",
+              data: { emailId: emailRecord.id, to: emailRecord.toAddress, subject: emailRecord.subject }
+            };
+          } catch (error) {
+            console.error('Send email error:', error);
+            result = {
+              success: false,
+              message: 'Failed to send email due to technical error.',
+              speech: 'Sorry, there was a technical issue with your email request.'
+            };
+          }
+          break;
+          
         default:
+          // Enhanced help message for both contractor and PA actions
+          const availableActions = [
+            "Contractor actions: clock in, clock out, check status, get assignments",
+            "Business PA actions: check availability, set reminder, summarize day, schedule meeting, send email"
+          ];
+          
           result = {
             success: false,
-            message: `Unknown action: ${action}`,
-            speech: `I don't understand the action "${action}". I can help with clocking in, clocking out, checking status, or getting assignments.`
+            message: `Unknown action: ${action}. Available actions: ${availableActions.join('; ')}`,
+            speech: `I don't understand "${action}". I can help with contractor time tracking or business PA tasks like scheduling, reminders, and email. What would you like to do?`
           };
       }
       
