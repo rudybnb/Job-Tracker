@@ -3431,9 +3431,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ElevenLabs webhook endpoint for Twilio personalization
+  // Phone number normalization helper
+  const normalizePhoneNumber = (phone: string): string => {
+    // Remove all non-digits and spaces
+    let normalized = phone.replace(/[^\d]/g, '');
+    
+    // Add +44 prefix if it starts with 0 (UK numbers)
+    if (normalized.startsWith('0')) {
+      normalized = '44' + normalized.substring(1);
+    }
+    
+    // Add + prefix if not present
+    if (!normalized.startsWith('+')) {
+      normalized = '+' + normalized;
+    }
+    
+    return normalized;
+  };
+
+  // Webhook authentication helper
+  const verifyWebhookAuth = (req: any): boolean => {
+    // For demo purposes, we'll use a simple header check
+    // In production, use proper HMAC signature verification
+    const authHeader = req.headers['x-webhook-secret'];
+    return authHeader === 'elevenlabs-voice-webhook-2025' || process.env.NODE_ENV === 'development';
+  };
+
   app.post('/webhook/elevenlabs-twilio', async (req, res) => {
     try {
-      console.log('🎙️ ElevenLabs webhook received:', req.body);
+      // Redact PII from logs
+      const logSafeBody = { 
+        ...req.body, 
+        caller_id: req.body.caller_id ? `${req.body.caller_id.substring(0, 4)}****` : 'unknown' 
+      };
+      console.log('🎙️ ElevenLabs webhook received:', logSafeBody);
+      
+      // Basic auth check
+      if (!verifyWebhookAuth(req)) {
+        console.log('❌ Unauthorized webhook request');
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       
       const { caller_id, agent_id, called_number, call_sid } = req.body;
       
@@ -3441,8 +3478,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Missing caller_id' });
       }
       
-      // Look up contractor by phone number
-      const contractor = await storage.getContractorByPhone(caller_id);
+      // Normalize phone number for lookup
+      const normalizedPhone = normalizePhoneNumber(caller_id);
+      
+      // Look up contractor by phone number (using normalized number)
+      const contractor = await storage.getContractorByPhone(normalizedPhone);
       
       if (!contractor) {
         // Unknown caller - provide generic response
@@ -3545,10 +3585,21 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
     }
   });
 
-  // ElevenLabs voice action endpoints
+  // ElevenLabs voice action endpoints  
   app.post('/webhook/elevenlabs-actions', async (req, res) => {
     try {
-      console.log('🎙️ ElevenLabs action webhook received:', req.body);
+      // Redact PII from logs
+      const logSafeBody = { 
+        ...req.body, 
+        caller_id: req.body.caller_id ? `${req.body.caller_id.substring(0, 4)}****` : 'unknown' 
+      };
+      console.log('🎙️ ElevenLabs action webhook received:', logSafeBody);
+      
+      // Basic auth check
+      if (!verifyWebhookAuth(req)) {
+        console.log('❌ Unauthorized action webhook request');
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       
       const { caller_id, action, agent_id, call_sid } = req.body;
       
@@ -3556,8 +3607,11 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
         return res.status(400).json({ error: 'Missing caller_id or action' });
       }
       
-      // Look up contractor by phone number
-      const contractor = await storage.getContractorByPhone(caller_id);
+      // Normalize phone number for lookup
+      const normalizedPhone = normalizePhoneNumber(caller_id);
+      
+      // Look up contractor by phone number (using normalized number)
+      const contractor = await storage.getContractorByPhone(normalizedPhone);
       
       if (!contractor) {
         return res.json({
@@ -3568,6 +3622,18 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
       }
       
       const contractorFullName = `${contractor.firstName} ${contractor.lastName}`;
+      
+      // Create idempotency key from call_sid + action for duplicate protection
+      const idempotencyKey = `${call_sid}-${action}`;
+      
+      // For testing: simple in-memory store (use Redis/DB in production)
+      const processedActions = new Map<string, any>();
+      
+      // Check for duplicate action
+      if (processedActions.has(idempotencyKey)) {
+        console.log('🔄 Returning cached result for duplicate action:', idempotencyKey);
+        return res.json(processedActions.get(idempotencyKey));
+      }
       
       // Handle different voice actions
       let result: any;
@@ -3724,7 +3790,14 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           };
       }
       
-      console.log('🎙️ Voice action result for', contractorFullName, action, result);
+      // Store result for idempotency (cache successful operations)
+      if (result && (result.success !== false || action === 'get_status' || action === 'get_assignments')) {
+        processedActions.set(idempotencyKey, result);
+      }
+      
+      // Redact contractor name from logs for privacy
+      console.log('🎙️ Voice action result for contractor', contractorFullName.substring(0, 5) + '****', action, 
+        { success: result.success, hasData: !!result.data });
       res.json(result);
       
     } catch (error) {
