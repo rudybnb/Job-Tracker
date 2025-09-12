@@ -3733,24 +3733,23 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
         case 'get_status':
           try {
             // Enhanced status with comprehensive Job Tracker data
-            const [activeSessions, assignments, payRate, todayEarnings] = await Promise.all([
+            const [activeSessions, assignments, payRate] = await Promise.all([
               storage.getActiveWorkSessions(contractorFullName),
               storage.getContractorAssignments(contractorFullName),
-              storage.getContractorPayRate(contractorFullName),
-              storage.calculateDailyEarnings(contractorFullName, new Date().toISOString().split('T')[0])
+              storage.getContractorPayRate(contractorFullName)
             ]);
             
             if (activeSessions.length > 0) {
               const session = activeSessions[0];
               const duration = (new Date().getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60);
               const currentEarnings = duration * payRate;
-              const totalEarningsToday = todayEarnings.netPay || currentEarnings;
+              const totalEarningsToday = currentEarnings;
               
               // Get GPS proximity status if available
               let locationStatus = "on-site";
               try {
                 // This would check GPS proximity if tracking is active
-                locationStatus = session.gpsStatus || "on-site";
+                locationStatus = session.status === "active" ? "on-site" : "away";
               } catch (e) {
                 // GPS tracking may not be available
               }
@@ -3771,7 +3770,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
                 }
               };
             } else {
-              const totalEarningsToday = todayEarnings.netPay || 0;
+              const totalEarningsToday = 0;
               const nextAssignment = assignments.length > 0 ? assignments[0] : null;
               
               result = {
