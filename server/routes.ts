@@ -860,7 +860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update work session location based on GPS coordinates
   app.post("/api/update-session-locations", async (req, res) => {
     try {
-      const activeSessions = await storage.getActiveSessions();
+      const activeSessions = await storage.getAllActiveSessions();
       let updatedCount = 0;
       
       for (const session of activeSessions) {
