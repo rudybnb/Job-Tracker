@@ -3509,7 +3509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get contractor's current work session, assignments, and pay rate
       const [activeSession, assignments, payRate] = await Promise.all([
-        storage.getActiveWorkSessions(contractorFullName).then(sessions => sessions[0] || null),
+        storage.getActiveWorkSessions().then(sessions => sessions.find(s => s.contractorName === contractorFullName) || null),
         storage.getContractorAssignments(contractorFullName),
         storage.getContractorPayRate(contractorFullName)
       ]);
@@ -3640,7 +3640,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
       
       // Determine if this is a contractor, admin, or PA action
       const contractorActions = ['clock_in', 'clock_out', 'get_status', 'get_assignments'];
-      const adminActions = ['get_workforce_status', 'assign_job', 'get_today_sessions', 'monitor_contractors', 'workforce_summary'];
+      const adminActions = ['get_workforce_status', 'assign_job', 'get_today_sessions', 'monitor_contractors', 'workforce_summary', 'fix_earnings', 'adjust_earnings', 'correct_earnings', 'update_pay_rate', 'change_pay_rate'];
       const paActions = ['get_availability', 'set_reminder', 'summarize_day', 'schedule_meeting', 'send_email'];
       
       const actionLower = action.toLowerCase();
@@ -3655,12 +3655,13 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
         case 'clock_in':
           try {
             // Check if already clocked in
-            const activeSessions = await storage.getActiveWorkSessions(contractorFullName);
-            if (activeSessions.length > 0) {
+            const activeSessions = await storage.getActiveWorkSessions();
+            const contractorActiveSessions = activeSessions.filter(s => s.contractorName === contractorFullName);
+            if (contractorActiveSessions.length > 0) {
               result = {
                 success: false,
-                message: `You're already clocked in since ${new Date(activeSessions[0].startTime).toLocaleTimeString('en-GB')}.`,
-                speech: `You're already clocked in since ${new Date(activeSessions[0].startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}.`
+                message: `You're already clocked in since ${new Date(contractorActiveSessions[0].startTime).toLocaleTimeString('en-GB')}.`,
+                speech: `You're already clocked in since ${new Date(contractorActiveSessions[0].startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}.`
               };
             } else {
               // Get contractor's assignment location
@@ -3694,15 +3695,16 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           
         case 'clock_out':
           try {
-            const activeSessions = await storage.getActiveWorkSessions(contractorFullName);
-            if (activeSessions.length === 0) {
+            const activeSessions = await storage.getActiveWorkSessions();
+            const contractorActiveSessions = activeSessions.filter(s => s.contractorName === contractorFullName);
+            if (contractorActiveSessions.length === 0) {
               result = {
                 success: false,
                 message: "You don't have any active sessions to clock out from.",
                 speech: "You're not currently clocked in, so there's nothing to clock out from."
               };
             } else {
-              const session = activeSessions[0];
+              const session = contractorActiveSessions[0];
               const endTime = new Date();
               const duration = (endTime.getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60);
               
@@ -3736,7 +3738,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           try {
             // Enhanced status with comprehensive Job Tracker data
             const [activeSessions, assignments, payRate] = await Promise.all([
-              storage.getActiveWorkSessions(contractorFullName),
+              storage.getActiveWorkSessions().then(sessions => sessions.filter(s => s.contractorName === contractorFullName)),
               storage.getContractorAssignments(contractorFullName),
               storage.getContractorPayRate(contractorFullName)
             ]);
@@ -3804,7 +3806,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           try {
             // Get comprehensive assignment data from Job Tracker
             const assignments = await storage.getContractorAssignments(contractorFullName);
-            const activeSessions = await storage.getActiveWorkSessions(contractorFullName);
+            const activeSessions = await storage.getActiveWorkSessions().then(sessions => sessions.filter(s => s.contractorName === contractorFullName));
             
             if (assignments.length === 0) {
               result = {
@@ -4141,11 +4143,115 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           }
           break;
           
+        case 'fix_earnings':
+        case 'adjust_earnings':
+        case 'correct_earnings':
+          try {
+            // Get all contractors and their current earnings for review
+            const allActiveSessions = await storage.getActiveWorkSessions();
+            const todaySessions = await storage.getTodayWorkSessions();
+            
+            // Calculate current earnings overview
+            const contractorEarnings = new Map();
+            
+            for (const session of todaySessions) {
+              const payRate = await storage.getContractorPayRate(session.contractorName);
+              let sessionHours = 0;
+              
+              if (session.endTime) {
+                // Completed session
+                sessionHours = (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60);
+              } else {
+                // Active session
+                sessionHours = (new Date().getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60);
+              }
+              
+              const earnings = sessionHours * payRate;
+              
+              if (!contractorEarnings.has(session.contractorName)) {
+                contractorEarnings.set(session.contractorName, {
+                  totalHours: 0,
+                  totalEarnings: 0,
+                  sessions: 0,
+                  payRate: payRate
+                });
+              }
+              
+              const data = contractorEarnings.get(session.contractorName);
+              data.totalHours += sessionHours;
+              data.totalEarnings += earnings;
+              data.sessions += 1;
+            }
+            
+            const earningsData = Array.from(contractorEarnings.entries()).map(([name, data]) => 
+              `${name}: £${data.totalEarnings.toFixed(2)} (${data.totalHours.toFixed(1)}h @ £${data.payRate}/h)`
+            );
+            
+            result = {
+              success: true,
+              message: `Current earnings overview: ${earningsData.join(', ')}`,
+              speech: `Here's today's earnings overview: ${earningsData.join(', ')}. To adjust specific earnings, please specify the contractor name and the correction needed.`,
+              data: {
+                contractorEarnings: Object.fromEntries(contractorEarnings),
+                totalContractors: contractorEarnings.size,
+                totalSessions: todaySessions.length,
+                activeSessions: allActiveSessions.length,
+                availableActions: [
+                  "Specify contractor: 'Fix Marius earnings'",
+                  "Add bonus: 'Add £50 bonus to Dalwayne'", 
+                  "Correct hours: 'Correct Dalwayne to 8 hours'",
+                  "Adjust rate: 'Change Earl rate to £20 per hour'"
+                ]
+              }
+            };
+          } catch (error) {
+            console.error('Fix earnings error:', error);
+            result = {
+              success: false,
+              message: 'Failed to process earnings adjustment due to technical error.',
+              speech: 'Sorry, there was a technical issue with the earnings adjustment feature.'
+            };
+          }
+          break;
+          
+        case 'update_pay_rate':
+        case 'change_pay_rate':
+          try {
+            // This would normally parse contractor name and new rate from voice
+            // For demonstration, showing available contractors and current rates
+            const contractors = ["Marius Andronache", "Dalwayne Diedericks", "Earl", "SAID tiss"];
+            const currentRates = await Promise.all(
+              contractors.map(async name => {
+                const rate = await storage.getContractorPayRate(name);
+                return `${name}: £${rate}/hour`;
+              })
+            );
+            
+            result = {
+              success: true,
+              message: `Current pay rates: ${currentRates.join(', ')}`,
+              speech: `Current pay rates are: ${currentRates.join(', ')}. To update a rate, please specify the contractor name and new hourly rate.`,
+              data: {
+                contractors: contractors,
+                currentRates: currentRates,
+                updateInstructions: "Say: 'Change Marius rate to £30 per hour' or 'Update Dalwayne to £20'"
+              }
+            };
+          } catch (error) {
+            console.error('Update pay rate error:', error);
+            result = {
+              success: false,
+              message: 'Failed to process pay rate update due to technical error.',
+              speech: 'Sorry, there was a technical issue with the pay rate update feature.'
+            };
+          }
+          break;
+          
         default:
           // Enhanced help message for contractor, admin, and PA actions
           const availableActions = [
             "Contractor actions: clock in, clock out, check status, get assignments",
-            "Admin actions: get workforce status, monitor contractors, get today sessions, assign job",
+            "Admin actions: get workforce status, monitor contractors, get today sessions, assign job, fix earnings, update pay rate",
             "Business PA actions: check availability, set reminder, summarize day, schedule meeting, send email"
           ];
           
