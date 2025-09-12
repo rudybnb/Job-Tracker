@@ -3545,5 +3545,197 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
     }
   });
 
+  // ElevenLabs voice action endpoints
+  app.post('/webhook/elevenlabs-actions', async (req, res) => {
+    try {
+      console.log('🎙️ ElevenLabs action webhook received:', req.body);
+      
+      const { caller_id, action, agent_id, call_sid } = req.body;
+      
+      if (!caller_id || !action) {
+        return res.status(400).json({ error: 'Missing caller_id or action' });
+      }
+      
+      // Look up contractor by phone number
+      const contractor = await storage.getContractorByPhone(caller_id);
+      
+      if (!contractor) {
+        return res.json({
+          success: false,
+          message: "Sorry, your phone number is not registered in our system.",
+          speech: "Sorry, your phone number is not registered in our system. Please contact your administrator."
+        });
+      }
+      
+      const contractorFullName = `${contractor.firstName} ${contractor.lastName}`;
+      
+      // Handle different voice actions
+      let result: any;
+      
+      switch (action.toLowerCase()) {
+        case 'clock_in':
+          try {
+            // Check if already clocked in
+            const activeSessions = await storage.getActiveWorkSessions(contractorFullName);
+            if (activeSessions.length > 0) {
+              result = {
+                success: false,
+                message: `You're already clocked in since ${new Date(activeSessions[0].startTime).toLocaleTimeString('en-GB')}.`,
+                speech: `You're already clocked in since ${new Date(activeSessions[0].startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}.`
+              };
+            } else {
+              // Get contractor's assignment location
+              const assignments = await storage.getContractorAssignments(contractorFullName);
+              const location = assignments.length > 0 ? assignments[0].workLocation : 'Voice Check-in';
+              
+              // Create work session
+              const session = await storage.createWorkSession({
+                contractorName: contractorFullName,
+                jobSiteLocation: location,
+                startTime: new Date(),
+                status: 'active'
+              });
+              
+              result = {
+                success: true,
+                message: `Successfully clocked in at ${location} at ${new Date().toLocaleTimeString('en-GB')}.`,
+                speech: `You're now clocked in at ${location}. Have a productive day!`,
+                data: { sessionId: session.id, location }
+              };
+            }
+          } catch (error) {
+            console.error('Clock in error:', error);
+            result = {
+              success: false,
+              message: 'Failed to clock in due to technical error.',
+              speech: 'Sorry, there was a technical issue clocking you in. Please try again.'
+            };
+          }
+          break;
+          
+        case 'clock_out':
+          try {
+            const activeSessions = await storage.getActiveWorkSessions(contractorFullName);
+            if (activeSessions.length === 0) {
+              result = {
+                success: false,
+                message: "You don't have any active sessions to clock out from.",
+                speech: "You're not currently clocked in, so there's nothing to clock out from."
+              };
+            } else {
+              const session = activeSessions[0];
+              const endTime = new Date();
+              const duration = (endTime.getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60);
+              
+              await storage.updateWorkSession(session.id, {
+                endTime,
+                status: 'completed'
+              });
+              
+              // Calculate earnings
+              const payRate = await storage.getContractorPayRate(contractorFullName);
+              const earnings = duration * payRate;
+              
+              result = {
+                success: true,
+                message: `Clocked out at ${endTime.toLocaleTimeString('en-GB')}. Worked ${duration.toFixed(2)} hours, earned £${earnings.toFixed(2)}.`,
+                speech: `You're now clocked out. You worked ${duration.toFixed(1)} hours today and earned £${earnings.toFixed(2)}. Great work!`,
+                data: { sessionId: session.id, duration: duration.toFixed(2), earnings: earnings.toFixed(2) }
+              };
+            }
+          } catch (error) {
+            console.error('Clock out error:', error);
+            result = {
+              success: false,
+              message: 'Failed to clock out due to technical error.',
+              speech: 'Sorry, there was a technical issue clocking you out. Please try again.'
+            };
+          }
+          break;
+          
+        case 'get_status':
+          try {
+            const [activeSessions, assignments, payRate] = await Promise.all([
+              storage.getActiveWorkSessions(contractorFullName),
+              storage.getContractorAssignments(contractorFullName),
+              storage.getContractorPayRate(contractorFullName)
+            ]);
+            
+            if (activeSessions.length > 0) {
+              const session = activeSessions[0];
+              const duration = (new Date().getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60);
+              const earnings = duration * payRate;
+              
+              result = {
+                success: true,
+                message: `Status: Clocked in at ${session.jobSiteLocation} since ${new Date(session.startTime).toLocaleTimeString('en-GB')}. Hours today: ${duration.toFixed(2)}, Earnings: £${earnings.toFixed(2)}.`,
+                speech: `You're currently clocked in at ${session.jobSiteLocation}. You've worked ${duration.toFixed(1)} hours today and earned £${earnings.toFixed(2)} so far.`
+              };
+            } else {
+              result = {
+                success: true,
+                message: `Status: Not clocked in. Pay rate: £${payRate}/hour. Assignments: ${assignments.length} active.`,
+                speech: `You're currently not clocked in. Your pay rate is £${payRate} per hour and you have ${assignments.length} active assignments.`
+              };
+            }
+          } catch (error) {
+            console.error('Get status error:', error);
+            result = {
+              success: false,
+              message: 'Failed to get status due to technical error.',
+              speech: 'Sorry, there was a technical issue getting your status.'
+            };
+          }
+          break;
+          
+        case 'get_assignments':
+          try {
+            const assignments = await storage.getContractorAssignments(contractorFullName);
+            
+            if (assignments.length === 0) {
+              result = {
+                success: true,
+                message: 'No active assignments.',
+                speech: 'You currently have no active assignments. Contact your supervisor for new work.'
+              };
+            } else {
+              const assignment = assignments[0]; // Get first assignment
+              result = {
+                success: true,
+                message: `Current assignment: ${assignment.hbxlJob} at ${assignment.workLocation}. Start: ${assignment.startDate}, End: ${assignment.endDate}.`,
+                speech: `Your current assignment is ${assignment.hbxlJob} at ${assignment.workLocation}. The project runs from ${assignment.startDate} to ${assignment.endDate}.`
+              };
+            }
+          } catch (error) {
+            console.error('Get assignments error:', error);
+            result = {
+              success: false,
+              message: 'Failed to get assignments due to technical error.',
+              speech: 'Sorry, there was a technical issue getting your assignments.'
+            };
+          }
+          break;
+          
+        default:
+          result = {
+            success: false,
+            message: `Unknown action: ${action}`,
+            speech: `I don't understand the action "${action}". I can help with clocking in, clocking out, checking status, or getting assignments.`
+          };
+      }
+      
+      console.log('🎙️ Voice action result for', contractorFullName, action, result);
+      res.json(result);
+      
+    } catch (error) {
+      console.error('❌ ElevenLabs action webhook error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        speech: 'Sorry, there was a technical issue. Please try again later.'
+      });
+    }
+  });
+
   return httpServer;
 }
