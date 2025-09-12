@@ -3464,30 +3464,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get contractor's current work session, assignments, and earnings
-      const [activeSession, assignments, todayEarnings] = await Promise.all([
-        storage.getActiveWorkSessions(contractor.name).then(sessions => sessions[0] || null),
-        storage.getContractorAssignments(contractor.name),
-        storage.getTodayEarnings(contractor.name)
+      // Create full contractor name
+      const contractorFullName = `${contractor.firstName} ${contractor.lastName}`;
+      
+      // Get contractor's current work session, assignments, and pay rate
+      const [activeSession, assignments, payRate] = await Promise.all([
+        storage.getActiveWorkSessions(contractorFullName).then(sessions => sessions[0] || null),
+        storage.getContractorAssignments(contractorFullName),
+        storage.getContractorPayRate(contractorFullName)
       ]);
+      
+      // Calculate today's earnings
+      const todayEarnings = activeSession ? 
+        ((new Date().getTime() - new Date(activeSession.startTime).getTime()) / (1000 * 60 * 60)) * payRate : 0;
       
       // Prepare dynamic variables with contractor data
       const dynamicVariables = {
-        "contractor_name": contractor.name,
+        "contractor_name": contractorFullName,
         "phone_number": caller_id,
         "current_status": activeSession ? "clocked_in" : "clocked_out",
         "clock_in_time": activeSession ? activeSession.startTime : null,
         "current_location": activeSession ? activeSession.jobSiteLocation : null,
-        "todays_earnings": todayEarnings ? `£${todayEarnings.toFixed(2)}` : "£0.00",
-        "todays_hours": todayEarnings ? (todayEarnings / (contractor.payRate || 20)).toFixed(2) : "0.00",
-        "pay_rate": contractor.payRate ? `£${contractor.payRate}` : "£20.00",
+        "todays_earnings": `£${todayEarnings.toFixed(2)}`,
+        "todays_hours": (todayEarnings / payRate).toFixed(2),
+        "pay_rate": `£${payRate.toFixed(2)}`,
         "assignment_count": assignments.length,
-        "next_assignment": assignments.length > 0 ? assignments[0].title : "No assignments",
-        "next_location": assignments.length > 0 ? assignments[0].location : "No location"
+        "next_assignment": assignments.length > 0 ? assignments[0].hbxlJob : "No assignments",
+        "next_location": assignments.length > 0 ? assignments[0].workLocation : "No location"
       };
       
       // Create personalized prompt
-      const personalizedPrompt = `You are a construction company voice assistant speaking with ${contractor.name}. 
+      const personalizedPrompt = `You are a construction company voice assistant speaking with ${contractorFullName}. 
 
 Current Information:
 - Status: ${activeSession ? 'Currently clocked in' : 'Currently clocked out'}
@@ -3509,7 +3516,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
         "dynamic_variables": dynamicVariables,
         "conversation_config_override": {
           "agent": {
-            "first_message": `Hello ${contractor.name}! I can help you with clocking in or out, checking your assignments, or reviewing your earnings. What would you like to do?`,
+            "first_message": `Hello ${contractorFullName}! I can help you with clocking in or out, checking your assignments, or reviewing your earnings. What would you like to do?`,
             "prompt": {
               "prompt": personalizedPrompt
             },
@@ -3518,7 +3525,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
         }
       };
       
-      console.log('🎙️ Sending ElevenLabs response for', contractor.name, dynamicVariables);
+      console.log('🎙️ Sending ElevenLabs response for', contractorFullName, dynamicVariables);
       res.json(response);
       
     } catch (error) {
