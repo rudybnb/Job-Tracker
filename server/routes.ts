@@ -3635,18 +3635,20 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
         return res.json(processedActions.get(idempotencyKey));
       }
       
-      // Handle different voice actions - Both Contractor AND PA actions
+      // Handle different voice actions - Contractor, Admin, AND PA actions
       let result: any;
       
-      // Determine if this is a contractor action or PA action
+      // Determine if this is a contractor, admin, or PA action
       const contractorActions = ['clock_in', 'clock_out', 'get_status', 'get_assignments'];
+      const adminActions = ['get_workforce_status', 'assign_job', 'get_today_sessions', 'monitor_contractors', 'workforce_summary'];
       const paActions = ['get_availability', 'set_reminder', 'summarize_day', 'schedule_meeting', 'send_email'];
       
       const actionLower = action.toLowerCase();
       const isContractorAction = contractorActions.includes(actionLower);
+      const isAdminAction = adminActions.includes(actionLower);
       const isPAAction = paActions.includes(actionLower);
       
-      console.log(`🎯 Action type: ${actionLower} - Contractor: ${isContractorAction}, PA: ${isPAAction}`);
+      console.log(`🎯 Action type: ${actionLower} - Contractor: ${isContractorAction}, Admin: ${isAdminAction}, PA: ${isPAAction}`);
       
       switch (actionLower) {
         // ===== CONTRACTOR ACTIONS =====
@@ -4021,17 +4023,136 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           }
           break;
           
+        // ===== ADMIN ACTIONS =====
+        case 'get_workforce_status':
+        case 'monitor_contractors':
+        case 'workforce_summary':
+          try {
+            // Get active work sessions (currently clocked in contractors) 
+            const activeSessions = await storage.getActiveWorkSessions();
+            const todaySessions = await storage.getTodayWorkSessions();
+            
+            if (activeSessions.length === 0) {
+              result = {
+                success: true,
+                message: "No contractors are currently clocked in.",
+                speech: "Currently, no contractors are clocked in. All workers are off-duty.",
+                data: { activeCount: 0, todayTotal: todaySessions.length }
+              };
+            } else {
+              const statusList = activeSessions.map(session => {
+                const duration = (new Date().getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60);
+                return `${session.contractorName} at ${session.jobSiteLocation} (${duration.toFixed(1)}h)`;
+              }).join(', ');
+              
+              result = {
+                success: true,
+                message: `${activeSessions.length} contractors currently working: ${statusList}`,
+                speech: `Currently ${activeSessions.length} contractors are clocked in: ${statusList}. Today we've had ${todaySessions.length} total work sessions.`,
+                data: { 
+                  activeCount: activeSessions.length, 
+                  todayTotal: todaySessions.length,
+                  activeSessions: activeSessions,
+                  details: statusList
+                }
+              };
+            }
+          } catch (error) {
+            console.error('Get workforce status error:', error);
+            result = {
+              success: false,
+              message: 'Failed to get workforce status due to technical error.',
+              speech: 'Sorry, there was a technical issue getting the workforce status.'
+            };
+          }
+          break;
+          
+        case 'get_today_sessions':
+          try {
+            const todaySessions = await storage.getTodayWorkSessions();
+            
+            if (todaySessions.length === 0) {
+              result = {
+                success: true,
+                message: "No work sessions today.",
+                speech: "There have been no work sessions recorded today."
+              };
+            } else {
+              // Group sessions by contractor
+              const sessionsByContractor = todaySessions.reduce((acc: any, session: any) => {
+                if (!acc[session.contractorName]) {
+                  acc[session.contractorName] = [];
+                }
+                acc[session.contractorName].push(session);
+                return acc;
+              }, {});
+              
+              const summaryText = Object.entries(sessionsByContractor).map(([contractor, sessions]: [string, any]) => {
+                const totalHours = sessions.reduce((sum: number, session: any) => {
+                  const start = new Date(session.startTime);
+                  const end = session.endTime ? new Date(session.endTime) : new Date();
+                  return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+                }, 0);
+                return `${contractor}: ${totalHours.toFixed(1)} hours (${sessions.length} sessions)`;
+              }).join(', ');
+              
+              result = {
+                success: true,
+                message: `Today's work sessions: ${summaryText}`,
+                speech: `Today we have ${todaySessions.length} work sessions. ${summaryText}`,
+                data: { 
+                  totalSessions: todaySessions.length,
+                  contractorCount: Object.keys(sessionsByContractor).length,
+                  sessionsByContractor: sessionsByContractor,
+                  summary: summaryText
+                }
+              };
+            }
+          } catch (error) {
+            console.error('Get today sessions error:', error);
+            result = {
+              success: false,
+              message: 'Failed to get today\'s sessions due to technical error.',
+              speech: 'Sorry, there was a technical issue getting today\'s work sessions.'
+            };
+          }
+          break;
+          
+        case 'assign_job':
+          try {
+            // For voice-based job assignment, we'd normally parse details from speech
+            // For demonstration, providing guidance on assignment process
+            result = {
+              success: true,
+              message: "Job assignment feature available. Please specify contractor name, job details, and location.",
+              speech: "I can help assign jobs to contractors. Please tell me the contractor's name, job description, location, and deadline for the assignment.",
+              data: { 
+                availableContractors: ["Marius Andronache", "Dalwayne Diedericks", "Earl", "SAID tiss"],
+                assignmentFields: ["contractor", "jobDescription", "location", "deadline"]
+              }
+            };
+          } catch (error) {
+            console.error('Assign job error:', error);
+            result = {
+              success: false,
+              message: 'Failed to process job assignment due to technical error.',
+              speech: 'Sorry, there was a technical issue with the job assignment feature.'
+            };
+          }
+          break;
+          
         default:
-          // Enhanced help message for both contractor and PA actions
+          // Enhanced help message for contractor, admin, and PA actions
           const availableActions = [
             "Contractor actions: clock in, clock out, check status, get assignments",
+            "Admin actions: get workforce status, monitor contractors, get today sessions, assign job",
             "Business PA actions: check availability, set reminder, summarize day, schedule meeting, send email"
           ];
           
           result = {
             success: false,
             message: `Unknown action: ${action}. Available actions: ${availableActions.join('; ')}`,
-            speech: `I don't understand "${action}". I can help with contractor time tracking or business PA tasks like scheduling, reminders, and email. What would you like to do?`
+            speech: `I don't understand "${action}". I can help with contractor time tracking, admin workforce monitoring, or business PA tasks like scheduling and email. What would you like to do?`
           };
       }
       
