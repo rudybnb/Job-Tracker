@@ -3585,8 +3585,20 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
     }
   });
 
-  // ElevenLabs voice action endpoints  
-  app.post('/webhook/elevenlabs-actions', async (req, res) => {
+  // ElevenLabs voice action endpoints
+  
+  // Test endpoint to verify reachability
+  app.get('/api/elevenlabs-actions', (req, res) => {
+    console.log('✅ ElevenLabs webhook GET test received');
+    res.status(200).send('ElevenLabs webhook endpoint is reachable');
+  });
+  
+  app.options('/api/elevenlabs-actions', (req, res) => {
+    console.log('✅ ElevenLabs webhook OPTIONS received');
+    res.sendStatus(204);
+  });
+  
+  app.post('/api/elevenlabs-actions', async (req, res) => {
     try {
       // Redact PII from logs
       const logSafeBody = { 
