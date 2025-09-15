@@ -3641,7 +3641,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
       // Determine if this is a contractor, admin, or PA action
       const contractorActions = ['clock_in', 'clock_out', 'get_status', 'get_assignments'];
       const adminActions = ['get_workforce_status', 'assign_job', 'get_today_sessions', 'monitor_contractors', 'workforce_summary', 'fix_earnings', 'adjust_earnings', 'correct_earnings', 'update_pay_rate', 'change_pay_rate'];
-      const paActions = ['get_availability', 'set_reminder', 'summarize_day', 'schedule_meeting', 'send_email', 'reply_email', 'email_contractor', 'send_sms', 'text_contractor', 'sms_notification'];
+      const paActions = ['get_availability', 'set_reminder', 'summarize_day', 'schedule_meeting', 'send_email', 'reply_email', 'email_contractor', 'send_sms', 'text_contractor', 'sms_notification', 'send_telegram', 'telegram_message', 'telegram_contractor'];
       
       const actionLower = action.toLowerCase();
       const isContractorAction = contractorActions.includes(actionLower);
@@ -4091,6 +4091,64 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
               success: false,
               message: 'Failed to access SMS service due to technical error.',
               speech: 'Sorry, there was a technical issue with the SMS service.'
+            };
+          }
+          break;
+          
+        case 'send_telegram':
+        case 'telegram_message':
+        case 'telegram_contractor':
+          try {
+            // Import Telegram service
+            const { TelegramService } = await import('./telegram');
+            const telegramService = new TelegramService();
+            
+            // Map contractor names to their Telegram chat IDs (based on existing mapping)
+            let chatId = '7617462316'; // Default to Rudy
+            let contractorName = 'Unknown';
+            
+            // Try to identify contractor from caller_id or use Dalwayne as default for testing
+            if (caller_id === '+447984591436') {
+              contractorName = 'Dalwayne Diedericks';
+              chatId = '8016744652';
+            } else if (caller_id === '+447828696116') {
+              contractorName = 'Marius Andronache';
+              chatId = '8006717361';
+            } else if (caller_id === '+447534251548') {
+              contractorName = 'Rudy';
+              chatId = '7617462316';
+            } else {
+              // Default to Dalwayne for testing
+              contractorName = 'Dalwayne Diedericks';
+              chatId = '8016744652';
+            }
+            
+            const message = `Hi ${contractorName}! 👋\n\nYour earnings report is ready for review. Check your dashboard for the latest details.\n\n💰 Recent activity:\n• Weekly hours tracked\n• Pay calculations updated\n• CIS deductions applied\n\nLogin to your Job Tracker dashboard for full breakdown.\n\n- ERdesignandbuild Team`;
+            
+            const telegramResult = await telegramService.sendCustomMessage(chatId, message);
+            
+            result = {
+              success: telegramResult.success,
+              message: telegramResult.success ? 
+                `Telegram message sent successfully to ${contractorName}${telegramResult.messageId ? ` (ID: ${telegramResult.messageId})` : ''}` :
+                `Failed to send Telegram message: ${telegramResult.error}`,
+              speech: telegramResult.success ?
+                `I've successfully sent a Telegram message to ${contractorName} about their earnings report. The message includes information about their weekly hours and pay calculations.` :
+                `Sorry, I couldn't send the Telegram message. ${telegramResult.error}`,
+              data: {
+                telegramSent: telegramResult.success,
+                chatId: chatId,
+                contractor: contractorName,
+                messageId: telegramResult.messageId,
+                recipient: contractorName
+              }
+            };
+          } catch (error) {
+            console.error('Telegram service error:', error);
+            result = {
+              success: false,
+              message: 'Failed to access Telegram service due to technical error.',
+              speech: 'Sorry, there was a technical issue with the Telegram service.'
             };
           }
           break;
