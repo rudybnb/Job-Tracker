@@ -20,9 +20,6 @@ if (isValidSid && authToken && fromNumber) {
 } else {
   console.log('⚠️ Twilio SMS credentials not configured or invalid. SMS features disabled.');
   console.log(`Debug SMS: SID valid: ${isValidSid}, Auth token exists: ${!!authToken}, Phone exists: ${!!fromNumber}`);
-  if (sid) {
-    console.log(`SID format check: "${sid}" length: ${sid.length}, starts with AC: ${sid.startsWith('AC')}`);
-  }
 }
 
 interface SMSParams {
@@ -38,10 +35,10 @@ interface ContractorSMSData {
   priority?: 'normal' | 'high' | 'urgent';
 }
 
-export async function sendSMS(params: SMSParams): Promise<boolean> {
+export async function sendSMS(params: SMSParams): Promise<{ success: boolean, messageId?: string, error?: string }> {
   if (!client) {
     console.error('❌ Twilio client not initialized. SMS cannot be sent.');
-    return false;
+    return { success: false, error: 'SMS service not configured' };
   }
 
   try {
@@ -57,14 +54,14 @@ export async function sendSMS(params: SMSParams): Promise<boolean> {
     });
     
     console.log(`✅ SMS sent successfully: ${message.sid}`);
-    return true;
+    return { success: true, messageId: message.sid };
   } catch (error) {
     console.error('❌ Twilio SMS error:', error);
-    return false;
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
-export async function sendContractorSMS(data: ContractorSMSData): Promise<boolean> {
+export async function sendContractorSMS(data: ContractorSMSData): Promise<{ success: boolean, messageId?: string, error?: string }> {
   return await sendSMS({
     to: data.contractorPhone,
     message: `Hi ${data.contractorName}, ${data.message}`,
@@ -85,11 +82,11 @@ export async function getContractorPhone(contractorName: string): Promise<string
   return phoneMap[contractorName] || null;
 }
 
-export async function sendJobAssignmentSMS(contractorName: string, jobDetails: string): Promise<boolean> {
+export async function sendJobAssignmentSMS(contractorName: string, jobDetails: string): Promise<{ success: boolean, messageId?: string, error?: string }> {
   const phone = await getContractorPhone(contractorName);
   if (!phone) {
     console.error(`❌ No phone number found for contractor: ${contractorName}`);
-    return false;
+    return { success: false, error: `No phone number found for contractor: ${contractorName}` };
   }
 
   return await sendContractorSMS({
@@ -100,11 +97,11 @@ export async function sendJobAssignmentSMS(contractorName: string, jobDetails: s
   });
 }
 
-export async function sendEarningsUpdateSMS(contractorName: string, earningsInfo: string): Promise<boolean> {
+export async function sendEarningsUpdateSMS(contractorName: string, earningsInfo: string): Promise<{ success: boolean, messageId?: string, error?: string }> {
   const phone = await getContractorPhone(contractorName);
   if (!phone) {
     console.error(`❌ No phone number found for contractor: ${contractorName}`);
-    return false;
+    return { success: false, error: `No phone number found for contractor: ${contractorName}` };
   }
 
   return await sendContractorSMS({

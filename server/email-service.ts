@@ -1,16 +1,18 @@
 // Email service using SendGrid integration for ElevenLabs agents
 import { MailService } from '@sendgrid/mail';
 
-if (!process.env.SENDGRID_API_KEY) {
-  throw new Error("SENDGRID_API_KEY environment variable must be set");
-}
+// Don't throw on import - handle gracefully at runtime
 
 const mailService = new MailService();
-mailService.setApiKey(process.env.SENDGRID_API_KEY);
+
+// Initialize only if API key is available
+if (process.env.SENDGRID_API_KEY) {
+  mailService.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 interface EmailParams {
   to: string;
-  from: string;
+  from?: string;
   subject?: string;
   text?: string;
   html?: string;
@@ -25,28 +27,33 @@ interface ContractorEmailData {
   priority?: 'normal' | 'high' | 'urgent';
 }
 
-export async function sendEmail(params: EmailParams): Promise<boolean> {
+export async function sendEmail(params: EmailParams): Promise<{ success: boolean, messageId?: string, error?: string }> {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.error('❌ SENDGRID_API_KEY not configured');
+    return { success: false, error: 'Email service not configured' };
+  }
+
   try {
     console.log(`📧 Sending email: ${params.subject || 'No subject'} to ${params.to}`);
     
-    await mailService.send({
+    const response = await mailService.send({
       to: params.to,
-      from: params.from,
+      from: params.from || process.env.SENDGRID_FROM_EMAIL || 'noreply@erdesignandbuild.com',
       subject: params.subject || 'ERdesignandbuild Notification',
       text: params.text,
       html: params.html,
-      replyTo: params.replyTo || params.from
+      replyTo: params.replyTo || process.env.SENDGRID_REPLY_TO || params.from
     });
     
     console.log(`✅ Email sent successfully to ${params.to}`);
-    return true;
+    return { success: true, messageId: response[0]?.headers?.['x-message-id'] };
   } catch (error) {
     console.error('❌ SendGrid email error:', error);
-    return false;
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
-export async function sendContractorEmail(data: ContractorEmailData): Promise<boolean> {
+export async function sendContractorEmail(data: ContractorEmailData): Promise<{ success: boolean, messageId?: string, error?: string }> {
   const priorityPrefix = data.priority === 'urgent' ? '[URGENT] ' : 
                         data.priority === 'high' ? '[HIGH PRIORITY] ' : '';
   
@@ -74,15 +81,15 @@ export async function sendContractorEmail(data: ContractorEmailData): Promise<bo
   
   return await sendEmail({
     to: data.contractorEmail,
-    from: 'noreply@erdesignandbuild.com', // You should replace with your verified sender
+    from: process.env.SENDGRID_FROM_EMAIL || 'noreply@erdesignandbuild.com',
     subject: `${priorityPrefix}${data.subject}`,
     text: `Hello ${data.contractorName},\n\n${data.message || ''}\n\nERdesignandbuild Job Tracker`,
     html: htmlContent,
-    replyTo: 'admin@erdesignandbuild.com' // Replies go to admin
+    replyTo: process.env.SENDGRID_REPLY_TO || 'admin@erdesignandbuild.com'
   });
 }
 
-export async function replyToEmail(originalFrom: string, subject: string, message: string): Promise<boolean> {
+export async function replyToEmail(originalFrom: string, subject: string, message: string): Promise<{ success: boolean, messageId?: string, error?: string }> {
   const messageLines = message?.split('\n') || [''];
   return await sendEmail({
     to: originalFrom,

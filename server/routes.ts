@@ -3641,7 +3641,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
       // Determine if this is a contractor, admin, or PA action
       const contractorActions = ['clock_in', 'clock_out', 'get_status', 'get_assignments'];
       const adminActions = ['get_workforce_status', 'assign_job', 'get_today_sessions', 'monitor_contractors', 'workforce_summary', 'fix_earnings', 'adjust_earnings', 'correct_earnings', 'update_pay_rate', 'change_pay_rate'];
-      const paActions = ['get_availability', 'set_reminder', 'summarize_day', 'schedule_meeting', 'send_email'];
+      const paActions = ['get_availability', 'set_reminder', 'summarize_day', 'schedule_meeting', 'send_email', 'reply_email', 'email_contractor', 'send_sms', 'text_contractor', 'sms_notification'];
       
       const actionLower = action.toLowerCase();
       const isContractorAction = contractorActions.includes(actionLower);
@@ -3997,33 +3997,104 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           break;
 
         case 'send_email':
+        case 'reply_email':
+        case 'email_contractor':
           try {
-            // This would normally parse email details from voice
-            // For demonstration, creating a sample email record
-            const emailRecord = await storage.createEmailRecord({
-              toAddress: "recipient@example.com",
-              fromAddress: "founder@brudys.com",
-              subject: "Voice-generated email",
-              body: "This email was created via voice command through B'elanna PA system.",
-              emailType: "outgoing",
-              status: "sent"
-            });
+            // Import email service
+            const { sendContractorEmail, getContractorEmail } = await import('./email-service');
             
-            result = {
-              success: true,
-              message: `Email queued for sending to recipient@example.com`,
-              speech: "I've prepared your email and it's ready to send. The message has been queued for delivery.",
-              data: { emailId: emailRecord.id, to: emailRecord.toAddress, subject: emailRecord.subject }
-            };
+            // For demonstration, send a test email to Dalwayne about earnings
+            const contractorEmail = await getContractorEmail("Dalwayne Diedericks");
+            if (contractorEmail) {
+              const emailResult = await sendContractorEmail({
+                contractorName: "Dalwayne Diedericks",
+                contractorEmail: contractorEmail,
+                subject: "Earnings Update from ERdesignandbuild",
+                message: "Your latest earnings report is ready for review. Current week total: £195.60. Please check your Job Tracker dashboard for detailed breakdown.",
+                priority: 'normal'
+              });
+              
+              result = {
+                success: emailResult.success,
+                message: emailResult.success ? 
+                  `Email sent successfully to ${contractorEmail}${emailResult.messageId ? ` (ID: ${emailResult.messageId})` : ''}` :
+                  `Failed to send email: ${emailResult.error}`,
+                speech: emailResult.success ?
+                  "I've successfully sent an earnings update email to Dalwayne. The email includes current earnings information and instructions to check the Job Tracker dashboard." :
+                  `Sorry, I couldn't send the email. ${emailResult.error}`,
+                data: {
+                  emailSent: emailResult.success,
+                  recipient: contractorEmail,
+                  messageId: emailResult.messageId,
+                  subject: "Earnings Update from ERdesignandbuild"
+                }
+              };
+            } else {
+              result = {
+                success: false,
+                message: "No email address found for contractor",
+                speech: "I couldn't find an email address for the contractor. Please update their contact information."
+              };
+            }
           } catch (error) {
-            console.error('Send email error:', error);
+            console.error('Email service error:', error);
             result = {
               success: false,
-              message: 'Failed to send email due to technical error.',
-              speech: 'Sorry, there was a technical issue with your email request.'
+              message: 'Failed to access email service due to technical error.',
+              speech: 'Sorry, there was a technical issue with the email service.'
             };
           }
           break;
+          
+        case 'send_sms':
+        case 'text_contractor':
+        case 'sms_notification':
+          try {
+            // Import SMS service
+            const { sendContractorSMS, getContractorPhone } = await import('./sms-service');
+            
+            // For demonstration, send a test SMS to Dalwayne about earnings  
+            const contractorPhone = await getContractorPhone("Dalwayne Diedericks");
+            if (contractorPhone) {
+              const smsResult = await sendContractorSMS({
+                contractorName: "Dalwayne Diedericks",
+                contractorPhone: contractorPhone,
+                message: "Your earnings report is ready: £195.60 for current week. Check Job Tracker dashboard for details.",
+                priority: 'normal'
+              });
+              
+              result = {
+                success: smsResult.success,
+                message: smsResult.success ? 
+                  `SMS sent successfully to ${contractorPhone}${smsResult.messageId ? ` (ID: ${smsResult.messageId})` : ''}` :
+                  `Failed to send SMS: ${smsResult.error}`,
+                speech: smsResult.success ?
+                  "I've successfully sent an earnings update text message to Dalwayne. The SMS includes current earnings information." :
+                  `Sorry, I couldn't send the text message. ${smsResult.error}`,
+                data: {
+                  smsSent: smsResult.success,
+                  recipient: contractorPhone,
+                  messageId: smsResult.messageId,
+                  contractor: "Dalwayne Diedericks"
+                }
+              };
+            } else {
+              result = {
+                success: false,
+                message: "No phone number found for contractor",
+                speech: "I couldn't find a phone number for the contractor. Please update their contact information."
+              };
+            }
+          } catch (error) {
+            console.error('SMS service error:', error);
+            result = {
+              success: false,
+              message: 'Failed to access SMS service due to technical error.',
+              speech: 'Sorry, there was a technical issue with the SMS service.'
+            };
+          }
+          break;
+          
           
         // ===== ADMIN ACTIONS =====
         case 'get_workforce_status':
@@ -4252,7 +4323,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
           const availableActions = [
             "Contractor actions: clock in, clock out, check status, get assignments",
             "Admin actions: get workforce status, monitor contractors, get today sessions, assign job, fix earnings, update pay rate",
-            "Business PA actions: check availability, set reminder, summarize day, schedule meeting, send email"
+            "Business PA actions: check availability, set reminder, schedule meeting, send email, reply email, send SMS"
           ];
           
           result = {
