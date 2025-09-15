@@ -3587,6 +3587,16 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
 
   // ElevenLabs voice action endpoints
   
+  // Health check endpoint
+  app.get('/api/health', (req, res) => {
+    console.log('🏥 Health check received');
+    res.status(200).json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      url: process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'unknown'
+    });
+  });
+
   // Test endpoint to verify reachability
   app.get('/api/elevenlabs-actions', (req, res) => {
     console.log('✅ ElevenLabs webhook GET test received');
