@@ -3,29 +3,39 @@ import twilio from 'twilio';
 
 // Initialize client only if credentials are valid
 let client: any = null;
-const rawSid = process.env.TWILIO_ACCOUNT_SID;
-const sid = rawSid?.trim();
-const authToken = process.env.TWILIO_AUTH_TOKEN;
+const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
+const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
+const apiKeySid = process.env.TWILIO_API_KEY_SID?.trim();
+const apiKeySecret = process.env.TWILIO_API_KEY_SECRET?.trim();
 const fromNumber = process.env.TWILIO_PHONE_NUMBER?.replace(/\s+/g, '');
 
-// Debug: Log the actual SID to understand format  
-console.log(`🔍 SMS DEBUG: Raw SID from env: "${rawSid}"`);
-console.log(`🔍 SMS DEBUG: Trimmed SID: "${sid}"`);
-console.log(`🔍 SMS DEBUG: SID length: ${sid?.length}`);
+// Debug credential info
+console.log(`🔍 SMS DEBUG: Account SID exists: ${!!accountSid}`);
+console.log(`🔍 SMS DEBUG: API Key SID exists: ${!!apiKeySid}, starts with: ${apiKeySid?.substring(0, 2)}`);
+console.log(`🔍 SMS DEBUG: API Key Secret exists: ${!!apiKeySecret}`);
 
-// Check for valid Account SID format (must start with AC for Twilio SDK)  
-const isValidSid = !!sid && sid.length === 34 && sid.startsWith('AC');
-
-if (sid && sid.startsWith('AP')) {
-  console.log('❌ TWILIO SMS SETUP ERROR: You provided an API Key SID (starts with AP)');
-  console.log('✅ SOLUTION: Please use your Account SID (starts with AC) instead');
-  console.log('📖 Find your Account SID at: https://console.twilio.com/');
-} else if (isValidSid && authToken && fromNumber) {
-  client = twilio(sid, authToken);
-  console.log('📱 Twilio SMS client initialized successfully');
+// Prefer API Key authentication if available, fallback to standard auth
+if (accountSid && fromNumber) {
+  try {
+    if (apiKeySid && apiKeySecret) {
+      // API Key authentication: use API Key SID as username, API Key Secret as password
+      console.log('🔑 Using Twilio API Key authentication');
+      client = twilio(apiKeySid, apiKeySecret, { accountSid });
+    } else if (authToken) {
+      // Standard authentication: Account SID + Auth Token
+      console.log('🔑 Using standard Twilio authentication');
+      client = twilio(accountSid, authToken);
+    }
+    
+    if (client) {
+      console.log('📱 Twilio SMS client initialized successfully');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize Twilio client:', error);
+  }
 } else {
-  console.log('⚠️ Twilio SMS credentials not configured or invalid. SMS features disabled.');
-  console.log(`Debug SMS: SID valid: ${isValidSid}, Auth token exists: ${!!authToken}, Phone exists: ${!!fromNumber}`);
+  console.log('⚠️ Twilio SMS credentials not configured. SMS features disabled.');
+  console.log(`Debug SMS: Account SID exists: ${!!accountSid}, Phone exists: ${!!fromNumber}`);
 }
 
 interface SMSParams {
