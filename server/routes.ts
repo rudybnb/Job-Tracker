@@ -3613,7 +3613,11 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
       // Look up contractor by phone number (using normalized number)
       const contractor = await storage.getContractorByPhone(normalizedPhone);
       
-      if (!contractor) {
+      // Allow admin phone number (Rudy's number) even if not a contractor
+      const adminPhoneNumbers = ['+447534251548', '07534251548'];
+      const isAdmin = adminPhoneNumbers.includes(caller_id) || adminPhoneNumbers.includes(normalizedPhone);
+      
+      if (!contractor && !isAdmin) {
         return res.json({
           success: false,
           message: "Sorry, your phone number is not registered in our system.",
@@ -3621,7 +3625,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
         });
       }
       
-      const contractorFullName = `${contractor.firstName} ${contractor.lastName}`;
+      const contractorFullName = contractor ? `${contractor.firstName} ${contractor.lastName}` : (isAdmin ? 'Admin (Rudy)' : 'Unknown');
       
       // Create idempotency key from call_sid + action for duplicate protection
       const idempotencyKey = `${call_sid}-${action}`;
