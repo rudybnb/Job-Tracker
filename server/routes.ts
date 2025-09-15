@@ -3613,10 +3613,18 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
         return res.status(401).json({ error: 'Unauthorized' });
       }
       
+      // Log the full request body to debug parameter issues
+      console.log('🔍 Full request body:', JSON.stringify(req.body, null, 2));
+      
       const { caller_id, action, agent_id, call_sid } = req.body;
       
       if (!caller_id || !action) {
-        return res.status(400).json({ error: 'Missing caller_id or action' });
+        console.log('❌ Missing required parameters:', { caller_id: !!caller_id, action: !!action });
+        return res.status(400).json({ 
+          error: 'Missing caller_id or action',
+          received: Object.keys(req.body),
+          required: ['caller_id', 'action']
+        });
       }
       
       // Normalize phone number for lookup
