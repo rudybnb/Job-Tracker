@@ -87,15 +87,38 @@ export async function sendContractorSMS(data: ContractorSMSData): Promise<{ succ
 
 // Get contractor phone from database
 export async function getContractorPhone(contractorName: string): Promise<string | null> {
-  // Phone number mapping for contractors
-  const phoneMap: Record<string, string> = {
-    'Marius Andronache': '+447123456789',
-    'Dalwayne Diedericks': '+447987654321', 
-    'Earl': '+447555123456',
-    'SAID tiss': '+447555987654'
-  };
-  
-  return phoneMap[contractorName] || null;
+  try {
+    const { DatabaseStorage } = await import('./database-storage.js');
+    const db = new DatabaseStorage();
+    
+    // Try to find exact match first
+    const applications = await db.getContractorApplications();
+    const exactMatch = applications.find((app: any) => 
+      `${app.firstName} ${app.lastName}` === contractorName ||
+      app.firstName === contractorName ||
+      contractorName.includes(app.firstName)
+    );
+    
+    if (exactMatch?.phone) {
+      console.log(`📱 Found phone for ${contractorName}: ${exactMatch.phone}`);
+      return exactMatch.phone;
+    }
+    
+    // Fallback to test numbers if no database match found
+    console.log(`⚠️ No phone found in database for: ${contractorName}, using test numbers`);
+    const phoneMap: Record<string, string> = {
+      'Marius Andronache': '+447123456789',
+      'Dalwayne Diedericks': '+447987654321', 
+      'Earl': '+447555123456',
+      'SAID tiss': '+447555987654',
+      'Rudy': '07534251548'
+    };
+    
+    return phoneMap[contractorName] || null;
+  } catch (error) {
+    console.error('❌ Error fetching contractor phone from database:', error);
+    return null;
+  }
 }
 
 export async function sendJobAssignmentSMS(contractorName: string, jobDetails: string): Promise<{ success: boolean, messageId?: string, error?: string }> {
