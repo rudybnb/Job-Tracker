@@ -9,10 +9,20 @@ const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
 let client: any = null;
 const rawSid = process.env.TWILIO_ACCOUNT_SID;
 const sid = rawSid?.trim();
-const isValidSid = !!sid && /^AC[0-9a-z]{32}$/i.test(sid);
+// Debug: Log the actual SID to understand format
+console.log(`🔍 DEBUG: Raw SID from env: "${rawSid}"`);
+console.log(`🔍 DEBUG: Trimmed SID: "${sid}"`);
+console.log(`🔍 DEBUG: SID length: ${sid?.length}`);
+
+// Check for valid Account SID format (must start with AC for Twilio SDK)
+const isValidSid = !!sid && sid.length === 34 && sid.startsWith('AC');
 const fromNumber = process.env.TWILIO_PHONE_NUMBER?.replace(/\s+/g, '');
 
-if (isValidSid && authToken && fromNumber) {
+if (sid && sid.startsWith('AP')) {
+  console.log('❌ TWILIO SETUP ERROR: You provided an API Key SID (starts with AP)');
+  console.log('✅ SOLUTION: Please use your Account SID (starts with AC) instead');
+  console.log('📖 Find your Account SID at: https://console.twilio.com/');
+} else if (isValidSid && authToken && fromNumber) {
   client = twilio(sid, authToken);
   console.log('🎙️ Twilio client initialized successfully');
 } else {

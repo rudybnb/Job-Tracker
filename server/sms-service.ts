@@ -8,13 +8,19 @@ const sid = rawSid?.trim();
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const fromNumber = process.env.TWILIO_PHONE_NUMBER?.replace(/\s+/g, '');
 
-// More flexible SID validation - account for different formats
-const isValidSid = !!sid && (
-  /^AC[0-9a-f]{32}$/i.test(sid) || // Standard format
-  /^AC[0-9a-zA-Z]{32}$/i.test(sid) // Allow mixed case alphanumeric
-);
+// Debug: Log the actual SID to understand format  
+console.log(`🔍 SMS DEBUG: Raw SID from env: "${rawSid}"`);
+console.log(`🔍 SMS DEBUG: Trimmed SID: "${sid}"`);
+console.log(`🔍 SMS DEBUG: SID length: ${sid?.length}`);
 
-if (isValidSid && authToken && fromNumber) {
+// Check for valid Account SID format (must start with AC for Twilio SDK)  
+const isValidSid = !!sid && sid.length === 34 && sid.startsWith('AC');
+
+if (sid && sid.startsWith('AP')) {
+  console.log('❌ TWILIO SMS SETUP ERROR: You provided an API Key SID (starts with AP)');
+  console.log('✅ SOLUTION: Please use your Account SID (starts with AC) instead');
+  console.log('📖 Find your Account SID at: https://console.twilio.com/');
+} else if (isValidSid && authToken && fromNumber) {
   client = twilio(sid, authToken);
   console.log('📱 Twilio SMS client initialized successfully');
 } else {
