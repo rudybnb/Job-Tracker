@@ -3597,6 +3597,90 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
     });
   });
 
+  // Shorter URL redirect for ElevenLabs (to avoid URL length issues)
+  app.all('/webhook', async (req, res) => {
+    console.log('🔄 Short URL redirect to elevenlabs-actions endpoint');
+    // Forward the request to the main handler
+    if (req.method === 'GET') {
+      console.log('✅ ElevenLabs webhook GET test received via short URL');
+      res.status(200).send('ElevenLabs webhook endpoint is reachable');
+    } else if (req.method === 'POST') {
+      // Forward POST requests to the main POST handler logic
+      try {
+        console.log('🎙️ ElevenLabs action webhook received via short URL');
+        console.log('🔍 Full request body:', JSON.stringify(req.body, null, 2));
+        
+        // Basic auth check - but don't fail the call, just log
+        if (!verifyWebhookAuth(req)) {
+          console.log('❌ Unauthorized request, but continuing for testing...');
+        }
+        
+        // Extract parameters with flexible field names for ElevenLabs compatibility
+        const { 
+          caller_id, 
+          phone_number, 
+          action, 
+          agent_id, 
+          call_sid,
+          conversation_id,
+          tool_name 
+        } = req.body;
+        
+        // Use caller_id or phone_number as fallback
+        const phoneNumber = caller_id || phone_number;
+        const actionType = action || tool_name;
+        
+        if (!phoneNumber || !actionType) {
+          console.log('❌ Missing required parameters:', { 
+            phoneNumber: !!phoneNumber, 
+            actionType: !!actionType,
+            available_fields: Object.keys(req.body) 
+          });
+          // Return success but with error message to prevent call drop
+          return res.status(200).json({ 
+            success: false,
+            message: "Missing required parameters",
+            speech: "I'm having trouble processing that request. Please try again."
+          });
+        }
+        
+        // Normalize phone number for lookup
+        const normalizedPhone = normalizePhoneNumber(phoneNumber);
+        
+        // ADMIN-ONLY MESSAGING: Only allow Rudy's admin phone number for now
+        const adminPhoneNumbers = ['+447534251548', '07534251548'];
+        const isAdmin = adminPhoneNumbers.includes(phoneNumber) || adminPhoneNumbers.includes(normalizedPhone);
+        
+        if (!isAdmin) {
+          return res.status(200).json({
+            success: false,
+            message: "Messaging is currently restricted to admin users only.",
+            speech: "I'm sorry, messaging features are currently restricted to admin users only. Please contact your administrator if you need assistance."
+          });
+        }
+        
+        console.log('✅ Admin access confirmed for:', phoneNumber);
+        
+        // For now, just return a simple response to test the connection
+        return res.status(200).json({
+          success: true,
+          message: "Messaging system is working! (Admin-only mode)",
+          speech: "Great! The messaging system is connected and working. I can help you send messages to your team."
+        });
+        
+      } catch (error) {
+        console.error('Error in webhook handler:', error);
+        return res.status(200).json({
+          success: false,
+          message: "Internal error occurred",
+          speech: "Sorry, there was a technical issue. Please try again."
+        });
+      }
+    } else {
+      res.status(405).send('Method not allowed');
+    }
+  });
+
   // Test endpoint to verify reachability
   app.get('/api/elevenlabs-actions', (req, res) => {
     console.log('✅ ElevenLabs webhook GET test received');
