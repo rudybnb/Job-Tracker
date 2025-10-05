@@ -6,7 +6,7 @@ const openai = new OpenAI({
 });
 
 const ELEVEN_API_KEY = process.env.ELEVENLABS_API_KEY || '';
-const ELEVEN_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb'; // George voice
+const ELEVEN_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // Bella voice - natural, conversational
 
 interface Message {
   user?: string;
