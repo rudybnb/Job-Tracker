@@ -2463,18 +2463,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
             break;
             
           case 'media':
-            // Received audio from caller - collect audio chunks
+            // Received audio from caller - collect and process
             if (data.media && data.media.payload) {
               const audioData = Buffer.from(data.media.payload, 'base64');
               audioBuffer.push(audioData);
+              
+              // Check if we have enough audio (1 second worth at 8kHz = ~8000 bytes)
+              const totalAudio = Buffer.concat(audioBuffer);
+              
+              if (totalAudio.length > 16000) { // ~2 seconds of audio
+                console.log(`🎤 Processing ${totalAudio.length} bytes of audio...`);
+                
+                // Transcribe the audio
+                const { transcribeAudio } = await import('./voice-whisper');
+                const userMessage = await transcribeAudio(totalAudio);
+                
+                if (userMessage && callId) {
+                  console.log(`📝 User said: "${userMessage}"`);
+                  await addToHistory(callId, { user: userMessage });
+                  
+                  // Get conversation history
+                  const session = getCallSession(callId);
+                  const history = session ? session.history : [];
+                  
+                  // Generate response with streaming
+                  console.log(`🤖 Generating response...`);
+                  const response = await getFastVoiceResponse(
+                    userMessage,
+                    history,
+                    (audioChunk: Buffer) => {
+                      // Send audio chunk to Twilio immediately
+                      if (streamSid) {
+                        const audioMessage = {
+                          event: 'media',
+                          streamSid: streamSid,
+                          media: {
+                            payload: audioChunk.toString('base64')
+                          }
+                        };
+                        ws.send(JSON.stringify(audioMessage));
+                      }
+                    }
+                  );
+                  
+                  // Save response to history
+                  await addToHistory(callId, { assistant: response });
+                  
+                  console.log(`✅ Response sent: "${response.slice(0, 50)}..."`);
+                }
+                
+                // Clear audio buffer
+                audioBuffer = [];
+              }
             }
-            
-            // In a real implementation, you would:
-            // 1. Collect audio chunks
-            // 2. Send to OpenAI Whisper for transcription when silence detected
-            // 3. Use getFastVoiceResponse() to get GPT + TTS streaming
-            // 4. Stream audio back to Twilio in real-time
-            
             break;
             
           case 'stop':
