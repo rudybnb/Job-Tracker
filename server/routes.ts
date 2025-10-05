@@ -2430,49 +2430,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
         switch (data.event) {
           case 'start':
             // Capture IDs on connect
-            streamSid = data.start.streamSid;
-            if (!streamSid) break;
+            streamSid = data.streamSid || data.start?.streamSid;
+            const callSid = data.start?.callSid || `call_${Date.now()}`;
             
-            const callSid = data.start.callSid || `call_${Date.now()}`;
-            const phoneNumber = data.start.customParameters?.From || 'unknown';
+            if (!streamSid) {
+              console.log(`⚠️ No streamSid in start event`);
+              break;
+            }
             
             // Store session keyed by streamSid
             sessions[streamSid] = { call_sid: callSid, history: [] };
             console.log(`[start] stream=${streamSid} call=${callSid}`);
             
             // Create call session
+            const phoneNumber = data.start?.customParameters?.From || 'unknown';
             await createCallSession(callSid, phoneNumber);
             console.log(`📞 Call started: ${callSid} from ${phoneNumber}`);
             
             break;
             
           case 'media':
-            // Received audio from caller - collect and process
-            if (data.media && data.media.payload && streamSid) {
+            // Collect audio and transcribe manually with Whisper
+            if (data.media && data.media.payload) {
               const audioData = Buffer.from(data.media.payload, 'base64');
               audioBuffer.push(audioData);
               
-              // Check if we have enough audio (2 seconds for better transcription)
+              // Check if we have enough audio (2 seconds)
               const totalAudio = Buffer.concat(audioBuffer);
               
-              if (totalAudio.length > 16000) { // ~2 seconds of audio
+              if (totalAudio.length > 16000 && streamSid) {
                 console.log(`🎤 Processing ${totalAudio.length} bytes of audio...`);
+                audioBuffer = []; // Clear buffer immediately
                 
-                // Transcribe the audio
-                const { transcribeAudio } = await import('./voice-whisper');
-                const userMessage = await transcribeAudio(totalAudio);
-                const text = userMessage.trim();
-                
-                // Debug info
-                const session = sessions[streamSid];
-                const hasCallSid = !!session?.call_sid;
-                console.log(`[debug] text="${text}" len=${text.length} has_call_sid=${hasCallSid} stream=${streamSid}`);
-                
-                // Only respond to meaningful transcriptions - NO callId check!
-                if (text && text.length > 3) {
-                  const callSid = session?.call_sid;
-                  console.log(`📝 User said: "${text}" (stream=${streamSid}, call=${callSid})`);
-                  
+                // Transcribe async (don't block)
+                (async () => {
+                  try {
+                    const { transcribeAudio } = await import('./voice-whisper');
+                    const userMessage = await transcribeAudio(totalAudio);
+                    const text = userMessage.trim();
+                    
+                    const session = sessions[streamSid];
+                    const hasCallSid = !!session?.call_sid;
+                    
+                    console.log(`[whisper] len=${text.length} sid=${streamSid} text="${text}" has_call_sid=${hasCallSid}`);
+                    
+                    // Generate response for meaningful text - NO callId check!
+                    if (text.length > 3) {
+                      const callSid = session?.call_sid;
+                      console.log(`📝 User said: "${text}" (stream=${streamSid}, call=${callSid})`);
+                      console.log(`✅ would reply to: "${text}"`);
+                      
+                      if (callSid) {
+                        await addToHistory(callSid, { user: text });
+                      }
+                      
+                      // Get conversation history
+                      const history = session?.history || [];
+                      
+                      // Generate response
+                      console.log(`🤖 Generating response...`);
+                      const { getSimpleVoiceResponse } = await import('./simple-voice');
+                      const response = await getSimpleVoiceResponse(text, history);
+                      
+                      // Save response to history
+                      if (callSid) {
+                        await addToHistory(callSid, { assistant: response });
+                      }
+                      session?.history.push({ user: text, assistant: response });
+                      
+                      console.log(`✅ Response: "${response}"`);
+                      console.log(`📞 Sending response back to caller...`);
+                      
+                      // TODO: Send audio response via Twilio
+                    } else {
+                      console.log(`(ignored short chunk: '${text}')`);
+                    }
+                  } catch (error: any) {
+                    console.error('❌ Whisper transcription error:', error);
+                    console.error(error.stack);
+                  }
+                })();
+              }
+            }
+            break;
+            
+          case 'transcription':
+            // This is where we get the actual transcribed text from Twilio
+            streamSid = streamSid || data.streamSid || data.start?.streamSid;
+            if (!streamSid) break;
+            
+            const text = (data.transcription?.text || '').trim();
+            const session = sessions[streamSid];
+            const hasCallSid = !!session?.call_sid;
+            
+            console.log(`[transcript] len=${text.length} sid=${streamSid} text="${text}" has_call_sid=${hasCallSid}`);
+            
+            // Generate response for meaningful text - NO callId check!
+            if (text.length > 3) {
+              const callSid = session?.call_sid;
+              console.log(`📝 User said: "${text}" (stream=${streamSid}, call=${callSid})`);
+              
+              // Quick sanity test first
+              console.log(`✅ would reply to: "${text}"`);
+              
+              // Generate response async (don't block)
+              (async () => {
+                try {
                   if (callSid) {
                     await addToHistory(callSid, { user: text });
                   }
@@ -2495,13 +2558,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   console.log(`📞 Sending response back to caller...`);
                   
                   // TODO: Send audio response via Twilio
-                } else {
-                  console.log(`(ignored short chunk: '${text}')`);
+                } catch (error: any) {
+                  console.error('❌ generate_and_stream_reply error:', error);
+                  console.error(error.stack);
                 }
-                
-                // Clear audio buffer
-                audioBuffer = [];
-              }
+              })();
+            } else {
+              console.log(`(ignored short chunk: '${text}')`);
             }
             break;
             
