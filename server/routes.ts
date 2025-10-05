@@ -2468,17 +2468,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const audioData = Buffer.from(data.media.payload, 'base64');
               audioBuffer.push(audioData);
               
-              // Check if we have enough audio (1 second worth at 8kHz = ~8000 bytes)
+              // Check if we have enough audio (2 seconds for better transcription)
               const totalAudio = Buffer.concat(audioBuffer);
               
-              if (totalAudio.length > 8000) { // ~1 second of audio - FASTER
+              if (totalAudio.length > 16000) { // ~2 seconds of audio
                 console.log(`🎤 Processing ${totalAudio.length} bytes of audio...`);
                 
                 // Transcribe the audio
                 const { transcribeAudio } = await import('./voice-whisper');
                 const userMessage = await transcribeAudio(totalAudio);
                 
-                if (userMessage && callId) {
+                // Only respond to meaningful transcriptions (not just "you" or noise)
+                if (userMessage && userMessage.length > 3 && callId) {
                   console.log(`📝 User said: "${userMessage}"`);
                   await addToHistory(callId, { user: userMessage });
                   
@@ -2486,30 +2487,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const session = getCallSession(callId);
                   const history = session ? session.history : [];
                   
-                  // Generate response with streaming
+                  // Generate response
                   console.log(`🤖 Generating response...`);
-                  const response = await getFastVoiceResponse(
-                    userMessage,
-                    history,
-                    (audioChunk: Buffer) => {
-                      // Send audio chunk to Twilio immediately
-                      if (streamSid) {
-                        const audioMessage = {
-                          event: 'media',
-                          streamSid: streamSid,
-                          media: {
-                            payload: audioChunk.toString('base64')
-                          }
-                        };
-                        ws.send(JSON.stringify(audioMessage));
-                      }
-                    }
-                  );
+                  const { getSimpleVoiceResponse } = await import('./simple-voice');
+                  const response = await getSimpleVoiceResponse(userMessage, history);
                   
                   // Save response to history
                   await addToHistory(callId, { assistant: response });
                   
-                  console.log(`✅ Response sent: "${response.slice(0, 50)}..."`);
+                  console.log(`✅ Response: "${response}"`);
+                  
+                  // Send response as text (Twilio will use TTS)
+                  const responseMessage = {
+                    event: 'mark',
+                    streamSid: streamSid,
+                    mark: {
+                      name: 'response_text',
+                      data: response
+                    }
+                  };
+                  ws.send(JSON.stringify(responseMessage));
                 }
                 
                 // Clear audio buffer
