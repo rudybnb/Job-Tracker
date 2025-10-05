@@ -2409,10 +2409,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let callSession: any = null;
     let callId: string | null = null;
     let streamSid: string | null = null;
+    let audioBuffer: Buffer[] = [];
     
-    const { createCallSession, addToHistory, endCallSession, logEvent } = await import('./voice-sessions');
-    const { getGPTResponse } = await import('./voice-ai');
-    const { generateTTSAudio } = await import('./voice-tts');
+    const { createCallSession, addToHistory, endCallSession, logEvent, getCallSession } = await import('./voice-sessions');
+    const { getFastVoiceResponse } = await import('./voice-streaming');
     
     ws.on('message', async (message: Buffer) => {
       try {
@@ -2434,30 +2434,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
               callSession = await createCallSession(callId, phoneNumber);
               console.log(`📞 Call started: ${callId} from ${phoneNumber}`);
               
-              // Send initial greeting
+              // FAST STREAMING: Send greeting with real-time audio streaming
               const greeting = "Hello! I'm your voice assistant. How can I help you today?";
               await addToHistory(callId, { assistant: greeting });
               
-              // Generate TTS for greeting
-              const greetingAudioUrl = await generateTTSAudio(greeting);
-              console.log(`🎵 Generated greeting audio: ${greetingAudioUrl}`);
+              console.log(`⚡ FAST MODE: Streaming greeting with real-time audio`);
+              
+              // Stream audio directly to Twilio as it's generated
+              await getFastVoiceResponse(
+                greeting,
+                [],
+                (audioChunk: Buffer) => {
+                  // Send audio chunk to Twilio immediately
+                  if (streamSid) {
+                    const audioMessage = {
+                      event: 'media',
+                      streamSid: streamSid,
+                      media: {
+                        payload: audioChunk.toString('base64')
+                      }
+                    };
+                    ws.send(JSON.stringify(audioMessage));
+                  }
+                }
+              );
             }
             
             break;
             
           case 'media':
-            // Received audio from caller
-            // In production, you would:
-            // 1. Decode base64 audio payload
-            // 2. Send to OpenAI Whisper for transcription
-            // 3. Get GPT response
-            // 4. Generate TTS audio
-            // 5. Send audio back to Twilio
-            
-            // For now, just log
-            if (callId) {
-              await logEvent(callId, 'Received audio chunk');
+            // Received audio from caller - collect audio chunks
+            if (data.media && data.media.payload) {
+              const audioData = Buffer.from(data.media.payload, 'base64');
+              audioBuffer.push(audioData);
             }
+            
+            // In a real implementation, you would:
+            // 1. Collect audio chunks
+            // 2. Send to OpenAI Whisper for transcription when silence detected
+            // 3. Use getFastVoiceResponse() to get GPT + TTS streaming
+            // 4. Stream audio back to Twilio in real-time
+            
             break;
             
           case 'stop':
@@ -3780,7 +3797,7 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
     });
   });
 
-  // Test OpenAI GPT integration
+  // Test OpenAI GPT integration (OLD - slow)
   app.post('/api/ai/test', async (req, res) => {
     try {
       const { message } = req.body;
@@ -3790,14 +3807,18 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
       }
 
       const { getGPTResponse } = await import('./voice-ai');
+      const startTime = Date.now();
       const response = await getGPTResponse(message, []);
+      const duration = Date.now() - startTime;
       
-      console.log(`✅ GPT test - Input: "${message.slice(0, 50)}..." | Output: "${response.slice(0, 50)}..."`);
+      console.log(`✅ GPT test (OLD MODE) - Input: "${message.slice(0, 50)}..." | Output: "${response.slice(0, 50)}..." | Time: ${duration}ms`);
       
       res.json({ 
         success: true,
+        mode: 'non-streaming (slow)',
         input: message,
         response,
+        responseTime: `${duration}ms`,
         timestamp: new Date().toISOString()
       });
       
@@ -3805,6 +3826,58 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
       console.error('❌ GPT test error:', error);
       res.status(500).json({ 
         error: 'Failed to get GPT response',
+        message: error.message 
+      });
+    }
+  });
+
+  // Test STREAMING GPT (NEW - fast!)
+  app.post('/api/ai/test-streaming', async (req, res) => {
+    try {
+      const { message } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ error: 'Message parameter is required' });
+      }
+
+      const { getGPTStreamingResponse } = await import('./voice-streaming');
+      
+      const startTime = Date.now();
+      let firstChunkTime = 0;
+      let chunks: string[] = [];
+      
+      const response = await getGPTStreamingResponse(
+        message,
+        [],
+        (chunk: string) => {
+          if (firstChunkTime === 0) {
+            firstChunkTime = Date.now() - startTime;
+            console.log(`⚡ FIRST CHUNK in ${firstChunkTime}ms!`);
+          }
+          chunks.push(chunk);
+        }
+      );
+      
+      const totalTime = Date.now() - startTime;
+      
+      console.log(`✅ GPT streaming - First: ${firstChunkTime}ms | Total: ${totalTime}ms | Chunks: ${chunks.length}`);
+      
+      res.json({ 
+        success: true,
+        mode: 'streaming (FAST!)',
+        input: message,
+        response,
+        firstChunkTime: `${firstChunkTime}ms`,
+        totalTime: `${totalTime}ms`,
+        speedup: `${Math.round((totalTime - firstChunkTime) / totalTime * 100)}% faster perception`,
+        chunks: chunks.length,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error: any) {
+      console.error('❌ GPT streaming test error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get streaming GPT response',
         message: error.message 
       });
     }
