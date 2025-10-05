@@ -2634,6 +2634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Twilio voice webhook - called when call begins
   app.post('/voice/connect', (req, res) => {
     console.log('📞 Twilio voice connect webhook received');
+    console.log('📋 Request body:', JSON.stringify(req.body));
     
     const domain = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
     const protocol = process.env.REPLIT_DEV_DOMAIN ? 'wss' : 'ws';
@@ -2642,13 +2643,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Return TwiML to connect audio stream to WebSocket
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say>Connecting you to the voice assistant. Please wait.</Say>
+  <Say voice="Polly.Brian">I'm here. Start talking any time.</Say>
   <Connect>
     <Stream url="${streamUrl}" />
   </Connect>
 </Response>`;
     
     console.log(`🔗 Connecting to stream: ${streamUrl}`);
+    console.log(`📤 Sending TwiML:`, twiml);
     
     res.type('text/xml');
     res.send(twiml);
