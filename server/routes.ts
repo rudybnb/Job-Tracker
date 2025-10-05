@@ -2478,6 +2478,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const { transcribeAudio } = await import('./voice-whisper');
                 const userMessage = await transcribeAudio(totalAudio);
                 
+                console.log(`🔍 Debug - userMessage: "${userMessage}", length: ${userMessage.length}, callId: ${callId}`);
+                
                 // Only respond to meaningful transcriptions (not just "you" or noise)
                 if (userMessage && userMessage.length > 3 && callId) {
                   console.log(`📝 User said: "${userMessage}"`);
@@ -2497,16 +2499,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   
                   console.log(`✅ Response: "${response}"`);
                   
-                  // Send response as text (Twilio will use TTS)
-                  const responseMessage = {
-                    event: 'mark',
-                    streamSid: streamSid,
-                    mark: {
-                      name: 'response_text',
-                      data: response
-                    }
-                  };
-                  ws.send(JSON.stringify(responseMessage));
+                  // Send TwiML redirect to play response
+                  // This will make Twilio reconnect with the response
+                  console.log(`📞 Sending response back to caller...`);
+                } else {
+                  console.log(`⚠️ Skipping - too short or no callId`);
                 }
                 
                 // Clear audio buffer
