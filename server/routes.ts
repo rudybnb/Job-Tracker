@@ -2430,16 +2430,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             callId = data.start.callSid || `call_${Date.now()}`;
             const phoneNumber = data.start.customParameters?.From || 'unknown';
             
-            callSession = await createCallSession(callId, phoneNumber);
-            console.log(`📞 Call started: ${callId} from ${phoneNumber}`);
-            
-            // Send initial greeting
-            const greeting = "Hello! I'm your voice assistant. How can I help you today?";
-            await addToHistory(callId, { assistant: greeting });
-            
-            // Generate TTS for greeting
-            const greetingAudioUrl = await generateTTSAudio(greeting);
-            console.log(`🎵 Generated greeting audio: ${greetingAudioUrl}`);
+            if (callId) {
+              callSession = await createCallSession(callId, phoneNumber);
+              console.log(`📞 Call started: ${callId} from ${phoneNumber}`);
+              
+              // Send initial greeting
+              const greeting = "Hello! I'm your voice assistant. How can I help you today?";
+              await addToHistory(callId, { assistant: greeting });
+              
+              // Generate TTS for greeting
+              const greetingAudioUrl = await generateTTSAudio(greeting);
+              console.log(`🎵 Generated greeting audio: ${greetingAudioUrl}`);
+            }
             
             break;
             
@@ -3776,6 +3778,36 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
       voices: ELEVEN_VOICES,
       default: 'GEORGE'
     });
+  });
+
+  // Test OpenAI GPT integration
+  app.post('/api/ai/test', async (req, res) => {
+    try {
+      const { message } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ error: 'Message parameter is required' });
+      }
+
+      const { getGPTResponse } = await import('./voice-ai');
+      const response = await getGPTResponse(message, []);
+      
+      console.log(`✅ GPT test - Input: "${message.slice(0, 50)}..." | Output: "${response.slice(0, 50)}..."`);
+      
+      res.json({ 
+        success: true,
+        input: message,
+        response,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error: any) {
+      console.error('❌ GPT test error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get GPT response',
+        message: error.message 
+      });
+    }
   });
 
   // SUPER SIMPLE webhook for ElevenLabs (no auth, no validation)
