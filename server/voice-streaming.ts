@@ -26,7 +26,7 @@ export async function getGPTStreamingResponse(
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       {
         role: 'system',
-        content: 'You are a helpful voice assistant. Keep responses very brief and conversational (1-2 sentences max) for voice interaction.'
+        content: 'Be friendly. Keep answers under 2 sentences unless asked.'
       }
     ];
     
@@ -42,10 +42,10 @@ export async function getGPTStreamingResponse(
     
     // STREAMING mode - much faster!
     const stream = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o-mini', // FASTEST model
       messages,
       temperature: 0.7,
-      max_tokens: 100, // Keep very short for voice
+      max_tokens: 120, // Cap for speed
       stream: true // Enable streaming!
     });
     
@@ -94,13 +94,17 @@ export async function streamElevenLabsAudio(
     );
     
     ws.on('open', () => {
-      // Send configuration
+      // Send configuration with LOWEST latency
       ws.send(JSON.stringify({
         text: ' ',
         voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75
+          stability: 0.2,
+          similarity_boost: 0.9
         },
+        generation_config: {
+          chunk_length_schedule: [120, 160, 250, 290]
+        },
+        optimize_streaming_latency: 4, // LOWEST LATENCY (fastest)
         xi_api_key: ELEVEN_API_KEY
       }));
       

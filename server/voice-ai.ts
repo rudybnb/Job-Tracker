@@ -49,10 +49,10 @@ export async function getGPTResponse(
     
     // Call OpenAI API
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o-mini', // FASTEST model
       messages,
       temperature: 0.7,
-      max_tokens: 150 // Keep responses concise for voice
+      max_tokens: 120 // Cap for speed
     });
     
     const reply = response.choices[0]?.message?.content || 'I apologize, I did not understand that.';

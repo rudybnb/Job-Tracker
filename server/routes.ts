@@ -2471,7 +2471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Check if we have enough audio (1 second worth at 8kHz = ~8000 bytes)
               const totalAudio = Buffer.concat(audioBuffer);
               
-              if (totalAudio.length > 16000) { // ~2 seconds of audio
+              if (totalAudio.length > 8000) { // ~1 second of audio - FASTER
                 console.log(`🎤 Processing ${totalAudio.length} bytes of audio...`);
                 
                 // Transcribe the audio
