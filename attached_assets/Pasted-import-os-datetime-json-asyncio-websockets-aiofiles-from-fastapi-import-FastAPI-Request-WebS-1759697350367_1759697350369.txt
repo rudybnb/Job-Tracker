@@ -1,0 +1,107 @@
+import os, datetime, json, asyncio, websockets, aiofiles
+from fastapi import FastAPI, Request, WebSocket
+from fastapi.responses import PlainTextResponse
+from fastapi.staticfiles import StaticFiles
+import openai, httpx, pathlib
+
+app = FastAPI(title="Voice Assistant")
+
+# --- ENV ---
+openai.api_key = os.getenv("OPENAI_API_KEY")
+ELEVEN_KEY = os.getenv("ELEVEN_API_KEY")
+ELEVEN_VOICE = os.getenv("ELEVEN_VOICE_ID", "B Ellana")
+
+# --- FOLDERS ---
+LOG_DIR = pathlib.Path("logs")
+AUDIO_DIR = pathlib.Path("audio")
+LOG_DIR.mkdir(exist_ok=True)
+AUDIO_DIR.mkdir(exist_ok=True)
+app.mount("/audio", StaticFiles(directory=str(AUDIO_DIR)), name="audio")
+
+# --- SIMPLE MEMORY (per call) ---
+sessions = {}
+
+# --- Twilio webhook to start call ---
+@app.post("/voice/connect")
+async def voice_connect(request: Request):
+    """
+    Called by Twilio when the call begins.
+    Twilio will connect audio stream to /twilio/stream websocket.
+    """
+    xml = """
+<Response>
+  <Connect>
+    <Stream url="wss://YOUR-REPLIT-URL/twilio/stream" />
+  </Connect>
+</Response>"""
+    return PlainTextResponse(xml, media_type="application/xml")
+
+# --- Twilio WebSocket audio stream handler ---
+@app.websocket("/twilio/stream")
+async def twilio_stream(ws: WebSocket):
+    """
+    Handles the bi-directional audio stream with Twilio.
+    In real production this forwards mic audio to Whisper
+    and streams GPT responses → ElevenLabs → back to Twilio.
+    """
+    await ws.accept()
+    call_id = str(datetime.datetime.utcnow().timestamp())
+    sessions[ws] = {"history": []}
+    log_path = LOG_DIR / f"call_{call_id}.txt"
+    async with aiofiles.open(log_path, "a") as log:
+        await log.write(f"--- Call started {datetime.datetime.utcnow()} ---\n")
+
+    try:
+        while True:
+            msg = await ws.receive_text()
+            # Here Twilio would send audio events (base64)
+            # You'd decode, send to Whisper, etc.
+            # For now we just log text events.
+            async with aiofiles.open(log_path, "a") as log:
+                await log.write(msg + "\n")
+    except Exception:
+        pass
+    finally:
+        async with aiofiles.open(log_path, "a") as log:
+            await log.write("--- Call ended ---\n")
+        await ws.close()
+        sessions.pop(ws, None)
+
+# --- Helper: get GPT reply text ---
+async def gpt_reply(prompt, history):
+    messages = [{"role": "system", "content": "You are a friendly conversational assistant."}]
+    messages += [{"role": "user", "content": h["user"]} for h in history if "user" in h]
+    messages += [{"role": "assistant", "content": h["assistant"]} for h in history if "assistant" in h]
+    messages.append({"role": "user", "content": prompt})
+    resp = await openai.ChatCompletion.acreate(model="gpt-4-turbo", messages=messages)
+    text = resp.choices[0].message.content
+    history.append({"user": prompt, "assistant": text})
+    return text
+
+# --- ElevenLabs text→speech (file) ---
+async def tts_eleven(text: str) -> str:
+    """Converts text to mp3 and saves locally; returns path."""
+    async with httpx.AsyncClient() as client:
+        r = await client.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE}",
+            headers={"xi-api-key": ELEVEN_KEY, "Accept": "audio/mpeg"},
+            json={"text": text}
+        )
+        filename = AUDIO_DIR / f"{datetime.datetime.utcnow().timestamp()}.mp3"
+        filename.write_bytes(r.content)
+        return f"/audio/{filename.name}"
+
+# --- Local test endpoint (text in → voice file out) ---
+@app.post("/say")
+async def say(req: Request):
+    data = await req.json()
+    text = data.get("text", "")
+    audio_url = await tts_eleven(text)
+    return {"audio": audio_url}
+
+@app.get("/health")
+async def health(): return {"ok": True}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=8000)
