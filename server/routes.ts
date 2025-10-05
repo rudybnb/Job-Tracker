@@ -2458,8 +2458,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Check if we have enough audio (2 seconds)
               const totalAudio = Buffer.concat(audioBuffer);
               
-              if (totalAudio.length > 16000 && streamSid) {
-                console.log(`🎤 Processing ${totalAudio.length} bytes of audio...`);
+              // Process audio regardless of streamSid to debug
+              if (totalAudio.length > 16000) {
+                console.log(`🎤 Processing ${totalAudio.length} bytes of audio (streamSid=${streamSid})...`);
                 audioBuffer = []; // Clear buffer immediately
                 
                 // Transcribe async (don't block)
@@ -2469,10 +2470,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     const userMessage = await transcribeAudio(totalAudio);
                     const text = userMessage.trim();
                     
-                    const session = sessions[streamSid];
+                    const session = streamSid ? sessions[streamSid] : null;
                     const hasCallSid = !!session?.call_sid;
                     
-                    console.log(`[whisper] len=${text.length} sid=${streamSid} text="${text}" has_call_sid=${hasCallSid}`);
+                    console.log(`[whisper] len=${text.length} sid=${streamSid || 'null'} text="${text}" has_call_sid=${hasCallSid}`);
                     
                     // Generate response for meaningful text - NO callId check!
                     if (text.length > 3) {
