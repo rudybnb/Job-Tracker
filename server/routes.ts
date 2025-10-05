@@ -2675,10 +2675,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const completion = await client.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a helpful voice assistant for ERdesignandbuild, a contractor management company. Be friendly, brief, and professional. Keep responses under 100 words.' },
+          { role: 'system', content: 'You are a friendly and helpful voice assistant. You can chat about anything - weather, news, general questions, or help with ERdesignandbuild construction management tasks. Be warm, conversational, and natural like a real person. Keep responses brief (2-3 sentences max) since this is a phone conversation. Use casual language and contractions.' },
           { role: 'user', content: text }
         ],
-        max_tokens: 120
+        max_tokens: 150
       });
       
       const reply = completion.choices[0].message.content || 'I understand.';
@@ -2724,10 +2724,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             },
             body: JSON.stringify({
               text: reply,
-              optimize_streaming_latency: 4,
+              model_id: 'eleven_multilingual_v2',
+              optimize_streaming_latency: 3,
               voice_settings: {
-                stability: 0.2,
-                similarity_boost: 0.9
+                stability: 0.5,
+                similarity_boost: 0.75,
+                style: 0,
+                use_speaker_boost: true
               }
             })
           }
