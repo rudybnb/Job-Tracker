@@ -2636,24 +2636,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('📞 Twilio voice connect webhook received');
     console.log('📋 Request body:', JSON.stringify(req.body));
     
-    const domain = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
-    const protocol = process.env.REPLIT_DEV_DOMAIN ? 'wss' : 'ws';
-    const streamUrl = `${protocol}://${domain}/twilio/stream`;
-    
-    // Return TwiML to connect audio stream to WebSocket
+    // Use Gather to capture speech - simpler than WebSocket streaming!
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Polly.Brian">I'm here. Start talking any time.</Say>
-  <Connect>
-    <Stream url="${streamUrl}" />
-  </Connect>
+  <Say voice="Polly.Brian">I'm here. Say something after the beep.</Say>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
+  <Say>Didn't catch that. Goodbye.</Say>
+  <Hangup/>
 </Response>`;
     
-    console.log(`🔗 Connecting to stream: ${streamUrl}`);
-    console.log(`📤 Sending TwiML:`, twiml);
+    console.log(`📤 Sending TwiML with Gather`);
     
     res.type('text/xml');
     res.send(twiml);
+  });
+  
+  // Handle speech input from Gather
+  app.post('/voice/handle', async (req, res) => {
+    try {
+      const text = (req.body.SpeechResult || '').trim();
+      console.log('📝 User said:', text);
+      
+      if (!text || text.length < 2) {
+        // No speech detected, loop back
+        const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say>I didn't hear anything. Try again.</Say>
+  <Redirect method="POST">/voice/connect</Redirect>
+</Response>`;
+        return res.type('text/xml').send(twiml);
+      }
+      
+      // Generate GPT response
+      console.log('🤖 Generating response...');
+      const openai = (await import('openai')).default;
+      const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
+      
+      const completion = await client.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a helpful voice assistant for ERdesignandbuild, a contractor management company. Be friendly, brief, and professional. Keep responses under 100 words.' },
+          { role: 'user', content: text }
+        ],
+        max_tokens: 120
+      });
+      
+      const reply = completion.choices[0].message.content || 'I understand.';
+      console.log('✅ Reply:', reply);
+      
+      // Generate ElevenLabs TTS
+      console.log('🎙️ Generating speech...');
+      const crypto = await import('crypto');
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      
+      const ELEVEN_API_KEY = process.env.ELEVENLABS_API_KEY;
+      const ELEVEN_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb'; // Bella voice
+      
+      // Create audio directory if it doesn't exist
+      const audioDir = path.join(process.cwd(), 'audio');
+      await fs.mkdir(audioDir, { recursive: true });
+      
+      // Hash the reply to cache audio files
+      const hash = crypto.createHash('sha1').update(reply).digest('hex').slice(0, 16);
+      const mp3Path = path.join(audioDir, `${hash}.mp3`);
+      
+      // Check if audio file already exists
+      let audioExists = false;
+      try {
+        await fs.access(mp3Path);
+        audioExists = true;
+        console.log('📦 Using cached audio');
+      } catch {
+        // File doesn't exist, generate it
+      }
+      
+      if (!audioExists) {
+        const fetch = (await import('node-fetch')).default;
+        const response = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`,
+          {
+            method: 'POST',
+            headers: {
+              'xi-api-key': ELEVEN_API_KEY || '',
+              'Accept': 'audio/mpeg',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              text: reply,
+              optimize_streaming_latency: 4,
+              voice_settings: {
+                stability: 0.2,
+                similarity_boost: 0.9
+              }
+            })
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`ElevenLabs API error: ${response.statusText}`);
+        }
+        
+        const audioBuffer = Buffer.from(await response.arrayBuffer());
+        await fs.writeFile(mp3Path, audioBuffer);
+        console.log('💾 Saved audio to cache');
+      }
+      
+      // Build public URL
+      const domain = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
+      const protocol = process.env.REPLIT_DEV_DOMAIN ? 'https' : 'http';
+      const audioUrl = `${protocol}://${domain}/audio/${hash}.mp3`;
+      
+      console.log('🔊 Playing audio:', audioUrl);
+      
+      // Return TwiML to play audio and loop back
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Play>${audioUrl}</Play>
+  <Redirect method="POST">/voice/connect</Redirect>
+</Response>`;
+      
+      res.type('text/xml').send(twiml);
+      
+    } catch (error: any) {
+      console.error('❌ Error in voice handler:', error);
+      console.error(error.stack);
+      
+      // Fallback TwiML
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say>Sorry, I encountered an error. Please try again.</Say>
+  <Redirect method="POST">/voice/connect</Redirect>
+</Response>`;
+      
+      res.type('text/xml').send(twiml);
+    }
   });
   
   // Admin batch inspection submission endpoint
