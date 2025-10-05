@@ -2419,6 +2419,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const data = JSON.parse(message.toString());
         
+        // DEBUG: Log ALL incoming events
+        console.log(`📩 Twilio event: ${data.event}`, JSON.stringify(data).slice(0, 200));
+        
         // Log all events for debugging
         if (streamSid && sessions[streamSid]) {
           await logEvent(sessions[streamSid].call_sid, `Event: ${data.event}`);
