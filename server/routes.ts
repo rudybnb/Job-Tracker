@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { DatabaseStorage } from "./database-storage";
 
 // Session interface for type safety
@@ -2396,6 +2397,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // ===== TWILIO WEBSOCKET VOICE STREAMING =====
+  
+  // Create WebSocket server for Twilio audio streaming
+  const wss = new WebSocketServer({ server: httpServer, path: '/twilio/stream' });
+  
+  wss.on('connection', async (ws: WebSocket) => {
+    console.log('🎙️ Twilio WebSocket connected');
+    
+    let callSession: any = null;
+    let callId: string | null = null;
+    let streamSid: string | null = null;
+    
+    const { createCallSession, addToHistory, endCallSession, logEvent } = await import('./voice-sessions');
+    const { getGPTResponse } = await import('./voice-ai');
+    const { generateTTSAudio } = await import('./voice-tts');
+    
+    ws.on('message', async (message: Buffer) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        // Log all events for debugging
+        if (callId) {
+          await logEvent(callId, `Event: ${data.event}`);
+        }
+        
+        switch (data.event) {
+          case 'start':
+            // Call started
+            streamSid = data.streamSid;
+            callId = data.start.callSid || `call_${Date.now()}`;
+            const phoneNumber = data.start.customParameters?.From || 'unknown';
+            
+            callSession = await createCallSession(callId, phoneNumber);
+            console.log(`📞 Call started: ${callId} from ${phoneNumber}`);
+            
+            // Send initial greeting
+            const greeting = "Hello! I'm your voice assistant. How can I help you today?";
+            await addToHistory(callId, { assistant: greeting });
+            
+            // Generate TTS for greeting
+            const greetingAudioUrl = await generateTTSAudio(greeting);
+            console.log(`🎵 Generated greeting audio: ${greetingAudioUrl}`);
+            
+            break;
+            
+          case 'media':
+            // Received audio from caller
+            // In production, you would:
+            // 1. Decode base64 audio payload
+            // 2. Send to OpenAI Whisper for transcription
+            // 3. Get GPT response
+            // 4. Generate TTS audio
+            // 5. Send audio back to Twilio
+            
+            // For now, just log
+            if (callId) {
+              await logEvent(callId, 'Received audio chunk');
+            }
+            break;
+            
+          case 'stop':
+            // Call ended
+            if (callId) {
+              await endCallSession(callId);
+              console.log(`📞 Call ended: ${callId}`);
+            }
+            break;
+            
+          default:
+            if (callId) {
+              await logEvent(callId, `Unknown event: ${data.event}`);
+            }
+        }
+      } catch (error: any) {
+        console.error('❌ WebSocket message error:', error.message);
+      }
+    });
+    
+    ws.on('close', async () => {
+      console.log('📞 WebSocket closed');
+      if (callId) {
+        await endCallSession(callId);
+      }
+    });
+    
+    ws.on('error', (error) => {
+      console.error('❌ WebSocket error:', error);
+    });
+  });
+  
+  // Twilio voice webhook - called when call begins
+  app.post('/voice/connect', (req, res) => {
+    console.log('📞 Twilio voice connect webhook received');
+    
+    const domain = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
+    const protocol = process.env.REPLIT_DEV_DOMAIN ? 'wss' : 'ws';
+    const streamUrl = `${protocol}://${domain}/twilio/stream`;
+    
+    // Return TwiML to connect audio stream to WebSocket
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say>Connecting you to the voice assistant. Please wait.</Say>
+  <Connect>
+    <Stream url="${streamUrl}" />
+  </Connect>
+</Response>`;
+    
+    console.log(`🔗 Connecting to stream: ${streamUrl}`);
+    
+    res.type('text/xml');
+    res.send(twiml);
+  });
+  
   // Admin batch inspection submission endpoint
   app.post("/api/admin-inspections/batch", async (req, res) => {
     try {
