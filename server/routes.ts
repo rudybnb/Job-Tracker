@@ -3597,6 +3597,72 @@ Be friendly, professional, and efficient. Use natural conversation - don't make 
     });
   });
 
+  // ===== ELEVENLABS TTS ENDPOINTS =====
+  
+  // Generate TTS audio from text
+  app.post('/api/tts/generate', async (req, res) => {
+    try {
+      const { text, voiceId } = req.body;
+      
+      if (!text) {
+        return res.status(400).json({ error: 'Text parameter is required' });
+      }
+
+      const { generateTTSAudio } = await import('./voice-tts');
+      const audioUrl = await generateTTSAudio(text, voiceId);
+      
+      console.log(`✅ TTS audio generated: ${audioUrl}`);
+      
+      res.json({ 
+        success: true,
+        audioUrl,
+        text: text.slice(0, 50) + (text.length > 50 ? '...' : '')
+      });
+      
+    } catch (error: any) {
+      console.error('❌ TTS generation error:', error);
+      res.status(500).json({ 
+        error: 'Failed to generate TTS audio',
+        message: error.message 
+      });
+    }
+  });
+
+  // Test TTS endpoint - generates simple greeting
+  app.get('/api/tts/test', async (req, res) => {
+    try {
+      const testText = "Hello! This is a test of the ElevenLabs text to speech system. The audio generation is working perfectly.";
+      
+      const { generateTTSAudio } = await import('./voice-tts');
+      const audioUrl = await generateTTSAudio(testText);
+      
+      console.log(`✅ TTS test successful: ${audioUrl}`);
+      
+      res.json({ 
+        success: true,
+        audioUrl,
+        message: 'TTS test successful! Click the URL to hear the audio.',
+        testText
+      });
+      
+    } catch (error: any) {
+      console.error('❌ TTS test error:', error);
+      res.status(500).json({ 
+        error: 'TTS test failed',
+        message: error.message 
+      });
+    }
+  });
+
+  // Get available voices
+  app.get('/api/tts/voices', async (req, res) => {
+    const { ELEVEN_VOICES } = await import('./voice-tts');
+    res.json({ 
+      voices: ELEVEN_VOICES,
+      default: 'GEORGE'
+    });
+  });
+
   // SUPER SIMPLE webhook for ElevenLabs (no auth, no validation)
   app.all('/test', (req, res) => {
     console.log(`🧪 SIMPLE TEST endpoint called: ${req.method}`);
