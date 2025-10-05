@@ -2400,14 +2400,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // ===== TWILIO WEBSOCKET VOICE STREAMING =====
   
+  // Session storage keyed by streamSid
+  const sessions: Record<string, { call_sid: string; history: any[] }> = {};
+  
   // Create WebSocket server for Twilio audio streaming
   const wss = new WebSocketServer({ server: httpServer, path: '/twilio/stream' });
   
   wss.on('connection', async (ws: WebSocket) => {
     console.log('🎙️ Twilio WebSocket connected');
     
-    let callSession: any = null;
-    let callId: string | null = null;
     let streamSid: string | null = null;
     let audioBuffer: Buffer[] = [];
     
@@ -2419,52 +2420,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const data = JSON.parse(message.toString());
         
         // Log all events for debugging
-        if (callId) {
-          await logEvent(callId, `Event: ${data.event}`);
+        if (streamSid && sessions[streamSid]) {
+          await logEvent(sessions[streamSid].call_sid, `Event: ${data.event}`);
         }
         
         switch (data.event) {
           case 'start':
-            // Call started
-            streamSid = data.streamSid;
-            callId = data.start.callSid || `call_${Date.now()}`;
+            // Capture IDs on connect
+            streamSid = data.start.streamSid;
+            if (!streamSid) break;
+            
+            const callSid = data.start.callSid || `call_${Date.now()}`;
             const phoneNumber = data.start.customParameters?.From || 'unknown';
             
-            if (callId) {
-              callSession = await createCallSession(callId, phoneNumber);
-              console.log(`📞 Call started: ${callId} from ${phoneNumber}`);
-              
-              // FAST STREAMING: Send greeting with real-time audio streaming
-              const greeting = "Hello! I'm your voice assistant. How can I help you today?";
-              await addToHistory(callId, { assistant: greeting });
-              
-              console.log(`⚡ FAST MODE: Streaming greeting with real-time audio`);
-              
-              // Stream audio directly to Twilio as it's generated
-              await getFastVoiceResponse(
-                greeting,
-                [],
-                (audioChunk: Buffer) => {
-                  // Send audio chunk to Twilio immediately
-                  if (streamSid) {
-                    const audioMessage = {
-                      event: 'media',
-                      streamSid: streamSid,
-                      media: {
-                        payload: audioChunk.toString('base64')
-                      }
-                    };
-                    ws.send(JSON.stringify(audioMessage));
-                  }
-                }
-              );
-            }
+            // Store session keyed by streamSid
+            sessions[streamSid] = { call_sid: callSid, history: [] };
+            console.log(`[start] stream=${streamSid} call=${callSid}`);
+            
+            // Create call session
+            await createCallSession(callSid, phoneNumber);
+            console.log(`📞 Call started: ${callSid} from ${phoneNumber}`);
             
             break;
             
           case 'media':
             // Received audio from caller - collect and process
-            if (data.media && data.media.payload) {
+            if (data.media && data.media.payload && streamSid) {
               const audioData = Buffer.from(data.media.payload, 'base64');
               audioBuffer.push(audioData);
               
@@ -2477,33 +2458,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // Transcribe the audio
                 const { transcribeAudio } = await import('./voice-whisper');
                 const userMessage = await transcribeAudio(totalAudio);
+                const text = userMessage.trim();
                 
-                console.log(`🔍 Debug - userMessage: "${userMessage}", length: ${userMessage.length}, callId: ${callId}`);
+                // Debug info
+                const session = sessions[streamSid];
+                const hasCallSid = !!session?.call_sid;
+                console.log(`[debug] text="${text}" len=${text.length} has_call_sid=${hasCallSid} stream=${streamSid}`);
                 
-                // Only respond to meaningful transcriptions (not just "you" or noise)
-                if (userMessage && userMessage.length > 3 && callId) {
-                  console.log(`📝 User said: "${userMessage}"`);
-                  await addToHistory(callId, { user: userMessage });
+                // Only respond to meaningful transcriptions - NO callId check!
+                if (text && text.length > 3) {
+                  const callSid = session?.call_sid;
+                  console.log(`📝 User said: "${text}" (stream=${streamSid}, call=${callSid})`);
+                  
+                  if (callSid) {
+                    await addToHistory(callSid, { user: text });
+                  }
                   
                   // Get conversation history
-                  const session = getCallSession(callId);
-                  const history = session ? session.history : [];
+                  const history = session?.history || [];
                   
                   // Generate response
                   console.log(`🤖 Generating response...`);
                   const { getSimpleVoiceResponse } = await import('./simple-voice');
-                  const response = await getSimpleVoiceResponse(userMessage, history);
+                  const response = await getSimpleVoiceResponse(text, history);
                   
                   // Save response to history
-                  await addToHistory(callId, { assistant: response });
+                  if (callSid) {
+                    await addToHistory(callSid, { assistant: response });
+                  }
+                  session?.history.push({ user: text, assistant: response });
                   
                   console.log(`✅ Response: "${response}"`);
-                  
-                  // Send TwiML redirect to play response
-                  // This will make Twilio reconnect with the response
                   console.log(`📞 Sending response back to caller...`);
+                  
+                  // TODO: Send audio response via Twilio
                 } else {
-                  console.log(`⚠️ Skipping - too short or no callId`);
+                  console.log(`(ignored short chunk: '${text}')`);
                 }
                 
                 // Clear audio buffer
@@ -2514,15 +2504,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
           case 'stop':
             // Call ended
-            if (callId) {
-              await endCallSession(callId);
-              console.log(`📞 Call ended: ${callId}`);
+            if (streamSid && sessions[streamSid]) {
+              const callSid = sessions[streamSid].call_sid;
+              await endCallSession(callSid);
+              console.log(`📞 Call ended: ${callSid}`);
+              delete sessions[streamSid];
             }
             break;
             
           default:
-            if (callId) {
-              await logEvent(callId, `Unknown event: ${data.event}`);
+            if (streamSid && sessions[streamSid]) {
+              await logEvent(sessions[streamSid].call_sid, `Unknown event: ${data.event}`);
             }
         }
       } catch (error: any) {
@@ -2532,8 +2524,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     ws.on('close', async () => {
       console.log('📞 WebSocket closed');
-      if (callId) {
-        await endCallSession(callId);
+      if (streamSid && sessions[streamSid]) {
+        await endCallSession(sessions[streamSid].call_sid);
+        delete sessions[streamSid];
       }
     });
     
