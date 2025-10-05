@@ -38,13 +38,28 @@ function mulawToPcm(mulaw: Buffer): Buffer {
 }
 
 /**
+ * Simple resampling from 8kHz to 16kHz (doubles every sample)
+ */
+function resample8kTo16k(pcm8k: Buffer): Buffer {
+  const pcm16k = Buffer.alloc(pcm8k.length * 2);
+  
+  for (let i = 0; i < pcm8k.length; i += 2) {
+    const sample = pcm8k.readInt16LE(i);
+    pcm16k.writeInt16LE(sample, i * 2);       // Original sample
+    pcm16k.writeInt16LE(sample, (i * 2) + 2); // Duplicate sample
+  }
+  
+  return pcm16k;
+}
+
+/**
  * Create a proper WAV file from PCM audio
  */
-async function createWavFile(pcmBuffer: Buffer, outputPath: string): Promise<void> {
+async function createWavFile(pcmBuffer: Buffer, outputPath: string, sampleRate: number = 8000): Promise<void> {
   return new Promise((resolve, reject) => {
     const writer = new FileWriter(outputPath, {
       channels: 1,
-      sampleRate: 8000, // Twilio sends 8kHz audio
+      sampleRate,
       bitDepth: 16
     });
     
@@ -57,19 +72,58 @@ async function createWavFile(pcmBuffer: Buffer, outputPath: string): Promise<voi
 }
 
 /**
+ * Create WAV buffer from PCM16 data at 16kHz
+ */
+export function wav16kFromPcm16(pcm16: Buffer): Buffer {
+  const header = Buffer.alloc(44);
+  
+  // RIFF header
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcm16.length, 4);
+  header.write('WAVE', 8);
+  
+  // fmt chunk
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);        // chunk size
+  header.writeUInt16LE(1, 20);         // audio format (PCM)
+  header.writeUInt16LE(1, 22);         // num channels
+  header.writeUInt32LE(16000, 24);     // sample rate
+  header.writeUInt32LE(32000, 28);     // byte rate
+  header.writeUInt16LE(2, 32);         // block align
+  header.writeUInt16LE(16, 34);        // bits per sample
+  
+  // data chunk
+  header.write('data', 36);
+  header.writeUInt32LE(pcm16.length, 40);
+  
+  return Buffer.concat([header, pcm16]);
+}
+
+/**
  * Transcribe audio buffer to text using OpenAI Whisper
- * Handles Twilio's mulaw format
+ * Accepts either mulaw or WAV buffer
  */
 export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
   try {
-    // Convert mulaw to PCM
-    const pcmBuffer = mulawToPcm(audioBuffer);
+    let wavBuffer: Buffer;
     
-    // Create temporary WAV file
-    const tempFile = join('/tmp', `audio_${Date.now()}.wav`);
-    await createWavFile(pcmBuffer, tempFile);
+    // Check if it's already a WAV file (starts with "RIFF")
+    if (audioBuffer.toString('utf8', 0, 4) === 'RIFF') {
+      wavBuffer = audioBuffer;
+    } else {
+      // Convert mulaw to PCM and create WAV
+      const pcmBuffer = mulawToPcm(audioBuffer);
+      const tempFile = join('/tmp', `audio_${Date.now()}.wav`);
+      await createWavFile(pcmBuffer, tempFile, 8000);
+      wavBuffer = await import('fs/promises').then(fs => fs.readFile(tempFile));
+      await unlink(tempFile).catch(() => {});
+    }
     
-    console.log(`🎤 Transcribing ${audioBuffer.length} bytes (${pcmBuffer.length} PCM)...`);
+    console.log(`🎤 Transcribing ${audioBuffer.length} bytes...`);
+    
+    // Create a temporary file for Whisper
+    const tempFile = join('/tmp', `whisper_${Date.now()}.wav`);
+    await writeFile(tempFile, wavBuffer);
     
     // Call Whisper API
     const transcription = await openai.audio.transcriptions.create({
@@ -94,3 +148,8 @@ export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
     return '';
   }
 }
+
+/**
+ * Export utility functions
+ */
+export { mulawToPcm, resample8kTo16k };

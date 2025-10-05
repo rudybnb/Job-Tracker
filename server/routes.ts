@@ -2401,7 +2401,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== TWILIO WEBSOCKET VOICE STREAMING =====
   
   // Session storage keyed by streamSid
-  const sessions: Record<string, { call_sid: string; history: any[] }> = {};
+  const sessions: Record<string, { 
+    call_sid: string; 
+    buf: number[]; 
+    history: any[];
+    last_transcribe: number;
+  }> = {};
   
   // Create WebSocket server for Twilio audio streaming
   const wss = new WebSocketServer({ server: httpServer, path: '/twilio/stream' });
@@ -2410,10 +2415,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('🎙️ Twilio WebSocket connected');
     
     let streamSid: string | null = null;
-    let audioBuffer: Buffer[] = [];
-    
-    const { createCallSession, addToHistory, endCallSession, logEvent, getCallSession } = await import('./voice-sessions');
-    const { getFastVoiceResponse } = await import('./voice-streaming');
+    const { mulawToPcm, resample8kTo16k, wav16kFromPcm16 } = await import('./voice-whisper');
+    const { createCallSession, addToHistory, endCallSession, logEvent } = await import('./voice-sessions');
     
     ws.on('message', async (message: Buffer) => {
       try {
@@ -2429,18 +2432,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         switch (data.event) {
           case 'start':
-            // Capture IDs on connect
-            streamSid = data.streamSid || data.start?.streamSid;
-            const callSid = data.start?.callSid || `call_${Date.now()}`;
+            // Capture streamSid from start event
+            streamSid = data.start.streamSid;
+            const callSid = data.start.callSid || `call_${Date.now()}`;
             
             if (!streamSid) {
               console.log(`⚠️ No streamSid in start event`);
               break;
             }
             
-            // Store session keyed by streamSid
-            sessions[streamSid] = { call_sid: callSid, history: [] };
-            console.log(`[start] stream=${streamSid} call=${callSid}`);
+            // Store session with audio buffer and timestamp
+            sessions[streamSid] = { 
+              call_sid: callSid, 
+              buf: [], 
+              history: [],
+              last_transcribe: Date.now()
+            };
+            console.log(`[start] sid=${streamSid}`);
             
             // Create call session
             const phoneNumber = data.start?.customParameters?.From || 'unknown';
@@ -2450,61 +2458,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
             break;
             
           case 'media':
-            // Collect audio and transcribe manually with Whisper
-            if (data.media && data.media.payload) {
-              const audioData = Buffer.from(data.media.payload, 'base64');
-              audioBuffer.push(audioData);
+            // Decode μ-law 8kHz → PCM16 16kHz and transcribe every ~1s
+            if (!streamSid || !data.media?.payload) break;
+            
+            const session = sessions[streamSid];
+            if (!session) break;
+            
+            try {
+              // Decode base64 μ-law
+              const b64 = data.media.payload;
+              const mulaw = Buffer.from(b64, 'base64');
               
-              // Check if we have enough audio (2 seconds)
-              const totalAudio = Buffer.concat(audioBuffer);
+              // μ-law → 16-bit PCM @8k
+              const pcm8k = mulawToPcm(mulaw);
               
-              // Process audio regardless of streamSid to debug
-              if (totalAudio.length > 16000) {
-                console.log(`🎤 Processing ${totalAudio.length} bytes of audio (streamSid=${streamSid})...`);
-                audioBuffer = []; // Clear buffer immediately
+              // Resample 8k → 16k
+              const pcm16k = resample8kTo16k(pcm8k);
+              
+              // Add to buffer (as array of bytes)
+              const arr = Array.from(pcm16k);
+              session.buf.push(...arr);
+              
+              // Throttle: transcribe every ~1s
+              const now = Date.now();
+              const timeSinceLastTranscribe = now - session.last_transcribe;
+              
+              if (timeSinceLastTranscribe >= 1000 && session.buf.length > 32000) {
+                const pcm = Buffer.from(session.buf);
+                session.buf = []; // Clear buffer
+                session.last_transcribe = now;
                 
                 // Transcribe async (don't block)
                 (async () => {
                   try {
+                    // Convert PCM16 → WAV
+                    const wavBuffer = wav16kFromPcm16(pcm);
+                    
+                    // Send to Whisper
                     const { transcribeAudio } = await import('./voice-whisper');
-                    const userMessage = await transcribeAudio(totalAudio);
-                    const text = userMessage.trim();
+                    const text = await transcribeAudio(wavBuffer);
+                    const trimmed = text.trim();
                     
-                    const session = streamSid ? sessions[streamSid] : null;
-                    const hasCallSid = !!session?.call_sid;
-                    
-                    console.log(`[whisper] len=${text.length} sid=${streamSid || 'null'} text="${text}" has_call_sid=${hasCallSid}`);
+                    console.log(`📝 User said: ${JSON.stringify(trimmed)}`);
                     
                     // Generate response for meaningful text - NO callId check!
-                    if (text.length > 3) {
-                      const callSid = session?.call_sid;
-                      console.log(`📝 User said: "${text}" (stream=${streamSid}, call=${callSid})`);
-                      console.log(`✅ would reply to: "${text}"`);
+                    if (trimmed.length > 3) {
+                      const callSid = session.call_sid;
+                      console.log(`✅ would reply to: "${trimmed}"`);
                       
                       if (callSid) {
-                        await addToHistory(callSid, { user: text });
+                        await addToHistory(callSid, { user: trimmed });
                       }
                       
                       // Get conversation history
-                      const history = session?.history || [];
+                      const history = session.history || [];
                       
                       // Generate response
                       console.log(`🤖 Generating response...`);
                       const { getSimpleVoiceResponse } = await import('./simple-voice');
-                      const response = await getSimpleVoiceResponse(text, history);
+                      const response = await getSimpleVoiceResponse(trimmed, history);
                       
                       // Save response to history
                       if (callSid) {
                         await addToHistory(callSid, { assistant: response });
                       }
-                      session?.history.push({ user: text, assistant: response });
+                      session.history.push({ user: trimmed, assistant: response });
                       
                       console.log(`✅ Response: "${response}"`);
                       console.log(`📞 Sending response back to caller...`);
                       
                       // TODO: Send audio response via Twilio
-                    } else {
-                      console.log(`(ignored short chunk: '${text}')`);
                     }
                   } catch (error: any) {
                     console.error('❌ Whisper transcription error:', error);
@@ -2512,23 +2535,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                 })();
               }
+            } catch (error: any) {
+              console.error('❌ Audio decoding error:', error);
             }
             break;
             
           case 'transcription':
-            // This is where we get the actual transcribed text from Twilio
+            // This is where we get the actual transcribed text from Twilio (if enabled)
             streamSid = streamSid || data.streamSid || data.start?.streamSid;
             if (!streamSid) break;
             
             const text = (data.transcription?.text || '').trim();
-            const session = sessions[streamSid];
-            const hasCallSid = !!session?.call_sid;
+            const twilioSession = sessions[streamSid];
+            const hasCallSid = !!twilioSession?.call_sid;
             
             console.log(`[transcript] len=${text.length} sid=${streamSid} text="${text}" has_call_sid=${hasCallSid}`);
             
             // Generate response for meaningful text - NO callId check!
             if (text.length > 3) {
-              const callSid = session?.call_sid;
+              const callSid = twilioSession?.call_sid;
               console.log(`📝 User said: "${text}" (stream=${streamSid}, call=${callSid})`);
               
               // Quick sanity test first
@@ -2542,7 +2567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                   
                   // Get conversation history
-                  const history = session?.history || [];
+                  const history = twilioSession?.history || [];
                   
                   // Generate response
                   console.log(`🤖 Generating response...`);
@@ -2553,7 +2578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   if (callSid) {
                     await addToHistory(callSid, { assistant: response });
                   }
-                  session?.history.push({ user: text, assistant: response });
+                  twilioSession?.history.push({ user: text, assistant: response });
                   
                   console.log(`✅ Response: "${response}"`);
                   console.log(`📞 Sending response back to caller...`);
