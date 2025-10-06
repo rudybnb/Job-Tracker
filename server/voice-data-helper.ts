@@ -131,39 +131,35 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
         const card = allCards.find(c => c.name.toLowerCase().includes(cardName));
         
         if (card) {
-          const balance = parseFloat(card.balance).toFixed(2);
-          const cardDisplayName = card.name.includes('****') ? card.name : card.name;
+          const balance = parseFloat(card.balance).toFixed(0);
+          const simpleName = cardName.charAt(0).toUpperCase() + cardName.slice(1);
           
           if (card.creditLimit) {
-            const limit = parseFloat(card.creditLimit).toFixed(2);
+            const limit = parseFloat(card.creditLimit).toFixed(0);
             const isOverLimit = parseFloat(card.balance) > parseFloat(card.creditLimit);
-            let response = `Your ${cardDisplayName} has a balance of £${balance} with a limit of £${limit}.`;
             if (isOverLimit) {
-              response += ` Warning: You are over your limit!`;
+              return `Your ${simpleName} card owes £${balance}. It's maxed out.`;
+            } else {
+              const available = parseFloat(card.availableCredit).toFixed(0);
+              return `Your ${simpleName} card owes £${balance}. You have £${available} left to spend.`;
             }
-            return response;
           } else {
-            return `Your ${cardDisplayName} balance is £${balance}.`;
+            return `Your ${simpleName} owes £${balance}.`;
           }
         } else {
-          return `I couldn't find a ${cardName} card in your accounts.`;
+          return `I can't find a ${cardName} card.`;
         }
       }
       
       // If not asking about specific card, give total
-      const debt = data.totalDebt.toFixed(2);
-      const cardCount = data.cards?.length || 0;
+      const debt = data.totalDebt.toFixed(0);
       const overdue = data.overdueCards?.length || 0;
       
-      if (cardCount === 0) {
-        return `You have no credit card debt.`;
-      }
-      
-      let response = `Your total credit card debt is £${debt} across ${cardCount} ${cardCount === 1 ? 'card' : 'cards'}.`;
       if (overdue > 0) {
-        response += ` Warning: ${overdue} ${overdue === 1 ? 'card is' : 'cards are'} over limit.`;
+        return `You owe £${debt} on your cards. ${overdue} ${overdue === 1 ? 'card is' : 'cards are'} maxed out.`;
+      } else {
+        return `You owe £${debt} on your cards.`;
       }
-      return response;
     }
   }
   
