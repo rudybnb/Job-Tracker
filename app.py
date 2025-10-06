@@ -51,27 +51,28 @@ async def fetch_finance(tool: str) -> str:
     if not FINANCE_API_BASE:
         return "Your finance data endpoint isn't configured."
     try:
+        endpoint = tool.split('_')[1]
+        r = await http.get(f"{FINANCE_API_BASE}/{endpoint}")
+        if r.status_code != 200:
+            return f"Finance API returned {r.status_code}"
+        
+        data = r.json()
+        
         if tool == "finance_balance":
-            r = await http.get(f"{FINANCE_API_BASE}/balance"); r.raise_for_status()
-            d = r.json()
-            total = d.get("totalBalance") or d.get("balance") or 0
-            bank = (d.get("primaryAccount") or {}).get("bankName", "")
-            return f"Your current balance is {total} pounds {f'at {bank}' if bank else ''}."
-        if tool == "finance_debt":
-            r = await http.get(f"{FINANCE_API_BASE}/debt"); r.raise_for_status()
-            d = r.json()
-            total = d.get("totalDebt") or 0
-            cc = d.get("creditCardDebt")
+            total = data.get("totalBalance") or data.get("balance") or 0
+            bank = (data.get("primaryAccount") or {}).get("bankName", "")
+            return f"Your current balance is {total} pounds{f' at {bank}' if bank else ''}."
+        elif tool == "finance_debt":
+            total = data.get("totalDebt") or 0
+            cc = data.get("creditCardDebt")
             if cc is not None:
                 return f"Your total debt is {total} pounds; credit cards are {cc}."
             return f"Your total debt is {total} pounds."
-        if tool == "finance_summary":
-            r = await http.get(f"{FINANCE_API_BASE}/summary"); r.raise_for_status()
-            d = r.json()
-            bal = d.get("totalBalance")
-            debt = d.get("totalDebt")
+        elif tool == "finance_summary":
+            bal = data.get("totalBalance")
+            debt = data.get("totalDebt")
             return f"Quick summary: balance {bal} pounds, debt {debt}."
-    except Exception:
+    except Exception as e:
         return "I couldn't reach your finance data right now."
     return "Okay."
 
