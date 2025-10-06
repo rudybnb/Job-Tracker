@@ -1,0 +1,69 @@
+Quick win (you’ll hear a reply today)
+
+Use Twilio <Gather input="speech"> → /voice/handle → <Play> ElevenLabs MP3. No WS streaming needed.
+
+Replace /voice/connect:
+
+<Response>
+  <Say>I’m here. Say something after the beep.</Say>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
+  <Say>Didn’t catch that. Goodbye.</Say>
+  <Hangup/>
+</Response>
+
+
+Add route /voice/handle (FastAPI):
+
+@app.post("/voice/handle")
+async def voice_handle(request: Request):
+    form = await request.form()
+    text = (form.get("SpeechResult") or "").strip()
+    print("📝 User said:", text)
+
+    # --- get GPT reply (fast + short) ---
+    from openai import OpenAI
+    oai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    msg = [{"role":"system","content":"Be friendly and brief."},
+           {"role":"user","content":text}]
+    resp = oai.chat.completions.create(model="gpt-4o-mini", messages=msg, max_tokens=120)
+    reply = resp.choices[0].message.content
+    print("🤖 Reply:", reply)
+
+    # --- ElevenLabs TTS to file ---
+    import hashlib, httpx, pathlib
+    ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY")
+    ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID")
+    AUDIO_DIR = pathlib.Path("audio"); AUDIO_DIR.mkdir(exist_ok=True)
+    h = hashlib.sha1(reply.encode()).hexdigest()[:16]
+    mp3 = AUDIO_DIR / f"{h}.mp3"
+    if not mp3.exists():
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE_ID}",
+                headers={"xi-api-key": ELEVEN_API_KEY, "Accept": "audio/mpeg"},
+                json={"text": reply, "optimize_streaming_latency": 4,
+                      "voice_settings":{"stability":0.2,"similarity_boost":0.9}}
+            )
+            r.raise_for_status()
+            mp3.write_bytes(r.content)
+
+    PUBLIC_URL = os.getenv("PUBLIC_URL")
+    audio_url = f"{PUBLIC_URL}/audio/{mp3.name}"
+
+    # TwiML: play the natural voice, then loop back to listen again
+    xml = f"""
+<Response>
+  <Play>{audio_url}</Play>
+  <Redirect method="POST">/voice/connect</Redirect>
+</Response>"""
+    from fastapi.responses import Response
+    return Response(xml.strip(), media_type="application/xml")
+
+
+Mount static if not already:
+
+from fastapi.staticfiles import StaticFiles
+app.mount("/audio", StaticFiles(directory="audio"), name="audio")
+
+
+This path is simple and will speak back immediately.
