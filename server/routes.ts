@@ -2631,6 +2631,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // Call-scoped memory to track conversation history
+  const VOICE_SESSIONS: Record<string, { history: Array<{ role: string; content: string }> }> = {};
+  
+  function getVoiceSession(callSid: string) {
+    if (!VOICE_SESSIONS[callSid]) {
+      VOICE_SESSIONS[callSid] = { history: [] };
+    }
+    return VOICE_SESSIONS[callSid];
+  }
+  
   // Twilio voice webhook - called when call begins
   app.post('/voice/connect', async (req, res) => {
     console.log('📞 Twilio voice connect webhook received');
@@ -2676,9 +2686,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               model_id: 'eleven_multilingual_v2',
               optimize_streaming_latency: 3,
               voice_settings: {
-                stability: 0.15,
-                similarity_boost: 0.92,
-                style: 0.35,
+                stability: 0.12,
+                similarity_boost: 0.95,
+                style: 0.45,
                 use_speaker_boost: true
               }
             })
@@ -2720,8 +2730,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('🎤 /voice/handle called');
       console.log('📋 Request body:', JSON.stringify(req.body));
       
+      const callSid = req.body.CallSid || 'unknown';
       const text = (req.body.SpeechResult || '').trim();
       const confidence = parseFloat(req.body.Confidence || '0');
+      console.log('📞 CallSid:', callSid);
       console.log('📝 User said:', text);
       console.log('🎯 Confidence:', confidence);
       
@@ -2746,33 +2758,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.type('text/xml').send(twiml);
       }
       
+      // Get call session for conversation memory
+      const session = getVoiceSession(callSid);
+      
+      // Add user message to history
+      session.history.push({ role: 'user', content: text });
+      console.log('💭 Session history length:', session.history.length);
+      
       // Try to get app-specific data first
       const { getVoiceAssistantData } = await import('./voice-data-helper');
       const appData = await getVoiceAssistantData(text, storage);
       
       let reply: string;
       
-      // Always use ChatGPT to format responses naturally
-      console.log('🤖 Using ChatGPT to format response...');
+      // Always use ChatGPT to format responses naturally with conversation context
+      console.log('🤖 Using ChatGPT with conversation history...');
       const openai = (await import('openai')).default;
       const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
       
-      let systemPrompt = 'You are a helpful voice assistant. Be friendly and conversational. Reply in 1–2 short sentences. Use natural language - say "pounds" not "£". Use contractions and natural pauses (commas, ellipses). No long lists.';
-      let userMessage = text;
+      let systemPrompt = 'You are a helpful voice assistant for Rudy. Be friendly and conversational. Reply in 1–2 short sentences. Use natural language - say "pounds" not "£". Use contractions and natural pauses (commas, ellipses). No long lists. Remember the conversation context.';
+      let messages: Array<any> = [
+        { role: 'system', content: systemPrompt },
+        ...session.history
+      ];
       
       if (appData) {
-        // Found app-specific data - give it to ChatGPT to format nicely
+        // Found app-specific data - append it to the last user message
         console.log('📊 App data found:', appData);
-        systemPrompt = 'You are a helpful voice assistant. The user asked a question and here is the answer from the database. Format this into a natural, friendly response in 1-2 short sentences. Always say "pounds" for UK currency, never use £ symbol. Be conversational.';
-        userMessage = `User asked: "${text}"\n\nDatabase answer: ${appData}\n\nFormat this into a natural voice response.`;
+        const lastUserMsg = messages[messages.length - 1];
+        lastUserMsg.content = `${lastUserMsg.content}\n\n[Database answer: ${appData}]`;
       }
       
       const completion = await client.chat.completions.create({
         model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
+        messages: messages,
         max_tokens: 90,
         temperature: 0.7
       });
@@ -2792,6 +2811,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return t;
       };
       reply = speechify(reply);
+      
+      // Add assistant reply to conversation history
+      session.history.push({ role: 'assistant', content: reply });
       
       console.log('✅ Final reply:', reply);
       
