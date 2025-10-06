@@ -39,33 +39,40 @@ def history(sid: str) -> List[dict]:
 
 # --------- helpers ---------
 async def tts_eleven_cached(text: str) -> str:
-    """Return PUBLIC_URL to cached mp3 for given text."""
+    """Return PUBLIC_URL to MP3 for given text – faster version."""
     h = hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
     mp3 = AUDIO_DIR / f"{h}.mp3"
-    if not mp3.exists():
-        payload = {
-            "text": text,
-            "model_id": "eleven_multilingual_v2",
-            "optimize_streaming_latency": 3,
-            "voice_settings": {
-                "stability": 0.12, "similarity_boost": 0.95, "style": 0.45, "use_speaker_boost": True
-            }
+    
+    if mp3.exists():
+        return f"{PUBLIC_URL}/audio/{mp3.name}"
+    
+    payload = {
+        "text": text,
+        "model_id": "eleven_multilingual_v2",
+        "optimize_streaming_latency": 1,
+        "voice_settings": {
+            "stability": 0.12,
+            "similarity_boost": 0.95,
+            "style": 0.45,
+            "use_speaker_boost": True
         }
-        r = await http.post(
-            f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE_ID}",
-            headers={"xi-api-key": ELEVEN_API_KEY, "Accept": "audio/mpeg"},
-            json=payload
-        )
-        r.raise_for_status()
-        mp3.write_bytes(r.content)
+    }
+    
+    r = await http.post(
+        f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE_ID}",
+        headers={"xi-api-key": ELEVEN_API_KEY, "Accept": "audio/mpeg"},
+        json=payload,
+    )
+    r.raise_for_status()
+    mp3.write_bytes(r.content)
     return f"{PUBLIC_URL}/audio/{mp3.name}"
 
 async def ask_gpt(msgs: List[dict]) -> str:
     resp = oai.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-3.5-turbo",
         messages=msgs,
-        max_tokens=90,
-        temperature=0.8,
+        max_tokens=60,
+        temperature=0.7,
     )
     return resp.choices[0].message.content.strip()
 
