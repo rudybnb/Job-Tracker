@@ -3,7 +3,8 @@ import type { IStorage } from './storage';
 // Financial data from Financeflow app
 async function getFinancialData(endpoint: string): Promise<any> {
   try {
-    const response = await fetch(`https://4c25fd16-9ed9-44df-b476-489deb40f302-00-3a77m0jv1vc6d.worf.replit.dev/api/finance/${endpoint}`, {
+    const FINANCE_API_BASE = process.env.FINANCE_API_BASE || 'https://pound-wise-rudybnbd.replit.app/api/finance';
+    const response = await fetch(`${FINANCE_API_BASE}/${endpoint}`, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
