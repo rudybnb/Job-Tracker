@@ -6,7 +6,6 @@ import {
   type CsvUpload, 
   type InsertCsvUpload, 
   type JobWithContractor, 
-  type JobAssignment, 
   type ContractorApplication, 
   type InsertContractorApplication,
   type WorkSession,
@@ -41,129 +40,7 @@ import {
 import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults, projectCashflowWeekly, materialPurchases, projectMaster, calendarEvents, emailRecords, meetings } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, inArray, sql } from "drizzle-orm";
-
-export interface IStorage {
-  // Contractors
-  getContractors(): Promise<Contractor[]>;
-  getContractor(id: string): Promise<Contractor | undefined>;
-  createContractor(contractor: InsertContractor): Promise<Contractor>;
-  updateContractor(id: string, contractor: Partial<Contractor>): Promise<Contractor | undefined>;
-  
-  // Jobs
-  getJobs(): Promise<JobWithContractor[]>;
-  getJob(id: string): Promise<JobWithContractor | undefined>;
-  createJob(job: InsertJob): Promise<Job>;
-  updateJob(id: string, job: Partial<Job>): Promise<Job | undefined>;
-  createJobsFromCsv(jobs: InsertJob[], uploadId: string): Promise<Job[]>;
-  
-  // CSV Uploads
-  getCsvUploads(): Promise<CsvUpload[]>;
-  createCsvUpload(upload: InsertCsvUpload): Promise<CsvUpload>;
-  updateCsvUpload(id: string, upload: Partial<CsvUpload>): Promise<CsvUpload | undefined>;
-  deleteCsvUpload(id: string): Promise<boolean>;
-  
-  // Job Assignment
-  assignJob(assignment: JobAssignment): Promise<Job | undefined>;
-  createJobAssignment(assignment: InsertJobAssignment): Promise<JobAssignmentRecord>;
-  getJobAssignments(): Promise<JobAssignmentRecord[]>;
-  getJobAssignment(id: string): Promise<JobAssignmentRecord | undefined>;
-  getContractorAssignments(contractorName: string): Promise<JobAssignmentRecord[]>;
-  deleteJobAssignment(id: string): Promise<boolean>;
-  
-  // Contractor Applications
-  getContractorApplications(): Promise<ContractorApplication[]>;
-  getContractorApplication(id: string): Promise<ContractorApplication | undefined>;
-  createContractorApplication(application: InsertContractorApplication): Promise<ContractorApplication>;
-  updateContractorApplication(id: string, application: Partial<ContractorApplication>): Promise<ContractorApplication | undefined>;
-  
-  // Work Sessions
-  getWorkSessions(contractorName?: string): Promise<WorkSession[]>;
-  getActiveWorkSession(contractorName: string): Promise<WorkSession | undefined>;
-  createWorkSession(session: InsertWorkSession): Promise<WorkSession>;
-  updateWorkSession(id: string, session: Partial<WorkSession>): Promise<WorkSession | undefined>;
-  
-  // Admin Clock Monitoring
-  getActiveWorkSessions(): Promise<WorkSession[]>;
-  getRecentClockActivities(): Promise<any[]>;
-  getTodayWorkSessions(): Promise<WorkSession[]>;
-  getFirstMorningClockIn(contractorName: string): Promise<WorkSession | undefined>;
-  
-  // Admin Settings
-  getAdminSettings(): Promise<AdminSetting[]>;
-  getAdminSetting(key: string): Promise<AdminSetting | undefined>;
-  setAdminSetting(setting: InsertAdminSetting): Promise<AdminSetting>;
-  updateAdminSetting(key: string, value: string, updatedBy: string): Promise<AdminSetting | undefined>;
-  
-  // Contractor Reports
-  createContractorReport(report: InsertContractorReport): Promise<ContractorReport>;
-  getContractorReports(): Promise<ContractorReport[]>;
-  
-  // Admin Inspections
-  createAdminInspection(inspection: InsertAdminInspection): Promise<AdminInspection>;
-  getAdminInspections(): Promise<AdminInspection[]>;
-  getAdminInspectionsByAssignment(assignmentId: string): Promise<AdminInspection[]>;
-  updateAdminInspection(id: string, inspection: Partial<AdminInspection>): Promise<AdminInspection | undefined>;
-  
-  // Task Progress
-  getTaskProgress(contractorName: string, assignmentId: string): Promise<TaskProgress[]>;
-  createTaskProgress(taskProgress: InsertTaskProgress): Promise<TaskProgress>;
-  updateTaskProgress(id: string, taskProgress: Partial<TaskProgress>): Promise<TaskProgress | undefined>;
-  updateTaskCompletion(contractorName: string, assignmentId: string, taskId: string, completed: boolean): Promise<TaskProgress | undefined>;
-  
-  // Task Inspection Results
-  createTaskInspectionResult(inspection: any): Promise<any>;
-  getTaskInspectionResults(contractorName: string): Promise<any[]>;
-  markTaskInspectionAsViewed(id: string): Promise<any>;
-  markInspectionResolvedByContractor(inspectionId: string, contractorName: string, fixNotes?: string): Promise<any>;
-  getContractorFixedInspections(): Promise<any[]>;
-  
-  // Pay rates - Mandatory Rule #2: DATA INTEGRITY
-  getContractorPayRate(contractorName: string): Promise<number>;
-  
-  // Voice Agent Support Methods
-  getContractorByName(contractorName: string): Promise<ContractorApplication | undefined>;
-  getContractorByPhone(phoneNumber: string): Promise<ContractorApplication | undefined>;
-  getActiveWorkSessions(): Promise<WorkSession[]>;
-  getAllActiveSessions(): Promise<WorkSession[]>;
-  
-  // Weekly Cash Flow Tracking - MANDATORY RULE: AUTHENTIC DATA ONLY
-  getProjectMasters(): Promise<any[]>;
-  createProjectMaster(project: any): Promise<any>;
-  updateProjectMaster(id: string, updates: any): Promise<any>;
-  getProjectCashflowWeekly(projectId?: string): Promise<any[]>;
-  createProjectCashflowWeekly(cashflow: any): Promise<any>;
-  updateProjectCashflowWeekly(id: string, updates: any): Promise<any>;
-  getMaterialPurchases(projectId?: string, weekStart?: string): Promise<any[]>;
-  createMaterialPurchase(purchase: any): Promise<any>;
-  calculateWeeklyLabourCosts(projectId: string, weekStart: string, weekEnd: string): Promise<number>;
-  
-  // Stats
-  getStats(): Promise<{
-    totalJobs: number;
-    pendingJobs: number;
-    completedJobs: number;
-    activeContractors: number;
-  }>;
-
-  // B'elanna Business PA - Calendar Management
-  createCalendarEvent(event: InsertCalendarEvent): Promise<CalendarEvent>;
-  getCalendarEvents(dateFrom?: string, dateTo?: string): Promise<CalendarEvent[]>;
-  getCalendarEvent(id: string): Promise<CalendarEvent | undefined>;
-  updateCalendarEvent(id: string, event: Partial<CalendarEvent>): Promise<CalendarEvent | undefined>;
-  checkAvailability(date: string, time: string, durationMinutes?: number): Promise<boolean>;
-  getDayEvents(date: string): Promise<CalendarEvent[]>;
-  
-  // B'elanna Business PA - Email Management
-  createEmailRecord(email: InsertEmailRecord): Promise<EmailRecord>;
-  getEmailRecords(limit?: number): Promise<EmailRecord[]>;
-  getEmailRecord(id: string): Promise<EmailRecord | undefined>;
-  
-  // B'elanna Business PA - Meeting Scheduling  
-  createMeeting(meeting: InsertMeeting): Promise<Meeting>;
-  getMeetings(dateFrom?: string, dateTo?: string): Promise<Meeting[]>;
-  getMeeting(id: string): Promise<Meeting | undefined>;
-  updateMeeting(id: string, meeting: Partial<Meeting>): Promise<Meeting | undefined>;
-}
+import { IStorage, JobAssignment } from "./storage";
 
 export class DatabaseStorage implements IStorage {
   constructor() {
