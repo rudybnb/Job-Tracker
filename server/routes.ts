@@ -2691,8 +2691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const response = await fetch(url, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 5000
+        headers: { 'Content-Type': 'application/json' }
       });
       
       if (!response.ok) {
@@ -2796,12 +2795,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       session.history.push({ role: 'user', content: text });
       console.log('💭 Session history length:', session.history.length);
       
-      // Pure chat - no auto tools
-      console.log('🤖 Using GPT for pure chat...');
+      // Detect finance intent and fetch data if needed
+      const financeIntent = detectFinanceIntent(text);
+      let financeData: string | null = null;
+      
+      if (financeIntent) {
+        console.log(`💰 Finance query detected: ${financeIntent}`);
+        financeData = await fetchFinanceData(financeIntent, session);
+        if (financeData) {
+          console.log(`💰 Finance data: ${financeData}`);
+        }
+      }
+      
+      // Pure chat with optional finance data
+      console.log('🤖 Using GPT for chat...');
       const openai = (await import('openai')).default;
       const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
       
-      const systemPrompt = 'You are friendly, concise, and conversational. Reply in 1–2 short sentences, natural pauses, no lists.';
+      const systemPrompt = financeData
+        ? `You are friendly, concise, and conversational. Reply in 1–2 short sentences, natural pauses, no lists. Use this financial data to answer: ${financeData}`
+        : 'You are friendly, concise, and conversational. Reply in 1–2 short sentences, natural pauses, no lists.';
+      
       const messages: Array<any> = [
         { role: 'system', content: systemPrompt },
         ...session.history
