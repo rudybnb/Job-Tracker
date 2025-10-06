@@ -2695,7 +2695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Play natural greeting, then gather
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Pause length="0.5"/>
+  <Pause length="0.4"/>
   <Play>${audioUrl}</Play>
   <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
 </Response>`;
@@ -2752,16 +2752,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const completion = await client.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: 'You are Rudy\'s friendly voice assistant for ERdesignandbuild construction management. Write like speech: short sentences, natural pauses, contractions. Keep replies under 2 sentences. Be helpful and conversational.' },
+            { role: 'system', content: 'Be friendly and conversational. Reply in 1–2 short sentences. Use contractions and natural pauses (commas, ellipses). No long lists.' },
             { role: 'user', content: text }
           ],
-          max_tokens: 120,
-          temperature: 0.8
+          max_tokens: 90,
+          temperature: 0.9
         });
         
-        reply = completion.choices[0].message.content || 'I understand.';
+        let gptReply = completion.choices[0].message.content?.trim() || 'I understand.';
+        
+        // Keep turns short - split and use first 2 sentences only
+        const parts = gptReply.replace(/\?/g, '?\n').replace(/\./g, '.\n').split('\n')
+          .map(p => p.trim()).filter(p => p.length > 0);
+        reply = parts.slice(0, 2).join(' ');
       }
-      console.log('✅ GPT Reply:', reply);
+      // Add micro-pauses for natural speech
+      const speechify = (t: string) => {
+        t = t.replace(/\?/g, '?…').replace(/!/g, '!…'); // tiny pause after punctuation
+        if (t.length > 120 && !t.includes(',')) {
+          t = t.replace(/ and /g, ', and '); // add natural pauses
+        }
+        return t;
+      };
+      reply = speechify(reply);
+      
+      console.log('✅ Final reply:', reply);
       
       // Generate ElevenLabs TTS
       console.log('🎙️ Generating speech...');
@@ -2809,9 +2824,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 model_id: 'eleven_multilingual_v2',
                 optimize_streaming_latency: 3,
                 voice_settings: {
-                  stability: 0.15,
-                  similarity_boost: 0.92,
-                  style: 0.35,
+                  stability: 0.12,
+                  similarity_boost: 0.95,
+                  style: 0.45,
                   use_speaker_boost: true
                 }
               })
@@ -2846,10 +2861,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('🔊 Playing audio:', audioUrl);
       
-      // FIX 2: Add pause before Play to prevent clipping
+      // Prevent first syllable clipping with 0.4s pause
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Pause length="0.5"/>
+  <Pause length="0.4"/>
   <Play>${audioUrl}</Play>
   <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
 </Response>`;
