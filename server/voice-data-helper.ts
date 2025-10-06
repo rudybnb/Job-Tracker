@@ -1,5 +1,18 @@
 import type { IStorage } from './storage';
 
+// Financial data from Financeflow app
+async function getFinancialData(endpoint: string): Promise<any> {
+  try {
+    const response = await fetch(`https://pound-wise-rudybnbd.replit.app/api/finance/${endpoint}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.success ? data.data : null;
+  } catch (error) {
+    console.error(`Error fetching financial data from ${endpoint}:`, error);
+    return null;
+  }
+}
+
 export async function getVoiceAssistantData(query: string, storage: IStorage): Promise<string | null> {
   const lowerQuery = query.toLowerCase();
   
@@ -89,6 +102,48 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
       
       if (contractor?.adminPayRate) {
         return `${name.split(' ')[0]}'s pay rate is ${contractor.adminPayRate} per hour.`;
+      }
+    }
+  }
+  
+  // Financial queries - Financeflow app integration
+  if (lowerQuery.includes('balance') || lowerQuery.includes('bank')) {
+    console.log('💰 Financial query detected: bank balance');
+    const data = await getFinancialData('balance');
+    console.log('💰 Financial data received:', data);
+    if (data) {
+      const balance = data.totalBalance.toFixed(2);
+      const account = data.primaryAccount?.bankName || 'your bank';
+      return `You have £${balance} in ${account}.`;
+    }
+  }
+  
+  if (lowerQuery.includes('debt') || lowerQuery.includes('owe') || lowerQuery.includes('credit card')) {
+    const data = await getFinancialData('debt');
+    if (data) {
+      const debt = data.totalDebt.toFixed(2);
+      const cardCount = data.cards?.length || 0;
+      const overdue = data.overdueCards?.length || 0;
+      
+      let response = `Your total debt is £${debt} across ${cardCount} ${cardCount === 1 ? 'card' : 'cards'}.`;
+      if (overdue > 0) {
+        response += ` ${overdue} ${overdue === 1 ? 'card is' : 'cards are'} over limit.`;
+      }
+      return response;
+    }
+  }
+  
+  if (lowerQuery.includes('financial') || lowerQuery.includes('money') || lowerQuery.includes('net worth') || lowerQuery.includes('finances')) {
+    const data = await getFinancialData('summary');
+    if (data) {
+      const balance = data.bankBalance.toFixed(2);
+      const debt = data.totalDebt.toFixed(2);
+      const netWorth = data.netWorth.toFixed(2);
+      
+      if (data.netWorth < 0) {
+        return `You have £${balance} in the bank and £${debt} in debt. Your net worth is negative £${Math.abs(parseFloat(netWorth)).toFixed(2)}.`;
+      } else {
+        return `You have £${balance} in the bank and £${debt} in debt. Your net worth is £${netWorth}.`;
       }
     }
   }
