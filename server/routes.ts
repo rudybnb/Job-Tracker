@@ -2634,34 +2634,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Twilio voice webhook - called when call begins
   app.post('/voice/connect', (req, res) => {
     console.log('📞 Twilio voice connect webhook received');
-    console.log('📋 Request body:', JSON.stringify(req.body));
     
-    // Check if this is the first call or a redirect (loop)
-    const isFirstCall = !req.body.CalledZip; // First call has less data
-    
-    // Use Gather to capture speech - simpler than WebSocket streaming!
-    let twiml;
-    
-    if (isFirstCall) {
-      // First time - give instructions
-      twiml = `<?xml version="1.0" encoding="UTF-8"?>
+    // FIX 1: Remove robot voice - just start listening immediately
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Polly.Brian">Hey! I'm your voice assistant. What can I help you with?</Say>
-  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST" hints="weather, time, hello, help"/>
-  <Say>Sorry, didn't catch that. Goodbye.</Say>
-  <Hangup/>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
 </Response>`;
-    } else {
-      // Subsequent calls - just listen, no beep or instructions
-      twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST" hints="weather, time, hello, help"/>
-  <Say>Didn't hear anything. Try again.</Say>
-  <Redirect method="POST">/voice/connect</Redirect>
-</Response>`;
-    }
     
-    console.log(`📤 Sending TwiML with Gather (${isFirstCall ? 'first' : 'loop'})`);
+    console.log(`📤 Sending TwiML - silent gather`);
     
     res.type('text/xml');
     res.send(twiml);
@@ -2691,13 +2671,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const openai = (await import('openai')).default;
       const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
       
+      // FIX 3: Make GPT write "speakable" lines
       const completion = await client.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a friendly voice assistant for ERdesignandbuild. Be very brief and conversational - like texting a friend. Keep responses to 1-2 short sentences (under 25 words). Use casual language, contractions, and natural speech patterns. End responses with a natural follow-up question when appropriate to keep the conversation flowing.' },
+          { role: 'system', content: 'You are friendly and conversational. Write like speech: short sentences, natural pauses, contractions, no long paragraphs. Keep replies under 2 sentences.' },
           { role: 'user', content: text }
         ],
-        max_tokens: 80
+        max_tokens: 120,
+        temperature: 0.8
       });
       
       const reply = completion.choices[0].message.content || 'I understand.';
@@ -2749,9 +2731,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 model_id: 'eleven_multilingual_v2',
                 optimize_streaming_latency: 3,
                 voice_settings: {
-                  stability: 0.5,
-                  similarity_boost: 0.75,
-                  style: 0,
+                  stability: 0.15,
+                  similarity_boost: 0.92,
+                  style: 0.35,
                   use_speaker_boost: true
                 }
               })
@@ -2786,11 +2768,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('🔊 Playing audio:', audioUrl);
       
-      // Return TwiML to play audio and loop back
+      // FIX 2: Add pause before Play to prevent clipping
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  <Pause length="0.5"/>
   <Play>${audioUrl}</Play>
-  <Redirect method="POST">/voice/connect</Redirect>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
 </Response>`;
       
       res.type('text/xml').send(twiml);
