@@ -2631,131 +2631,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Call-scoped memory to track conversation history and finance data
-  const VOICE_SESSIONS: Record<string, { 
-    history: Array<{ role: string; content: string }>,
-    financeCache?: {
-      balance?: { data: any; timestamp: number },
-      debt?: { data: any; timestamp: number },
-      summary?: { data: any; timestamp: number }
-    }
-  }> = {};
+  // Call-scoped memory to track conversation history
+  const VOICE_SESSIONS: Record<string, { history: Array<{ role: string; content: string }> }> = {};
   
   function getVoiceSession(callSid: string) {
     if (!VOICE_SESSIONS[callSid]) {
-      VOICE_SESSIONS[callSid] = { history: [], financeCache: {} };
+      VOICE_SESSIONS[callSid] = { history: [] };
     }
     return VOICE_SESSIONS[callSid];
-  }
-  
-  // Finance API base URL
-  const FINANCE_API_BASE = 'https://4c25fd16-9ed9-44df-b476-489deb40f302-00-3a77m0jv1vc6d.worf.replit.dev';
-  const FINANCE_CACHE_TTL = 60000; // 60 seconds
-  
-  // Detect finance intent from user query
-  function detectFinanceIntent(text: string): 'balance' | 'debt' | 'summary' | null {
-    const lower = text.toLowerCase();
-    
-    // Balance keywords
-    if (lower.match(/\b(bank|account|balance|starling|money|funds?)\b/)) {
-      return 'balance';
-    }
-    
-    // Debt keywords
-    if (lower.match(/\b(debt|owe|credit card|barclaycard|barclay|amex|american express|cards?)\b/)) {
-      return 'debt';
-    }
-    
-    // Summary keywords
-    if (lower.match(/\b(summary|overview|financial|net worth|total|everything)\b/)) {
-      return 'summary';
-    }
-    
-    return null;
-  }
-  
-  // Fetch finance data from external API
-  async function fetchFinanceData(intent: 'balance' | 'debt' | 'summary', session: any): Promise<string | null> {
-    try {
-      // Check cache first
-      const cached = session.financeCache?.[intent];
-      if (cached && (Date.now() - cached.timestamp) < FINANCE_CACHE_TTL) {
-        console.log(`💰 Using cached ${intent} data`);
-        return formatFinanceData(intent, cached.data);
-      }
-      
-      // Fetch fresh data
-      console.log(`💰 Fetching fresh ${intent} data from API...`);
-      const fetch = (await import('node-fetch')).default;
-      const url = `${FINANCE_API_BASE}/api/finance/${intent}`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        console.error(`❌ Finance API error: ${response.status}`);
-        return null;
-      }
-      
-      const data = await response.json();
-      
-      // Cache the result
-      if (!session.financeCache) session.financeCache = {};
-      session.financeCache[intent] = { data, timestamp: Date.now() };
-      
-      return formatFinanceData(intent, data);
-      
-    } catch (error: any) {
-      console.error(`❌ Failed to fetch ${intent}:`, error.message);
-      return null;
-    }
-  }
-  
-  // Format finance data into conversational text
-  function formatFinanceData(intent: string, data: any): string {
-    if (!data) return '';
-    
-    if (intent === 'balance') {
-      const balance = data.balance || data.amount || 0;
-      return `Your Starling bank balance is £${balance.toFixed(2)}.`;
-    }
-    
-    if (intent === 'debt') {
-      const total = data.totalDebt || data.total || 0;
-      const cards = data.cards || [];
-      if (cards.length > 0) {
-        return `You owe £${total.toFixed(2)} total across ${cards.length} credit cards.`;
-      }
-      return `Your total credit card debt is £${total.toFixed(2)}.`;
-    }
-    
-    if (intent === 'summary') {
-      const balance = data.bankBalance || data.balance || 0;
-      const debt = data.totalDebt || data.debt || 0;
-      const netWorth = data.netWorth || (balance - debt);
-      return `Bank balance £${balance.toFixed(2)}, total debt £${debt.toFixed(2)}, net worth £${netWorth.toFixed(2)}.`;
-    }
-    
-    return '';
   }
   
   // Twilio voice webhook - called when call begins
   app.post('/voice/connect', async (req, res) => {
     console.log('📞 Twilio voice connect webhook received');
     
-    // Simple gather with fallback
-    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST">
-    <Pause length="1"/>
-  </Gather>
-  <Say>I didn't hear anything. Please try again.</Say>
-  <Redirect method="POST">/voice/connect</Redirect>
-</Response>`;
+    // Check if this is the first call (no SpeechResult means first call)
+    const isFirstCall = !req.body.SpeechResult;
     
-    res.type('text/xml').send(twiml);
+    if (isFirstCall) {
+      // First call: Generate natural ElevenLabs greeting
+      const greeting = "Hi Rudy how can I Help";
+      const crypto = (await import('crypto')).default;
+      const fs = (await import('fs/promises')).default;
+      const path = (await import('path')).default;
+      
+      const ELEVEN_API_KEY = process.env.ELEVENLABS_API_KEY;
+      const ELEVEN_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb';
+      
+      const audioDir = path.join(process.cwd(), 'audio');
+      await fs.mkdir(audioDir, { recursive: true });
+      
+      const hash = crypto.createHash('sha1').update(greeting).digest('hex').slice(0, 16);
+      const mp3Path = path.join(audioDir, `${hash}.mp3`);
+      
+      let audioExists = false;
+      try {
+        await fs.access(mp3Path);
+        audioExists = true;
+      } catch {}
+      
+      if (!audioExists) {
+        const fetch = (await import('node-fetch')).default;
+        const response = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`,
+          {
+            method: 'POST',
+            headers: {
+              'xi-api-key': ELEVEN_API_KEY || '',
+              'Accept': 'audio/mpeg',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              text: greeting,
+              model_id: 'eleven_multilingual_v2',
+              optimize_streaming_latency: 3,
+              voice_settings: {
+                stability: 0.5,
+                similarity_boost: 0.75,
+                style: 0,
+                use_speaker_boost: true
+              }
+            })
+          }
+        );
+        const audioBuffer = Buffer.from(await response.arrayBuffer());
+        await fs.writeFile(mp3Path, audioBuffer);
+      }
+      
+      const domain = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
+      const protocol = process.env.REPLIT_DEV_DOMAIN ? 'https' : 'http';
+      const audioUrl = `${protocol}://${domain}/audio/${hash}.mp3`;
+      
+      // Play natural greeting, then gather
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Pause length="0.4"/>
+  <Play>${audioUrl}</Play>
+  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
+</Response>`;
+      
+      console.log(`📤 First call - playing ElevenLabs greeting`);
+      res.type('text/xml').send(twiml);
+    } else {
+      // Loop back - silent gather
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
+</Response>`;
+      
+      console.log(`📤 Loop - silent gather`);
+      res.type('text/xml').send(twiml);
+    }
   });
   
   // Handle speech input from Gather
@@ -2799,45 +2765,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       session.history.push({ role: 'user', content: text });
       console.log('💭 Session history length:', session.history.length);
       
-      // Detect finance intent and fetch data if needed
-      const financeIntent = detectFinanceIntent(text);
-      let financeData: string | null = null;
+      // Try to get app-specific data first
+      const { getVoiceAssistantData } = await import('./voice-data-helper');
+      const appData = await getVoiceAssistantData(text, storage);
       
-      if (financeIntent) {
-        console.log(`💰 Finance query detected: ${financeIntent}`);
-        financeData = await fetchFinanceData(financeIntent, session);
-        if (financeData) {
-          console.log(`💰 Finance data: ${financeData}`);
-        }
-      }
+      let reply: string;
       
-      // Pure chat with optional finance data
-      console.log('🤖 Using GPT for chat...');
+      // Always use ChatGPT to format responses naturally with conversation context
+      console.log('🤖 Using ChatGPT with conversation history...');
       const openai = (await import('openai')).default;
       const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
       
-      const systemPrompt = financeData
-        ? `You are friendly, concise, and conversational. Reply in 1–2 short sentences, natural pauses, no lists. Use this financial data to answer: ${financeData}`
-        : 'You are friendly, concise, and conversational. Reply in 1–2 short sentences, natural pauses, no lists.';
-      
-      const messages: Array<any> = [
+      let systemPrompt = 'You are a helpful voice assistant for Rudy. Be friendly and conversational. Reply in 1–2 short sentences. Use natural language - say "pounds" not "£". Use contractions and natural pauses (commas, ellipses). No long lists. Remember the conversation context.';
+      let messages: Array<any> = [
         { role: 'system', content: systemPrompt },
         ...session.history
       ];
+      
+      if (appData) {
+        // Found app-specific data - append it to the last user message
+        console.log('📊 App data found:', appData);
+        const lastUserMsg = messages[messages.length - 1];
+        lastUserMsg.content = `${lastUserMsg.content}\n\n[Database answer: ${appData}]`;
+      }
       
       const completion = await client.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: messages,
         max_tokens: 90,
-        temperature: 0.8
+        temperature: 0.7
       });
       
-      const reply = completion.choices[0].message.content?.trim() || 'I understand.';
+      let gptReply = completion.choices[0].message.content?.trim() || 'I understand.';
+      
+      // Keep turns short - split and use first 2 sentences only
+      const parts = gptReply.replace(/\?/g, '?\n').replace(/\./g, '.\n').split('\n')
+        .map(p => p.trim()).filter(p => p.length > 0);
+      reply = parts.slice(0, 2).join(' ');
+      // Add micro-pauses for natural speech
+      const speechify = (t: string) => {
+        t = t.replace(/\?/g, '?…').replace(/!/g, '!…'); // tiny pause after punctuation
+        if (t.length > 120 && !t.includes(',')) {
+          t = t.replace(/ and /g, ', and '); // add natural pauses
+        }
+        return t;
+      };
+      reply = speechify(reply);
       
       // Add assistant reply to conversation history
       session.history.push({ role: 'assistant', content: reply });
       
-      console.log('✅ Reply:', reply);
+      console.log('✅ Final reply:', reply);
       
       // Generate ElevenLabs TTS
       console.log('🎙️ Generating speech...');
