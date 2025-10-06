@@ -2631,14 +2631,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Call-scoped memory to track conversation history
-  const VOICE_SESSIONS: Record<string, { history: Array<{ role: string; content: string }> }> = {};
+  // Call-scoped memory to track conversation history and finance data
+  const VOICE_SESSIONS: Record<string, { 
+    history: Array<{ role: string; content: string }>,
+    financeCache?: {
+      balance?: { data: any; timestamp: number },
+      debt?: { data: any; timestamp: number },
+      summary?: { data: any; timestamp: number }
+    }
+  }> = {};
   
   function getVoiceSession(callSid: string) {
     if (!VOICE_SESSIONS[callSid]) {
-      VOICE_SESSIONS[callSid] = { history: [] };
+      VOICE_SESSIONS[callSid] = { history: [], financeCache: {} };
     }
     return VOICE_SESSIONS[callSid];
+  }
+  
+  // Finance API base URL
+  const FINANCE_API_BASE = 'https://4c25fd16-9ed9-44df-b476-489deb40f302-00-3a77m0jv1vc6d.worf.replit.dev';
+  const FINANCE_CACHE_TTL = 60000; // 60 seconds
+  
+  // Detect finance intent from user query
+  function detectFinanceIntent(text: string): 'balance' | 'debt' | 'summary' | null {
+    const lower = text.toLowerCase();
+    
+    // Balance keywords
+    if (lower.match(/\b(bank|account|balance|starling|money|funds?)\b/)) {
+      return 'balance';
+    }
+    
+    // Debt keywords
+    if (lower.match(/\b(debt|owe|credit card|barclaycard|barclay|amex|american express|cards?)\b/)) {
+      return 'debt';
+    }
+    
+    // Summary keywords
+    if (lower.match(/\b(summary|overview|financial|net worth|total|everything)\b/)) {
+      return 'summary';
+    }
+    
+    return null;
+  }
+  
+  // Fetch finance data from external API
+  async function fetchFinanceData(intent: 'balance' | 'debt' | 'summary', session: any): Promise<string | null> {
+    try {
+      // Check cache first
+      const cached = session.financeCache?.[intent];
+      if (cached && (Date.now() - cached.timestamp) < FINANCE_CACHE_TTL) {
+        console.log(`💰 Using cached ${intent} data`);
+        return formatFinanceData(intent, cached.data);
+      }
+      
+      // Fetch fresh data
+      console.log(`💰 Fetching fresh ${intent} data from API...`);
+      const fetch = (await import('node-fetch')).default;
+      const url = `${FINANCE_API_BASE}/api/finance/${intent}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 5000
+      });
+      
+      if (!response.ok) {
+        console.error(`❌ Finance API error: ${response.status}`);
+        return null;
+      }
+      
+      const data = await response.json();
+      
+      // Cache the result
+      if (!session.financeCache) session.financeCache = {};
+      session.financeCache[intent] = { data, timestamp: Date.now() };
+      
+      return formatFinanceData(intent, data);
+      
+    } catch (error: any) {
+      console.error(`❌ Failed to fetch ${intent}:`, error.message);
+      return null;
+    }
+  }
+  
+  // Format finance data into conversational text
+  function formatFinanceData(intent: string, data: any): string {
+    if (!data) return '';
+    
+    if (intent === 'balance') {
+      const balance = data.balance || data.amount || 0;
+      return `Your Starling bank balance is £${balance.toFixed(2)}.`;
+    }
+    
+    if (intent === 'debt') {
+      const total = data.totalDebt || data.total || 0;
+      const cards = data.cards || [];
+      if (cards.length > 0) {
+        return `You owe £${total.toFixed(2)} total across ${cards.length} credit cards.`;
+      }
+      return `Your total credit card debt is £${total.toFixed(2)}.`;
+    }
+    
+    if (intent === 'summary') {
+      const balance = data.bankBalance || data.balance || 0;
+      const debt = data.totalDebt || data.debt || 0;
+      const netWorth = data.netWorth || (balance - debt);
+      return `Bank balance £${balance.toFixed(2)}, total debt £${debt.toFixed(2)}, net worth £${netWorth.toFixed(2)}.`;
+    }
+    
+    return '';
   }
   
   // Twilio voice webhook - called when call begins
