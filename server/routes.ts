@@ -2640,7 +2640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     if (isFirstCall) {
       // First call: Generate natural ElevenLabs greeting
-      const greeting = "Hey! I'm your voice assistant. What can I help you with?";
+      const greeting = "Hi Rudy how can I Help";
       const crypto = (await import('crypto')).default;
       const fs = (await import('fs/promises')).default;
       const path = (await import('path')).default;
