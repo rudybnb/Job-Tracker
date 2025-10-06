@@ -2733,23 +2733,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.type('text/xml').send(twiml);
       }
       
-      // Generate GPT response
-      console.log('🤖 Generating GPT response...');
-      const openai = (await import('openai')).default;
-      const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
+      // Try to get app-specific data first
+      const { getVoiceAssistantData } = await import('./voice-data-helper');
+      const appData = await getVoiceAssistantData(text, storage);
       
-      // FIX 3: Make GPT write "speakable" lines
-      const completion = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are friendly and conversational. Write like speech: short sentences, natural pauses, contractions, no long paragraphs. Keep replies under 2 sentences.' },
-          { role: 'user', content: text }
-        ],
-        max_tokens: 120,
-        temperature: 0.8
-      });
+      let reply: string;
       
-      const reply = completion.choices[0].message.content || 'I understand.';
+      if (appData) {
+        // Found app-specific data
+        console.log('📊 Using app data:', appData);
+        reply = appData;
+      } else {
+        // Use ChatGPT for general questions
+        console.log('🤖 Using ChatGPT for general query...');
+        const openai = (await import('openai')).default;
+        const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
+        
+        const completion = await client.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'You are Rudy\'s friendly voice assistant for ERdesignandbuild construction management. Write like speech: short sentences, natural pauses, contractions. Keep replies under 2 sentences. Be helpful and conversational.' },
+            { role: 'user', content: text }
+          ],
+          max_tokens: 120,
+          temperature: 0.8
+        });
+        
+        reply = completion.choices[0].message.content || 'I understand.';
+      }
       console.log('✅ GPT Reply:', reply);
       
       // Generate ElevenLabs TTS
