@@ -2636,16 +2636,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('📞 Twilio voice connect webhook received');
     console.log('📋 Request body:', JSON.stringify(req.body));
     
+    // Check if this is the first call or a redirect (loop)
+    const isFirstCall = !req.body.CalledZip; // First call has less data
+    
     // Use Gather to capture speech - simpler than WebSocket streaming!
-    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+    let twiml;
+    
+    if (isFirstCall) {
+      // First time - give instructions
+      twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Polly.Brian">I'm here. Say something after the beep.</Say>
-  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
-  <Say>Didn't catch that. Goodbye.</Say>
+  <Say voice="Polly.Brian">Hey! I'm your voice assistant. What can I help you with?</Say>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST" hints="weather, time, hello, help"/>
+  <Say>Sorry, didn't catch that. Goodbye.</Say>
   <Hangup/>
 </Response>`;
+    } else {
+      // Subsequent calls - just listen, no beep or instructions
+      twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST" hints="weather, time, hello, help"/>
+  <Say>Didn't hear anything. Try again.</Say>
+  <Redirect method="POST">/voice/connect</Redirect>
+</Response>`;
+    }
     
-    console.log(`📤 Sending TwiML with Gather`);
+    console.log(`📤 Sending TwiML with Gather (${isFirstCall ? 'first' : 'loop'})`);
     
     res.type('text/xml');
     res.send(twiml);
@@ -2678,10 +2694,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const completion = await client.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a friendly and helpful voice assistant. You can chat about anything - weather, news, general questions, or help with ERdesignandbuild construction management tasks. Be warm, conversational, and natural like a real person. Keep responses brief (2-3 sentences max) since this is a phone conversation. Use casual language and contractions.' },
+          { role: 'system', content: 'You are a friendly voice assistant for ERdesignandbuild. Be very brief and conversational - like texting a friend. Keep responses to 1-2 short sentences (under 25 words). Use casual language, contractions, and natural speech patterns. End responses with a natural follow-up question when appropriate to keep the conversation flowing.' },
           { role: 'user', content: text }
         ],
-        max_tokens: 150
+        max_tokens: 80
       });
       
       const reply = completion.choices[0].message.content || 'I understand.';
