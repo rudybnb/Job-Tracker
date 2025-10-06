@@ -2697,7 +2697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <Response>
   <Pause length="0.4"/>
   <Play>${audioUrl}</Play>
-  <Gather input="speech" language="en-GB" speechTimeout="auto" action="/voice/handle" method="POST"/>
+  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
 </Response>`;
       
       console.log(`📤 First call - playing ElevenLabs greeting`);
@@ -2706,7 +2706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Loop back - silent gather
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" language="en-GB" speechTimeout="auto" action="/voice/handle" method="POST"/>
+  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
 </Response>`;
       
       console.log(`📤 Loop - silent gather`);
@@ -2741,7 +2741,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say>Sorry, I didn't catch that. Could you repeat?</Say>
-  <Gather input="speech" language="en-GB" speechTimeout="auto" action="/voice/handle" method="POST"/>
+  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
 </Response>`;
         return res.type('text/xml').send(twiml);
       }
@@ -2883,7 +2883,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <Response>
   <Pause length="0.4"/>
   <Play>${audioUrl}</Play>
-  <Gather input="speech" language="en-GB" speechTimeout="auto" action="/voice/handle" method="POST"/>
+  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
 </Response>`;
       
       res.type('text/xml').send(twiml);
