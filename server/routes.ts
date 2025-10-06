@@ -2745,10 +2745,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/voice/connect', async (req, res) => {
     console.log('📞 Twilio voice connect webhook received');
     
-    // Simple gather - no auto-play greeting
+    // Simple gather with fallback
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST">
+    <Pause length="1"/>
+  </Gather>
+  <Say>I didn't hear anything. Please try again.</Say>
+  <Redirect method="POST">/voice/connect</Redirect>
 </Response>`;
     
     res.type('text/xml').send(twiml);
