@@ -2645,83 +2645,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/voice/connect', async (req, res) => {
     console.log('📞 Twilio voice connect webhook received');
     
-    // Check if this is the first call (no SpeechResult means first call)
-    const isFirstCall = !req.body.SpeechResult;
+    // Simple gather - no auto-play greeting
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
+</Response>`;
     
-    if (isFirstCall) {
-      // First call: Generate natural ElevenLabs greeting
-      const greeting = "Hi Rudy how can I Help";
-      const crypto = (await import('crypto')).default;
-      const fs = (await import('fs/promises')).default;
-      const path = (await import('path')).default;
-      
-      const ELEVEN_API_KEY = process.env.ELEVENLABS_API_KEY;
-      const ELEVEN_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb';
-      
-      const audioDir = path.join(process.cwd(), 'audio');
-      await fs.mkdir(audioDir, { recursive: true });
-      
-      const hash = crypto.createHash('sha1').update(greeting).digest('hex').slice(0, 16);
-      const mp3Path = path.join(audioDir, `${hash}.mp3`);
-      
-      let audioExists = false;
-      try {
-        await fs.access(mp3Path);
-        audioExists = true;
-      } catch {}
-      
-      if (!audioExists) {
-        const fetch = (await import('node-fetch')).default;
-        const response = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`,
-          {
-            method: 'POST',
-            headers: {
-              'xi-api-key': ELEVEN_API_KEY || '',
-              'Accept': 'audio/mpeg',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              text: greeting,
-              model_id: 'eleven_multilingual_v2',
-              optimize_streaming_latency: 3,
-              voice_settings: {
-                stability: 0.5,
-                similarity_boost: 0.75,
-                style: 0,
-                use_speaker_boost: true
-              }
-            })
-          }
-        );
-        const audioBuffer = Buffer.from(await response.arrayBuffer());
-        await fs.writeFile(mp3Path, audioBuffer);
-      }
-      
-      const domain = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
-      const protocol = process.env.REPLIT_DEV_DOMAIN ? 'https' : 'http';
-      const audioUrl = `${protocol}://${domain}/audio/${hash}.mp3`;
-      
-      // Play natural greeting, then gather
-      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Pause length="0.4"/>
-  <Play>${audioUrl}</Play>
-  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
-</Response>`;
-      
-      console.log(`📤 First call - playing ElevenLabs greeting`);
-      res.type('text/xml').send(twiml);
-    } else {
-      // Loop back - silent gather
-      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
-</Response>`;
-      
-      console.log(`📤 Loop - silent gather`);
-      res.type('text/xml').send(twiml);
-    }
+    res.type('text/xml').send(twiml);
   });
   
   // Handle speech input from Gather
