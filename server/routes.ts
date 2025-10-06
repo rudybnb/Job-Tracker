@@ -2695,57 +2695,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       session.history.push({ role: 'user', content: text });
       console.log('💭 Session history length:', session.history.length);
       
-      // Try to get app-specific data first
-      const { getVoiceAssistantData } = await import('./voice-data-helper');
-      const appData = await getVoiceAssistantData(text, storage);
-      
-      let reply: string;
-      
-      // Always use ChatGPT to format responses naturally with conversation context
-      console.log('🤖 Using ChatGPT with conversation history...');
+      // Pure chat - no auto tools
+      console.log('🤖 Using GPT for pure chat...');
       const openai = (await import('openai')).default;
       const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
       
-      let systemPrompt = 'You are a helpful voice assistant for Rudy. Be friendly and conversational. Reply in 1–2 short sentences. Use natural language - say "pounds" not "£". Use contractions and natural pauses (commas, ellipses). No long lists. Remember the conversation context.';
-      let messages: Array<any> = [
+      const systemPrompt = 'You are friendly, concise, and conversational. Reply in 1–2 short sentences, natural pauses, no lists.';
+      const messages: Array<any> = [
         { role: 'system', content: systemPrompt },
         ...session.history
       ];
-      
-      if (appData) {
-        // Found app-specific data - append it to the last user message
-        console.log('📊 App data found:', appData);
-        const lastUserMsg = messages[messages.length - 1];
-        lastUserMsg.content = `${lastUserMsg.content}\n\n[Database answer: ${appData}]`;
-      }
       
       const completion = await client.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: messages,
         max_tokens: 90,
-        temperature: 0.7
+        temperature: 0.8
       });
       
-      let gptReply = completion.choices[0].message.content?.trim() || 'I understand.';
-      
-      // Keep turns short - split and use first 2 sentences only
-      const parts = gptReply.replace(/\?/g, '?\n').replace(/\./g, '.\n').split('\n')
-        .map(p => p.trim()).filter(p => p.length > 0);
-      reply = parts.slice(0, 2).join(' ');
-      // Add micro-pauses for natural speech
-      const speechify = (t: string) => {
-        t = t.replace(/\?/g, '?…').replace(/!/g, '!…'); // tiny pause after punctuation
-        if (t.length > 120 && !t.includes(',')) {
-          t = t.replace(/ and /g, ', and '); // add natural pauses
-        }
-        return t;
-      };
-      reply = speechify(reply);
+      const reply = completion.choices[0].message.content?.trim() || 'I understand.';
       
       // Add assistant reply to conversation history
       session.history.push({ role: 'assistant', content: reply });
       
-      console.log('✅ Final reply:', reply);
+      console.log('✅ Reply:', reply);
       
       // Generate ElevenLabs TTS
       console.log('🎙️ Generating speech...');
