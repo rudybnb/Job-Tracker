@@ -114,11 +114,43 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
   
   // Financial queries - Financeflow app integration
   // Check credit cards FIRST (before "balance" keyword) to avoid conflict
-  if (lowerQuery.includes('credit card') || lowerQuery.includes('credit cards') || lowerQuery.includes('card balance') || lowerQuery.includes('debt') || lowerQuery.includes('owe')) {
+  if (lowerQuery.includes('credit card') || lowerQuery.includes('credit cards') || lowerQuery.includes('card balance') || lowerQuery.includes('debt') || lowerQuery.includes('owe') || lowerQuery.includes('marbles') || lowerQuery.includes('capital one') || lowerQuery.includes('zable') || lowerQuery.includes('barclaycard')) {
     console.log('💳 Financial query detected: credit cards/debt');
     const data = await getFinancialData('debt');
     console.log('💳 Credit card data received:', data);
     if (data) {
+      // Check if asking about a specific card
+      const cardName = lowerQuery.includes('marbles') ? 'marbles' :
+                      lowerQuery.includes('capital one') || lowerQuery.includes('capital 1') ? 'capital one' :
+                      lowerQuery.includes('zable') ? 'zable' :
+                      lowerQuery.includes('barclaycard') ? 'barclaycard' : null;
+      
+      if (cardName) {
+        // Find the specific card
+        const allCards = [...(data.cards || []), ...(data.loans || [])];
+        const card = allCards.find(c => c.name.toLowerCase().includes(cardName));
+        
+        if (card) {
+          const balance = parseFloat(card.balance).toFixed(2);
+          const cardDisplayName = card.name.includes('****') ? card.name : card.name;
+          
+          if (card.creditLimit) {
+            const limit = parseFloat(card.creditLimit).toFixed(2);
+            const isOverLimit = parseFloat(card.balance) > parseFloat(card.creditLimit);
+            let response = `Your ${cardDisplayName} has a balance of £${balance} with a limit of £${limit}.`;
+            if (isOverLimit) {
+              response += ` Warning: You are over your limit!`;
+            }
+            return response;
+          } else {
+            return `Your ${cardDisplayName} balance is £${balance}.`;
+          }
+        } else {
+          return `I couldn't find a ${cardName} card in your accounts.`;
+        }
+      }
+      
+      // If not asking about specific card, give total
       const debt = data.totalDebt.toFixed(2);
       const cardCount = data.cards?.length || 0;
       const overdue = data.overdueCards?.length || 0;
