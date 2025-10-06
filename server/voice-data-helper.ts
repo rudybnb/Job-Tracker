@@ -107,6 +107,29 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
   }
   
   // Financial queries - Financeflow app integration
+  // Check credit cards FIRST (before "balance" keyword) to avoid conflict
+  if (lowerQuery.includes('credit card') || lowerQuery.includes('credit cards') || lowerQuery.includes('card balance') || lowerQuery.includes('debt') || lowerQuery.includes('owe')) {
+    console.log('💳 Financial query detected: credit cards/debt');
+    const data = await getFinancialData('debt');
+    console.log('💳 Credit card data received:', data);
+    if (data) {
+      const debt = data.totalDebt.toFixed(2);
+      const cardCount = data.cards?.length || 0;
+      const overdue = data.overdueCards?.length || 0;
+      
+      if (cardCount === 0) {
+        return `You have no credit card debt.`;
+      }
+      
+      let response = `Your total credit card debt is £${debt} across ${cardCount} ${cardCount === 1 ? 'card' : 'cards'}.`;
+      if (overdue > 0) {
+        response += ` Warning: ${overdue} ${overdue === 1 ? 'card is' : 'cards are'} over limit.`;
+      }
+      return response;
+    }
+  }
+  
+  // Bank balance (checked AFTER credit cards to avoid conflict)
   if (lowerQuery.includes('balance') || lowerQuery.includes('bank')) {
     console.log('💰 Financial query detected: bank balance');
     const data = await getFinancialData('balance');
@@ -115,21 +138,6 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
       const balance = data.totalBalance.toFixed(2);
       const account = data.primaryAccount?.bankName || 'your bank';
       return `You have £${balance} in ${account}.`;
-    }
-  }
-  
-  if (lowerQuery.includes('debt') || lowerQuery.includes('owe') || lowerQuery.includes('credit card')) {
-    const data = await getFinancialData('debt');
-    if (data) {
-      const debt = data.totalDebt.toFixed(2);
-      const cardCount = data.cards?.length || 0;
-      const overdue = data.overdueCards?.length || 0;
-      
-      let response = `Your total debt is £${debt} across ${cardCount} ${cardCount === 1 ? 'card' : 'cards'}.`;
-      if (overdue > 0) {
-        response += ` ${overdue} ${overdue === 1 ? 'card is' : 'cards are'} over limit.`;
-      }
-      return response;
     }
   }
   
