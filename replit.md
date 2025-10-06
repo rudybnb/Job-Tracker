@@ -1,7 +1,7 @@
 # ERdesignandbuild - GPS Time Tracking & Job Management System
 
 ## Overview
-ERdesignandbuild is a GPS-based time tracking and job management application for contractors. It provides GPS-verified time tracking, file upload capabilities for job creation, comprehensive admin dashboards, and direct job assignment workflows. The system aims to be a robust solution for managing contractor operations, from time tracking and compliance to job assignment and progress monitoring, enhancing efficiency and ensuring accurate record-keeping.
+ERdesignandbuild is a GPS-based time tracking and job management application for contractors. It offers GPS-verified time tracking, file upload for job creation, comprehensive admin dashboards, and direct job assignment. The system aims to enhance efficiency, ensure accurate record-keeping, and provide a robust solution for managing contractor operations, including time tracking, compliance, job assignment, and progress monitoring.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -25,62 +25,27 @@ App Recreation Method: User prefers to provide visual references (screenshots/pi
 ## System Architecture
 
 ### UI/UX Decisions
-The application features a dark navy background (`#1e293b`) with muted yellow-grey headers and text (`#d97706`, `#ca8a04`). UI elements include rounded cards with slate borders (`#374151`) and consistent bottom navigation. GPS coordinates and timer displays are designed for precise visual matching.
-
-**Live Monitoring Layout (August 2025)**: Live Clock Monitoring moved from admin dashboard to dedicated `/live-clock-monitor` page accessible via bottom navigation. Features simplified layout with Active Workers count, Recent Activities with timestamps, live status indicator, and Full Monitor button. Dashboard no longer includes live monitoring section - clean separation of concerns.
+The application uses a dark navy background (`#1e293b`) with muted yellow-grey headers/text (`#d97706`, `#ca8a04`). UI elements feature rounded cards with slate borders (`#374151`) and consistent bottom navigation. The live clock monitoring is on a dedicated page (`/live-clock-monitor`) with simplified layout and real-time activity display.
 
 ### Technical Implementations
-**Frontend**:
-- **Framework**: React with TypeScript, Vite.
-- **UI**: Shadcn/ui components on Radix UI primitives.
-- **Styling**: Tailwind CSS with CSS variables.
-- **State Management**: TanStack React Query.
-- **Routing**: Wouter.
-- **Form Handling**: React Hook Form with Zod validation.
-
-**Backend**:
-- **Runtime**: Node.js with Express.js.
-- **Language**: TypeScript with ES modules.
-- **API Design**: RESTful API with JSON.
-- **File Processing**: Multer for CSV uploads.
-
-**Database**:
-- **ORM**: Drizzle ORM for PostgreSQL.
-- **Schema**: Includes `work_sessions`, `admin_settings`, `contractors`, `jobs`, `csv_uploads`, `contractor_reports`, and `admin_inspections` tables.
-- **Validation**: Zod schemas for type-safe data validation.
+**Frontend**: React with TypeScript, Vite, Shadcn/ui components on Radix UI, Tailwind CSS, TanStack React Query, Wouter for routing, and React Hook Form with Zod validation.
+**Backend**: Node.js with Express.js, TypeScript (ES modules), RESTful API (JSON), and Multer for CSV uploads.
+**Database**: PostgreSQL with Drizzle ORM. Schema includes `work_sessions`, `admin_settings`, `contractors`, `jobs`, `csv_uploads`, `contractor_reports`, and `admin_inspections`. Zod schemas provide type-safe validation.
 
 **Core Features**:
-- **GPS Security & Validation**: 1km proximity validation, enforced working hours (7:45 AM - 5:00 PM), automatic logout, and GPS coordinate extraction from CSV postcode data.
-- **Permanent Database Work Session Tracking**: `work_sessions` table stores GPS and time data; API endpoints for session management and synchronization.
-- **Weekend Overtime Admin Control**: `admin_settings` table allows independent admin control over Saturday and Sunday work with separate toggle switches.
-- **Location-Aware Job Detection**: Multi-site detection identifies nearest job site, updating the Active Assignment.
-- **Contractor Onboarding**: A 6-step form captures personal, right-to-work, tax, banking, emergency contact, and trade information.
-- **Admin Management**: Admin Applications Dashboard for contractor review, CIS management, and pay rate administration.
-- **Authentication**: Login/logout system with session management.
-- **Admin Site Reporting Interface**: Transformed assignment details page for admin site visits, including photo upload, progress comments, and quality assessments.
-- **CSV Upload Functionality**: Comprehensive preview system displaying raw and formatted data, with clear data/delete functionality.
-- **Automatic Pay Calculation**: Computes total hours from work sessions, with punctuality deductions (£0.50/minute after 8:15 AM, max £50 deduction, min £100 daily pay), and 20% CIS deduction. Corrected earnings display uses authentic database rates and accurate CIS calculation based on HMRC standards.
-- **CSV Data Supremacy Enforcement**: Ensures task display uses only authentic CSV data, showing "Data Missing from CSV" if detailed breakdowns are unavailable.
-- **Admin Site Reporting System**: Comprehensive admin inspection interface with photo uploads, quality ratings, weather conditions, safety notes, and detailed assessments. Supports CRUD operations for both contractor reports and admin inspections.
-- **Progressive Inspection System**: Implemented automatic admin inspection notifications at 50% and 100% job completion milestones, integrated into admin dashboard "Site Inspections Required" section.
-- **Contractor Issue Resolution Workflow**: Allows contractors to mark issues as resolved with optional notes, with issues re-appearing on the dashboard until admin re-approves.
-- **FULL AUTOMATION SYSTEM**: Complete Telegram integration with automatic ID capture, server-side 5pm auto-logout, and zero manual intervention required for time tracking or payroll protection.
-- **CONTRACTOR TELEGRAM MAPPING**: Automatic job assignment notifications sent to correct contractor Telegram IDs: Marius (8006717361), Dalwayne (8016744652), Earl (6792554033), Muhammed (5209713845).
-- **AI VOICE ASSISTANT (October 2025)**: Integrated Twilio phone-based voice assistant with natural conversation capabilities. Uses OpenAI GPT-4o-mini for intelligent query processing, ElevenLabs TTS (Bella voice) for natural speech synthesis, and smart routing between app database queries and ChatGPT general knowledge. Greeting: "Hi Rudy how can I Help". Admin-only access restricted to Rudy (07534251548 / Telegram: 7617462316). Voice flow uses Twilio `<Gather input="speech">` for reliable phone interaction with 0.4s pause before audio playback to prevent syllable clipping. Supports contractor queries (who's working, hours, jobs, inspections, applications, pay rates) via `voice-data-helper.ts` module.
-- **MULTI-APP INTEGRATION (October 2025)**: Voice assistant now accesses data from multiple Replit apps via API calls. Integrated with Financeflow app (pound-wise-rudybnbd.replit.app) to provide real-time financial data including bank balance (Starling Bank), total credit card debt across multiple cards, net worth calculations, and overdue card alerts. Voice queries like "What's my bank balance?" or "How much debt do I have?" automatically fetch live data from Financeflow APIs (`/api/finance/balance`, `/api/finance/debt`, `/api/finance/summary`).
-- **CRITICAL DATA INTEGRITY FIX (August 2025)**: Removed hardcoded "07:44 - 17:00" time displays that violated Mandatory Rule #2. System now shows authentic database times: Marius's actual start time 13:09 (1:09 PM) instead of fake 07:44. Fixed contractor login credentials: Marius (username: "marius", password: "marius123"). Authentic pay rates now working: Dalwayne £18.75/hour, Marius £25.00/hour.
-- **DUPLICATE SESSION CLEANUP (August 2025)**: Removed bogus duplicate sessions that were corrupting earnings calculations. Fixed both Marius and Dalwayne to show consistent 7:44-17:00 work sessions (9.27 hours) instead of multiple conflicting entries. Eliminated time display inconsistencies that were showing 8:44 instead of correct 7:44 start time.
-- **JOBS ASSIGNED DASHBOARD FOR DALWAYNE (August 2025)**: Created dedicated "Jobs Assigned" section accessible only to Dalwayne Diedericks via additional bottom navigation tab. Features comprehensive oversight dashboard showing all contractor assignments, deadlines, project status, and team coordination tools. Includes filtering by status (active, overdue, completed), sorting by due date/contractor, and direct communication links (call/email) for each assignment. Dashboard provides stats cards showing total assignments, active tasks, overdue items, and completed work. Four-column navigation (Dashboard, Jobs, Jobs Assigned, More) appears for Dalwayne, while other contractors see standard three-column layout.
-- **EXPORT FUNCTIONALITY REMOVAL (August 2025)**: Completely disabled CSV export functionality from Admin Time Tracking dashboard due to persistent browser caching issues preventing proper frontend updates. Server-side export endpoint now returns 404 errors with "Export functionality has been disabled" message. Frontend redesigned with fixed current-week display, removing all dropdown selectors and export buttons. Interface now shows "Weekly Time Tracking Report" with current week data only in view-only mode. This resolves ongoing technical conflicts between browser cache and live updates that were preventing export feature modifications from taking effect.
-
-**CRITICAL NOTE**: Due to extreme browser caching, users may still see the old export interface even after server-side disabling. However, any export attempts will fail with error messages as the functionality is completely disabled on the backend. Created new `/payroll-overview` route with fresh `payroll-overview.tsx` file to bypass cache issues. Export functionality is 100% disabled server-side regardless of what cached UI elements may appear.
+- **GPS Security**: 1km proximity validation, enforced working hours, automatic logout, GPS coordinate extraction from postcodes, and real-time GPS tracking with in-memory location tracking and status indicators.
+- **Time Tracking**: Permanent database `work_sessions` tracking, automatic pay calculation with punctuality deductions and CIS deduction, and authentic database rates.
+- **Job Management**: CSV upload with preview, location-aware job detection, multi-site detection for Active Assignment, and CSV data supremacy enforcement.
+- **Admin & Contractor Management**: Admin dashboards for contractor review, CIS management, pay rate administration, and contractor onboarding. Role-based interfaces with dynamic authentication and flexible name matching.
+- **Reporting & Inspections**: Admin site reporting interface with photo uploads and assessments. Progressive inspection system with notifications at 50% and 100% job completion. Contractor issue resolution workflow.
+- **Automation**: Full Telegram integration for automatic ID capture and job notifications, server-side 5 PM auto-logout, and automatic contractor Telegram mapping.
+- **AI Voice Assistant**: Twilio phone-based voice assistant with OpenAI GPT-4o-mini and ElevenLabs TTS (Bella voice). Supports app database queries (contractor hours, jobs, inspections, pay rates) and general knowledge, with admin-only access and multi-app integration for financial data.
+- **Financial Features**: Integration with an external Financeflow app for real-time financial data (bank balance, debt, net worth, overdue card alerts) via the voice assistant. Account-specific cashflow system for project data filtering.
+- **Jobs Assigned Dashboard**: Dedicated "Jobs Assigned" section for specific contractors (e.g., Dalwayne) with comprehensive oversight of assignments, deadlines, and project status.
+- **Data Integrity**: Critical fixes implemented to ensure authentic database times, correct login credentials, accurate pay rates, and cleanup of duplicate sessions. Export functionality for CSV has been fully disabled on the backend.
 
 ### System Design Choices
-The application offers a complete workflow with distinct role-based interfaces for administrators and contractors. It manages operations from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize data persistence (PostgreSQL), security (GPS validation), and user experience. The system is designed for multi-contractor architecture with dynamic authentication, flexible name matching, scalable assignment, and complete data separation.
-
-**Real-Time GPS Tracking System (August 2025)**: Comprehensive GPS proximity monitoring with in-memory location tracking (`server/location-tracker.ts`) and enhanced automatic logout service. Fixed critical auto-logout bug that was causing premature 10-25 second session terminations. System now uses fallback GPS logic with start coordinates when real-time tracking unavailable, maintains 500-meter proximity threshold, implements temporary departure tracking during working hours (8 AM-5 PM), and provides three-color status indicators (Green=On-site, Yellow=Temporarily away, Red=Clocked out). Successfully tracks multiple contractors simultaneously with accurate distance calculations (verified: Marius 20m, Dalwayne 12m from BR6 9HE job site).
-
-**Account-Specific Cashflow System (August 2025)**: Project Cashflow feature now implements proper authentication-aware data filtering. Admin accounts have full access to all project data and financial metrics, while contractor accounts (including Earl's account) only see projects specifically assigned to them. System enforces account isolation with 0 figures for unassigned contractors and authentic database metrics for admin oversight.
+The application provides a complete workflow with distinct role-based interfaces, managing operations from CSV upload and job creation to contractor assignment and progress monitoring. Architectural decisions prioritize data persistence (PostgreSQL), security (GPS validation), and user experience. The system is designed for a multi-contractor architecture with dynamic authentication, flexible name matching, scalable assignment, and complete data separation.
 
 ## External Dependencies
 
@@ -100,3 +65,11 @@ The application offers a complete workflow with distinct role-based interfaces f
 - **Vite**: Build tool and development server.
 - **ESBuild**: Fast JavaScript bundler.
 - **TypeScript**: For type safety.
+
+### AI and Voice Services
+- **OpenAI GPT-4o-mini**: For intelligent query processing in the voice assistant.
+- **ElevenLabs**: Text-to-speech synthesis (Bella voice).
+- **Twilio**: For phone-based voice assistant integration.
+
+### Financial Integration
+- **Financeflow app (pound-wise-rudybnbd.replit.app)**: Provides real-time financial data.
