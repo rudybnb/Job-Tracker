@@ -2400,217 +2400,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // ===== TWILIO WEBSOCKET VOICE STREAMING =====
   
-  // Session storage keyed by streamSid
-  const sessions: Record<string, { 
-    call_sid: string; 
-    buf: number[]; 
-    history: any[];
-    last_transcribe: number;
-  }> = {};
-  
   // Create WebSocket server for Twilio audio streaming
   const wss = new WebSocketServer({ server: httpServer, path: '/twilio/stream' });
   
   wss.on('connection', async (ws: WebSocket) => {
     console.log('🎙️ Twilio WebSocket connected');
     
+    let callSession: any = null;
+    let callId: string | null = null;
     let streamSid: string | null = null;
-    const { mulawToPcm, resample8kTo16k, wav16kFromPcm16 } = await import('./voice-whisper');
-    const { createCallSession, addToHistory, endCallSession, logEvent } = await import('./voice-sessions');
+    let audioBuffer: Buffer[] = [];
+    
+    const { createCallSession, addToHistory, endCallSession, logEvent, getCallSession } = await import('./voice-sessions');
+    const { getFastVoiceResponse } = await import('./voice-streaming');
     
     ws.on('message', async (message: Buffer) => {
       try {
         const data = JSON.parse(message.toString());
         
-        // DEBUG: Log ALL incoming events with FULL data for start event
-        if (data.event === 'start') {
-          console.log(`📩 ⭐ START EVENT:`, JSON.stringify(data, null, 2));
-        } else {
-          console.log(`📩 Twilio event: ${data.event}`, JSON.stringify(data).slice(0, 200));
-        }
-        
         // Log all events for debugging
-        if (streamSid && sessions[streamSid]) {
-          await logEvent(sessions[streamSid].call_sid, `Event: ${data.event}`);
+        if (callId) {
+          await logEvent(callId, `Event: ${data.event}`);
         }
         
         switch (data.event) {
           case 'start':
-            // Capture streamSid from start event
-            streamSid = data.start.streamSid;
-            const callSid = data.start.callSid || `call_${Date.now()}`;
+            // Call started
+            streamSid = data.streamSid;
+            callId = data.start.callSid || `call_${Date.now()}`;
+            const phoneNumber = data.start.customParameters?.From || 'unknown';
             
-            if (!streamSid) {
-              console.log(`⚠️ No streamSid in start event`);
-              break;
+            if (callId) {
+              callSession = await createCallSession(callId, phoneNumber);
+              console.log(`📞 Call started: ${callId} from ${phoneNumber}`);
+              
+              // FAST STREAMING: Send greeting with real-time audio streaming
+              const greeting = "Hello! I'm your voice assistant. How can I help you today?";
+              await addToHistory(callId, { assistant: greeting });
+              
+              console.log(`⚡ FAST MODE: Streaming greeting with real-time audio`);
+              
+              // Stream audio directly to Twilio as it's generated
+              await getFastVoiceResponse(
+                greeting,
+                [],
+                (audioChunk: Buffer) => {
+                  // Send audio chunk to Twilio immediately
+                  if (streamSid) {
+                    const audioMessage = {
+                      event: 'media',
+                      streamSid: streamSid,
+                      media: {
+                        payload: audioChunk.toString('base64')
+                      }
+                    };
+                    ws.send(JSON.stringify(audioMessage));
+                  }
+                }
+              );
             }
-            
-            // Store session with audio buffer and timestamp
-            sessions[streamSid] = { 
-              call_sid: callSid, 
-              buf: [], 
-              history: [],
-              last_transcribe: Date.now()
-            };
-            console.log(`[start] sid=${streamSid}`);
-            
-            // Create call session
-            const phoneNumber = data.start?.customParameters?.From || 'unknown';
-            await createCallSession(callSid, phoneNumber);
-            console.log(`📞 Call started: ${callSid} from ${phoneNumber}`);
             
             break;
             
           case 'media':
-            // Decode μ-law 8kHz → PCM16 16kHz and transcribe every ~1s
-            if (!streamSid || !data.media?.payload) break;
-            
-            const session = sessions[streamSid];
-            if (!session) break;
-            
-            try {
-              // Decode base64 μ-law
-              const b64 = data.media.payload;
-              const mulaw = Buffer.from(b64, 'base64');
+            // Received audio from caller - collect and process
+            if (data.media && data.media.payload) {
+              const audioData = Buffer.from(data.media.payload, 'base64');
+              audioBuffer.push(audioData);
               
-              // μ-law → 16-bit PCM @8k
-              const pcm8k = mulawToPcm(mulaw);
+              // Check if we have enough audio (1 second worth at 8kHz = ~8000 bytes)
+              const totalAudio = Buffer.concat(audioBuffer);
               
-              // Resample 8k → 16k
-              const pcm16k = resample8kTo16k(pcm8k);
-              
-              // Add to buffer (as array of bytes)
-              const arr = Array.from(pcm16k);
-              session.buf.push(...arr);
-              
-              // Throttle: transcribe every ~1s
-              const now = Date.now();
-              const timeSinceLastTranscribe = now - session.last_transcribe;
-              
-              if (timeSinceLastTranscribe >= 1000 && session.buf.length > 32000) {
-                const pcm = Buffer.from(session.buf);
-                session.buf = []; // Clear buffer
-                session.last_transcribe = now;
+              if (totalAudio.length > 8000) { // ~1 second of audio - FASTER
+                console.log(`🎤 Processing ${totalAudio.length} bytes of audio...`);
                 
-                // Transcribe async (don't block)
-                (async () => {
-                  try {
-                    // Convert PCM16 → WAV
-                    const wavBuffer = wav16kFromPcm16(pcm);
-                    
-                    // Send to Whisper
-                    const { transcribeAudio } = await import('./voice-whisper');
-                    const text = await transcribeAudio(wavBuffer);
-                    const trimmed = text.trim();
-                    
-                    console.log(`📝 User said: ${JSON.stringify(trimmed)}`);
-                    
-                    // Generate response for meaningful text - NO callId check!
-                    if (trimmed.length > 3) {
-                      const callSid = session.call_sid;
-                      console.log(`✅ would reply to: "${trimmed}"`);
-                      
-                      if (callSid) {
-                        await addToHistory(callSid, { user: trimmed });
-                      }
-                      
-                      // Get conversation history
-                      const history = session.history || [];
-                      
-                      // Generate response
-                      console.log(`🤖 Generating response...`);
-                      const { getSimpleVoiceResponse } = await import('./simple-voice');
-                      const response = await getSimpleVoiceResponse(trimmed, history);
-                      
-                      // Save response to history
-                      if (callSid) {
-                        await addToHistory(callSid, { assistant: response });
-                      }
-                      session.history.push({ user: trimmed, assistant: response });
-                      
-                      console.log(`✅ Response: "${response}"`);
-                      console.log(`📞 Sending response back to caller...`);
-                      
-                      // TODO: Send audio response via Twilio
-                    }
-                  } catch (error: any) {
-                    console.error('❌ Whisper transcription error:', error);
-                    console.error(error.stack);
-                  }
-                })();
-              }
-            } catch (error: any) {
-              console.error('❌ Audio decoding error:', error);
-            }
-            break;
-            
-          case 'transcription':
-            // This is where we get the actual transcribed text from Twilio (if enabled)
-            streamSid = streamSid || data.streamSid || data.start?.streamSid;
-            if (!streamSid) break;
-            
-            const text = (data.transcription?.text || '').trim();
-            const twilioSession = sessions[streamSid];
-            const hasCallSid = !!twilioSession?.call_sid;
-            
-            console.log(`[transcript] len=${text.length} sid=${streamSid} text="${text}" has_call_sid=${hasCallSid}`);
-            
-            // Generate response for meaningful text - NO callId check!
-            if (text.length > 3) {
-              const callSid = twilioSession?.call_sid;
-              console.log(`📝 User said: "${text}" (stream=${streamSid}, call=${callSid})`);
-              
-              // Quick sanity test first
-              console.log(`✅ would reply to: "${text}"`);
-              
-              // Generate response async (don't block)
-              (async () => {
-                try {
-                  if (callSid) {
-                    await addToHistory(callSid, { user: text });
-                  }
+                // Transcribe the audio
+                const { transcribeAudio } = await import('./voice-whisper');
+                const userMessage = await transcribeAudio(totalAudio);
+                
+                if (userMessage && callId) {
+                  console.log(`📝 User said: "${userMessage}"`);
+                  await addToHistory(callId, { user: userMessage });
                   
                   // Get conversation history
-                  const history = twilioSession?.history || [];
+                  const session = getCallSession(callId);
+                  const history = session ? session.history : [];
                   
-                  // Generate response
+                  // Generate response with streaming
                   console.log(`🤖 Generating response...`);
-                  const { getSimpleVoiceResponse } = await import('./simple-voice');
-                  const response = await getSimpleVoiceResponse(text, history);
+                  const response = await getFastVoiceResponse(
+                    userMessage,
+                    history,
+                    (audioChunk: Buffer) => {
+                      // Send audio chunk to Twilio immediately
+                      if (streamSid) {
+                        const audioMessage = {
+                          event: 'media',
+                          streamSid: streamSid,
+                          media: {
+                            payload: audioChunk.toString('base64')
+                          }
+                        };
+                        ws.send(JSON.stringify(audioMessage));
+                      }
+                    }
+                  );
                   
                   // Save response to history
-                  if (callSid) {
-                    await addToHistory(callSid, { assistant: response });
-                  }
-                  twilioSession?.history.push({ user: text, assistant: response });
+                  await addToHistory(callId, { assistant: response });
                   
-                  console.log(`✅ Response: "${response}"`);
-                  console.log(`📞 Sending response back to caller...`);
-                  
-                  // TODO: Send audio response via Twilio
-                } catch (error: any) {
-                  console.error('❌ generate_and_stream_reply error:', error);
-                  console.error(error.stack);
+                  console.log(`✅ Response sent: "${response.slice(0, 50)}..."`);
                 }
-              })();
-            } else {
-              console.log(`(ignored short chunk: '${text}')`);
+                
+                // Clear audio buffer
+                audioBuffer = [];
+              }
             }
             break;
             
           case 'stop':
             // Call ended
-            if (streamSid && sessions[streamSid]) {
-              const callSid = sessions[streamSid].call_sid;
-              await endCallSession(callSid);
-              console.log(`📞 Call ended: ${callSid}`);
-              delete sessions[streamSid];
+            if (callId) {
+              await endCallSession(callId);
+              console.log(`📞 Call ended: ${callId}`);
             }
             break;
             
           default:
-            if (streamSid && sessions[streamSid]) {
-              await logEvent(sessions[streamSid].call_sid, `Unknown event: ${data.event}`);
+            if (callId) {
+              await logEvent(callId, `Unknown event: ${data.event}`);
             }
         }
       } catch (error: any) {
@@ -2620,9 +2538,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     ws.on('close', async () => {
       console.log('📞 WebSocket closed');
-      if (streamSid && sessions[streamSid]) {
-        await endCallSession(sessions[streamSid].call_sid);
-        delete sessions[streamSid];
+      if (callId) {
+        await endCallSession(callId);
       }
     });
     
@@ -2631,298 +2548,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Call-scoped memory to track conversation history
-  const VOICE_SESSIONS: Record<string, { history: Array<{ role: string; content: string }> }> = {};
-  
-  function getVoiceSession(callSid: string) {
-    if (!VOICE_SESSIONS[callSid]) {
-      VOICE_SESSIONS[callSid] = { history: [] };
-    }
-    return VOICE_SESSIONS[callSid];
-  }
-  
   // Twilio voice webhook - called when call begins
-  app.post('/voice/connect', async (req, res) => {
+  app.post('/voice/connect', (req, res) => {
     console.log('📞 Twilio voice connect webhook received');
     
-    // Check if this is the first call (no SpeechResult means first call)
-    const isFirstCall = !req.body.SpeechResult;
+    const domain = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
+    const protocol = process.env.REPLIT_DEV_DOMAIN ? 'wss' : 'ws';
+    const streamUrl = `${protocol}://${domain}/twilio/stream`;
     
-    if (isFirstCall) {
-      // First call: Generate natural ElevenLabs greeting
-      const greeting = "Hi Rudy how can I Help";
-      const crypto = (await import('crypto')).default;
-      const fs = (await import('fs/promises')).default;
-      const path = (await import('path')).default;
-      
-      const ELEVEN_API_KEY = process.env.ELEVENLABS_API_KEY;
-      const ELEVEN_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb';
-      
-      const audioDir = path.join(process.cwd(), 'audio');
-      await fs.mkdir(audioDir, { recursive: true });
-      
-      const hash = crypto.createHash('sha1').update(greeting).digest('hex').slice(0, 16);
-      const mp3Path = path.join(audioDir, `${hash}.mp3`);
-      
-      let audioExists = false;
-      try {
-        await fs.access(mp3Path);
-        audioExists = true;
-      } catch {}
-      
-      if (!audioExists) {
-        const fetch = (await import('node-fetch')).default;
-        const response = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`,
-          {
-            method: 'POST',
-            headers: {
-              'xi-api-key': ELEVEN_API_KEY || '',
-              'Accept': 'audio/mpeg',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              text: greeting,
-              model_id: 'eleven_multilingual_v2',
-              optimize_streaming_latency: 3,
-              voice_settings: {
-                stability: 0.5,
-                similarity_boost: 0.75,
-                style: 0,
-                use_speaker_boost: true
-              }
-            })
-          }
-        );
-        const audioBuffer = Buffer.from(await response.arrayBuffer());
-        await fs.writeFile(mp3Path, audioBuffer);
-      }
-      
-      const domain = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
-      const protocol = process.env.REPLIT_DEV_DOMAIN ? 'https' : 'http';
-      const audioUrl = `${protocol}://${domain}/audio/${hash}.mp3`;
-      
-      // Play natural greeting, then gather
-      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+    // Return TwiML to connect audio stream to WebSocket
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Pause length="0.4"/>
-  <Play>${audioUrl}</Play>
-  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
+  <Say>Connecting you to the voice assistant. Please wait.</Say>
+  <Connect>
+    <Stream url="${streamUrl}" />
+  </Connect>
 </Response>`;
-      
-      console.log(`📤 First call - playing ElevenLabs greeting`);
-      res.type('text/xml').send(twiml);
-    } else {
-      // Loop back - silent gather
-      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
-</Response>`;
-      
-      console.log(`📤 Loop - silent gather`);
-      res.type('text/xml').send(twiml);
-    }
-  });
-  
-  // Handle speech input from Gather
-  app.post('/voice/handle', async (req, res) => {
-    try {
-      console.log('🎤 /voice/handle called');
-      console.log('📋 Request body:', JSON.stringify(req.body));
-      
-      const callSid = req.body.CallSid || 'unknown';
-      const text = (req.body.SpeechResult || '').trim();
-      const confidence = parseFloat(req.body.Confidence || '0');
-      console.log('📞 CallSid:', callSid);
-      console.log('📝 User said:', text);
-      console.log('🎯 Confidence:', confidence);
-      
-      if (!text || text.length < 2) {
-        // No speech detected, loop back
-        const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say>I didn't hear anything. Try again.</Say>
-  <Redirect method="POST">/voice/connect</Redirect>
-</Response>`;
-        return res.type('text/xml').send(twiml);
-      }
-      
-      // If confidence is too low, ask to repeat (only for very low confidence)
-      if (confidence < 0.3) {
-        console.log('⚠️ Very low confidence, asking to repeat');
-        const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say>Sorry, I didn't catch that. Could you repeat?</Say>
-  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
-</Response>`;
-        return res.type('text/xml').send(twiml);
-      }
-      
-      // Get call session for conversation memory
-      const session = getVoiceSession(callSid);
-      
-      // Add user message to history
-      session.history.push({ role: 'user', content: text });
-      console.log('💭 Session history length:', session.history.length);
-      
-      // Try to get app-specific data first
-      const { getVoiceAssistantData } = await import('./voice-data-helper');
-      const appData = await getVoiceAssistantData(text, storage);
-      
-      let reply: string;
-      
-      // Always use ChatGPT to format responses naturally with conversation context
-      console.log('🤖 Using ChatGPT with conversation history...');
-      const openai = (await import('openai')).default;
-      const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
-      
-      let systemPrompt = 'You are a helpful voice assistant for Rudy. Be friendly and conversational. Reply in 1–2 short sentences. Use natural language - say "pounds" not "£". Use contractions and natural pauses (commas, ellipses). No long lists. Remember the conversation context.';
-      let messages: Array<any> = [
-        { role: 'system', content: systemPrompt },
-        ...session.history
-      ];
-      
-      if (appData) {
-        // Found app-specific data - append it to the last user message
-        console.log('📊 App data found:', appData);
-        const lastUserMsg = messages[messages.length - 1];
-        lastUserMsg.content = `${lastUserMsg.content}\n\n[Database answer: ${appData}]`;
-      }
-      
-      const completion = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: messages,
-        max_tokens: 90,
-        temperature: 0.7
-      });
-      
-      let gptReply = completion.choices[0].message.content?.trim() || 'I understand.';
-      
-      // Keep turns short - split and use first 2 sentences only
-      const parts = gptReply.replace(/\?/g, '?\n').replace(/\./g, '.\n').split('\n')
-        .map(p => p.trim()).filter(p => p.length > 0);
-      reply = parts.slice(0, 2).join(' ');
-      // Add micro-pauses for natural speech
-      const speechify = (t: string) => {
-        t = t.replace(/\?/g, '?…').replace(/!/g, '!…'); // tiny pause after punctuation
-        if (t.length > 120 && !t.includes(',')) {
-          t = t.replace(/ and /g, ', and '); // add natural pauses
-        }
-        return t;
-      };
-      reply = speechify(reply);
-      
-      // Add assistant reply to conversation history
-      session.history.push({ role: 'assistant', content: reply });
-      
-      console.log('✅ Final reply:', reply);
-      
-      // Generate ElevenLabs TTS
-      console.log('🎙️ Generating speech...');
-      const crypto = await import('crypto');
-      const fs = await import('fs/promises');
-      const path = await import('path');
-      
-      const ELEVEN_API_KEY = process.env.ELEVENLABS_API_KEY;
-      const ELEVEN_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb'; // George voice (professional male)
-      
-      // Create audio directory if it doesn't exist
-      const audioDir = path.join(process.cwd(), 'audio');
-      await fs.mkdir(audioDir, { recursive: true });
-      
-      // Hash the reply to cache audio files
-      const hash = crypto.createHash('sha1').update(reply).digest('hex').slice(0, 16);
-      const mp3Path = path.join(audioDir, `${hash}.mp3`);
-      
-      // Check if audio file already exists
-      let audioExists = false;
-      try {
-        await fs.access(mp3Path);
-        audioExists = true;
-        console.log('📦 Using cached audio');
-      } catch {
-        // File doesn't exist, generate it
-      }
-      
-      if (!audioExists) {
-        console.log('🎙️ Calling ElevenLabs API...');
-        const fetch = (await import('node-fetch')).default;
-        
-        try {
-          const response = await fetch(
-            `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`,
-            {
-              method: 'POST',
-              headers: {
-                'xi-api-key': ELEVEN_API_KEY || '',
-                'Accept': 'audio/mpeg',
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                text: reply,
-                model_id: 'eleven_multilingual_v2',
-                optimize_streaming_latency: 3,
-                voice_settings: {
-                  stability: 0.12,
-                  similarity_boost: 0.95,
-                  style: 0.45,
-                  use_speaker_boost: true
-                }
-              })
-            }
-          );
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ ElevenLabs API error:', response.status, errorText);
-            throw new Error(`ElevenLabs API error: ${response.statusText}`);
-          }
-          
-          const audioBuffer = Buffer.from(await response.arrayBuffer());
-          await fs.writeFile(mp3Path, audioBuffer);
-          console.log('💾 Saved audio to cache');
-        } catch (elevenError: any) {
-          console.error('❌ ElevenLabs failed, using Twilio Say:', elevenError.message);
-          // Fallback to Twilio's built-in voice
-          const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="Polly.Brian">${reply}</Say>
-  <Redirect method="POST">/voice/connect</Redirect>
-</Response>`;
-          return res.type('text/xml').send(twiml);
-        }
-      }
-      
-      // Build public URL
-      const domain = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
-      const protocol = process.env.REPLIT_DEV_DOMAIN ? 'https' : 'http';
-      const audioUrl = `${protocol}://${domain}/audio/${hash}.mp3`;
-      
-      console.log('🔊 Playing audio:', audioUrl);
-      
-      // Prevent first syllable clipping with 0.4s pause
-      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Pause length="0.4"/>
-  <Play>${audioUrl}</Play>
-  <Gather input="speech" language="en-ZA" speechTimeout="auto" action="/voice/handle" method="POST"/>
-</Response>`;
-      
-      res.type('text/xml').send(twiml);
-      
-    } catch (error: any) {
-      console.error('❌ Error in voice handler:', error);
-      console.error(error.stack);
-      
-      // Fallback TwiML
-      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say>Sorry, I encountered an error. Please try again.</Say>
-  <Redirect method="POST">/voice/connect</Redirect>
-</Response>`;
-      
-      res.type('text/xml').send(twiml);
-    }
+    
+    console.log(`🔗 Connecting to stream: ${streamUrl}`);
+    
+    res.type('text/xml');
+    res.send(twiml);
   });
   
   // Admin batch inspection submission endpoint
