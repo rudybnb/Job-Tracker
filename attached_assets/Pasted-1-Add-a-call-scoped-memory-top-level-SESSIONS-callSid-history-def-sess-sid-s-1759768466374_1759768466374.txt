@@ -1,0 +1,99 @@
+1) Add a call-scoped memory
+
+# top-level
+SESSIONS = {}  # callSid -> {"history": []}
+
+def sess(sid:str):
+    if sid not in SESSIONS:
+        SESSIONS[sid] = {"history": []}
+    return SESSIONS[sid]
+
+
+2) Don’t auto-play a greeting every turn
+
+# /voice/connect  (keep it simple)
+@Response xml:
+<Response>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
+</Response>
+
+
+3) Replace your /voice/handle with pure-chat + memory (no auto tools)
+
+@app.post("/voice/handle")
+async def voice_handle(request: Request):
+    form = await request.form()
+    call_sid = form.get("CallSid")
+    text = (form.get("SpeechResult") or "").strip()
+    if not text:
+        return PlainTextResponse("<Response><Redirect>/voice/connect</Redirect></Response>",
+                                 media_type="application/xml")
+
+    # memory
+    session = sess(call_sid)
+    session["history"].append({"role":"user","content":text})
+
+    # GPT: friendly, short, speakable
+    SYSTEM = ("You are friendly, concise, and conversational. "
+              "Reply in 1–2 short sentences, natural pauses, no lists.")
+    from openai import OpenAI
+    oai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    msgs = [{"role":"system","content":SYSTEM}] + session["history"]
+    resp = oai.chat.completions.create(model="gpt-4o-mini",
+                                       messages=msgs, max_tokens=90, temperature=0.8)
+    reply = resp.choices[0].message.content.strip()
+    session["history"].append({"role":"assistant","content":reply})
+
+    # ElevenLabs TTS (same as you had)
+    audio_url = await tts_eleven_cached(reply)  # your helper that returns PUBLIC_URL/mp3
+
+    # speak reply, then listen again
+    xml = f"""
+<Response>
+  <Pause length="0.4"/>
+  <Play>{audio_url}</Play>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
+</Response>"""
+    from fastapi.responses import Response
+    return Response(xml.strip(), media_type="application/xml")
+
+
+4) (Optional) Only use app data with consent
+Wrap all your “financial”/“bank” handlers behind a flag:
+
+USE_TOOLS = os.getenv("USE_TOOLS","ask").lower()  # ask|on|off
+
+# before using any card/bank data:
+if USE_TOOLS == "on":
+    use_tools = True
+elif USE_TOOLS == "off":
+    use_tools = False
+else:
+    # ask
+    if "barclay" in text.lower() or "balance" in text.lower():
+        reply = "I can check your Barclays data. Want me to use your linked account info?"
+        # speak + set a pending flag in session
+        sess(call_sid)["pending_tool"] = "barclays_balance"
+        # return early with that reply (tts + gather)
+
+
+5) Kill the robotic feel
+
+Keep replies ≤ 2 sentences.
+
+ElevenLabs payload:
+
+payload = {
+  "text": reply,
+  "model_id": "eleven_multilingual_v2",
+  "optimize_streaming_latency": 3,
+  "voice_settings": {"stability":0.12,"similarity_boost":0.95,"style":0.45,"use_speaker_boost":True}
+}
+
+What this fixes
+
+No more unsolicited “finance summaries.”
+
+The bot remembers context within the call (SESSIONS[callSid].history).
+
+Every turn: GPT reply → ElevenLabs → Play → Gather (clean turn-taking).
