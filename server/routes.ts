@@ -2654,6 +2654,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Handle speech input from Gather
   app.post('/voice/handle', async (req, res) => {
     try {
+      console.log('🎤 /voice/handle called');
+      console.log('📋 Request body:', JSON.stringify(req.body));
+      
       const text = (req.body.SpeechResult || '').trim();
       console.log('📝 User said:', text);
       
@@ -2668,7 +2671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Generate GPT response
-      console.log('🤖 Generating response...');
+      console.log('🤖 Generating GPT response...');
       const openai = (await import('openai')).default;
       const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
       
@@ -2682,7 +2685,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const reply = completion.choices[0].message.content || 'I understand.';
-      console.log('✅ Reply:', reply);
+      console.log('✅ GPT Reply:', reply);
       
       // Generate ElevenLabs TTS
       console.log('🎙️ Generating speech...');
@@ -2712,37 +2715,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (!audioExists) {
+        console.log('🎙️ Calling ElevenLabs API...');
         const fetch = (await import('node-fetch')).default;
-        const response = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`,
-          {
-            method: 'POST',
-            headers: {
-              'xi-api-key': ELEVEN_API_KEY || '',
-              'Accept': 'audio/mpeg',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              text: reply,
-              model_id: 'eleven_multilingual_v2',
-              optimize_streaming_latency: 3,
-              voice_settings: {
-                stability: 0.5,
-                similarity_boost: 0.75,
-                style: 0,
-                use_speaker_boost: true
-              }
-            })
+        
+        try {
+          const response = await fetch(
+            `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`,
+            {
+              method: 'POST',
+              headers: {
+                'xi-api-key': ELEVEN_API_KEY || '',
+                'Accept': 'audio/mpeg',
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                text: reply,
+                model_id: 'eleven_multilingual_v2',
+                optimize_streaming_latency: 3,
+                voice_settings: {
+                  stability: 0.5,
+                  similarity_boost: 0.75,
+                  style: 0,
+                  use_speaker_boost: true
+                }
+              })
+            }
+          );
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ ElevenLabs API error:', response.status, errorText);
+            throw new Error(`ElevenLabs API error: ${response.statusText}`);
           }
-        );
-        
-        if (!response.ok) {
-          throw new Error(`ElevenLabs API error: ${response.statusText}`);
+          
+          const audioBuffer = Buffer.from(await response.arrayBuffer());
+          await fs.writeFile(mp3Path, audioBuffer);
+          console.log('💾 Saved audio to cache');
+        } catch (elevenError: any) {
+          console.error('❌ ElevenLabs failed, using Twilio Say:', elevenError.message);
+          // Fallback to Twilio's built-in voice
+          const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="Polly.Brian">${reply}</Say>
+  <Redirect method="POST">/voice/connect</Redirect>
+</Response>`;
+          return res.type('text/xml').send(twiml);
         }
-        
-        const audioBuffer = Buffer.from(await response.arrayBuffer());
-        await fs.writeFile(mp3Path, audioBuffer);
-        console.log('💾 Saved audio to cache');
       }
       
       // Build public URL
