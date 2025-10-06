@@ -56,7 +56,8 @@ async def fetch_finance(tool: str) -> str:
         if r.status_code != 200:
             return f"Finance API returned {r.status_code}"
         
-        data = r.json()
+        response = r.json()
+        data = response.get("data", response)
         
         if tool == "finance_balance":
             total = data.get("totalBalance") or data.get("balance") or 0
