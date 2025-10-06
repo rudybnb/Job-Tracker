@@ -120,10 +120,10 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
     console.log('💳 Credit card data received:', data);
     if (data) {
       // Check if asking about a specific card
-      const cardName = lowerQuery.includes('marbles') ? 'marbles' :
-                      lowerQuery.includes('capital one') || lowerQuery.includes('capital 1') ? 'capital one' :
-                      lowerQuery.includes('zable') ? 'zable' :
-                      lowerQuery.includes('barclaycard') ? 'barclaycard' : null;
+      const cardName = lowerQuery.includes('marbles') || lowerQuery.includes('marble') ? 'marbles' :
+                      lowerQuery.includes('capital one') || lowerQuery.includes('capital 1') || lowerQuery.includes('capital') ? 'capital one' :
+                      lowerQuery.includes('zable') || lowerQuery.includes('zabel') ? 'zable' :
+                      lowerQuery.includes('barclaycard') || lowerQuery.includes('barclay') || lowerQuery.includes('broccoli') ? 'barclaycard' : null;
       
       if (cardName) {
         // Find the specific card
@@ -164,14 +164,13 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
   }
   
   // Bank balance (checked AFTER credit cards to avoid conflict)
-  if (lowerQuery.includes('balance') || lowerQuery.includes('bank')) {
+  if (lowerQuery.includes('balance') || lowerQuery.includes('bank') || lowerQuery.includes('starling') || lowerQuery.includes('styling')) {
     console.log('💰 Financial query detected: bank balance');
     const data = await getFinancialData('balance');
     console.log('💰 Financial data received:', data);
     if (data) {
-      const balance = data.totalBalance.toFixed(2);
-      const account = data.primaryAccount?.bankName || 'your bank';
-      return `You have £${balance} in ${account}.`;
+      const balance = data.totalBalance.toFixed(0);
+      return `You have £${balance} in Starling Bank.`;
     }
   }
   
