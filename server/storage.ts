@@ -14,7 +14,7 @@ import type {
 export interface JobAssignment {
   jobId: string;
   contractorId: string;
-  dueDate?: Date;
+  dueDate?: string;
   notes?: string;
 }
 
@@ -36,7 +36,7 @@ export interface IStorage {
   getCsvUploads(): Promise<CsvUpload[]>;
   createCsvUpload(upload: InsertCsvUpload): Promise<CsvUpload>;
   updateCsvUpload(id: string, upload: Partial<CsvUpload>): Promise<CsvUpload | undefined>;
-  deleteCsvUpload(id: string): Promise<void>;
+  deleteCsvUpload(id: string): Promise<boolean>;
   
   // Job Assignment
   assignJob(assignment: JobAssignment): Promise<Job | undefined>;

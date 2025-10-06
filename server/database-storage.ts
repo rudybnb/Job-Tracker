@@ -23,6 +23,10 @@ import {
   type InsertInspectionNotification,
   type TaskProgress,
   type InsertTaskProgress,
+  type TaskInspectionResult,
+  type InsertTaskInspectionResult,
+  type ContractorAssignment,
+  type InsertContractorAssignment,
   // B'elanna PA Types
   type CalendarEvent,
   type InsertCalendarEvent,
@@ -391,6 +395,10 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async createContractorAssignment(assignment: InsertContractorAssignment): Promise<ContractorAssignment> {
+    return this.createJobAssignment(assignment);
+  }
+
   // Contractor Applications
   async getContractorApplications(): Promise<ContractorApplication[]> {
     return db.select().from(contractorApplications).orderBy(desc(contractorApplications.submittedAt));
@@ -405,18 +413,6 @@ export class DatabaseStorage implements IStorage {
   async getContractorApplication(id: string): Promise<ContractorApplication | undefined> {
     const [application] = await db.select().from(contractorApplications).where(eq(contractorApplications.id, id));
     return application;
-  }
-
-  async getContractorByName(name: string): Promise<ContractorApplication | undefined> {
-    const [firstName, lastName] = name.split(' ');
-    const [contractor] = await db.select().from(contractorApplications)
-      .where(
-        and(
-          eq(contractorApplications.firstName, firstName),
-          eq(contractorApplications.lastName, lastName || '')
-        )
-      );
-    return contractor;
   }
 
   async createContractorApplication(insertApplication: InsertContractorApplication): Promise<ContractorApplication> {
@@ -873,6 +869,16 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(contractorReports).orderBy(desc(contractorReports.createdAt));
   }
 
+  async updateContractorReport(id: string, updates: Partial<ContractorReport>): Promise<ContractorReport | undefined> {
+    const [report] = await db
+      .update(contractorReports)
+      .set(updates)
+      .where(eq(contractorReports.id, id))
+      .returning();
+    console.log("📝 Updated contractor report:", id);
+    return report;
+  }
+
   // Admin Inspections
   async createAdminInspection(insertInspection: InsertAdminInspection): Promise<AdminInspection> {
     const [inspection] = await db.insert(adminInspections).values(insertInspection).returning();
@@ -1092,6 +1098,16 @@ export class DatabaseStorage implements IStorage {
     return fixedInspections;
   }
 
+  async updateTaskInspectionResult(id: string, updates: Partial<TaskInspectionResult>): Promise<TaskInspectionResult | undefined> {
+    const [result] = await db
+      .update(taskInspectionResults)
+      .set(updates)
+      .where(eq(taskInspectionResults.id, id))
+      .returning();
+    console.log(`📋 Updated task inspection result: ${id}`);
+    return result;
+  }
+
   async approveContractorFix(inspectionId: string, adminName: string): Promise<any> {
     const [result] = await db
       .update(adminInspections)
@@ -1186,13 +1202,15 @@ export class DatabaseStorage implements IStorage {
 
   async getProjectCashflowWeekly(projectId?: string): Promise<any[]> {
     console.log("📊 Fetching weekly cashflow data", projectId ? `for project: ${projectId}` : "for all projects");
-    let query = db.select().from(projectCashflowWeekly);
     
     if (projectId) {
-      query = query.where(eq(projectCashflowWeekly.projectId, projectId));
+      return await db.select().from(projectCashflowWeekly)
+        .where(eq(projectCashflowWeekly.projectId, projectId))
+        .orderBy(desc(projectCashflowWeekly.weekStartDate));
     }
     
-    return await query.orderBy(desc(projectCashflowWeekly.weekStartDate));
+    return await db.select().from(projectCashflowWeekly)
+      .orderBy(desc(projectCashflowWeekly.weekStartDate));
   }
 
   async createProjectCashflowWeekly(cashflow: any): Promise<any> {
@@ -1213,18 +1231,22 @@ export class DatabaseStorage implements IStorage {
 
   async getMaterialPurchases(projectId?: string, weekStart?: string): Promise<any[]> {
     console.log("🛒 Fetching material purchases", projectId ? `for project: ${projectId}` : "for all projects");
-    let query = db.select().from(materialPurchases);
     
     if (projectId && weekStart) {
-      query = query.where(and(
-        eq(materialPurchases.projectId, projectId),
-        eq(materialPurchases.purchaseWeek, weekStart)
-      ));
+      return await db.select().from(materialPurchases)
+        .where(and(
+          eq(materialPurchases.projectId, projectId),
+          eq(materialPurchases.purchaseWeek, weekStart)
+        ))
+        .orderBy(desc(materialPurchases.createdAt));
     } else if (projectId) {
-      query = query.where(eq(materialPurchases.projectId, projectId));
+      return await db.select().from(materialPurchases)
+        .where(eq(materialPurchases.projectId, projectId))
+        .orderBy(desc(materialPurchases.createdAt));
     }
     
-    return await query.orderBy(desc(materialPurchases.createdAt));
+    return await db.select().from(materialPurchases)
+      .orderBy(desc(materialPurchases.createdAt));
   }
 
   async createMaterialPurchase(purchase: any): Promise<any> {
@@ -1277,18 +1299,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCalendarEvents(dateFrom?: string, dateTo?: string): Promise<CalendarEvent[]> {
-    let query = db.select().from(calendarEvents);
-    
     if (dateFrom && dateTo) {
-      query = query.where(and(
-        sql`${calendarEvents.eventDate} >= ${dateFrom}`,
-        sql`${calendarEvents.eventDate} <= ${dateTo}`
-      ));
+      return db.select().from(calendarEvents)
+        .where(and(
+          sql`${calendarEvents.eventDate} >= ${dateFrom}`,
+          sql`${calendarEvents.eventDate} <= ${dateTo}`
+        ))
+        .orderBy(calendarEvents.eventDate, calendarEvents.eventTime);
     } else if (dateFrom) {
-      query = query.where(sql`${calendarEvents.eventDate} >= ${dateFrom}`);
+      return db.select().from(calendarEvents)
+        .where(sql`${calendarEvents.eventDate} >= ${dateFrom}`)
+        .orderBy(calendarEvents.eventDate, calendarEvents.eventTime);
     }
     
-    return query.orderBy(calendarEvents.eventDate, calendarEvents.eventTime);
+    return db.select().from(calendarEvents)
+      .orderBy(calendarEvents.eventDate, calendarEvents.eventTime);
   }
 
   async getCalendarEvent(id: string): Promise<CalendarEvent | undefined> {
@@ -1362,18 +1387,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMeetings(dateFrom?: string, dateTo?: string): Promise<Meeting[]> {
-    let query = db.select().from(meetings);
-    
     if (dateFrom && dateTo) {
-      query = query.where(and(
-        sql`${meetings.meetingDate} >= ${dateFrom}`,
-        sql`${meetings.meetingDate} <= ${dateTo}`
-      ));
+      return db.select().from(meetings)
+        .where(and(
+          sql`${meetings.meetingDate} >= ${dateFrom}`,
+          sql`${meetings.meetingDate} <= ${dateTo}`
+        ))
+        .orderBy(meetings.meetingDate, meetings.meetingTime);
     } else if (dateFrom) {
-      query = query.where(sql`${meetings.meetingDate} >= ${dateFrom}`);
+      return db.select().from(meetings)
+        .where(sql`${meetings.meetingDate} >= ${dateFrom}`)
+        .orderBy(meetings.meetingDate, meetings.meetingTime);
     }
     
-    return query.orderBy(meetings.meetingDate, meetings.meetingTime);
+    return db.select().from(meetings)
+      .orderBy(meetings.meetingDate, meetings.meetingTime);
   }
 
   async getMeeting(id: string): Promise<Meeting | undefined> {
@@ -1387,6 +1415,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(meetings.id, id))
       .returning();
     return meeting;
+  }
+
+  async clearAllData(): Promise<void> {
+    console.log("⚠️ Clearing all data from database...");
+    await db.delete(meetings);
+    await db.delete(emailRecords);
+    await db.delete(calendarEvents);
+    await db.delete(taskInspectionResults);
+    await db.delete(inspectionNotifications);
+    await db.delete(adminInspections);
+    await db.delete(contractorReports);
+    await db.delete(taskProgress);
+    await db.delete(jobAssignments);
+    await db.delete(workSessions);
+    await db.delete(contractorApplications);
+    await db.delete(csvUploads);
+    await db.delete(jobs);
+    await db.delete(contractors);
+    await db.delete(adminSettings);
+    console.log("✅ All data cleared successfully");
   }
 }
 

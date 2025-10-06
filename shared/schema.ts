@@ -541,6 +541,10 @@ export type InsertInspectionNotification = z.infer<typeof insertInspectionNotifi
 export type InspectionNotification = typeof inspectionNotifications.$inferSelect;
 export type InsertTaskProgress = z.infer<typeof insertTaskProgressSchema>;
 export type TaskProgress = typeof taskProgress.$inferSelect;
+export type InsertTaskInspectionResult = z.infer<typeof insertTaskInspectionResultSchema>;
+export type TaskInspectionResult = typeof taskInspectionResults.$inferSelect;
+export type ContractorAssignment = typeof jobAssignments.$inferSelect;
+export type InsertContractorAssignment = z.infer<typeof insertJobAssignmentSchema>;
 
 // B'elanna PA Types
 export type InsertCalendarEvent = z.infer<typeof insertCalendarEventSchema>;
