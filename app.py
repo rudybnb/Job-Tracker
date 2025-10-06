@@ -98,18 +98,21 @@ async def tts_eleven_cached(text: str) -> str:
     payload = {
         "text": text,
         "model_id": "eleven_multilingual_v2",
-        "optimize_streaming_latency": 1,
         "voice_settings": {
-            "stability": 0.12,
-            "similarity_boost": 0.95,
-            "style": 0.45,
+            "stability": 0.15,
+            "similarity_boost": 0.98,
+            "style": 0.35,
             "use_speaker_boost": True
         }
     }
 
     r = await http.post(
         f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE_ID}",
-        headers={"xi-api-key": ELEVEN_API_KEY, "Accept": "audio/mpeg"},
+        headers={
+            "xi-api-key": ELEVEN_API_KEY,
+            "Accept": "audio/mpeg",
+            "xi-use-voice-fallback": "false"
+        },
         json=payload,
     )
     r.raise_for_status()
