@@ -138,13 +138,13 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
             const limit = parseFloat(card.creditLimit).toFixed(0);
             const isOverLimit = parseFloat(card.balance) > parseFloat(card.creditLimit);
             if (isOverLimit) {
-              return `Your ${simpleName} card owes £${balance}. It's maxed out.`;
+              return `Your ${simpleName} card owes ${balance} pounds. It's maxed out.`;
             } else {
               const available = parseFloat(card.availableCredit).toFixed(0);
-              return `Your ${simpleName} card owes £${balance}. You have £${available} left to spend.`;
+              return `Your ${simpleName} card owes ${balance} pounds. You have ${available} pounds left to spend.`;
             }
           } else {
-            return `Your ${simpleName} owes £${balance}.`;
+            return `Your ${simpleName} owes ${balance} pounds.`;
           }
         } else {
           return `I can't find a ${cardName} card.`;
@@ -156,9 +156,9 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
       const overdue = data.overdueCards?.length || 0;
       
       if (overdue > 0) {
-        return `You owe £${debt} on your cards. ${overdue} ${overdue === 1 ? 'card is' : 'cards are'} maxed out.`;
+        return `You owe ${debt} pounds on your cards. ${overdue} ${overdue === 1 ? 'card is' : 'cards are'} maxed out.`;
       } else {
-        return `You owe £${debt} on your cards.`;
+        return `You owe ${debt} pounds on your cards.`;
       }
     }
   }
@@ -170,21 +170,21 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
     console.log('💰 Financial data received:', data);
     if (data) {
       const balance = data.totalBalance.toFixed(0);
-      return `You have £${balance} in Starling Bank.`;
+      return `You have ${balance} pounds in Starling Bank.`;
     }
   }
   
   if (lowerQuery.includes('financial') || lowerQuery.includes('money') || lowerQuery.includes('net worth') || lowerQuery.includes('finances')) {
     const data = await getFinancialData('summary');
     if (data) {
-      const balance = data.bankBalance.toFixed(2);
-      const debt = data.totalDebt.toFixed(2);
-      const netWorth = data.netWorth.toFixed(2);
+      const balance = data.bankBalance.toFixed(0);
+      const debt = data.totalDebt.toFixed(0);
+      const netWorth = data.netWorth.toFixed(0);
       
       if (data.netWorth < 0) {
-        return `You have £${balance} in the bank and £${debt} in debt. Your net worth is negative £${Math.abs(parseFloat(netWorth)).toFixed(2)}.`;
+        return `You have ${balance} pounds in the bank and ${debt} pounds in debt. Your net worth is negative ${Math.abs(parseFloat(netWorth))} pounds.`;
       } else {
-        return `You have £${balance} in the bank and £${debt} in debt. Your net worth is £${netWorth}.`;
+        return `You have ${balance} pounds in the bank and ${debt} pounds in debt. Your net worth is ${netWorth} pounds.`;
       }
     }
   }
