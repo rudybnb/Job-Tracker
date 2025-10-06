@@ -1,0 +1,178 @@
+import os, hashlib, pathlib, re
+from typing import Dict, List
+from fastapi import FastAPI, Request
+from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
+import httpx
+from openai import OpenAI
+
+# --------- env ---------
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "")
+ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "B Ellana")
+PUBLIC_URL = os.getenv("PUBLIC_URL", "").rstrip("/")
+USE_TOOLS = os.getenv("USE_TOOLS", "ask").lower()  # ask|on|off
+FINANCE_API_BASE = os.getenv("FINANCE_API_BASE", "").rstrip("/")
+
+# --------- app / static ---------
+app = FastAPI(title="Voice Assistant (Simple)")
+AUDIO_DIR = pathlib.Path("audio"); AUDIO_DIR.mkdir(exist_ok=True)
+app.mount("/audio", StaticFiles(directory=str(AUDIO_DIR)), name="audio")
+
+# shared clients
+oai = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+http = httpx.AsyncClient(timeout=60)
+
+# --------- per-call memory ---------
+SESSIONS: Dict[str, List[dict]] = {}      # callSid -> chat history
+PENDING_TOOL: Dict[str, str] = {}         # callSid -> "finance_balance" | "finance_debt" | "finance_summary"
+
+SYSTEM = (
+    "You are friendly and conversational. Keep replies under 2 short sentences. "
+    "Use contractions and natural pauses; no bullet lists."
+)
+
+def history(sid: str) -> List[dict]:
+    if sid not in SESSIONS:
+        SESSIONS[sid] = [{"role": "system", "content": SYSTEM}]
+    return SESSIONS[sid]
+
+# --------- helpers ---------
+async def tts_eleven_cached(text: str) -> str:
+    """Return PUBLIC_URL to cached mp3 for given text."""
+    h = hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+    mp3 = AUDIO_DIR / f"{h}.mp3"
+    if not mp3.exists():
+        payload = {
+            "text": text,
+            "model_id": "eleven_multilingual_v2",
+            "optimize_streaming_latency": 3,
+            "voice_settings": {
+                "stability": 0.12, "similarity_boost": 0.95, "style": 0.45, "use_speaker_boost": True
+            }
+        }
+        r = await http.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE_ID}",
+            headers={"xi-api-key": ELEVEN_API_KEY, "Accept": "audio/mpeg"},
+            json=payload
+        )
+        r.raise_for_status()
+        mp3.write_bytes(r.content)
+    return f"{PUBLIC_URL}/audio/{mp3.name}"
+
+async def ask_gpt(msgs: List[dict]) -> str:
+    resp = oai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=msgs,
+        max_tokens=90,
+        temperature=0.8,
+    )
+    return resp.choices[0].message.content.strip()
+
+def wants_finance(text: str) -> str | None:
+    t = text.lower()
+    if re.search(r"\b(balance|bank|barclay|barclays|barclaycard|account)\b", t):
+        return "finance_balance"
+    if re.search(r"\bdebt|owe|credit card\b", t):
+        return "finance_debt"
+    if re.search(r"\bsummary|finances|money overview\b", t):
+        return "finance_summary"
+    return None
+
+async def fetch_finance(tool: str) -> str:
+    if not FINANCE_API_BASE:
+        return "Your finance data endpoint isn't configured."
+    try:
+        if tool == "finance_balance":
+            r = await http.get(f"{FINANCE_API_BASE}/balance"); r.raise_for_status()
+            data = r.json()
+            total = data.get("totalBalance") or data.get("balance") or 0
+            bank = (data.get("primaryAccount") or {}).get("bankName", "")
+            return f"Your current balance is {total} pounds{f' at {bank}' if bank else ''}."
+        if tool == "finance_debt":
+            r = await http.get(f"{FINANCE_API_BASE}/debt"); r.raise_for_status()
+            data = r.json()
+            total = data.get("totalDebt") or 0
+            cc = data.get("creditCardDebt")
+            if cc is not None:
+                return f"Your total debt is {total} pounds; credit cards are {cc}."
+            return f"Your total debt is {total} pounds."
+        if tool == "finance_summary":
+            r = await http.get(f"{FINANCE_API_BASE}/summary"); r.raise_for_status()
+            data = r.json()
+            bal = data.get("totalBalance")
+            debt = data.get("totalDebt")
+            return f"Quick summary: balance {bal} pounds, debt {debt}."
+    except Exception:
+        return "I couldn't reach the finance service."
+    return "Okay."
+
+def consent_needed(tool: str) -> bool:
+    if USE_TOOLS == "on": return False
+    if USE_TOOLS == "off": return True
+    return True  # ask mode
+
+# --------- routes ---------
+@app.get("/health")
+async def health(): return {"ok": True}
+
+@app.post("/voice/connect")
+async def voice_connect(request: Request):
+    # Start by listening; no robot greeting.
+    xml = """
+<Response>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
+</Response>"""
+    return Response(xml.strip(), media_type="application/xml")
+
+@app.post("/voice/handle")
+async def voice_handle(request: Request):
+    form = await request.form()
+    call_sid = form.get("CallSid")
+    text = (form.get("SpeechResult") or "").strip()
+    if not call_sid:
+        return Response("<Response><Hangup/></Response>", media_type="application/xml")
+    if not text:
+        return Response("<Response><Redirect>/voice/connect</Redirect></Response>", media_type="application/xml")
+
+    msgs = history(call_sid)
+    msgs.append({"role": "user", "content": text})
+
+    # tool intent?
+    tool = wants_finance(text)
+    if tool:
+        if consent_needed(tool) and PENDING_TOOL.get(call_sid) != tool:
+            # ask for permission once
+            PENDING_TOOL[call_sid] = tool
+            reply = "I can check your linked finance data. Do you want me to use it?"
+        elif PENDING_TOOL.get(call_sid) == tool and text.lower() in {"yes","yeah","yep","ok","okay","sure"}:
+            # consent granted
+            PENDING_TOOL.pop(call_sid, None)
+            reply = await fetch_finance(tool)
+        elif PENDING_TOOL.get(call_sid) == tool and text.lower() in {"no","nope","nah"}:
+            PENDING_TOOL.pop(call_sid, None)
+            reply = "No problem. I won't use it."
+        elif not consent_needed(tool):
+            reply = await fetch_finance(tool)
+        else:
+            # waiting for yes/no
+            reply = "Just say yes if you want me to check."
+    else:
+        # pure conversation
+        reply = await ask_gpt(msgs)
+
+    msgs.append({"role": "assistant", "content": reply})
+    audio_url = await tts_eleven_cached(reply)
+
+    xml = f"""
+<Response>
+  <Pause length="0.5"/>
+  <Play>{audio_url}</Play>
+  <Gather input="speech" speechTimeout="auto" action="/voice/handle" method="POST"/>
+</Response>"""
+    return Response(xml.strip(), media_type="application/xml")
+
+# --------- dev runner ---------
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")))
