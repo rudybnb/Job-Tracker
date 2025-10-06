@@ -2739,33 +2739,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let reply: string;
       
+      // Always use ChatGPT to format responses naturally
+      console.log('🤖 Using ChatGPT to format response...');
+      const openai = (await import('openai')).default;
+      const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
+      
+      let systemPrompt = 'You are a helpful voice assistant. Be friendly and conversational. Reply in 1–2 short sentences. Use natural language - say "pounds" not "£". Use contractions and natural pauses (commas, ellipses). No long lists.';
+      let userMessage = text;
+      
       if (appData) {
-        // Found app-specific data
-        console.log('📊 Using app data:', appData);
-        reply = appData;
-      } else {
-        // Use ChatGPT for general questions
-        console.log('🤖 Using ChatGPT for general query...');
-        const openai = (await import('openai')).default;
-        const client = new openai({ apiKey: process.env.OPENAI_API_KEY });
-        
-        const completion = await client.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: 'Be friendly and conversational. Reply in 1–2 short sentences. Use contractions and natural pauses (commas, ellipses). No long lists.' },
-            { role: 'user', content: text }
-          ],
-          max_tokens: 90,
-          temperature: 0.9
-        });
-        
-        let gptReply = completion.choices[0].message.content?.trim() || 'I understand.';
-        
-        // Keep turns short - split and use first 2 sentences only
-        const parts = gptReply.replace(/\?/g, '?\n').replace(/\./g, '.\n').split('\n')
-          .map(p => p.trim()).filter(p => p.length > 0);
-        reply = parts.slice(0, 2).join(' ');
+        // Found app-specific data - give it to ChatGPT to format nicely
+        console.log('📊 App data found:', appData);
+        systemPrompt = 'You are a helpful voice assistant. The user asked a question and here is the answer from the database. Format this into a natural, friendly response in 1-2 short sentences. Always say "pounds" for UK currency, never use £ symbol. Be conversational.';
+        userMessage = `User asked: "${text}"\n\nDatabase answer: ${appData}\n\nFormat this into a natural voice response.`;
       }
+      
+      const completion = await client.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ],
+        max_tokens: 90,
+        temperature: 0.7
+      });
+      
+      let gptReply = completion.choices[0].message.content?.trim() || 'I understand.';
+      
+      // Keep turns short - split and use first 2 sentences only
+      const parts = gptReply.replace(/\?/g, '?\n').replace(/\./g, '.\n').split('\n')
+        .map(p => p.trim()).filter(p => p.length > 0);
+      reply = parts.slice(0, 2).join(' ');
       // Add micro-pauses for natural speech
       const speechify = (t: string) => {
         t = t.replace(/\?/g, '?…').replace(/!/g, '!…'); // tiny pause after punctuation
