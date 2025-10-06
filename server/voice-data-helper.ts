@@ -114,7 +114,8 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
   
   // Financial queries - Financeflow app integration
   // Check credit cards FIRST (before "balance" keyword) to avoid conflict
-  if (lowerQuery.includes('credit card') || lowerQuery.includes('credit cards') || lowerQuery.includes('card balance') || lowerQuery.includes('debt') || lowerQuery.includes('owe') || lowerQuery.includes('marbles') || lowerQuery.includes('capital one') || lowerQuery.includes('zable') || lowerQuery.includes('barclaycard')) {
+  // Alternative keywords for accent recognition: broccoli=barclaycard, barkley=barclaycard
+  if (lowerQuery.includes('credit card') || lowerQuery.includes('credit cards') || lowerQuery.includes('card balance') || lowerQuery.includes('debt') || lowerQuery.includes('owe') || lowerQuery.includes('marbles') || lowerQuery.includes('capital one') || lowerQuery.includes('capital') || lowerQuery.includes('zable') || lowerQuery.includes('barclaycard') || lowerQuery.includes('broccoli') || lowerQuery.includes('barkley')) {
     console.log('💳 Financial query detected: credit cards/debt');
     const data = await getFinancialData('debt');
     console.log('💳 Credit card data received:', data);
@@ -123,7 +124,7 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
       const cardName = lowerQuery.includes('marbles') || lowerQuery.includes('marble') ? 'marbles' :
                       lowerQuery.includes('capital one') || lowerQuery.includes('capital 1') || lowerQuery.includes('capital') ? 'capital one' :
                       lowerQuery.includes('zable') || lowerQuery.includes('zabel') ? 'zable' :
-                      lowerQuery.includes('barclaycard') || lowerQuery.includes('barclay') || lowerQuery.includes('broccoli') ? 'barclaycard' : null;
+                      lowerQuery.includes('barclaycard') || lowerQuery.includes('barclay') || lowerQuery.includes('broccoli') || lowerQuery.includes('barkley') ? 'barclaycard' : null;
       
       if (cardName) {
         // Find the specific card

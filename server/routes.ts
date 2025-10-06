@@ -2686,9 +2686,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               model_id: 'eleven_multilingual_v2',
               optimize_streaming_latency: 3,
               voice_settings: {
-                stability: 0.12,
-                similarity_boost: 0.95,
-                style: 0.45,
+                stability: 0.5,
+                similarity_boost: 0.75,
+                style: 0,
                 use_speaker_boost: true
               }
             })
@@ -2747,9 +2747,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.type('text/xml').send(twiml);
       }
       
-      // If confidence is too low, ask to repeat
-      if (confidence < 0.5) {
-        console.log('⚠️ Low confidence, asking to repeat');
+      // If confidence is too low, ask to repeat (only for very low confidence)
+      if (confidence < 0.3) {
+        console.log('⚠️ Very low confidence, asking to repeat');
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say>Sorry, I didn't catch that. Could you repeat?</Say>
@@ -2824,7 +2824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const path = await import('path');
       
       const ELEVEN_API_KEY = process.env.ELEVENLABS_API_KEY;
-      const ELEVEN_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb'; // Bella voice
+      const ELEVEN_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb'; // George voice (professional male)
       
       // Create audio directory if it doesn't exist
       const audioDir = path.join(process.cwd(), 'audio');
