@@ -2721,7 +2721,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('📋 Request body:', JSON.stringify(req.body));
       
       const text = (req.body.SpeechResult || '').trim();
+      const confidence = parseFloat(req.body.Confidence || '0');
       console.log('📝 User said:', text);
+      console.log('🎯 Confidence:', confidence);
       
       if (!text || text.length < 2) {
         // No speech detected, loop back
@@ -2729,6 +2731,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <Response>
   <Say>I didn't hear anything. Try again.</Say>
   <Redirect method="POST">/voice/connect</Redirect>
+</Response>`;
+        return res.type('text/xml').send(twiml);
+      }
+      
+      // If confidence is too low, ask to repeat
+      if (confidence < 0.5) {
+        console.log('⚠️ Low confidence, asking to repeat');
+        const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say>Sorry, I didn't catch that. Could you repeat?</Say>
+  <Gather input="speech" language="en-GB" speechTimeout="auto" action="/voice/handle" method="POST"/>
 </Response>`;
         return res.type('text/xml').send(twiml);
       }
