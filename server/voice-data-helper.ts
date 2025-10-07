@@ -114,7 +114,27 @@ export async function getVoiceAssistantData(query: string, storage: IStorage): P
   }
   
   // Financial queries - Financeflow app integration
-  // Check credit cards FIRST (before "balance" keyword) to avoid conflict
+  
+  // TRANSACTIONS - Check FIRST before other keywords
+  if (lowerQuery.includes('transaction') || lowerQuery.includes('payment') || lowerQuery.includes('deposit') || lowerQuery.includes('transfer') || lowerQuery.includes('spent') || lowerQuery.includes('purchase') || lowerQuery.includes('bought') || lowerQuery.includes('withdrawal')) {
+    console.log('💸 Financial query detected: transactions');
+    const data = await getFinancialData('transactions?limit=5');
+    console.log('💸 Transaction data received:', data);
+    if (data && data.transactions && data.transactions.length > 0) {
+      const txns = data.transactions.slice(0, 3);
+      const lines = txns.map((tx: any) => {
+        const amt = Math.abs(tx.amount || 0);
+        const merchant = tx.merchant || tx.description || 'unknown';
+        const date = tx.date || '';
+        const type = tx.amount < 0 ? 'spent' : 'received';
+        return `${date}: ${type} ${amt} pounds at ${merchant}`;
+      });
+      return `Recent transactions: ${lines.join('; ')}.`;
+    }
+    return "I couldn't find any recent transactions.";
+  }
+  
+  // Check credit cards SECOND (before "balance" keyword) to avoid conflict
   // Alternative keywords for accent recognition: broccoli=barclaycard, barkley=barclaycard
   if (lowerQuery.includes('credit card') || lowerQuery.includes('credit cards') || lowerQuery.includes('card balance') || lowerQuery.includes('debt') || lowerQuery.includes('owe') || lowerQuery.includes('marbles') || lowerQuery.includes('capital one') || lowerQuery.includes('capital') || lowerQuery.includes('zable') || lowerQuery.includes('barclaycard') || lowerQuery.includes('broccoli') || lowerQuery.includes('barkley')) {
     console.log('💳 Financial query detected: credit cards/debt');
