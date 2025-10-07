@@ -168,17 +168,41 @@ async def fetch_finance(tool: str, ctx_text: str = "") -> str:
     return "Okay."
 
 # ---------- ROUTES ----------
-@app.get("/health")
-async def health(): return {"ok": True}
+@app.get("/")
+async def root():
+    return {"service": "voice-assistant", "status": "up"}
 
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
+# Mirror GET for quick browser test
+@app.get("/voice/connect")
+async def voice_connect_get():
+    xml = """
+<Response>
+  <Say>Connection test OK. Speak after the beep.</Say>
+  <Gather input="speech" language="en-GB" speechTimeout="auto" action="/voice/handle" method="POST"/>
+</Response>"""
+    return Response(xml.strip(), media_type="application/xml")
+
+# Existing POST stays as-is
 @app.post("/voice/connect")
-async def voice_connect(request: Request):
+async def voice_connect_post(request: Request):
+    body = await request.body()
+    print("📞 /voice/connect POST hit. Raw body:", body[:200])
     xml = """
 <Response>
   <Gather input="speech" language="en-GB" speechTimeout="auto"
           action="/voice/handle" method="POST"/>
 </Response>"""
     return Response(xml.strip(), media_type="application/xml")
+
+# Simple TwiML test (to isolate Twilio issues)
+@app.post("/twiml/test")
+async def twiml_test():
+    xml = "<Response><Say>Twilio test path is working.</Say><Hangup/></Response>"
+    return Response(xml, media_type="application/xml")
 
 @app.post("/voice/handle")
 async def voice_handle(request: Request):
