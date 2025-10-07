@@ -1,5 +1,4 @@
 import os, pathlib, hashlib, re
-from datetime import date, timedelta
 from typing import Dict, List
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
@@ -40,8 +39,6 @@ def history(sid: str) -> List[dict]:
 
 def wants_finance(text: str) -> str | None:
     t = text.lower()
-    if re.search(r"\b(transactions?|spend|spent|purchase|bought|deposits?|withdrawals?)\b", t):
-        return "finance_txn"
     if re.search(r"\b(balance|bank|barclay|barclays|account)\b", t):
         return "finance_balance"
     if re.search(r"\bdebt|owe|credit card\b", t):
@@ -50,30 +47,41 @@ def wants_finance(text: str) -> str | None:
         return "finance_summary"
     return None
 
-def parse_range(text: str):
-    t = text.lower()
-    today = date.today()
-    if "today" in t: return today, today
-    if "yesterday" in t:
-        y = today - timedelta(days=1); return y, y
-    if "last week" in t:
-        return today - timedelta(days=7), today
-    if "last month" in t:
-        return today - timedelta(days=30), today
-    return today - timedelta(days=3), today
-
-def infer_type(text: str):
-    t = text.lower()
-    if "deposit" in t or "paid in" in t or "income" in t: return "deposit"
-    if "withdrawal" in t or "spent" in t or "purchase" in t or "bought" in t: return "withdrawal"
-    return None
+async def fetch_finance(tool: str) -> str:
+    if not FINANCE_API_BASE:
+        return "Your finance data endpoint isn't configured."
+    try:
+        endpoint = tool.split('_')[1]
+        r = await http.get(f"{FINANCE_API_BASE}/{endpoint}")
+        if r.status_code != 200:
+            return f"Finance API returned {r.status_code}"
+        
+        response = r.json()
+        data = response.get("data", response)
+        
+        if tool == "finance_balance":
+            total = data.get("totalBalance") or data.get("balance") or 0
+            bank = (data.get("primaryAccount") or {}).get("bankName", "")
+            return f"Your current balance is {total} pounds{f' at {bank}' if bank else ''}."
+        elif tool == "finance_debt":
+            total = data.get("totalDebt") or 0
+            cc = data.get("creditCardDebt")
+            if cc is not None:
+                return f"Your total debt is {total} pounds; credit cards are {cc}."
+            return f"Your total debt is {total} pounds."
+        elif tool == "finance_summary":
+            bal = data.get("totalBalance")
+            debt = data.get("totalDebt")
+            return f"Quick summary: balance {bal} pounds, debt {debt}."
+    except Exception as e:
+        return "I couldn't reach your finance data right now."
+    return "Okay."
 
 def consent_needed(tool: str) -> bool:
     if USE_TOOLS == "on": return False
     if USE_TOOLS == "off": return True
     return True  # ask mode
 
-# ---------- GPT + TTS ----------
 async def ask_gpt(msgs: List[dict]) -> str:
     resp = oai.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -99,6 +107,7 @@ async def tts_eleven_cached(text: str) -> str:
             "use_speaker_boost": True
         }
     }
+
     r = await http.post(
         f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE_ID}",
         headers={
@@ -112,97 +121,18 @@ async def tts_eleven_cached(text: str) -> str:
     mp3.write_bytes(r.content)
     return f"{PUBLIC_URL}/audio/{mp3.name}"
 
-# ---------- FINANCE ----------
-async def fetch_finance(tool: str, ctx_text: str = "") -> str:
-    if not FINANCE_API_BASE:
-        return "Your finance data endpoint isn't configured."
-    try:
-        # --- TRANSACTIONS ---
-        if tool == "finance_txn":
-            from_dt, to_dt = parse_range(ctx_text)
-            typ = infer_type(ctx_text)
-            params = {"from": str(from_dt), "to": str(to_dt), "limit": "5"}
-            if typ: params["type"] = typ
-            r = await http.get(f"{FINANCE_API_BASE}/transactions", params=params)
-            if r.status_code != 200:
-                return f"Your transactions service returned {r.status_code}."
-            d = r.json()
-            txns = (d or {}).get("transactions", [])[:5]
-            if not txns:
-                return "I couldn't find any transactions in that period."
-            lines = []
-            for tx in txns[:3]:
-                amt = tx.get("amount", 0.0)
-                merch = tx.get("merchant") or tx.get("description") or "unknown"
-                day = tx.get("date", "")
-                lines.append(f"{day}: {merch}, {'minus' if amt<0 else 'plus'} {abs(amt)} pounds")
-            return "Recent activity: " + "; ".join(lines) + "."
-
-        # --- BALANCE ---
-        if tool == "finance_balance":
-            r = await http.get(f"{FINANCE_API_BASE}/balance"); r.raise_for_status()
-            d = r.json()
-            total = d.get("totalBalance") or d.get("balance") or 0
-            bank = (d.get("primaryAccount") or {}).get("bankName", "")
-            return f"Your current balance is {total} pounds{(' at ' + bank) if bank else ''}."
-
-        # --- DEBT ---
-        if tool == "finance_debt":
-            r = await http.get(f"{FINANCE_API_BASE}/debt"); r.raise_for_status()
-            d = r.json()
-            total = d.get("totalDebt") or 0
-            cc = d.get("creditCardDebt")
-            if cc is not None:
-                return f"Your total debt is {total} pounds; credit cards are {cc}."
-            return f"Your total debt is {total} pounds."
-
-        # --- SUMMARY ---
-        if tool == "finance_summary":
-            r = await http.get(f"{FINANCE_API_BASE}/summary"); r.raise_for_status()
-            d = r.json()
-            bal = d.get("totalBalance")
-            debt = d.get("totalDebt")
-            return f"Quick summary: balance {bal} pounds, debt {debt}."
-    except Exception:
-        return "I couldn't reach your finance service right now."
-    return "Okay."
-
 # ---------- ROUTES ----------
-@app.get("/")
-async def root():
-    return {"service": "voice-assistant", "status": "up"}
-
 @app.get("/health")
-async def health():
-    return {"ok": True}
+async def health(): return {"ok": True}
 
-# Mirror GET for quick browser test
-@app.get("/voice/connect")
-async def voice_connect_get():
-    xml = """
-<Response>
-  <Say>Connection test OK. Speak after the beep.</Say>
-  <Gather input="speech" language="en-GB" speechTimeout="auto" action="/voice/handle" method="POST"/>
-</Response>"""
-    return Response(xml.strip(), media_type="application/xml")
-
-# Existing POST stays as-is
 @app.post("/voice/connect")
-async def voice_connect_post(request: Request):
-    body = await request.body()
-    print("📞 /voice/connect POST hit. Raw body:", body[:200])
+async def voice_connect(request: Request):
     xml = """
 <Response>
   <Gather input="speech" language="en-GB" speechTimeout="auto"
           action="/voice/handle" method="POST"/>
 </Response>"""
     return Response(xml.strip(), media_type="application/xml")
-
-# Simple TwiML test (to isolate Twilio issues)
-@app.post("/twiml/test")
-async def twiml_test():
-    xml = "<Response><Say>Twilio test path is working.</Say><Hangup/></Response>"
-    return Response(xml, media_type="application/xml")
 
 @app.post("/voice/handle")
 async def voice_handle(request: Request):
@@ -214,10 +144,10 @@ async def voice_handle(request: Request):
     if not text:
         return Response("<Response><Redirect>/voice/connect</Redirect></Response>", media_type="application/xml")
 
-    SESSIONS["last_utterance"] = text
     msgs = history(call_sid)
     msgs.append({"role": "user", "content": text})
 
+    # Intent detection for finance
     tool = wants_finance(text)
     if tool:
         if consent_needed(tool) and PENDING_TOOL.get(call_sid) != tool:
@@ -225,12 +155,12 @@ async def voice_handle(request: Request):
             reply = "I can check your linked finance data. Do you want me to use it?"
         elif PENDING_TOOL.get(call_sid) == tool and text.lower() in {"yes","yeah","yep","ok","okay","sure","ja"}:
             PENDING_TOOL.pop(call_sid, None)
-            reply = await fetch_finance(tool, text)
+            reply = await fetch_finance(tool)
         elif PENDING_TOOL.get(call_sid) == tool and text.lower() in {"no","nope","nah","nee"}:
             PENDING_TOOL.pop(call_sid, None)
             reply = "No problem, I won't use it."
         elif not consent_needed(tool):
-            reply = await fetch_finance(tool, text)
+            reply = await fetch_finance(tool)
         else:
             reply = "Just say yes if you want me to check."
     else:
