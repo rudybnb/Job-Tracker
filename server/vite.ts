@@ -20,9 +20,10 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  const port = parseInt(process.env.PORT || '5000', 10);
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    hmr: { server, port },
     allowedHosts: true as const,
   };
 
@@ -32,8 +33,9 @@ export async function setupVite(app: Express, server: Server) {
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
+        // Log Vite errors without terminating the dev server.
+        // Allow the runtime error overlay to display issues while keeping the server alive.
         viteLogger.error(msg, options);
-        process.exit(1);
       },
     },
     server: serverOptions,
@@ -68,7 +70,8 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  // Serve built client from dist/public (configured in root vite.config.ts)
+  const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(

@@ -6,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import ContextualTooltip from "@/components/contextual-tooltip";
 import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
 import { InspectionIssues } from "@/components/inspection-issues";
+import { apiFetch } from "@/lib/api";
+import { getCurrentLocation } from "@/lib/location";
 
 
 
@@ -153,7 +155,7 @@ export default function GPSDashboard() {
   const { data: activeSession } = useQuery({
     queryKey: [`/api/work-sessions/${contractorFirstName}/active`],
     queryFn: async () => {
-      const response = await fetch(`/api/work-sessions/${contractorFirstName}/active`);
+      const response = await apiFetch(`/api/work-sessions/${contractorFirstName}/active`);
       if (response.status === 404) return null; // No active session
       if (!response.ok) throw new Error('Failed to fetch active session');
       return response.json();
@@ -164,7 +166,7 @@ export default function GPSDashboard() {
   // Mutations for work sessions
   const startSessionMutation = useMutation({
     mutationFn: async (sessionData: any) => {
-      const response = await fetch('/api/work-sessions', {
+      const response = await apiFetch('/api/work-sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sessionData)
@@ -181,7 +183,7 @@ export default function GPSDashboard() {
 
   const endSessionMutation = useMutation({
     mutationFn: async ({ sessionId, sessionData }: { sessionId: string, sessionData: any }) => {
-      const response = await fetch(`/api/work-sessions/${sessionId}`, {
+      const response = await apiFetch(`/api/work-sessions/${sessionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sessionData)
@@ -207,7 +209,7 @@ export default function GPSDashboard() {
   // Send GPS location updates to server for live tracking
   const sendLocationUpdate = async (latitude: number, longitude: number) => {
     try {
-      await fetch('/api/update-location', {
+      await apiFetch('/api/update-location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -226,7 +228,7 @@ export default function GPSDashboard() {
   const { data: saturdayOvertimeSetting } = useQuery({
     queryKey: ["/api/admin-settings/saturday_overtime"],
     queryFn: async () => {
-      const response = await fetch("/api/admin-settings/saturday_overtime");
+      const response = await apiFetch("/api/admin-settings/saturday_overtime");
       if (response.status === 404) return null; // Setting doesn't exist
       if (!response.ok) throw new Error('Failed to fetch Saturday overtime setting');
       return response.json();
@@ -238,7 +240,7 @@ export default function GPSDashboard() {
   const { data: sundayOvertimeSetting } = useQuery({
     queryKey: ["/api/admin-settings/sunday_overtime"],
     queryFn: async () => {
-      const response = await fetch("/api/admin-settings/sunday_overtime");
+      const response = await apiFetch("/api/admin-settings/sunday_overtime");
       if (response.status === 404) return null; // Setting doesn't exist
       if (!response.ok) throw new Error('Failed to fetch Sunday overtime setting');
       return response.json();
@@ -324,43 +326,34 @@ export default function GPSDashboard() {
 
   // Get user's current location
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const newLocation = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy
-          };
-          setUserLocation(newLocation);
-          
-          // Send location to live monitor if user is clocked in
-          if (isTracking && contractorName) {
-            sendLocationUpdate(newLocation.latitude, newLocation.longitude);
-          }
-        },
-        (error) => {
-          console.log("Geolocation error:", error);
-          setGpsStatus("Unavailable");
-          
-          // Provide specific GPS troubleshooting for DA17 5DB location
-          let errorMessage = "Unable to access your location.";
-          if (error.code === 1) {
-            errorMessage = "GPS permission denied. Please allow location access in your browser settings.";
-          } else if (error.code === 2) {
-            errorMessage = "GPS signal unavailable. Try moving to an open area with clear sky view.";
-          } else if (error.code === 3) {
-            errorMessage = "GPS timeout. Please refresh the page and try again.";
-          }
-          
-          toast({
-            title: "GPS Error - DA17 5DB",
-            description: `${errorMessage} For DA17 5DB area, ensure GPS is enabled and location services are allowed.`,
-            variant: "destructive"
-          });
+    let cancelled = false;
+    getCurrentLocation()
+      .then((position) => {
+        if (cancelled) return;
+        const newLocation = {
+          latitude: position.latitude,
+          longitude: position.longitude,
+          accuracy: position.accuracy ?? 0,
+        };
+        setUserLocation(newLocation);
+
+        // Send location to live monitor if user is clocked in
+        if (isTracking && contractorName) {
+          sendLocationUpdate(newLocation.latitude, newLocation.longitude);
         }
-      );
-    }
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.log("Geolocation error:", error);
+        setGpsStatus("Unavailable");
+        const errorMessage = error?.message || "Unable to access your location.";
+        toast({
+          title: "GPS Error - DA17 5DB",
+          description: `${errorMessage} For DA17 5DB area, ensure GPS is enabled and location services are allowed.`,
+          variant: "destructive",
+        });
+      });
+    return () => { cancelled = true; };
   }, []);
 
   // Find the nearest job site based on user's current location
@@ -471,23 +464,19 @@ export default function GPSDashboard() {
       console.log('📍 Starting continuous GPS tracking for live monitor');
       
       locationInterval = setInterval(() => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const currentLocation = {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                accuracy: position.coords.accuracy
-              };
-              setUserLocation(currentLocation);
-              sendLocationUpdate(currentLocation.latitude, currentLocation.longitude);
-            },
-            (error) => {
-              console.log('❌ GPS update failed:', error);
-            },
-            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
-          );
-        }
+        getCurrentLocation()
+          .then((position) => {
+            const currentLocation = {
+              latitude: position.latitude,
+              longitude: position.longitude,
+              accuracy: position.accuracy ?? 0,
+            };
+            setUserLocation(currentLocation);
+            sendLocationUpdate(currentLocation.latitude, currentLocation.longitude);
+          })
+          .catch((error) => {
+            console.log('❌ GPS update failed:', error);
+          });
       }, 30000); // Update every 30 seconds
     }
 

@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { apiFetch, getApiBase } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
@@ -435,6 +437,61 @@ export default function More() {
             <Badge variant="default" className="bg-orange-600">
               Non-CIS
             </Badge>
+          </div>
+        </div>
+
+        {/* API Server Settings */}
+        <div className="bg-slate-800 border border-slate-600 rounded-lg p-4 mb-6">
+          <div className="flex items-center mb-3">
+            <i className="fas fa-server text-yellow-400 mr-2"></i>
+            <h3 className="text-lg font-semibold text-yellow-400">API Server</h3>
+          </div>
+          <p className="text-slate-400 text-sm mb-3">
+            Set the server URL for the app to use when making requests.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div className="md:col-span-2">
+              <label className="text-xs text-slate-400 mb-1 block">Server URL</label>
+              <Input
+                defaultValue={getApiBase() || ''}
+                placeholder="https://your-server.domain"
+                id="apiBaseInput"
+                className="bg-slate-900 border-slate-700 text-white"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  const input = document.getElementById('apiBaseInput') as HTMLInputElement | null;
+                  const value = input?.value.trim() || '';
+                  if (value) {
+                    localStorage.setItem('API_BASE', value);
+                    toast({ title: 'API Base Saved', description: `Using ${value} for requests.` });
+                  } else {
+                    localStorage.removeItem('API_BASE');
+                    toast({ title: 'API Base Cleared', description: 'Using relative /api requests.' });
+                  }
+                }}
+                className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold w-full"
+              >
+                Save
+              </Button>
+              <Button
+                onClick={() => {
+                  const input = document.getElementById('apiBaseInput') as HTMLInputElement | null;
+                  if (input) input.value = '';
+                  localStorage.removeItem('API_BASE');
+                  toast({ title: 'Reset', description: 'API base cleared.' });
+                }}
+                className="bg-slate-700 hover:bg-slate-600 text-white w-full"
+                variant="secondary"
+              >
+                Reset
+              </Button>
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-slate-500">
+            Current: <span className="text-slate-300">{getApiBase() || 'Relative /api'}</span>
           </div>
         </div>
 

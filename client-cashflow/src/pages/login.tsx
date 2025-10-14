@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,8 +8,49 @@ import { useToast } from "@/hooks/use-toast";
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authContractorName, setAuthContractorName] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  // GPS state
+  const [gpsStatus, setGpsStatus] = useState<"Ready" | "Unavailable" | "Requesting">("Requesting");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
+
+  // Proximity
+  const [withinRange, setWithinRange] = useState(false);
+  const [nearestSite, setNearestSite] = useState<{ location: string; distance: number; jobTitle?: string } | null>(null);
+  const [proximityMessage, setProximityMessage] = useState("GPS check pending...");
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGpsStatus("Unavailable");
+      setProximityMessage("GPS not supported by this browser");
+      return;
+    }
+    setGpsStatus("Requesting");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitude(pos.coords.latitude);
+        setLongitude(pos.coords.longitude);
+        setAccuracy(pos.coords.accuracy);
+        setGpsStatus("Ready");
+      },
+      (err) => {
+        setGpsStatus("Unavailable");
+        let msg = "Unable to access your location.";
+        if (err.code === 1) msg = "GPS permission denied. Please allow location access.";
+        if (err.code === 2) msg = "GPS signal unavailable. Move to an open area.";
+        if (err.code === 3) msg = "GPS timeout. Refresh and try again.";
+        setProximityMessage(msg);
+        toast({ title: "GPS Error", description: msg, variant: "destructive" });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +107,34 @@ export default function Login() {
         localStorage.setItem('contractorName', `${contractor.firstName} ${contractor.lastName}`);
         localStorage.setItem('contractorId', contractor.id);
         console.log(`✅ Contractor login successful - ${contractor.firstName} ${contractor.lastName}`);
-        window.location.href = '/';
+        setIsAuthenticated(true);
+        setAuthContractorName(`${contractor.firstName} ${contractor.lastName}`);
+
+        if (latitude && longitude) {
+          try {
+            const proxResp = await fetch('/api/check-proximity', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userLatitude: latitude.toString(),
+                userLongitude: longitude.toString(),
+                contractorName: `${contractor.firstName} ${contractor.lastName}`
+              })
+            });
+            const prox = await proxResp.json();
+            setWithinRange(!!prox.withinRange);
+            setProximityMessage(prox.message || (prox.withinRange ? 'Within range' : 'Too far from job site'));
+            setNearestSite(prox.nearestJobSite ? {
+              location: prox.nearestJobSite.location,
+              distance: Math.round(prox.nearestJobSite.distance || 0),
+              jobTitle: prox.nearestJobSite.jobTitle
+            } : null);
+          } catch (err) {
+            setProximityMessage('Proximity check failed');
+          }
+        } else {
+          setProximityMessage('GPS not ready yet; clock-in will capture when available');
+        }
         toast({
           title: "Login Successful",
           description: `Welcome back, ${contractor.firstName}!`,
@@ -89,7 +157,8 @@ export default function Login() {
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('contractorName', 'Dalwayne Diedericks');
           console.log('✅ Legacy contractor login successful - Dalwayne Diedericks');
-          window.location.href = '/';
+          setIsAuthenticated(true);
+          setAuthContractorName('Dalwayne Diedericks');
           toast({
             title: "Login Successful",
             description: "Welcome back, Dalwayne!",
@@ -110,6 +179,100 @@ export default function Login() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleClockIn = async () => {
+    if (!authContractorName) {
+      toast({ title: "Not authenticated", description: "Login first", variant: "destructive" });
+      return;
+    }
+    if (gpsStatus !== "Ready" || latitude === null || longitude === null) {
+      toast({ title: "GPS Required", description: "Enable location to clock in", variant: "destructive" });
+      return;
+    }
+    try {
+      const startTime = new Date().toISOString();
+      const body = {
+        contractorName: authContractorName,
+        jobSiteLocation: nearestSite?.location || 'Unknown Location',
+        startTime,
+        status: 'active',
+        startLatitude: latitude.toString(),
+        startLongitude: longitude.toString()
+      };
+      const resp = await fetch('/api/work-sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (resp.ok) {
+        const session = await resp.json();
+        setActiveSessionId(session.id);
+        localStorage.setItem('gps_timer_active', 'true');
+        localStorage.setItem('gps_timer_start', startTime);
+        toast({ title: 'Clocked In', description: `Session started for ${authContractorName}` });
+        window.location.href = '/';
+      } else {
+        const errText = await resp.text();
+        toast({ title: 'Clock-in failed', description: errText || 'Unable to create session', variant: 'destructive' });
+      }
+    } catch (err) {
+      toast({ title: 'Clock-in error', description: 'Please try again', variant: 'destructive' });
+    }
+  };
+
+  const handleClockOut = async () => {
+    if (!authContractorName) {
+      toast({ title: "Not authenticated", description: "Login first", variant: "destructive" });
+      return;
+    }
+    try {
+      let sessionId = activeSessionId;
+      if (!sessionId) {
+        const activeResp = await fetch(`/api/work-sessions/${encodeURIComponent(authContractorName)}/active`);
+        if (activeResp.ok) {
+          const active = await activeResp.json();
+          sessionId = active.id;
+        }
+      }
+      if (!sessionId) {
+        toast({ title: 'No active session', description: 'You are not clocked in', variant: 'destructive' });
+        return;
+      }
+      const endPayload: Record<string, any> = {
+        endTime: new Date().toISOString(),
+        status: 'completed'
+      };
+      if (latitude && longitude) {
+        endPayload.endLatitude = latitude.toString();
+        endPayload.endLongitude = longitude.toString();
+      }
+      const resp = await fetch(`/api/work-sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(endPayload)
+      });
+      if (resp.ok) {
+        toast({ title: 'Clocked Out', description: `Session ended for ${authContractorName}` });
+        setActiveSessionId(null);
+        localStorage.removeItem('gps_timer_active');
+        localStorage.removeItem('gps_timer_start');
+      } else {
+        const errText = await resp.text();
+        toast({ title: 'Clock-out failed', description: errText || 'Unable to end session', variant: 'destructive' });
+      }
+    } catch (err) {
+      toast({ title: 'Clock-out error', description: 'Please try again', variant: 'destructive' });
+    }
+  };
+
+  const handleLogout = async () => {
+    await handleClockOut();
+    localStorage.clear();
+    sessionStorage.clear();
+    setIsAuthenticated(false);
+    setAuthContractorName(null);
+    toast({ title: 'Logged Out', description: 'You have been logged out' });
   };
 
 
@@ -154,40 +317,82 @@ export default function Login() {
               </CardHeader>
               
               <CardContent className="space-y-6">
-                <form onSubmit={handleLogin} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="username" className="text-slate-200 font-medium">Username</Label>
-                    <Input
-                      id="username"
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500 h-12"
-                      placeholder="Enter username"
-                      required
-                    />
+                {!isAuthenticated ? (
+                  <form onSubmit={handleLogin} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="username" className="text-slate-200 font-medium">Username</Label>
+                      <Input
+                        id="username"
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500 h-12"
+                        placeholder="Enter username"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="password" className="text-slate-200 font-medium">Password</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500 h-12"
+                        placeholder="Enter password"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="text-sm text-slate-300">
+                      GPS Status: {gpsStatus}
+                      {gpsStatus === 'Ready' && latitude !== null && longitude !== null && (
+                        <div className="mt-1">Lat: {latitude.toFixed(5)}, Lng: {longitude.toFixed(5)} (±{accuracy?.toFixed(0)}m)</div>
+                      )}
+                    </div>
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-medium h-12 text-base shadow-lg transition-all duration-200"
+                    >
+                      Sign In
+                    </Button>
+                  </form>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-slate-200">Logged in as <span className="font-semibold">{authContractorName}</span></div>
+                    <div className="text-sm text-slate-300">
+                      GPS Status: {gpsStatus}
+                      {gpsStatus === 'Ready' && latitude !== null && longitude !== null && (
+                        <div className="mt-1">Lat: {latitude.toFixed(5)}, Lng: {longitude.toFixed(5)} (±{accuracy?.toFixed(0)}m)</div>
+                      )}
+                    </div>
+                    <div className="text-sm text-slate-300">
+                      Proximity: {proximityMessage}
+                      {nearestSite && (
+                        <div className="mt-1">Nearest: {nearestSite.location} ({nearestSite.jobTitle}) – {nearestSite.distance}m</div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={handleClockIn} 
+                        disabled={!withinRange || gpsStatus !== 'Ready'}
+                        className="flex-1 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white"
+                      >
+                        Clock In
+                      </Button>
+                      <Button 
+                        onClick={handleClockOut} 
+                        variant="secondary"
+                        className="flex-1"
+                      >
+                        Clock Out
+                      </Button>
+                    </div>
+                    <Button onClick={handleLogout} variant="outline" className="w-full">Logout</Button>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-slate-200 font-medium">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500 h-12"
-                      placeholder="Enter password"
-                      required
-                    />
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-medium h-12 text-base shadow-lg transition-all duration-200"
-                  >
-Sign In
-                  </Button>
-                </form>
+                )}
               </CardContent>
             </Card>
           </div>
