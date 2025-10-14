@@ -81,7 +81,6 @@ export default function More() {
   // Map contractor first names to their usernames for API calls
   const getUsernameFromFirstName = (firstName: string) => {
     switch (firstName.toLowerCase()) {
-      case 'earl': return 'earl.johnson';
       case 'dalwayne': return 'dalwayne';
       case 'mohamed': return 'mohamed'; // Fixed: Map Mohamed to correct database username "mohamed"
       case 'said': return 'said.tiss'; // Fixed: Map SAID to correct database username "said.tiss"

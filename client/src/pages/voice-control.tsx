@@ -36,8 +36,7 @@ export default function VoiceControl() {
     { name: 'Dalwayne Diedericks', phone: '+447123456789' },
     { name: 'Mohamed guizeni', phone: '+447123456790' },
     { name: 'SAID tiss', phone: '+447123456791' },
-    { name: 'Marius Andronache', phone: '+447123456792' },
-    { name: 'Earl Johnson', phone: '+447123456793' }
+    { name: 'Marius Andronache', phone: '+447123456792' }
   ];
 
   const handleContractorSelect = (contractorName: string) => {

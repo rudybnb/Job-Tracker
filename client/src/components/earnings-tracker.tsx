@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
-import { DALWAYNE_EARNINGS, EARL_EARNINGS } from "@/lib/earnings-calculator";
 
 interface EarningsTrackerProps {
   isTracking: boolean;
@@ -38,7 +37,6 @@ export function EarningsTracker({
   // Map contractor first names to their usernames for API calls
   const getUsernameFromFirstName = (firstName: string) => {
     switch (firstName.toLowerCase()) {
-      case 'earl': return 'earl.johnson';
       case 'dalwayne': return 'dalwayne';
       default: return firstName.toLowerCase();
     }

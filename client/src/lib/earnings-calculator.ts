@@ -51,13 +51,3 @@ export function calculateEarnings(
 // Pre-calculated result for Dalwayne's 8-hour session (7:44 AM - 17:00)
 // REMOVED: Hardcoded earnings data violates Mandatory Rule #2: DATA INTEGRITY
 // All earnings data must come from authentic database sources only
-
-// Pre-calculated result for Earl's 8-hour session (8:15 AM - 17:30)
-export const EARL_EARNINGS = {
-  grossEarnings: 156, // £19.50 × 8 = £156 (daily rate)
-  cisDeduction: 31.2, // £156 × 20% = £31.20
-  netEarnings: 124.8, // £156 - £31.20 = £124.80
-  hoursWorked: 8.25,  // 8 hours 15 minutes
-  hourlyRate: 19.50,
-  cisRate: 20
-};
