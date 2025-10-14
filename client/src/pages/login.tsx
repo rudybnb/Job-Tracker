@@ -34,36 +34,6 @@ export default function Login() {
       return;
     }
     
-    // Separate admin login for Earl Johnson
-    if (username === "earl.johnson" && password === "EarlAdmin2025!") {
-      localStorage.setItem('userRole', 'admin');
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('adminName', "Earl Johnson");
-      localStorage.setItem('adminEmail', "earl.johnson@erbuildanddesign.co.uk");
-      console.log('✅ Earl Johnson admin login successful - role set to admin');
-      window.location.href = '/admin';
-      toast({
-        title: "Login Successful",
-        description: "Welcome back, Earl! (Admin Mode)",
-      });
-      return;
-    }
-    
-    // Admin login for Maria Johnson
-    if (username === "maria.johnson" && password === "MariaAdmin2025!") {
-      localStorage.setItem('userRole', 'admin');
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('adminName', "Maria Johnson");
-      localStorage.setItem('adminEmail', "maria.johnson@erbuildanddesign.co.uk");
-      console.log('✅ Maria Johnson admin login successful - role set to admin');
-      window.location.href = '/admin';
-      toast({
-        title: "Login Successful",
-        description: "Welcome back, Maria! (Admin Mode)",
-      });
-      return;
-    }
-    
     // Check contractor credentials from database
     try {
       const response = await fetch('/api/contractor-login', {
@@ -90,16 +60,6 @@ export default function Login() {
         });
         
       } else {
-        // Check if this is a failed admin login attempt
-        if (username === "earl.johnson") {
-          toast({
-            title: "Login Failed",
-            description: "For admin access, use password: EarlAdmin2025!",
-            variant: "destructive",
-          });
-          return;
-        }
-        
         // Fallback to legacy contractor login
         if (username === "contractor" && password === "contractor123") {
           localStorage.setItem('userRole', 'contractor');
