@@ -471,7 +471,6 @@ export default function Directory() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">No Site</SelectItem>
                         {sites?.map((site) => (
                           <SelectItem key={site.id} value={site.id.toString()}>
                             {site.name}
