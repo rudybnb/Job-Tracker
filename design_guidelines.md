@@ -1,19 +1,18 @@
-# Design Guidelines: 3-Site Workforce Management Platform
+# Design Guidelines: Workforce Management Platform
 
 ## Design Approach
 
-**Selected Approach:** Design System (Productivity/Enterprise)
+**Selected Approach:** Charcoal Luxury Theme - Sophisticated & Modern
 
-**Rationale:** This is a data-heavy, utility-focused workforce management application requiring consistency, efficiency, and information density across admin and worker interfaces.
-
-**References:** Linear (clean aesthetics, data hierarchy), Notion (flexible layouts), Asana (task management patterns)
+**Rationale:** A premium, professional aesthetic using a rich charcoal background with elegant purple, white, gold, and brown accents. This creates visual hierarchy while maintaining a modern, enterprise feel.
 
 **Key Principles:**
-- Data clarity over decoration
-- Consistent patterns for predictable UX
-- Information hierarchy through spacing and typography
-- Efficient workflows with minimal clicks
-- Mobile-first for worker interface, desktop-optimized for admin
+- Charcoal background for reduced eye strain and premium feel
+- Purple and white text for primary content
+- Gold accents for highlights and important actions
+- Brown accents for secondary elements
+- High contrast for readability
+- Elegant, professional appearance
 
 ---
 
@@ -21,205 +20,251 @@
 
 ### A. Color Palette
 
-**Light Mode:**
-- Background: 0 0% 100% (pure white)
-- Surface: 210 20% 98% (off-white for cards)
-- Border: 214 15% 91% (subtle separation)
-- Text Primary: 222 47% 11% (near-black)
-- Text Secondary: 215 16% 47% (muted)
-- Primary Brand: 221 83% 53% (professional blue)
-- Success: 142 71% 45% (attendance approved, clocked in)
-- Warning: 38 92% 50% (pending approvals, late flags)
-- Error: 0 84% 60% (conflicts, missed clock-outs)
+**Charcoal Theme (Default):**
+- **Background**: 0 0% 12% (deep charcoal, almost black)
+- **Surface/Cards**: 0 0% 16% (slightly lighter charcoal)
+- **Border**: 0 0% 22% (subtle charcoal borders)
+- **Text Primary**: 0 0% 98% (crisp white)
+- **Text Secondary**: 270 30% 70% (light purple)
+- **Primary Brand**: 270 75% 60% (vibrant purple for buttons/links)
+- **Accent Gold**: 45 90% 55% (warm gold for highlights)
+- **Accent Brown**: 25 40% 35% (rich brown for secondary elements)
+- **Success**: 142 71% 55% (green for approved/success states)
+- **Warning**: 38 92% 60% (amber for warnings)
+- **Error**: 0 84% 60% (red for errors/conflicts)
 
-**Dark Mode:**
-- Background: 222 47% 11% (deep navy-black)
-- Surface: 217 33% 17% (elevated cards)
-- Border: 215 20% 25% (subtle borders)
-- Text Primary: 210 20% 98% (near-white)
-- Text Secondary: 215 16% 65% (muted)
-- Primary Brand: 217 91% 60% (lighter blue)
-- Success: 142 71% 55%
-- Warning: 38 92% 60%
-- Error: 0 84% 70%
+**Site-Specific Colors:**
+- Site Kent: 280 65% 60% (purple - complementary to primary)
+- Site London: 168 76% 42% (teal)
+- Site Essex: 30 85% 55% (orange)
 
-**Accent Colors (Use Sparingly):**
-- Site A Identifier: 280 65% 60% (purple)
-- Site B Identifier: 168 76% 42% (teal)
-- Site C Identifier: 30 85% 55% (orange)
+**Usage Guidelines:**
+- Use white (98%) for primary headings and important text
+- Use light purple (270 30% 70%) for body text and secondary information
+- Use vibrant purple (270 75% 60%) for interactive elements, links, primary buttons
+- Use gold (45 90% 55%) sparingly for special highlights, premium features, or key metrics
+- Use brown (25 40% 35%) for secondary buttons, alternate cards, or tertiary information
+- Maintain high contrast between text and background (minimum 7:1 ratio)
 
 ---
 
 ### B. Typography
 
 **Font Families:**
-- Primary: 'Inter' (Google Fonts) - UI, data tables, forms
-- Monospace: 'JetBrains Mono' - timestamps, IDs, codes
+- Primary: 'Inter' - Clean, modern sans-serif for UI and data
+- Monospace: 'JetBrains Mono' - For timestamps, IDs, codes
 
 **Scale:**
-- Page Title: text-3xl font-semibold (30px)
-- Section Header: text-xl font-semibold (20px)
-- Card Title: text-base font-medium (16px)
-- Body: text-sm (14px)
-- Caption/Meta: text-xs text-secondary (12px)
-- Data Tables: text-sm font-mono for numbers
+- Page Title: text-3xl font-semibold text-white (30px white)
+- Section Header: text-xl font-semibold text-white (20px white)
+- Card Title: text-base font-medium text-white (16px white)
+- Body Text: text-sm text-purple-200 (14px light purple)
+- Caption/Meta: text-xs text-muted-foreground (12px muted purple)
+- Emphasis: text-accent (gold) or text-primary (purple)
 
 **Hierarchy:**
-- Use font-weight variations (medium 500, semibold 600) over size changes
-- Maintain consistent line-height: leading-relaxed for readability
+- White for main headings and labels
+- Light purple for body text and descriptions
+- Purple for interactive elements
+- Gold for special emphasis
+- Use font-weight (medium 500, semibold 600, bold 700) to create hierarchy
 
 ---
 
 ### C. Layout System
 
-**Spacing Primitives (Tailwind):**
-- Primary units: **2, 4, 6, 8** (0.5rem, 1rem, 1.5rem, 2rem)
+**Spacing Primitives:**
+- Primary units: 2, 4, 6, 8 (0.5rem, 1rem, 1.5rem, 2rem)
 - Component padding: p-4 or p-6
 - Section spacing: space-y-6 or space-y-8
 - Card gaps: gap-4
 - Page margins: px-4 md:px-6 lg:px-8
 
 **Grid Structure:**
-- Admin Dashboard: Sidebar (240px fixed) + Main Content (fluid)
+- Admin: Darker charcoal sidebar (0 0% 10%) + Main content area
 - Content max-width: max-w-7xl mx-auto
 - Card grids: grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4
-- Data tables: Full width with horizontal scroll on mobile
+- Tables: Full width with horizontal scroll on mobile
 
 **Responsive Breakpoints:**
-- Mobile: base (< 640px) - Single column, stacked cards
-- Tablet: md (≥ 768px) - 2 columns where appropriate
-- Desktop: lg (≥ 1024px) - Full multi-column layouts
+- Mobile: base (< 640px) - Single column
+- Tablet: md (≥ 768px) - 2 columns
+- Desktop: lg (≥ 1024px) - Full multi-column
 
 ---
 
 ### D. Component Library
 
 **Navigation:**
-- Admin: Vertical sidebar with icon + label, collapsible on mobile
-- Worker Mobile: Bottom tab bar with 5 primary actions (Home, Clock, Pay, Scan, Profile)
-- Breadcrumbs for deep navigation (Rota > Week 15 > Edit Shift)
+- Admin Sidebar: Darker charcoal (0 0% 10%) with white text and purple highlights
+- Active items: Purple background with white text
+- Hover: Subtle purple glow
+- Worker Mobile: Bottom tabs with purple active state
 
 **Cards:**
-- Border: border border-border rounded-lg
+- Background: Charcoal (0 0% 16%)
+- Border: Subtle (0 0% 24%)
 - Padding: p-4 or p-6
-- Shadow: shadow-sm hover:shadow-md transition
-- Header with title + action buttons aligned right
-
-**Data Tables:**
-- Striped rows: even:bg-surface/50
-- Sticky header on scroll
-- Row hover: hover:bg-surface transition
-- Sort indicators in column headers
-- Status badges inline with data
-
-**Forms:**
-- Input fields: border rounded-md px-3 py-2 focus:ring-2 focus:ring-primary
-- Labels: text-sm font-medium mb-1
-- Helper text: text-xs text-secondary mt-1
-- Validation: border-error text-error for errors
-- Field grouping: space-y-4
+- Shadow: Elevated shadows for depth
+- Title: White, bold
+- Content: Light purple text
 
 **Buttons:**
-- Primary: bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md font-medium
-- Secondary: bg-surface border hover:bg-surface/80
-- Danger: bg-error text-white
-- Icon buttons: p-2 rounded-md hover:bg-surface
+- **Primary**: Purple background (270 75% 60%) + white text
+  - Hover: Slightly lighter purple
+  - Active: Slightly darker purple
+- **Secondary**: Brown background (25 40% 35%) + white text
+- **Accent/Special**: Gold background (45 90% 55%) + dark text
+- **Ghost**: Transparent + purple text, hover shows purple background
+- Icon buttons: p-2 with purple hover
 
 **Status Badges:**
 - Pill shape: rounded-full px-2.5 py-0.5 text-xs font-medium
-- Colors: bg-success/10 text-success, bg-warning/10 text-warning, etc.
-- States: Scheduled, Clocked In, Approved, Pending, Late, Missed, Published
+- Color-coded backgrounds with white text:
+  - Success: Green tint
+  - Warning: Gold/amber tint
+  - Error: Red tint
+  - Info: Purple tint
+  - Neutral: Brown tint
+
+**Forms:**
+- Input fields: Dark charcoal background with light borders
+- Text: White input text, light purple placeholder
+- Focus: Purple ring (ring-2 ring-primary)
+- Labels: White, font-medium
+- Helper text: Light purple
+
+**Data Tables:**
+- Header: White text on darker charcoal
+- Rows: Alternating subtle charcoal shades
+- Hover: Purple tint overlay
+- Numbers/data: Monospace font in white
 
 **Modals/Dialogs:**
-- Overlay: bg-black/50 backdrop-blur-sm
-- Dialog: max-w-lg bg-background rounded-lg shadow-xl p-6
-- Header with close button, content section, footer with actions
+- Overlay: bg-black/70 backdrop-blur
+- Dialog: Charcoal background with borders
+- Header: White text
+- Content: Light purple text
+- Actions: Purple and brown buttons
 
 **Stats Cards:**
-- Large number: text-3xl font-bold
-- Label: text-sm text-secondary
-- Trend indicator: small arrow + percentage
-- Grid layout for dashboard overview (4 cards across on desktop)
-
-**Timeline/Audit Log:**
-- Vertical line with dots for events
-- Timestamp + user + action description
-- Expandable details for each entry
+- Large numbers: White, text-3xl font-bold
+- Labels: Light purple, text-sm
+- Icons: Gold or purple
+- Background: Slightly lighter charcoal with subtle border
 
 ---
 
 ### E. Module-Specific Patterns
 
-**Rota/Schedule:**
-- Weekly calendar grid view (7 columns for days)
-- Shift cards with time, role, site badge
-- Color-coded by site or status
-- Drag-drop visual feedback (not functional in initial version)
-- Conflict warnings as yellow border + icon
+**Shift Scheduling (Rota):**
+- Weekly grid with charcoal cells
+- Shift cards: Lighter charcoal with colored left border (site color)
+- Text: White for names, light purple for details
+- Conflicts: Red border with warning badge
 
 **Attendance:**
-- Live view: List with status badges (Clocked In = green pulse)
-- Clock-in cards: Large timestamp, duration counter, site/room info
-- Approval queue: Checkbox selection + bulk actions
+- Live status: Green pulse for "Clocked In"
+- Approval queue: Purple checkboxes
+- Duration: Monospace white text
+- Status badges: Color-coded
 
 **Room Scans:**
-- QR code display: Centered with expiry countdown
-- Scan log table: Timestamp, room, confidence score, device
-- Compliance chart: Expected vs completed rounds visualization
+- QR code: White on dark background
+- Expiry countdown: Gold text when < 2 minutes
+- Scan log: Monospace timestamps in light purple
+- Confidence score: Color gradient (green to red)
 
 **Payroll:**
-- Pay statement cards with period, gross, net
-- Expandable line items table (earnings + deductions)
-- Drill-down links to source shifts (blue underlined)
-- Export button with icon
+- Pay period card: White heading, light purple dates
+- Amounts: Large white numbers with currency symbol
+- Line items: Light purple with brown separators
+- Totals: Bold white with gold highlight
+- Download button: Gold accent
 
 **Reports:**
-- Filter bar at top: Date range, site selector, role selector
-- Chart.js visualizations: Bar for hours, Line for trends
-- Summary cards above detailed tables
-- Export CSV button in top-right
+- Charts: Purple, gold, brown color scheme
+- Filter bar: Darker charcoal with white inputs
+- Summary cards: Gold icons, white numbers
+- Export: Purple button with download icon
 
 **Worker Mobile:**
-- Large touch targets (min 44px height)
-- Bottom sheet for actions (Clock In/Out)
-- Swipe gestures for navigation between dates
-- Simplified payslip view with tap-to-expand deductions
+- Large touch targets (min 44px)
+- Bottom nav: Purple active state
+- Quick actions: Purple buttons
+- Status: Color-coded badges
+- Clock display: Large white numbers
 
 ---
 
 ### F. Interactive States
 
-**Hover:** Subtle background change (hover:bg-surface) + shadow increase
-**Active:** Slight scale down (active:scale-95) for buttons
-**Focus:** Ring outline (focus:ring-2 ring-primary)
-**Loading:** Spinner + disabled state (opacity-50 cursor-not-allowed)
-**Empty States:** Centered icon + message + action button
+**Hover:** 
+- Purple tint overlay
+- Shadow increase
+- Smooth transition (150ms)
 
-**Animations:** Minimal, use sparingly
-- Page transitions: Fade in (100ms)
-- Modal entry: Slide up + fade (200ms ease-out)
-- Toast notifications: Slide in from top-right
-- NO decorative animations, parallax, or scroll effects
+**Active:** 
+- Slightly deeper purple
+- Subtle scale (active:scale-98)
+
+**Focus:** 
+- Purple ring (focus:ring-2 ring-primary)
+- Outline offset
+
+**Loading:** 
+- Purple spinner
+- Disabled state with opacity-50
+
+**Empty States:** 
+- Purple icon
+- White heading
+- Light purple message
+- Gold action button
+
+**Animations:**
+- Minimal, purposeful only
+- Transitions: 150-200ms ease-out
+- NO decorative animations
 
 ---
 
-### Images
+### G. Special Elements
 
-**No hero images** - This is an enterprise application, not a marketing site.
+**Gold Accents - Use For:**
+- Important metrics/KPIs
+- Premium features
+- Achievement indicators
+- Special highlights
+- Download/export buttons
+- Promotional badges
 
-**Functional imagery only:**
-- User avatars: 32px circular, initials fallback with colored background
-- Site logos: Small icons in navigation and cards
-- QR codes: Generated, centered in scan interface
-- Empty state illustrations: Simple line art (optional)
+**Brown Accents - Use For:**
+- Secondary buttons
+- Alternate cards
+- Supporting information
+- Tertiary navigation
+- Background variations
+- Subtle dividers
+
+**Purple Gradients:**
+- Use sparingly for hero sections
+- CTAs and important banners
+- Status indicators
+- Progress bars
 
 ---
 
 ## Implementation Notes
 
-- Maintain strict dark mode consistency across ALL components including form inputs
-- Use semantic color variables (not hardcoded hex values) for easy theme switching
-- Mobile worker interface prioritizes single-column, large touch targets, bottom navigation
-- Admin interface optimizes for data density with tables and multi-column layouts
-- Status indicators use color + icon + text label (never color alone for accessibility)
-- All interactive elements meet WCAG 2.1 AA contrast requirements
+- Charcoal theme is the default
+- Light mode available as fallback (toggle if needed)
+- All text maintains 7:1 contrast ratio minimum
+- Purple used for all primary interactive elements
+- Gold reserved for special emphasis and highlights
+- Brown for secondary/supporting elements
+- White for primary text and headings
+- Light purple for body text and descriptions
+- Strict consistency across all components
+- Mobile-first responsive design
+- Accessibility: Color + icon + text for all status indicators
