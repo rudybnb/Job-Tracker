@@ -919,6 +919,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Analytics Routes
+
+  // GET /api/analytics/hours - get hours summary (admin, site_manager)
+  app.get("/api/analytics/hours", isAuthenticated, hasRole(["admin", "site_manager"]), async (req, res) => {
+    try {
+      const { startDate, endDate, siteId, userId } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+
+      const filters: any = {
+        startDate: startDate as string,
+        endDate: endDate as string,
+      };
+
+      if (siteId) {
+        filters.siteId = parseInt(siteId as string);
+      }
+      if (userId) {
+        filters.userId = userId as string;
+      }
+
+      const summary = await storage.getHoursSummary(filters);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching hours summary:", error);
+      res.status(500).json({ message: "Failed to fetch hours summary" });
+    }
+  });
+
+  // GET /api/analytics/costs - get cost summary (admin only)
+  app.get("/api/analytics/costs", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { startDate, endDate, siteId } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+
+      const filters: any = {
+        startDate: startDate as string,
+        endDate: endDate as string,
+      };
+
+      if (siteId) {
+        filters.siteId = parseInt(siteId as string);
+      }
+
+      const summary = await storage.getCostSummary(filters);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching cost summary:", error);
+      res.status(500).json({ message: "Failed to fetch cost summary" });
+    }
+  });
+
+  // GET /api/analytics/attendance - get attendance summary (admin, site_manager)
+  app.get("/api/analytics/attendance", isAuthenticated, hasRole(["admin", "site_manager"]), async (req, res) => {
+    try {
+      const { startDate, endDate, siteId } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+
+      const filters: any = {
+        startDate: startDate as string,
+        endDate: endDate as string,
+      };
+
+      if (siteId) {
+        filters.siteId = parseInt(siteId as string);
+      }
+
+      const summary = await storage.getAttendanceSummary(filters);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching attendance summary:", error);
+      res.status(500).json({ message: "Failed to fetch attendance summary" });
+    }
+  });
+
+  // GET /api/analytics/sites - get per-site summary (admin, site_manager)
+  app.get("/api/analytics/sites", isAuthenticated, hasRole(["admin", "site_manager"]), async (req, res) => {
+    try {
+      const summary = await storage.getSiteSummary();
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching site summary:", error);
+      res.status(500).json({ message: "Failed to fetch site summary" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

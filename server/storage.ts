@@ -100,6 +100,12 @@ export interface IStorage {
   updateQueryPriority(id: number, priority: string): Promise<Query | undefined>;
   addMessage(queryId: number, message: InsertQueryMessage): Promise<QueryMessage>;
   getQueryMessages(queryId: number): Promise<(QueryMessage & { user: User })[]>;
+  
+  // Analytics operations
+  getHoursSummary(filters: { startDate: string, endDate: string, siteId?: number, userId?: string }): Promise<{ regularHours: number, overtimeHours: number, totalHours: number }>;
+  getCostSummary(filters: { startDate: string, endDate: string, siteId?: number }): Promise<{ regularCost: number, overtimeCost: number, totalCost: number }>;
+  getAttendanceSummary(filters: { startDate: string, endDate: string, siteId?: number }): Promise<{ total: number, pending: number, approved: number, rejected: number, onTime: number, late: number }>;
+  getSiteSummary(): Promise<{ siteId: number, siteName: string, activeWorkers: number, totalShifts: number, totalHours: number, totalCost: number }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1099,6 +1105,216 @@ export class DatabaseStorage implements IStorage {
       .orderBy(queryMessages.createdAt);
 
     return results.map((r: any) => ({ ...r.message, user: r.user }));
+  }
+
+  // Analytics operations
+
+  async getHoursSummary(filters: { startDate: string, endDate: string, siteId?: number, userId?: string }): Promise<{ regularHours: number, overtimeHours: number, totalHours: number }> {
+    const conditions = [
+      gte(attendance.date, filters.startDate),
+      lte(attendance.date, filters.endDate),
+      eq(attendance.approvalStatus, 'approved'),
+      isNotNull(attendance.clockOut),
+    ];
+
+    if (filters.siteId !== undefined) {
+      conditions.push(eq(attendance.siteId, filters.siteId));
+    }
+    if (filters.userId) {
+      conditions.push(eq(attendance.userId, filters.userId));
+    }
+
+    const records = await db
+      .select({
+        attendance: attendance,
+        user: users,
+      })
+      .from(attendance)
+      .innerJoin(users, eq(attendance.userId, users.id))
+      .where(and(...conditions));
+
+    let totalHours = 0;
+    let regularHours = 0;
+    let overtimeHours = 0;
+
+    // Calculate hours for each record
+    for (const record of records) {
+      const hours = this.calculateHoursDecimal(record.attendance.clockIn, record.attendance.clockOut!);
+      totalHours += hours;
+      
+      // Simple overtime calculation: hours beyond 8 in a single shift are overtime
+      if (hours > 8) {
+        regularHours += 8;
+        overtimeHours += (hours - 8);
+      } else {
+        regularHours += hours;
+      }
+    }
+
+    return {
+      regularHours: Math.round(regularHours * 100) / 100,
+      overtimeHours: Math.round(overtimeHours * 100) / 100,
+      totalHours: Math.round(totalHours * 100) / 100,
+    };
+  }
+
+  private calculateHoursDecimal(clockIn: string, clockOut: string): number {
+    const [inHours, inMinutes] = clockIn.split(':').map(Number);
+    const [outHours, outMinutes] = clockOut.split(':').map(Number);
+
+    let totalMinutes = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes);
+    
+    // Handle overnight shifts
+    if (totalMinutes < 0) {
+      totalMinutes += 24 * 60;
+    }
+
+    return totalMinutes / 60;
+  }
+
+  async getCostSummary(filters: { startDate: string, endDate: string, siteId?: number }): Promise<{ regularCost: number, overtimeCost: number, totalCost: number }> {
+    const conditions = [
+      gte(attendance.date, filters.startDate),
+      lte(attendance.date, filters.endDate),
+      eq(attendance.approvalStatus, 'approved'),
+      isNotNull(attendance.clockOut),
+    ];
+
+    if (filters.siteId !== undefined) {
+      conditions.push(eq(attendance.siteId, filters.siteId));
+    }
+
+    const records = await db
+      .select({
+        attendance: attendance,
+        user: users,
+      })
+      .from(attendance)
+      .innerJoin(users, eq(attendance.userId, users.id))
+      .where(and(...conditions));
+
+    let regularCost = 0;
+    let overtimeCost = 0;
+
+    for (const record of records) {
+      const hours = this.calculateHoursDecimal(record.attendance.clockIn, record.attendance.clockOut!);
+      const hourlyRate = parseFloat(record.user.hourlyRate || '0');
+      const overtimeRate = hourlyRate * 1.5; // 1.5x for overtime
+
+      if (hours > 8) {
+        regularCost += 8 * hourlyRate;
+        overtimeCost += (hours - 8) * overtimeRate;
+      } else {
+        regularCost += hours * hourlyRate;
+      }
+    }
+
+    return {
+      regularCost: Math.round(regularCost * 100) / 100,
+      overtimeCost: Math.round(overtimeCost * 100) / 100,
+      totalCost: Math.round((regularCost + overtimeCost) * 100) / 100,
+    };
+  }
+
+  async getAttendanceSummary(filters: { startDate: string, endDate: string, siteId?: number }): Promise<{ total: number, pending: number, approved: number, rejected: number, onTime: number, late: number }> {
+    const conditions = [
+      gte(attendance.date, filters.startDate),
+      lte(attendance.date, filters.endDate),
+    ];
+
+    if (filters.siteId !== undefined) {
+      conditions.push(eq(attendance.siteId, filters.siteId));
+    }
+
+    const records = await db
+      .select({
+        attendance: attendance,
+        shift: shifts,
+      })
+      .from(attendance)
+      .leftJoin(shifts, eq(attendance.shiftId, shifts.id))
+      .where(and(...conditions));
+
+    let total = records.length;
+    let pending = 0;
+    let approved = 0;
+    let rejected = 0;
+    let onTime = 0;
+    let late = 0;
+
+    for (const record of records) {
+      // Count by approval status
+      if (record.attendance.approvalStatus === 'pending') pending++;
+      if (record.attendance.approvalStatus === 'approved') approved++;
+      if (record.attendance.approvalStatus === 'rejected') rejected++;
+
+      // Count on-time vs late (if there's a shift to compare against)
+      if (record.shift) {
+        const clockInTime = record.attendance.clockIn;
+        const shiftStartTime = record.shift.startTime;
+        
+        if (clockInTime <= shiftStartTime) {
+          onTime++;
+        } else {
+          late++;
+        }
+      }
+    }
+
+    return { total, pending, approved, rejected, onTime, late };
+  }
+
+  async getSiteSummary(): Promise<{ siteId: number, siteName: string, activeWorkers: number, totalShifts: number, totalHours: number, totalCost: number }[]> {
+    const allSites = await this.getAllSites();
+    const summaries = [];
+
+    for (const site of allSites) {
+      // Get active workers at this site
+      const activeWorkers = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.siteId, site.id), eq(users.isActive, true)));
+
+      // Get total shifts for this site (current week)
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+      const siteShifts = await db
+        .select()
+        .from(shifts)
+        .where(and(
+          eq(shifts.siteId, site.id),
+          gte(shifts.date, startOfWeek.toISOString().split('T')[0]),
+          lte(shifts.date, endOfWeek.toISOString().split('T')[0])
+        ));
+
+      // Get hours and cost for this site (current week)
+      const hoursSummary = await this.getHoursSummary({
+        startDate: startOfWeek.toISOString().split('T')[0],
+        endDate: endOfWeek.toISOString().split('T')[0],
+        siteId: site.id,
+      });
+
+      const costSummary = await this.getCostSummary({
+        startDate: startOfWeek.toISOString().split('T')[0],
+        endDate: endOfWeek.toISOString().split('T')[0],
+        siteId: site.id,
+      });
+
+      summaries.push({
+        siteId: site.id,
+        siteName: site.name,
+        activeWorkers: activeWorkers.length,
+        totalShifts: siteShifts.length,
+        totalHours: hoursSummary.totalHours,
+        totalCost: costSummary.totalCost,
+      });
+    }
+
+    return summaries;
   }
 }
 

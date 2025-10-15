@@ -20,7 +20,10 @@ import Sites from "@/pages/sites";
 import Directory from "@/pages/directory";
 import Settings from "@/pages/settings";
 import WorkerHome from "@/pages/worker-home";
+import WorkerClock from "@/pages/worker-clock";
 import WorkerPay from "@/pages/worker-pay";
+import WorkerScan from "@/pages/worker-scan";
+import WorkerProfile from "@/pages/worker-profile";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
   const style = {
@@ -99,18 +102,12 @@ function Router() {
         </AdminLayout>
       </Route>
 
-      {/* Worker Routes */}
+      {/* Worker Routes - Mobile-First */}
       <Route path="/worker" component={WorkerHome} />
+      <Route path="/worker/clock" component={WorkerClock} />
       <Route path="/worker/pay" component={WorkerPay} />
-      <Route path="/worker/clock">
-        <Redirect to="/worker" />
-      </Route>
-      <Route path="/worker/scan">
-        <Redirect to="/worker" />
-      </Route>
-      <Route path="/worker/profile">
-        <Redirect to="/worker" />
-      </Route>
+      <Route path="/worker/scan" component={WorkerScan} />
+      <Route path="/worker/profile" component={WorkerProfile} />
 
       {/* Fallback to 404 */}
       <Route component={NotFound} />
