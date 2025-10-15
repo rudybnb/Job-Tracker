@@ -1,10 +1,10 @@
 import { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.rudybnb.jobtracker", // unique ID
+  appId: "com.rudybnb.jobtracker",
   appName: "Job Tracker",
-  webDir: "dist", // or "dist/public" if that’s where vite outputs
-  bundledWebRuntime: false
+ webDir: "dist/public", // ✅ correct output folder for your Vite build
+bundledWebRuntime: false
 };
 
 export default config;
