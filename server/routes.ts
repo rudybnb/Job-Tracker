@@ -3,7 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hasRole } from "./replitAuth";
-import { insertSiteSchema, insertUserSchema } from "@shared/schema";
+import { insertSiteSchema, insertUserSchema, insertShiftSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -156,6 +156,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // Shift Management Routes
+
+  // GET /api/shifts - list shifts with optional filters
+  app.get("/api/shifts", isAuthenticated, async (req, res) => {
+    try {
+      const filters: any = {};
+      
+      if (req.query.date) {
+        filters.date = req.query.date as string;
+      }
+      if (req.query.siteId) {
+        filters.siteId = parseInt(req.query.siteId as string);
+      }
+      if (req.query.userId) {
+        filters.userId = req.query.userId as string;
+      }
+      if (req.query.status) {
+        filters.status = req.query.status as string;
+      }
+
+      const shifts = await storage.getAllShifts(filters);
+      res.json(shifts);
+    } catch (error) {
+      console.error("Error fetching shifts:", error);
+      res.status(500).json({ message: "Failed to fetch shifts" });
+    }
+  });
+
+  // GET /api/shifts/:id - get single shift with user/site details
+  app.get("/api/shifts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const shiftId = parseInt(req.params.id);
+      const shift = await storage.getShift(shiftId);
+      
+      if (!shift) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+      
+      res.json(shift);
+    } catch (error) {
+      console.error("Error fetching shift:", error);
+      res.status(500).json({ message: "Failed to fetch shift" });
+    }
+  });
+
+  // POST /api/shifts - create shift (admin/site_manager only) with conflict detection
+  app.post("/api/shifts", isAuthenticated, hasRole(["admin", "site_manager"]), async (req, res) => {
+    try {
+      const shiftData = insertShiftSchema.parse(req.body) as any;
+      
+      // Check for conflicts
+      const hasConflict = await storage.checkShiftConflict(
+        shiftData.userId,
+        shiftData.date,
+        shiftData.startTime,
+        shiftData.endTime
+      );
+
+      const shift = await storage.createShift(shiftData);
+      
+      // Return shift with conflict indicator
+      res.status(201).json({
+        ...shift,
+        hasConflict,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid shift data", errors: error.errors });
+      }
+      console.error("Error creating shift:", error);
+      res.status(500).json({ message: "Failed to create shift" });
+    }
+  });
+
+  // PATCH /api/shifts/:id - update shift (admin/site_manager only) with conflict recheck
+  app.patch("/api/shifts/:id", isAuthenticated, hasRole(["admin", "site_manager"]), async (req, res) => {
+    try {
+      const shiftId = parseInt(req.params.id);
+      const shiftData = insertShiftSchema.partial().parse(req.body);
+      
+      const shift = await storage.updateShift(shiftId, shiftData);
+      
+      if (!shift) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+      
+      res.json(shift);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid shift data", errors: error.errors });
+      }
+      console.error("Error updating shift:", error);
+      res.status(500).json({ message: "Failed to update shift" });
+    }
+  });
+
+  // DELETE /api/shifts/:id - delete shift (admin only)
+  app.delete("/api/shifts/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const shiftId = parseInt(req.params.id);
+      const success = await storage.deleteShift(shiftId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting shift:", error);
+      res.status(500).json({ message: "Failed to delete shift" });
     }
   });
 
