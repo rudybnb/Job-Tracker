@@ -1,0 +1,184 @@
+🔧 Master Prompt — 3-Site Workforce App (Admin + Worker)
+
+Context:
+We are building a workforce management app for 3 sites that handles: rota (scheduling), fingerprint/kiosk clock-in/out, room entry scans via QR/barcode/NFC, pay with earnings & deductions (and reasons), reports, and staff queries. There will be a web Admin dashboard and a mobile-first Worker dashboard. Data lives in PostgreSQL; backend is Node.js (Express/Nest) or Python (FastAPI); mobile is React Native; web is React + Tailwind. Fingerprint pads/kiosk tablets are used on-site; QR/NFC labels at room doors.
+
+🎯 Objectives (what to design & output)
+
+Produce a complete, implementation-ready spec (no marketing fluff).
+
+Include architecture, ERD, API (OpenAPI 3), UI flows/wireframes (annotated), overtime/pay rules, room-scan logic, security/GDPR, test cases, seed SQL, migration plan, CI/CD, and a 4-sprint delivery plan.
+
+🧱 Scope (modules to cover)
+
+Sites & Roles: 3 sites, roles, rates, geofences, kiosk devices.
+
+Rota: Create/publish shifts, conflicts, swaps, templates.
+
+Time & Attendance: Fingerprint/kiosk clock-in/out, late/early flags, approvals, audit trail, offline sync.
+
+Room Scans: QR/barcode/NFC at room doors; rotating signed tokens; expected rounds & compliance.
+
+Payroll: Pay-runs, payslips with earnings/deductions, explanations and links to source shifts; CSV export/import for Sage/Xero/BrightPay.
+
+Queries: Pay/HR tickets tied to statements/shifts; SLA workflow.
+
+Reports: Hours/cost, OT, exceptions, room compliance, payroll forecast.
+
+Notifications: Email/SMS for missed checks, edits, pay posted.
+
+Permissions: Admin / Site Manager / Worker (role & site scoped).
+
+📐 Deliverables & Format (exact outputs)
+
+System Architecture Diagram (ASCII + bullet explanation): web, mobile, API, DB, storage, kiosk devices, biometric SDK.
+
+ERD (Entity–Relationship Diagram) + PostgreSQL DDL for core tables:
+
+site, user, pay_rate, shift, attendance, room, room_qr_token, room_visit, room_round_rule, room_round_expected, pay_run, pay_statement, pay_statement_line, deduction_reason, query_ticket, device_kiosk.
+
+OpenAPI 3.0 JSON/YAML covering endpoints (auth omitted if using provider):
+
+Rota: /shifts/* (CRUD, publish)
+
+Attendance: /attendance/clockin, /attendance/clockout, approvals, history
+
+Rooms: /rooms/*, /scan/room, rounds config & compliance
+
+Payroll: /pay/runs/*, /pay/statements/*, adjustments, exports/imports
+
+Queries: /queries/*
+
+Directory/Settings: sites, staff, devices, pay rules, deduction reasons
+
+Business Rules Spec:
+
+Overtime thresholds (e.g., >40h/week @1.5×), bank holiday multipliers, break rules, rounding, tolerances (5–7 min).
+
+Fingerprint: enrollment, matching confidence, offline caching, audit.
+
+Room scan anti-spoofing: geofence + signed token validity (5–10 min), device allowlist, confidence scoring.
+
+Payslip lines: earnings/deductions with reasons; lawful deduction guidance.
+
+UX Flows & Wireframes (annotated):
+
+Admin Web: Overview, Rota, Attendance (Live/Approvals/History), Rooms (Visits/Rounds/Labels), Payroll (Runs/Statements/Adjustments/Exports), Reports, Queries, Directory, Settings.
+
+Worker Mobile: Home/Today, Shifts, Clock (kiosk or device), Pay (drill-down reasons), Room Scan, My Hours, Queries, Profile.
+
+Acceptance Criteria & Test Cases:
+
+User stories with Given/When/Then for each module (incl. offline/edge cases).
+
+Room rounds compliance, missed clock-out handling, duplicate scans, geofence failures.
+
+Seed & Migrations:
+
+SQL seeds for 3 sites, example rooms, rates, a week of shifts, sample attendance & scans, one pay-run with example payslips (incl. deductions).
+
+CI/CD Plan:
+
+Branching, lint/test gates, migrations, blue/green or rolling deploy, secrets, environment config.
+
+Non-Functional Requirements:
+
+Availability targets, performance (scan < 500ms server-side), data retention, encryption (AES-256 at rest, TLS 1.2+), logging, audit immutability, GDPR (lawful basis, SAR export, deletion).
+
+Risk Register & Mitigations:
+
+Biometric false negatives, offline kiosks, QR spoofing, double clock-ins, payroll disputes, PII breaches.
+
+🔒 Security & Compliance (must address)
+
+Store fingerprint templates only (no raw images). Encrypt templates and payslip PII.
+
+Immutable audit log for attendance/pay changes.
+
+Access scoping by site_id; ensure least privilege.
+
+GDPR: retention schedule (e.g., room scans 90 days unless needed), SAR export, lawful deductions only.
+
+Tokenized QR with HMAC_SHA256(secret, room|ts); validity window ±10 min.
+
+🧮 Calculations (spell them out)
+
+Hours: Approved clock_out − clock_in − breaks, per shift → per week.
+
+OT: Hours above threshold get multiplier; premium days use holiday multiplier.
+
+Payslips:
+
+Earnings lines (Base, OT, Holiday): show hours × rate = amount.
+
+Deductions lines (PAYE, NI, Pension EE, Adjustments): each with deduction_reason.code + plain-English explanation + source link (policy or shift).
+
+Net = Gross − Deductions.
+
+Room compliance: Expected windows vs met vs missed; alert rules.
+
+🧪 Example Test Scenarios (require concrete steps & expected results)
+
+Fingerprint match at kiosk while offline → cached → sync on reconnect → single attendance record, no duplicates.
+
+Room scan with expired token → rejected with reason; static fallback logged at lower confidence.
+
+Shift overlap conflict → visible warning; publish blocked until resolved.
+
+Missed clock-out → auto clock-out at shift end + flag; manager approval pathway.
+
+Payslip adjustment (manual deduction) → reason & audit recorded; reversal via next run only.
+
+CSV export for Sage/Xero passes provider validation; re-imported statutory deductions render in app.
+
+📦 Output Packaging (how you should return the work)
+
+/docs/: Architecture.md, BusinessRules.md, SecurityGDPR.md, Risks.md
+
+/db/: ERD.png, 001_init.sql, 002_room_scans.sql, 003_payroll.sql, seed.sql
+
+/api/: openapi.yaml (complete, copy-pasteable)
+
+/ux/: Wireframes (PNG/SVG) + UserFlows.md (with state/empty/error notes)
+
+/ops/: ci-cd.md, env.example, migration/runbook
+
+/qa/: AcceptanceCriteria.md, TestCases.xlsx/CSV
+
+🔁 Delivery Plan (4 sprints — include dates & owners)
+
+Sprint 1: Auth, Sites/Users, Rota CRUD, Kiosk registration, basic attendance.
+
+Sprint 2: Fingerprint flow + approvals, geofence, audit, room scans (QR signed tokens).
+
+Sprint 3: Payroll engine (earnings), payslips UI, CSV export/import loop, queries module.
+
+Sprint 4: Reports, rounds compliance, notifications, hardening, GDPR ops, performance.
+
+🔧 Implementation Hints (follow unless there’s a better idea)
+
+Use Prisma (Node) or SQLAlchemy (Python) for migrations.
+
+Queue long jobs (exports) with BullMQ/RQ.
+
+Store photos/exports in S3 with signed URLs.
+
+Feature flag BYOD clock-in (default: kiosk/fingerprint only).
+
+Log device_id and match_confidence on every biometric event.
+
+📝 Tailored Variables (fill these in)
+
+Sites: ["Site A – Kent", "Site B – London", "Site C – Essex"]
+
+Roles & base rates: e.g., Care Assistant £12.50, Senior £14.50
+
+OT threshold: >40 h/week @ 1.5×
+
+Bank holidays: UK 2025 list
+
+Rounds example: Night checks every 30 min, 22:00–06:00
+
+Payroll provider: Sage (CSV format needed)
+
+Your task: Using everything above, produce the full deliverables list. Prefer concise, implementation-ready artifacts (tables, JSON, YAML, SQL). Avoid generic prose.
