@@ -79,3 +79,36 @@
   --card-foreground: hsl(0, 0%, 100%);
   --border: hsl(215, 20%, 25%);
 }
+
+/* Mobile viewport and safe-area fixes */
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+  .min-h-screen {
+    min-height: 100dvh !important;
+  }
+}
+
+@supports not (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100vh;
+    min-height: 100vh;
+  }
+}
+
+/* Prevent OS font scaling from zooming layout */
+body {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Ensure fixed bottom bars are fully tappable on gesture devices */
+[class*="fixed"][class*="bottom-0"][class*="left-0"][class*="right-0"] {
+  padding-bottom: env(safe-area-inset-bottom);
+}
