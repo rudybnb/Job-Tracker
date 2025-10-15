@@ -16,6 +16,9 @@ import Rooms from "@/pages/rooms";
 import Payroll from "@/pages/payroll";
 import Reports from "@/pages/reports";
 import Queries from "@/pages/queries";
+import Sites from "@/pages/sites";
+import Directory from "@/pages/directory";
+import Settings from "@/pages/settings";
 import WorkerHome from "@/pages/worker-home";
 import WorkerPay from "@/pages/worker-pay";
 
@@ -78,6 +81,21 @@ function Router() {
       <Route path="/queries">
         <AdminLayout>
           <Queries />
+        </AdminLayout>
+      </Route>
+      <Route path="/sites">
+        <AdminLayout>
+          <Sites />
+        </AdminLayout>
+      </Route>
+      <Route path="/directory">
+        <AdminLayout>
+          <Directory />
+        </AdminLayout>
+      </Route>
+      <Route path="/settings">
+        <AdminLayout>
+          <Settings />
         </AdminLayout>
       </Route>
 
