@@ -3,7 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hasRole } from "./replitAuth";
-import { insertSiteSchema, insertUserSchema, insertShiftSchema, insertAttendanceSchema } from "@shared/schema";
+import { insertSiteSchema, insertUserSchema, insertShiftSchema, insertAttendanceSchema, insertRoomSchema, insertRoomScanSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -416,6 +416,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error rejecting attendance:", error);
       res.status(500).json({ message: "Failed to reject attendance" });
+    }
+  });
+
+  // Room Management Routes
+
+  // GET /api/rooms - list rooms with site info
+  app.get("/api/rooms", isAuthenticated, async (req, res) => {
+    try {
+      const filters: any = {};
+      
+      if (req.query.siteId) {
+        filters.siteId = parseInt(req.query.siteId as string);
+      }
+      if (req.query.isActive !== undefined) {
+        filters.isActive = req.query.isActive === 'true';
+      }
+
+      const rooms = await storage.getAllRooms(filters);
+      res.json(rooms);
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      res.status(500).json({ message: "Failed to fetch rooms" });
+    }
+  });
+
+  // POST /api/rooms - create room (admin only)
+  app.post("/api/rooms", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const roomSchema = insertRoomSchema.omit({ qrCode: true, qrCodeExpiry: true });
+      const roomData = roomSchema.parse(req.body);
+      const room = await storage.createRoom(roomData);
+      res.status(201).json(room);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid room data", errors: error.errors });
+      }
+      console.error("Error creating room:", error);
+      res.status(500).json({ message: "Failed to create room" });
+    }
+  });
+
+  // PATCH /api/rooms/:id - update room (admin only)
+  app.patch("/api/rooms/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.id);
+      const roomData = insertRoomSchema.partial().parse(req.body);
+      const room = await storage.updateRoom(roomId, roomData);
+      
+      if (!room) {
+        return res.status(404).json({ message: "Room not found" });
+      }
+      
+      res.json(room);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid room data", errors: error.errors });
+      }
+      console.error("Error updating room:", error);
+      res.status(500).json({ message: "Failed to update room" });
+    }
+  });
+
+  // POST /api/rooms/:id/refresh-qr - refresh QR code (admin, site_manager)
+  app.post("/api/rooms/:id/refresh-qr", isAuthenticated, hasRole(["admin", "site_manager"]), async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.id);
+      const room = await storage.refreshRoomQR(roomId);
+      
+      if (!room) {
+        return res.status(404).json({ message: "Room not found" });
+      }
+      
+      res.json(room);
+    } catch (error) {
+      console.error("Error refreshing QR code:", error);
+      res.status(500).json({ message: "Failed to refresh QR code" });
+    }
+  });
+
+  // DELETE /api/rooms/:id - delete room (admin only)
+  app.delete("/api/rooms/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.id);
+      const success = await storage.deleteRoom(roomId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Room not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting room:", error);
+      res.status(500).json({ message: "Failed to delete room" });
+    }
+  });
+
+  // Room Scan Routes
+
+  // POST /api/room-scans - log scan (worker, site_manager, admin)
+  app.post("/api/room-scans", isAuthenticated, hasRole(["worker", "site_manager", "admin"]), async (req, res) => {
+    try {
+      const scanData = insertRoomScanSchema.parse(req.body);
+      const scan = await storage.logRoomScan(scanData);
+      res.status(201).json(scan);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid scan data", errors: error.errors });
+      }
+      console.error("Error logging room scan:", error);
+      res.status(500).json({ message: "Failed to log room scan" });
+    }
+  });
+
+  // GET /api/room-scans - list scans with filters
+  app.get("/api/room-scans", isAuthenticated, async (req, res) => {
+    try {
+      const filters: any = {};
+      
+      if (req.query.roomId) {
+        filters.roomId = parseInt(req.query.roomId as string);
+      }
+      if (req.query.userId) {
+        filters.userId = req.query.userId as string;
+      }
+      if (req.query.status) {
+        filters.status = req.query.status as string;
+      }
+      if (req.query.date) {
+        filters.date = req.query.date as string;
+      }
+
+      const scans = await storage.getAllRoomScans(filters);
+      res.json(scans);
+    } catch (error) {
+      console.error("Error fetching room scans:", error);
+      res.status(500).json({ message: "Failed to fetch room scans" });
     }
   });
 

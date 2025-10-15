@@ -4,6 +4,8 @@ import {
   sites,
   shifts,
   attendance,
+  rooms,
+  roomScans,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -13,9 +15,14 @@ import {
   type InsertShift,
   type Attendance,
   type InsertAttendance,
+  type Room,
+  type InsertRoom,
+  type RoomScan,
+  type InsertRoomScan,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, gte, lte, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, or, gte, lte, isNull, isNotNull, desc } from "drizzle-orm";
+import crypto from "crypto";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -50,6 +57,18 @@ export interface IStorage {
   approveAttendance(id: number, approvedBy: string): Promise<Attendance | undefined>;
   rejectAttendance(id: number, approvedBy: string): Promise<Attendance | undefined>;
   calculateDuration(clockIn: string, clockOut: string): string;
+  
+  // Room operations
+  getAllRooms(filters?: { siteId?: number, isActive?: boolean }): Promise<(Room & { site: Site })[]>;
+  getRoom(id: number): Promise<(Room & { site: Site }) | undefined>;
+  createRoom(room: Omit<InsertRoom, 'qrCode' | 'qrCodeExpiry'>): Promise<Room>;
+  updateRoom(id: number, room: Partial<InsertRoom>): Promise<Room | undefined>;
+  refreshRoomQR(id: number): Promise<Room | undefined>;
+  deleteRoom(id: number): Promise<boolean>;
+  
+  // Room scan operations
+  logRoomScan(scan: InsertRoomScan): Promise<RoomScan>;
+  getAllRoomScans(filters?: { roomId?: number, userId?: string, status?: string, date?: string }): Promise<(RoomScan & { room: Room & { site: Site }, user: User })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -464,6 +483,164 @@ export class DatabaseStorage implements IStorage {
     const minutes = totalMinutes % 60;
 
     return `${hours}h ${minutes}m`;
+  }
+
+  // Room operations
+
+  private generateQRCode(roomId: number): { qrCode: string, qrCodeExpiry: Date } {
+    const timestamp = Date.now();
+    const random = crypto.randomBytes(16).toString('hex');
+    const qrCode = `ROOM_${roomId}_${timestamp}_${random}`;
+    
+    // Set expiry to 10 minutes from now
+    const qrCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    
+    return { qrCode, qrCodeExpiry };
+  }
+
+  async getAllRooms(filters?: { siteId?: number, isActive?: boolean }): Promise<(Room & { site: Site })[]> {
+    let query = db
+      .select({
+        room: rooms,
+        site: sites,
+      })
+      .from(rooms)
+      .innerJoin(sites, eq(rooms.siteId, sites.id));
+
+    const conditions = [];
+    if (filters?.siteId !== undefined) {
+      conditions.push(eq(rooms.siteId, filters.siteId));
+    }
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(rooms.isActive, filters.isActive));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const results = await query;
+    return results.map((r: any) => ({ ...r.room, site: r.site }));
+  }
+
+  async getRoom(id: number): Promise<(Room & { site: Site }) | undefined> {
+    const [result] = await db
+      .select({
+        room: rooms,
+        site: sites,
+      })
+      .from(rooms)
+      .innerJoin(sites, eq(rooms.siteId, sites.id))
+      .where(eq(rooms.id, id));
+
+    if (!result) return undefined;
+    return { ...result.room, site: result.site };
+  }
+
+  async createRoom(roomData: Omit<InsertRoom, 'qrCode' | 'qrCodeExpiry'>): Promise<Room> {
+    // First create the room to get the ID
+    const [room] = await db.insert(rooms).values({
+      ...roomData,
+      qrCode: 'temp',
+      qrCodeExpiry: new Date(),
+    }).returning();
+
+    // Generate QR code with the room ID
+    const { qrCode, qrCodeExpiry } = this.generateQRCode(room.id);
+
+    // Update the room with the actual QR code
+    const [updatedRoom] = await db
+      .update(rooms)
+      .set({ qrCode, qrCodeExpiry })
+      .where(eq(rooms.id, room.id))
+      .returning();
+
+    return updatedRoom;
+  }
+
+  async updateRoom(id: number, roomData: Partial<InsertRoom>): Promise<Room | undefined> {
+    const [room] = await db
+      .update(rooms)
+      .set(roomData)
+      .where(eq(rooms.id, id))
+      .returning();
+
+    return room;
+  }
+
+  async refreshRoomQR(id: number): Promise<Room | undefined> {
+    const { qrCode, qrCodeExpiry } = this.generateQRCode(id);
+    
+    const [room] = await db
+      .update(rooms)
+      .set({ qrCode, qrCodeExpiry })
+      .where(eq(rooms.id, id))
+      .returning();
+
+    return room;
+  }
+
+  async deleteRoom(id: number): Promise<boolean> {
+    const result = await db.delete(rooms).where(eq(rooms.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Room scan operations
+
+  async logRoomScan(scanData: InsertRoomScan): Promise<RoomScan> {
+    const [scan] = await db.insert(roomScans).values(scanData).returning();
+    return scan;
+  }
+
+  async getAllRoomScans(filters?: { roomId?: number, userId?: string, status?: string, date?: string }): Promise<(RoomScan & { room: Room & { site: Site }, user: User })[]> {
+    let query = db
+      .select({
+        scan: roomScans,
+        room: rooms,
+        site: sites,
+        user: users,
+      })
+      .from(roomScans)
+      .innerJoin(rooms, eq(roomScans.roomId, rooms.id))
+      .innerJoin(sites, eq(rooms.siteId, sites.id))
+      .innerJoin(users, eq(roomScans.userId, users.id))
+      .orderBy(desc(roomScans.scannedAt));
+
+    const conditions = [];
+    if (filters?.roomId !== undefined) {
+      conditions.push(eq(roomScans.roomId, filters.roomId));
+    }
+    if (filters?.userId) {
+      conditions.push(eq(roomScans.userId, filters.userId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(roomScans.status, filters.status));
+    }
+    if (filters?.date) {
+      // Filter by date (scannedAt contains the full timestamp)
+      const startOfDay = new Date(filters.date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(filters.date);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      conditions.push(
+        and(
+          gte(roomScans.scannedAt, startOfDay),
+          lte(roomScans.scannedAt, endOfDay)
+        ) as any
+      );
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const results = await query;
+    return results.map((r: any) => ({
+      ...r.scan,
+      room: { ...r.room, site: r.site },
+      user: r.user,
+    }));
   }
 }
 

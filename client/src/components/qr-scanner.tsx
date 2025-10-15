@@ -6,32 +6,36 @@ import { useEffect, useState } from "react";
 
 interface QRScannerProps {
   roomName: string;
-  roomId: string;
+  roomId: number;
+  qrCode: string;
+  qrCodeExpiry: string;
   onRefresh?: () => void;
 }
 
-export function QRScanner({ roomName, roomId, onRefresh }: QRScannerProps) {
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
-  const [qrData, setQrData] = useState("");
+export function QRScanner({ roomName, roomId, qrCode, qrCodeExpiry, onRefresh }: QRScannerProps) {
+  const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
-    // Generate QR code data (simulated token)
-    const token = `ROOM_${roomId}_${Date.now()}`;
-    setQrData(token);
+    const calculateTimeLeft = () => {
+      const expiryTime = new Date(qrCodeExpiry).getTime();
+      const now = Date.now();
+      const diff = Math.max(0, Math.floor((expiryTime - now) / 1000));
+      return diff;
+    };
 
-    // Countdown timer
+    setTimeLeft(calculateTimeLeft());
+
     const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          onRefresh?.();
-          return 600;
-        }
-        return prev - 1;
-      });
+      const newTimeLeft = calculateTimeLeft();
+      setTimeLeft(newTimeLeft);
+      
+      if (newTimeLeft <= 0) {
+        onRefresh?.();
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [roomId, onRefresh]);
+  }, [qrCodeExpiry, onRefresh]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -52,7 +56,7 @@ export function QRScanner({ roomName, roomId, onRefresh }: QRScannerProps) {
             <QrCode className="h-48 w-48 text-muted-foreground" />
           </div>
           <p className="text-xs text-muted-foreground text-center font-mono break-all max-w-64">
-            {qrData}
+            {qrCode}
           </p>
           <Button
             variant="outline"
