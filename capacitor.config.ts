@@ -1,11 +1,9 @@
-// capacitor.config.ts
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.rudybnb.jobtracker',
+  appId: 'com.erd.contractors',
   appName: 'Job Tracker',
-  webDir: 'dist/public',
-  bundledWebRuntime: false,
+  webDir: 'dist/public'
 };
 
 export default config;

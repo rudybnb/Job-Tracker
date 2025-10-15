@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Job Tracker</string>
+    <string name="title_activity_main">Job Tracker</string>
+    <string name="package_name">com.erd.contractors</string>
+    <string name="custom_url_scheme">com.erd.contractors</string>
+</resources>
