@@ -195,8 +195,9 @@ export const queries = pgTable("queries", {
   userId: varchar("user_id").notNull().references(() => users.id),
   subject: text("subject").notNull(),
   description: text("description").notNull(),
-  category: text("category").notNull(), // pay, hr, schedule, general
-  status: text("status").notNull().default("open"), // open, in-progress, resolved
+  category: text("category").notNull(), // pay, hr, scheduling, other
+  priority: text("priority").notNull().default("medium"), // low, medium, high
+  status: text("status").notNull().default("open"), // open, in_progress, closed
   relatedTo: text("related_to"), // e.g., "Week 15 Payslip"
   assignedTo: varchar("assigned_to").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),

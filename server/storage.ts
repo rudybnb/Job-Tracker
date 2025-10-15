@@ -6,6 +6,10 @@ import {
   attendance,
   rooms,
   roomScans,
+  payrollRuns,
+  payslips,
+  queries,
+  queryMessages,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -19,6 +23,14 @@ import {
   type InsertRoom,
   type RoomScan,
   type InsertRoomScan,
+  type PayrollRun,
+  type InsertPayrollRun,
+  type Payslip,
+  type InsertPayslip,
+  type Query,
+  type InsertQuery,
+  type QueryMessage,
+  type InsertQueryMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, gte, lte, isNull, isNotNull, desc } from "drizzle-orm";
@@ -69,6 +81,25 @@ export interface IStorage {
   // Room scan operations
   logRoomScan(scan: InsertRoomScan): Promise<RoomScan>;
   getAllRoomScans(filters?: { roomId?: number, userId?: string, status?: string, date?: string }): Promise<(RoomScan & { room: Room & { site: Site }, user: User })[]>;
+  
+  // Payroll operations
+  createPayrollRun(startDate: string, endDate: string, createdBy: string): Promise<PayrollRun>;
+  getPayrollRuns(filters?: { status?: string }): Promise<PayrollRun[]>;
+  getPayrollRun(id: number): Promise<(PayrollRun & { payslips: (Payslip & { user: User, site: Site })[] }) | undefined>;
+  processPayrollRun(id: number): Promise<void>;
+  finalizePayrollRun(id: number, finalizedBy: string): Promise<PayrollRun | undefined>;
+  getPayslips(filters?: { payrollRunId?: number, userId?: string }): Promise<(Payslip & { user: User, site: Site, payrollRun: PayrollRun })[]>;
+  getPayslip(id: number): Promise<(Payslip & { user: User, site: Site, payrollRun: PayrollRun }) | undefined>;
+  addDeduction(payslipId: number, deduction: { amount: number, reason: string, type: string }): Promise<Payslip | undefined>;
+  
+  // Query operations
+  getAllQueries(filters?: { userId?: string, category?: string, status?: string, priority?: string }): Promise<(Query & { user: User })[]>;
+  getQuery(id: number): Promise<(Query & { user: User, messages: (QueryMessage & { user: User })[] }) | undefined>;
+  createQuery(query: InsertQuery): Promise<Query>;
+  updateQueryStatus(id: number, status: string, updatedBy: string): Promise<Query | undefined>;
+  updateQueryPriority(id: number, priority: string): Promise<Query | undefined>;
+  addMessage(queryId: number, message: InsertQueryMessage): Promise<QueryMessage>;
+  getQueryMessages(queryId: number): Promise<(QueryMessage & { user: User })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -641,6 +672,433 @@ export class DatabaseStorage implements IStorage {
       room: { ...r.room, site: r.site },
       user: r.user,
     }));
+  }
+
+  // Payroll operations
+
+  async createPayrollRun(startDate: string, endDate: string, createdBy: string): Promise<PayrollRun> {
+    const period = this.generatePayrollPeriod(startDate, endDate);
+    
+    const [payrollRun] = await db
+      .insert(payrollRuns)
+      .values({
+        period,
+        startDate,
+        endDate,
+        status: 'draft',
+        createdBy,
+        finalizedAt: null,
+      })
+      .returning();
+
+    return payrollRun;
+  }
+
+  private generatePayrollPeriod(startDate: string, endDate: string): string {
+    const start = new Date(startDate);
+    const weekNumber = this.getWeekNumber(start);
+    const year = start.getFullYear();
+    return `Week ${weekNumber}, ${year}`;
+  }
+
+  private getWeekNumber(date: Date): number {
+    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+    const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  }
+
+  async getPayrollRuns(filters?: { status?: string }): Promise<PayrollRun[]> {
+    let query = db.select().from(payrollRuns).orderBy(desc(payrollRuns.createdAt));
+
+    if (filters?.status) {
+      query = query.where(eq(payrollRuns.status, filters.status)) as any;
+    }
+
+    return await query;
+  }
+
+  async getPayrollRun(id: number): Promise<(PayrollRun & { payslips: (Payslip & { user: User, site: Site })[] }) | undefined> {
+    const [run] = await db.select().from(payrollRuns).where(eq(payrollRuns.id, id));
+    
+    if (!run) return undefined;
+
+    const payslipsData = await db
+      .select({
+        payslip: payslips,
+        user: users,
+        site: sites,
+      })
+      .from(payslips)
+      .innerJoin(users, eq(payslips.userId, users.id))
+      .innerJoin(sites, eq(payslips.siteId, sites.id))
+      .where(eq(payslips.payrollRunId, id));
+
+    const payslipsWithDetails = payslipsData.map((p: any) => ({
+      ...p.payslip,
+      user: p.user,
+      site: p.site,
+    }));
+
+    return {
+      ...run,
+      payslips: payslipsWithDetails,
+    };
+  }
+
+  async processPayrollRun(id: number): Promise<void> {
+    const run = await this.getPayrollRun(id);
+    if (!run) throw new Error('Payroll run not found');
+    if (run.status !== 'draft') throw new Error('Payroll run is not in draft status');
+
+    const approvedAttendance = await db
+      .select({
+        attendance: attendance,
+        user: users,
+      })
+      .from(attendance)
+      .innerJoin(users, eq(attendance.userId, users.id))
+      .where(
+        and(
+          gte(attendance.date, run.startDate),
+          lte(attendance.date, run.endDate),
+          eq(attendance.approvalStatus, 'approved'),
+          isNotNull(attendance.clockOut)
+        )
+      );
+
+    const userAttendanceMap = new Map<string, Array<{ attendance: Attendance, user: User }>>();
+    
+    for (const record of approvedAttendance) {
+      const userId = record.user.id;
+      if (!userAttendanceMap.has(userId)) {
+        userAttendanceMap.set(userId, []);
+      }
+      userAttendanceMap.get(userId)!.push(record);
+    }
+
+    for (const [userId, records] of userAttendanceMap.entries()) {
+      const user = records[0].user;
+      const hourlyRate = parseFloat(user.hourlyRate || '0');
+      
+      if (hourlyRate === 0) continue;
+
+      const weeklyHours = this.groupByWeek(records.map(r => r.attendance));
+      
+      let totalRegularHours = 0;
+      let totalOvertimeHours = 0;
+      const lineItems: any[] = [];
+
+      for (const [weekKey, weekAttendance] of Object.entries(weeklyHours)) {
+        const weekTotalHours = weekAttendance.reduce((sum, att) => {
+          return sum + this.calculateHoursFromTimes(att.clockIn, att.clockOut!);
+        }, 0);
+
+        const regularHours = Math.min(weekTotalHours, 40);
+        const overtimeHours = Math.max(0, weekTotalHours - 40);
+
+        totalRegularHours += regularHours;
+        totalOvertimeHours += overtimeHours;
+
+        if (regularHours > 0) {
+          lineItems.push({
+            id: `regular-${weekKey}`,
+            description: `Regular hours - ${weekKey}`,
+            type: 'regular',
+            hours: regularHours.toFixed(2),
+            rate: hourlyRate.toFixed(2),
+            amount: (regularHours * hourlyRate).toFixed(2),
+            reason: null,
+          });
+        }
+
+        if (overtimeHours > 0) {
+          const overtimeRate = hourlyRate * 1.5;
+          lineItems.push({
+            id: `overtime-${weekKey}`,
+            description: `Overtime hours (1.5x) - ${weekKey}`,
+            type: 'overtime',
+            hours: overtimeHours.toFixed(2),
+            rate: overtimeRate.toFixed(2),
+            amount: (overtimeHours * overtimeRate).toFixed(2),
+            reason: null,
+          });
+        }
+      }
+
+      const regularPay = totalRegularHours * hourlyRate;
+      const overtimePay = totalOvertimeHours * hourlyRate * 1.5;
+      const grossPay = regularPay + overtimePay;
+      const deductions = 0;
+      const netPay = grossPay - deductions;
+
+      const siteId = records[0].attendance.siteId;
+
+      await db.insert(payslips).values({
+        payrollRunId: id,
+        userId,
+        siteId,
+        grossPay: grossPay.toFixed(2),
+        deductions: deductions.toFixed(2),
+        netPay: netPay.toFixed(2),
+        lineItems,
+      });
+    }
+
+    await db
+      .update(payrollRuns)
+      .set({ status: 'processing' })
+      .where(eq(payrollRuns.id, id));
+  }
+
+  private groupByWeek(attendanceRecords: Attendance[]): Record<string, Attendance[]> {
+    const weekMap: Record<string, Attendance[]> = {};
+
+    for (const att of attendanceRecords) {
+      const date = new Date(att.date);
+      const weekNumber = this.getWeekNumber(date);
+      const year = date.getFullYear();
+      const weekKey = `Week ${weekNumber}, ${year}`;
+
+      if (!weekMap[weekKey]) {
+        weekMap[weekKey] = [];
+      }
+      weekMap[weekKey].push(att);
+    }
+
+    return weekMap;
+  }
+
+  private calculateHoursFromTimes(clockIn: string, clockOut: string): number {
+    const [inHours, inMinutes] = clockIn.split(':').map(Number);
+    const [outHours, outMinutes] = clockOut.split(':').map(Number);
+
+    let totalMinutes = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes);
+    
+    if (totalMinutes < 0) {
+      totalMinutes += 24 * 60;
+    }
+
+    return totalMinutes / 60;
+  }
+
+  async finalizePayrollRun(id: number, finalizedBy: string): Promise<PayrollRun | undefined> {
+    const [run] = await db
+      .update(payrollRuns)
+      .set({
+        status: 'finalized',
+        finalizedAt: new Date(),
+      })
+      .where(eq(payrollRuns.id, id))
+      .returning();
+
+    return run;
+  }
+
+  async getPayslips(filters?: { payrollRunId?: number, userId?: string }): Promise<(Payslip & { user: User, site: Site, payrollRun: PayrollRun })[]> {
+    let query = db
+      .select({
+        payslip: payslips,
+        user: users,
+        site: sites,
+        payrollRun: payrollRuns,
+      })
+      .from(payslips)
+      .innerJoin(users, eq(payslips.userId, users.id))
+      .innerJoin(sites, eq(payslips.siteId, sites.id))
+      .innerJoin(payrollRuns, eq(payslips.payrollRunId, payrollRuns.id))
+      .orderBy(desc(payslips.createdAt));
+
+    const conditions = [];
+    if (filters?.payrollRunId !== undefined) {
+      conditions.push(eq(payslips.payrollRunId, filters.payrollRunId));
+    }
+    if (filters?.userId) {
+      conditions.push(eq(payslips.userId, filters.userId));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const results = await query;
+    return results.map((r: any) => ({
+      ...r.payslip,
+      user: r.user,
+      site: r.site,
+      payrollRun: r.payrollRun,
+    }));
+  }
+
+  async getPayslip(id: number): Promise<(Payslip & { user: User, site: Site, payrollRun: PayrollRun }) | undefined> {
+    const [result] = await db
+      .select({
+        payslip: payslips,
+        user: users,
+        site: sites,
+        payrollRun: payrollRuns,
+      })
+      .from(payslips)
+      .innerJoin(users, eq(payslips.userId, users.id))
+      .innerJoin(sites, eq(payslips.siteId, sites.id))
+      .innerJoin(payrollRuns, eq(payslips.payrollRunId, payrollRuns.id))
+      .where(eq(payslips.id, id));
+
+    if (!result) return undefined;
+
+    return {
+      ...result.payslip,
+      user: result.user,
+      site: result.site,
+      payrollRun: result.payrollRun,
+    };
+  }
+
+  async addDeduction(payslipId: number, deduction: { amount: number, reason: string, type: string }): Promise<Payslip | undefined> {
+    const [payslip] = await db.select().from(payslips).where(eq(payslips.id, payslipId));
+    
+    if (!payslip) return undefined;
+
+    const currentLineItems = (payslip.lineItems as any[]) || [];
+    const deductionId = `deduction-${Date.now()}`;
+    
+    const newLineItem = {
+      id: deductionId,
+      description: deduction.reason,
+      type: deduction.type,
+      hours: null,
+      rate: null,
+      amount: (-Math.abs(deduction.amount)).toFixed(2),
+      reason: deduction.reason,
+    };
+
+    const updatedLineItems = [...currentLineItems, newLineItem];
+    const currentDeductions = parseFloat(payslip.deductions);
+    const newDeductions = currentDeductions + Math.abs(deduction.amount);
+    const grossPay = parseFloat(payslip.grossPay);
+    const newNetPay = grossPay - newDeductions;
+
+    const [updatedPayslip] = await db
+      .update(payslips)
+      .set({
+        lineItems: updatedLineItems,
+        deductions: newDeductions.toFixed(2),
+        netPay: newNetPay.toFixed(2),
+      })
+      .where(eq(payslips.id, payslipId))
+      .returning();
+
+    return updatedPayslip;
+  }
+
+  // Query operations
+
+  async getAllQueries(filters?: { userId?: string, category?: string, status?: string, priority?: string }): Promise<(Query & { user: User })[]> {
+    let query = db
+      .select({
+        query: queries,
+        user: users,
+      })
+      .from(queries)
+      .innerJoin(users, eq(queries.userId, users.id))
+      .orderBy(desc(queries.createdAt));
+
+    const conditions = [];
+    if (filters?.userId) {
+      conditions.push(eq(queries.userId, filters.userId));
+    }
+    if (filters?.category) {
+      conditions.push(eq(queries.category, filters.category));
+    }
+    if (filters?.status) {
+      conditions.push(eq(queries.status, filters.status));
+    }
+    if (filters?.priority) {
+      conditions.push(eq(queries.priority, filters.priority));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const results = await query;
+    return results.map((r: any) => ({ ...r.query, user: r.user }));
+  }
+
+  async getQuery(id: number): Promise<(Query & { user: User, messages: (QueryMessage & { user: User })[] }) | undefined> {
+    const [result] = await db
+      .select({
+        query: queries,
+        user: users,
+      })
+      .from(queries)
+      .innerJoin(users, eq(queries.userId, users.id))
+      .where(eq(queries.id, id));
+
+    if (!result) return undefined;
+
+    const messages = await this.getQueryMessages(id);
+
+    return {
+      ...result.query,
+      user: result.user,
+      messages,
+    };
+  }
+
+  async createQuery(queryData: InsertQuery): Promise<Query> {
+    const [query] = await db.insert(queries).values(queryData).returning();
+    return query;
+  }
+
+  async updateQueryStatus(id: number, status: string, updatedBy: string): Promise<Query | undefined> {
+    const [query] = await db
+      .update(queries)
+      .set({
+        status,
+        assignedTo: updatedBy,
+        updatedAt: new Date(),
+      })
+      .where(eq(queries.id, id))
+      .returning();
+    return query;
+  }
+
+  async updateQueryPriority(id: number, priority: string): Promise<Query | undefined> {
+    const [query] = await db
+      .update(queries)
+      .set({
+        priority,
+        updatedAt: new Date(),
+      })
+      .where(eq(queries.id, id))
+      .returning();
+    return query;
+  }
+
+  async addMessage(queryId: number, messageData: InsertQueryMessage): Promise<QueryMessage> {
+    const [message] = await db.insert(queryMessages).values(messageData).returning();
+    
+    // Update the query's updatedAt timestamp
+    await db
+      .update(queries)
+      .set({ updatedAt: new Date() })
+      .where(eq(queries.id, queryId));
+    
+    return message;
+  }
+
+  async getQueryMessages(queryId: number): Promise<(QueryMessage & { user: User })[]> {
+    const results = await db
+      .select({
+        message: queryMessages,
+        user: users,
+      })
+      .from(queryMessages)
+      .innerJoin(users, eq(queryMessages.userId, users.id))
+      .where(eq(queryMessages.queryId, queryId))
+      .orderBy(queryMessages.createdAt);
+
+    return results.map((r: any) => ({ ...r.message, user: r.user }));
   }
 }
 

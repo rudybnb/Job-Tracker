@@ -3,7 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hasRole } from "./replitAuth";
-import { insertSiteSchema, insertUserSchema, insertShiftSchema, insertAttendanceSchema, insertRoomSchema, insertRoomScanSchema } from "@shared/schema";
+import { insertSiteSchema, insertUserSchema, insertShiftSchema, insertAttendanceSchema, insertRoomSchema, insertRoomScanSchema, insertQuerySchema, insertQueryMessageSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -552,6 +552,370 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching room scans:", error);
       res.status(500).json({ message: "Failed to fetch room scans" });
+    }
+  });
+
+  // Payroll Routes
+
+  // GET /api/payroll-runs - list payroll runs (admin, site_manager)
+  app.get("/api/payroll-runs", isAuthenticated, hasRole(["admin", "site_manager"]), async (req, res) => {
+    try {
+      const filters: any = {};
+      
+      if (req.query.status) {
+        filters.status = req.query.status as string;
+      }
+
+      const runs = await storage.getPayrollRuns(filters);
+      res.json(runs);
+    } catch (error) {
+      console.error("Error fetching payroll runs:", error);
+      res.status(500).json({ message: "Failed to fetch payroll runs" });
+    }
+  });
+
+  // POST /api/payroll-runs - create payroll run (admin only)
+  app.post("/api/payroll-runs", isAuthenticated, hasRole(["admin"]), async (req: any, res) => {
+    try {
+      const { startDate, endDate } = req.body;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+
+      const userId = req.user.claims.sub;
+      const run = await storage.createPayrollRun(startDate, endDate, userId);
+      res.status(201).json(run);
+    } catch (error) {
+      console.error("Error creating payroll run:", error);
+      res.status(500).json({ message: "Failed to create payroll run" });
+    }
+  });
+
+  // GET /api/payroll-runs/:id - get single payroll run with payslips
+  app.get("/api/payroll-runs/:id", isAuthenticated, hasRole(["admin", "site_manager"]), async (req, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const run = await storage.getPayrollRun(runId);
+      
+      if (!run) {
+        return res.status(404).json({ message: "Payroll run not found" });
+      }
+      
+      res.json(run);
+    } catch (error) {
+      console.error("Error fetching payroll run:", error);
+      res.status(500).json({ message: "Failed to fetch payroll run" });
+    }
+  });
+
+  // POST /api/payroll-runs/:id/process - process run to generate payslips (admin only)
+  app.post("/api/payroll-runs/:id/process", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      
+      await storage.processPayrollRun(runId);
+      
+      const updatedRun = await storage.getPayrollRun(runId);
+      res.json(updatedRun);
+    } catch (error: any) {
+      console.error("Error processing payroll run:", error);
+      res.status(500).json({ message: error.message || "Failed to process payroll run" });
+    }
+  });
+
+  // POST /api/payroll-runs/:id/finalize - finalize run (admin only)
+  app.post("/api/payroll-runs/:id/finalize", isAuthenticated, hasRole(["admin"]), async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      const run = await storage.finalizePayrollRun(runId, userId);
+      
+      if (!run) {
+        return res.status(404).json({ message: "Payroll run not found" });
+      }
+      
+      res.json(run);
+    } catch (error) {
+      console.error("Error finalizing payroll run:", error);
+      res.status(500).json({ message: "Failed to finalize payroll run" });
+    }
+  });
+
+  // GET /api/payslips - list payslips (admin sees all, workers see their own)
+  app.get("/api/payslips", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const filters: any = {};
+      
+      if (req.query.payrollRunId) {
+        filters.payrollRunId = parseInt(req.query.payrollRunId as string);
+      }
+      
+      // Workers can only see their own payslips
+      if (user.role === 'worker') {
+        filters.userId = userId;
+      } else if (req.query.userId) {
+        filters.userId = req.query.userId as string;
+      }
+
+      const payslips = await storage.getPayslips(filters);
+      res.json(payslips);
+    } catch (error) {
+      console.error("Error fetching payslips:", error);
+      res.status(500).json({ message: "Failed to fetch payslips" });
+    }
+  });
+
+  // GET /api/payslips/:id - get single payslip with breakdown
+  app.get("/api/payslips/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const payslipId = parseInt(req.params.id);
+      const payslip = await storage.getPayslip(payslipId);
+      
+      if (!payslip) {
+        return res.status(404).json({ message: "Payslip not found" });
+      }
+
+      // Check authorization - workers can only see their own payslips
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role === 'worker' && payslip.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to view this payslip" });
+      }
+      
+      res.json(payslip);
+    } catch (error) {
+      console.error("Error fetching payslip:", error);
+      res.status(500).json({ message: "Failed to fetch payslip" });
+    }
+  });
+
+  // POST /api/payslips/:id/deductions - add deduction to payslip (admin only)
+  app.post("/api/payslips/:id/deductions", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const payslipId = parseInt(req.params.id);
+      const { amount, reason, type } = req.body;
+      
+      if (!amount || !reason || !type) {
+        return res.status(400).json({ message: "Amount, reason, and type are required" });
+      }
+
+      const payslip = await storage.addDeduction(payslipId, {
+        amount: parseFloat(amount),
+        reason,
+        type,
+      });
+      
+      if (!payslip) {
+        return res.status(404).json({ message: "Payslip not found" });
+      }
+      
+      res.json(payslip);
+    } catch (error) {
+      console.error("Error adding deduction:", error);
+      res.status(500).json({ message: "Failed to add deduction" });
+    }
+  });
+
+  // Query/Ticket Routes
+
+  // GET /api/queries - list queries (workers see their own, admin/site_manager see all)
+  app.get("/api/queries", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const filters: any = {};
+      
+      if (req.query.category) {
+        filters.category = req.query.category as string;
+      }
+      if (req.query.status) {
+        filters.status = req.query.status as string;
+      }
+      if (req.query.priority) {
+        filters.priority = req.query.priority as string;
+      }
+      
+      // Workers can only see their own queries
+      if (user.role === 'worker') {
+        filters.userId = userId;
+      } else if (req.query.userId) {
+        filters.userId = req.query.userId as string;
+      }
+
+      const queries = await storage.getAllQueries(filters);
+      res.json(queries);
+    } catch (error) {
+      console.error("Error fetching queries:", error);
+      res.status(500).json({ message: "Failed to fetch queries" });
+    }
+  });
+
+  // GET /api/queries/:id - get query with messages
+  app.get("/api/queries/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const queryId = parseInt(req.params.id);
+      const query = await storage.getQuery(queryId);
+      
+      if (!query) {
+        return res.status(404).json({ message: "Query not found" });
+      }
+
+      // Check authorization - workers can only see their own queries
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role === 'worker' && query.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to view this query" });
+      }
+      
+      res.json(query);
+    } catch (error) {
+      console.error("Error fetching query:", error);
+      res.status(500).json({ message: "Failed to fetch query" });
+    }
+  });
+
+  // POST /api/queries - create query (all authenticated users)
+  app.post("/api/queries", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const queryData = insertQuerySchema.parse({
+        ...req.body,
+        userId,
+      });
+      
+      const query = await storage.createQuery(queryData);
+      res.status(201).json(query);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid query data", errors: error.errors });
+      }
+      console.error("Error creating query:", error);
+      res.status(500).json({ message: "Failed to create query" });
+    }
+  });
+
+  // PATCH /api/queries/:id/status - update status (admin, site_manager)
+  app.patch("/api/queries/:id/status", isAuthenticated, hasRole(["admin", "site_manager"]), async (req: any, res) => {
+    try {
+      const queryId = parseInt(req.params.id);
+      const { status } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+
+      const query = await storage.updateQueryStatus(queryId, status, userId);
+      
+      if (!query) {
+        return res.status(404).json({ message: "Query not found" });
+      }
+      
+      res.json(query);
+    } catch (error) {
+      console.error("Error updating query status:", error);
+      res.status(500).json({ message: "Failed to update query status" });
+    }
+  });
+
+  // PATCH /api/queries/:id/priority - update priority (admin, site_manager)
+  app.patch("/api/queries/:id/priority", isAuthenticated, hasRole(["admin", "site_manager"]), async (req: any, res) => {
+    try {
+      const queryId = parseInt(req.params.id);
+      const { priority } = req.body;
+      
+      if (!priority) {
+        return res.status(400).json({ message: "Priority is required" });
+      }
+
+      const query = await storage.updateQueryPriority(queryId, priority);
+      
+      if (!query) {
+        return res.status(404).json({ message: "Query not found" });
+      }
+      
+      res.json(query);
+    } catch (error) {
+      console.error("Error updating query priority:", error);
+      res.status(500).json({ message: "Failed to update query priority" });
+    }
+  });
+
+  // POST /api/queries/:id/messages - add message to query (all authenticated users)
+  app.post("/api/queries/:id/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const queryId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      // Verify query exists and user has access
+      const query = await storage.getQuery(queryId);
+      if (!query) {
+        return res.status(404).json({ message: "Query not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (user?.role === 'worker' && query.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to add messages to this query" });
+      }
+
+      const messageData = insertQueryMessageSchema.parse({
+        queryId,
+        userId,
+        message: req.body.message,
+      });
+      
+      const message = await storage.addMessage(queryId, messageData);
+      
+      // Return message with user info
+      const userInfo = await storage.getUser(userId);
+      res.status(201).json({ ...message, user: userInfo });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid message data", errors: error.errors });
+      }
+      console.error("Error adding message:", error);
+      res.status(500).json({ message: "Failed to add message" });
+    }
+  });
+
+  // GET /api/queries/:id/messages - get all messages for query
+  app.get("/api/queries/:id/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const queryId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      // Verify query exists and user has access
+      const query = await storage.getQuery(queryId);
+      if (!query) {
+        return res.status(404).json({ message: "Query not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (user?.role === 'worker' && query.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to view messages for this query" });
+      }
+
+      const messages = await storage.getQueryMessages(queryId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
     }
   });
 
