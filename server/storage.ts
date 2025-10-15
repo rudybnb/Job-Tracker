@@ -3,6 +3,7 @@ import {
   users,
   sites,
   shifts,
+  attendance,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -10,9 +11,11 @@ import {
   type InsertSite,
   type Shift,
   type InsertShift,
+  type Attendance,
+  type InsertAttendance,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, gte, lte } from "drizzle-orm";
+import { eq, and, or, gte, lte, isNull, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -38,6 +41,15 @@ export interface IStorage {
   updateShift(id: number, shift: Partial<InsertShift>): Promise<Shift | undefined>;
   deleteShift(id: number): Promise<boolean>;
   checkShiftConflict(userId: string, date: string, startTime: string, endTime: string, excludeShiftId?: number): Promise<boolean>;
+  
+  // Attendance operations
+  getAllAttendance(filters?: { date?: string, siteId?: number, userId?: string, approvalStatus?: string }): Promise<(Attendance & { user: User, site: Site })[]>;
+  getAttendance(id: number): Promise<(Attendance & { user: User, site: Site }) | undefined>;
+  clockIn(userId: string, siteId: number, shiftId?: number, notes?: string): Promise<Attendance>;
+  clockOut(attendanceId: number, notes?: string): Promise<Attendance | undefined>;
+  approveAttendance(id: number, approvedBy: string): Promise<Attendance | undefined>;
+  rejectAttendance(id: number, approvedBy: string): Promise<Attendance | undefined>;
+  calculateDuration(clockIn: string, clockOut: string): string;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -310,6 +322,148 @@ export class DatabaseStorage implements IStorage {
   async deleteShift(id: number): Promise<boolean> {
     const result = await db.delete(shifts).where(eq(shifts.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Attendance operations
+
+  async getAllAttendance(filters?: { date?: string, siteId?: number, userId?: string, approvalStatus?: string }): Promise<(Attendance & { user: User, site: Site })[]> {
+    let query = db
+      .select({
+        attendance: attendance,
+        user: users,
+        site: sites,
+      })
+      .from(attendance)
+      .innerJoin(users, eq(attendance.userId, users.id))
+      .innerJoin(sites, eq(attendance.siteId, sites.id));
+
+    const conditions = [];
+    if (filters?.date) {
+      conditions.push(eq(attendance.date, filters.date));
+    }
+    if (filters?.siteId) {
+      conditions.push(eq(attendance.siteId, filters.siteId));
+    }
+    if (filters?.userId) {
+      conditions.push(eq(attendance.userId, filters.userId));
+    }
+    if (filters?.approvalStatus) {
+      conditions.push(eq(attendance.approvalStatus, filters.approvalStatus));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const results = await query;
+    return results.map((r: any) => ({ ...r.attendance, user: r.user, site: r.site }));
+  }
+
+  async getAttendance(id: number): Promise<(Attendance & { user: User, site: Site }) | undefined> {
+    const [result] = await db
+      .select({
+        attendance: attendance,
+        user: users,
+        site: sites,
+      })
+      .from(attendance)
+      .innerJoin(users, eq(attendance.userId, users.id))
+      .innerJoin(sites, eq(attendance.siteId, sites.id))
+      .where(eq(attendance.id, id));
+
+    if (!result) return undefined;
+    return { ...result.attendance, user: result.user, site: result.site };
+  }
+
+  async clockIn(userId: string, siteId: number, shiftId?: number, notes?: string): Promise<Attendance> {
+    const now = new Date();
+    const date = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const clockInTime = now.toTimeString().substring(0, 5); // HH:MM
+
+    const attendanceData: InsertAttendance = {
+      userId,
+      siteId,
+      shiftId: shiftId || null,
+      date,
+      clockIn: clockInTime,
+      clockOut: null,
+      approvalStatus: 'pending',
+      approvedBy: null,
+      approvedAt: null,
+      notes: notes || null,
+    };
+
+    const [record] = await db.insert(attendance).values(attendanceData).returning();
+    return record;
+  }
+
+  async clockOut(attendanceId: number, notes?: string): Promise<Attendance | undefined> {
+    const now = new Date();
+    const clockOutTime = now.toTimeString().substring(0, 5); // HH:MM
+
+    const updateData: any = {
+      clockOut: clockOutTime,
+      updatedAt: new Date(),
+    };
+
+    if (notes) {
+      updateData.notes = notes;
+    }
+
+    const [record] = await db
+      .update(attendance)
+      .set(updateData)
+      .where(eq(attendance.id, attendanceId))
+      .returning();
+
+    return record;
+  }
+
+  async approveAttendance(id: number, approvedBy: string): Promise<Attendance | undefined> {
+    const [record] = await db
+      .update(attendance)
+      .set({
+        approvalStatus: 'approved',
+        approvedBy,
+        approvedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(attendance.id, id))
+      .returning();
+
+    return record;
+  }
+
+  async rejectAttendance(id: number, approvedBy: string): Promise<Attendance | undefined> {
+    const [record] = await db
+      .update(attendance)
+      .set({
+        approvalStatus: 'rejected',
+        approvedBy,
+        approvedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(attendance.id, id))
+      .returning();
+
+    return record;
+  }
+
+  calculateDuration(clockIn: string, clockOut: string): string {
+    const [inHours, inMinutes] = clockIn.split(':').map(Number);
+    const [outHours, outMinutes] = clockOut.split(':').map(Number);
+
+    let totalMinutes = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes);
+    
+    // Handle overnight shifts (clock out is next day)
+    if (totalMinutes < 0) {
+      totalMinutes += 24 * 60;
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    return `${hours}h ${minutes}m`;
   }
 }
 

@@ -10,7 +10,7 @@ interface AttendanceRowProps {
   site: string;
   clockIn: string;
   clockOut?: string;
-  status: "on-time" | "late" | "pending-approval" | "approved";
+  status: "on-time" | "late" | "pending-approval" | "approved" | "rejected";
   duration?: string;
   onApprove?: () => void;
   onReject?: () => void;
@@ -21,6 +21,7 @@ const statusConfig = {
   late: { label: "Late", className: "bg-chart-4/10 text-chart-4 border-chart-4/20" },
   "pending-approval": { label: "Pending", className: "bg-secondary text-secondary-foreground" },
   approved: { label: "Approved", className: "bg-chart-5/10 text-chart-5 border-chart-5/20" },
+  rejected: { label: "Rejected", className: "bg-destructive/10 text-destructive border-destructive/20" },
 };
 
 export function AttendanceRow({

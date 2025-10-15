@@ -3,7 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hasRole } from "./replitAuth";
-import { insertSiteSchema, insertUserSchema, insertShiftSchema } from "@shared/schema";
+import { insertSiteSchema, insertUserSchema, insertShiftSchema, insertAttendanceSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -269,6 +269,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting shift:", error);
       res.status(500).json({ message: "Failed to delete shift" });
+    }
+  });
+
+  // Attendance Management Routes
+
+  // GET /api/attendance - list attendance records with filters
+  app.get("/api/attendance", isAuthenticated, async (req, res) => {
+    try {
+      const filters: any = {};
+      
+      if (req.query.date) {
+        filters.date = req.query.date as string;
+      }
+      if (req.query.siteId) {
+        filters.siteId = parseInt(req.query.siteId as string);
+      }
+      if (req.query.userId) {
+        filters.userId = req.query.userId as string;
+      }
+      if (req.query.approvalStatus) {
+        filters.approvalStatus = req.query.approvalStatus as string;
+      }
+
+      const attendanceRecords = await storage.getAllAttendance(filters);
+      
+      // Add duration for completed records
+      const recordsWithDuration = attendanceRecords.map(record => ({
+        ...record,
+        duration: record.clockOut ? storage.calculateDuration(record.clockIn, record.clockOut) : null,
+      }));
+      
+      res.json(recordsWithDuration);
+    } catch (error) {
+      console.error("Error fetching attendance:", error);
+      res.status(500).json({ message: "Failed to fetch attendance" });
+    }
+  });
+
+  // GET /api/attendance/:id - get single record
+  app.get("/api/attendance/:id", isAuthenticated, async (req, res) => {
+    try {
+      const attendanceId = parseInt(req.params.id);
+      const record = await storage.getAttendance(attendanceId);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Attendance record not found" });
+      }
+      
+      // Add duration if completed
+      const recordWithDuration = {
+        ...record,
+        duration: record.clockOut ? storage.calculateDuration(record.clockIn, record.clockOut) : null,
+      };
+      
+      res.json(recordWithDuration);
+    } catch (error) {
+      console.error("Error fetching attendance record:", error);
+      res.status(500).json({ message: "Failed to fetch attendance record" });
+    }
+  });
+
+  // POST /api/attendance/clock-in - clock in (worker, site_manager, admin)
+  app.post("/api/attendance/clock-in", isAuthenticated, hasRole(["worker", "site_manager", "admin"]), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const clockInSchema = z.object({
+        siteId: z.number(),
+        shiftId: z.number().optional(),
+        notes: z.string().optional(),
+      });
+      
+      const { siteId, shiftId, notes } = clockInSchema.parse(req.body);
+      
+      const record = await storage.clockIn(userId, siteId, shiftId, notes);
+      res.status(201).json(record);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid clock-in data", errors: error.errors });
+      }
+      console.error("Error clocking in:", error);
+      res.status(500).json({ message: "Failed to clock in" });
+    }
+  });
+
+  // PATCH /api/attendance/:id/clock-out - clock out (worker, site_manager, admin)
+  app.patch("/api/attendance/:id/clock-out", isAuthenticated, hasRole(["worker", "site_manager", "admin"]), async (req, res) => {
+    try {
+      const attendanceId = parseInt(req.params.id);
+      
+      const clockOutSchema = z.object({
+        notes: z.string().optional(),
+      });
+      
+      const { notes } = clockOutSchema.parse(req.body);
+      
+      const record = await storage.clockOut(attendanceId, notes);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Attendance record not found" });
+      }
+      
+      res.json(record);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid clock-out data", errors: error.errors });
+      }
+      console.error("Error clocking out:", error);
+      res.status(500).json({ message: "Failed to clock out" });
+    }
+  });
+
+  // PATCH /api/attendance/:id/approve - approve (admin, site_manager)
+  app.patch("/api/attendance/:id/approve", isAuthenticated, hasRole(["admin", "site_manager"]), async (req: any, res) => {
+    try {
+      const attendanceId = parseInt(req.params.id);
+      const approverId = req.user.claims.sub;
+      
+      const record = await storage.approveAttendance(attendanceId, approverId);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Attendance record not found" });
+      }
+      
+      res.json(record);
+    } catch (error) {
+      console.error("Error approving attendance:", error);
+      res.status(500).json({ message: "Failed to approve attendance" });
+    }
+  });
+
+  // PATCH /api/attendance/:id/reject - reject (admin, site_manager)
+  app.patch("/api/attendance/:id/reject", isAuthenticated, hasRole(["admin", "site_manager"]), async (req: any, res) => {
+    try {
+      const attendanceId = parseInt(req.params.id);
+      const approverId = req.user.claims.sub;
+      
+      const record = await storage.rejectAttendance(attendanceId, approverId);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Attendance record not found" });
+      }
+      
+      res.json(record);
+    } catch (error) {
+      console.error("Error rejecting attendance:", error);
+      res.status(500).json({ message: "Failed to reject attendance" });
     }
   });
 
