@@ -2,7 +2,9 @@
 
 ## Overview
 
-A comprehensive workforce management platform designed for managing operations across 3 care sites. The system handles staff scheduling (rota), attendance tracking with fingerprint/kiosk clock-in/out, room monitoring via QR/barcode/NFC scans, payroll processing with detailed earnings and deductions, and HR query management. Built with a focus on data clarity and efficient workflows for both administrative and worker interfaces.
+A comprehensive workforce management platform designed for managing operations across 3 care sites (Kent, London, Essex). The system handles staff scheduling (rota) with conflict detection, attendance tracking with manual clock-in/out and approval workflows, room monitoring via QR code scanning with time-expiring tokens, payroll processing with overtime calculation (1.5x after 8 hours per shift) and detailed breakdowns, and HR query management. Built with a focus on data clarity and efficient workflows for both administrative and worker interfaces.
+
+**Status**: Fully operational - all core features implemented and tested
 
 ## User Preferences
 
@@ -38,13 +40,14 @@ Preferred communication style: Simple, everyday language.
 ### Core Data Models
 The system is built around these primary entities:
 - **Sites**: 3 distinct locations with color-coding (purple/teal/orange) for visual identification
-- **Users**: Staff members with roles (admin, site_manager, worker) and site assignments
-- **Shifts**: Scheduled work periods with conflict detection
-- **Attendance**: Clock-in/out records with approval workflow
-- **Rooms**: Physical spaces with rotating QR codes for security compliance
-- **Room Scans**: Visit logs with confidence scoring based on token freshness
-- **Payroll**: Pay runs, payslips with line-item breakdowns for earnings/deductions
-- **Queries**: Support ticket system for pay/HR/scheduling questions
+- **Users**: Staff members (firstName, lastName) with roles (admin, site_manager, worker) and site assignments. Uses varchar UUID primary keys for OIDC compatibility
+- **Shifts**: Scheduled work periods with automatic conflict detection for overlapping times
+- **Attendance**: Clock-in/out records with approval workflow (pending/approved/rejected states)
+- **Rooms**: Physical spaces with time-expiring QR codes (10-minute validity, refreshable)
+- **Room Scans**: Visit logs with confidence scoring based on QR token freshness
+- **Payroll Runs**: Pay period processing with draft/processing/finalized states
+- **Payslips**: Detailed breakdowns with line items for regular hours, overtime (1.5x), and deductions
+- **Queries**: Support ticket system for pay/HR/scheduling questions with message threads
 
 ### Security Architecture
 - **Authentication Flow**: Replit Auth with OpenID Connect
@@ -120,8 +123,27 @@ The system is built around these primary entities:
 - **connect-pg-simple**: PostgreSQL session store for Express
 - **express-session**: Session middleware
 
+### Implemented Features (October 2025)
+All core features are fully operational:
+1. **Site Management**: CRUD operations for managing 3 sites with color identification
+2. **Staff Directory**: User management with role-based access control (admin/site_manager/worker)
+3. **Shift Scheduling**: Rota system with automatic conflict detection for overlapping shifts
+4. **Attendance Tracking**: Manual clock-in/out with approval workflows and duration calculation
+5. **Room Monitoring**: QR code generation with 10-minute expiry and scan logging with confidence scores
+6. **Payroll Processing**: Automated payroll runs with overtime calculation (1.5x after 8hrs), deductions, and detailed breakdowns
+7. **Query System**: Staff support ticket system with message threads and status tracking
+8. **Analytics Dashboard**: Reports showing hours summary, cost analysis, attendance metrics, and site performance
+9. **Mobile Worker Views**: Dedicated mobile-optimized interface for workers (home, clock, pay, scan, profile)
+
 ### Future Integration Points
 - **Payroll Export**: CSV generation for Sage/Xero/BrightPay integration
 - **Biometric SDK**: Fingerprint device integration for kiosk clock-in
-- **Geofencing**: Location verification for clock-in/out events
+- **Geofencing**: Location verification for clock-in/out events  
 - **SMS/Email**: Notification service for alerts and reminders
+- **Advanced Reporting**: Custom report builder with date ranges and filters
+
+### Testing Notes
+- Database uses firstName/lastName columns (not fullName)
+- OIDC testing: Auth middleware allows testing without expires_at validation
+- All SelectItems must have non-empty value props (Radix UI requirement)
+- Object Storage is pre-configured for QR code assets
