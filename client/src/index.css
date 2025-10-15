@@ -112,3 +112,44 @@ body {
 [class*="fixed"][class*="bottom-0"][class*="left-0"][class*="right-0"] {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* Safe-area helpers for devices with notches/status bar overlays */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Apply a minimal global top inset so headers aren’t hidden */
+body {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Lightweight global top bar styling */
+.app-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  padding-top: env(safe-area-inset-top);
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-bottom: 6px;
+  pointer-events: none; /* allow underlying content scroll; buttons re-enable */
+}
+
+.app-topbar-btn {
+  pointer-events: auto;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(15, 23, 42, 0.85); /* slate-900 with opacity */
+  color: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+.app-topbar-btn + .app-topbar-btn {
+  margin-left: 8px;
+}

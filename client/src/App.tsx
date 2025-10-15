@@ -36,6 +36,7 @@ import VoiceControl from "@/pages/voice-control";
 
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AppTopBar from "@/components/AppTopBar";
 
 // Role-based dashboard component
 function RoleBased() {
@@ -210,6 +211,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
+        {/* Universal back/home top bar and safe area spacing */}
+        <AppTopBar />
         <Router />
       </TooltipProvider>
     </QueryClientProvider>
