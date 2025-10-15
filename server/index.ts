@@ -1,10 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+// Allow mobile WebView (capacitor://localhost) and other origins to call the API
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
