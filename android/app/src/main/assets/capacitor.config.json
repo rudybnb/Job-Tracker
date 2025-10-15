@@ -1,0 +1,5 @@
+{
+	"appId": "com.erd.contractors",
+	"appName": "Job Tracker",
+	"webDir": "dist/public"
+}
