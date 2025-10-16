@@ -39,10 +39,10 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Data Models
 The system is built around these primary entities:
-- **Sites**: 3 distinct locations with color-coding (purple/teal/orange) for visual identification
+- **Sites**: 3 distinct locations with color-coding (purple/teal/orange) for visual identification. Each site has a clock-in QR code (clockInQrCode, clockInQrExpiry) with 24-hour validity for location verification
 - **Users**: Staff members (firstName, lastName) with roles (admin, site_manager, worker) and site assignments. Uses varchar UUID primary keys for OIDC compatibility
 - **Shifts**: Scheduled work periods with automatic conflict detection for overlapping times
-- **Attendance**: Clock-in/out records with approval workflow (pending/approved/rejected states)
+- **Attendance**: Clock-in/out records requiring QR verification, with approval workflow (pending/approved/rejected states)
 - **Rooms**: Physical spaces with time-expiring QR codes (10-minute validity, refreshable)
 - **Room Scans**: Visit logs with confidence scoring based on QR token freshness
 - **Payroll Runs**: Pay period processing with draft/processing/finalized states
@@ -75,11 +75,16 @@ The system is built around these primary entities:
 - **Rationale**: Type safety from database to frontend, serverless scaling, WebSocket-based pooling for edge deployment
 - **Alternatives Considered**: Prisma (more abstractions), raw SQL (less type safety)
 
-**4. Time-Expiring QR Codes for Room Scans**
-- **Problem**: Need to verify room visits while preventing QR code replay attacks
-- **Solution**: Rotating QR codes with expiry timestamps and confidence scoring
-- **Rationale**: Security through time-bound tokens, confidence degradation alerts staff to refresh codes
-- **Implementation**: QR codes expire and must be refreshed, with confidence scores based on remaining validity
+**4. QR Code-Based Location Verification**
+- **Problem**: Need to verify worker physical presence at site for clock-in and room visits, while preventing QR code replay attacks
+- **Solution**: Two-tier QR code system:
+  - **Site Clock-In QR Codes**: 24-hour validity for location verification during clock-in (stored in sites table)
+  - **Room QR Codes**: 10-minute validity for room visit logging with confidence scoring
+- **Rationale**: Site QR codes have longer validity for convenience while maintaining security, room QR codes have shorter validity for precise visit tracking
+- **Implementation**: 
+  - Site QR: Base64-encoded JSON `{siteId, type: 'clock-in', timestamp, nonce}`, refreshable by admin/manager
+  - Room QR: Similar format with 10-minute expiry, confidence degradation alerts for refresh
+  - Frontend verification compares QR data against loaded site/room records
 
 **5. Payroll Line-Item Architecture**
 - **Problem**: Staff need transparency on all pay components (regular hours, overtime, deductions with reasons)
@@ -137,15 +142,16 @@ The system is built around these primary entities:
 
 ### Implemented Features (October 2025)
 All core features are fully operational:
-1. **Site Management**: CRUD operations for managing 3 sites with color identification
+1. **Site Management**: CRUD operations for managing 3 sites with color identification and QR code generation
 2. **Staff Directory**: User management with role-based access control (admin/site_manager/worker)
 3. **Shift Scheduling**: Rota system with automatic conflict detection for overlapping shifts
-4. **Attendance Tracking**: Manual clock-in/out with approval workflows and duration calculation
-5. **Room Monitoring**: QR code generation with 10-minute expiry and scan logging with confidence scores
-6. **Payroll Processing**: Automated payroll runs with overtime calculation (1.5x after 8hrs), deductions, and detailed breakdowns
-7. **Query System**: Staff support ticket system with message threads and status tracking
-8. **Analytics Dashboard**: Reports showing hours summary, cost analysis, attendance metrics, and site performance
-9. **Mobile Worker Views**: Dedicated mobile-optimized interface for workers (home, clock, pay, scan, profile)
+4. **QR-Based Clock-In**: Workers must scan site-specific QR codes to verify physical location before clocking in (24-hour QR validity)
+5. **Attendance Tracking**: QR-verified clock-in/out with approval workflows and duration calculation
+6. **Room Monitoring**: QR code generation with 10-minute expiry and scan logging with confidence scores
+7. **Payroll Processing**: Automated payroll runs with overtime calculation (1.5x after 8hrs), deductions, and detailed breakdowns
+8. **Query System**: Staff support ticket system with message threads and status tracking
+9. **Analytics Dashboard**: Reports showing hours summary, cost analysis, attendance metrics, and site performance
+10. **Mobile Worker Views**: Dedicated mobile-optimized interface for workers (home, clock with QR verification, pay, scan, profile)
 
 ### Future Integration Points
 - **Payroll Export**: CSV generation for Sage/Xero/BrightPay integration
