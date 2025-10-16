@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/lib/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { RoleRedirect } from "@/components/role-redirect";
 import { AuthWrapper } from "@/components/auth-wrapper";
+import { DevToolbar } from "@/components/dev-toolbar";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 
@@ -170,12 +171,17 @@ function Router() {
 }
 
 export default function App() {
+  const isDev = import.meta.env.DEV;
+  
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
+          <DevToolbar />
+          <div className={isDev ? "pt-12" : ""}>
+            <Router />
+          </div>
           <Toaster />
-          <Router />
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
