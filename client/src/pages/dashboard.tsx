@@ -41,6 +41,21 @@ export default function Dashboard() {
     return site?.color as "purple" | "teal" | "orange" || "purple";
   };
 
+  const getRelief = (shift: Shift & { user?: User; site?: Site }): string | undefined => {
+    // Find the next shift at the same site that starts when this one ends
+    const reliefShift = allShifts.find(s => 
+      s.siteId === shift.siteId && 
+      s.date === shift.date && 
+      s.startTime === shift.endTime &&
+      s.userId !== shift.userId
+    );
+    
+    if (reliefShift && reliefShift.user) {
+      return `${reliefShift.user.firstName} ${reliefShift.user.lastName}`;
+    }
+    return undefined;
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -105,6 +120,7 @@ export default function Dashboard() {
                   endTime={shift.endTime}
                   status={shift.status as "scheduled" | "in-progress" | "completed"}
                   duration={`${Math.round((new Date(`2000-01-01 ${shift.endTime}`).getTime() - new Date(`2000-01-01 ${shift.startTime}`).getTime()) / 3600000)}h`}
+                  relievedBy={getRelief(shift)}
                 />
               ))
             )}

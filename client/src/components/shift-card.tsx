@@ -14,6 +14,7 @@ interface ShiftCardProps {
   endTime: string;
   status: "scheduled" | "in-progress" | "completed" | "conflict";
   duration?: string;
+  relievedBy?: string;
 }
 
 const siteColors = {
@@ -40,6 +41,7 @@ export function ShiftCard({
   endTime,
   status,
   duration,
+  relievedBy,
 }: ShiftCardProps) {
   const formattedDate = format(parseISO(date), "EEE, MMM d");
   
@@ -68,6 +70,12 @@ export function ShiftCard({
             <span className="font-mono">{startTime} - {endTime}</span>
             {duration && <span>({duration})</span>}
           </div>
+          {relievedBy && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <User className="h-3 w-3" />
+              <span>Relieved by: <span className="font-medium">{relievedBy}</span></span>
+            </div>
+          )}
           <Badge className={statusColors[status]} variant="outline">
             {status.replace("-", " ")}
           </Badge>
