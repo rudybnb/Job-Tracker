@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Shield, Briefcase, Users, LogOut } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
 
 export function DevToolbar() {
   const isDev = import.meta.env.DEV;
@@ -7,10 +8,13 @@ export function DevToolbar() {
   if (!isDev) return null;
 
   const switchRole = async (role: string) => {
+    // Clear all cached data before switching roles
+    await queryClient.clear();
     window.location.href = `/api/dev-login/${role}`;
   };
 
   const logout = async () => {
+    await queryClient.clear();
     window.location.href = '/api/logout';
   };
 
