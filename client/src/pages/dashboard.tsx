@@ -100,6 +100,7 @@ export default function Dashboard() {
                   role={shift.role}
                   site={shift.site?.name || "Unknown"}
                   siteColor={getSiteColor(shift.siteId)}
+                  date={shift.date}
                   startTime={shift.startTime}
                   endTime={shift.endTime}
                   status={shift.status as "scheduled" | "in-progress" | "completed"}

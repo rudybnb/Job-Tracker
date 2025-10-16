@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MapPin, User } from "lucide-react";
+import { Clock, MapPin, User, Calendar } from "lucide-react";
+import { format, parseISO } from "date-fns";
 
 interface ShiftCardProps {
   id: string;
@@ -8,6 +9,7 @@ interface ShiftCardProps {
   role: string;
   site: string;
   siteColor: "purple" | "teal" | "orange";
+  date: string;
   startTime: string;
   endTime: string;
   status: "scheduled" | "in-progress" | "completed" | "conflict";
@@ -33,11 +35,14 @@ export function ShiftCard({
   role,
   site,
   siteColor,
+  date,
   startTime,
   endTime,
   status,
   duration,
 }: ShiftCardProps) {
+  const formattedDate = format(parseISO(date), "EEE, MMM d");
+  
   return (
     <Card
       className="hover-elevate cursor-pointer transition-all"
@@ -54,6 +59,10 @@ export function ShiftCard({
           </Badge>
         </div>
         <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Calendar className="h-3 w-3" />
+            <span className="font-medium">{formattedDate}</span>
+          </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
             <span className="font-mono">{startTime} - {endTime}</span>
