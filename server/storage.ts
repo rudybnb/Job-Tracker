@@ -1367,7 +1367,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async clearAllPayroll(): Promise<void> {
-    await db.delete(payslipLineItems);
     await db.delete(payslips);
     await db.delete(payrollRuns);
   }
