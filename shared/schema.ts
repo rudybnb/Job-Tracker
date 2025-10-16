@@ -20,6 +20,8 @@ export const sites = pgTable("sites", {
   name: text("name").notNull().unique(),
   color: text("color").notNull(), // purple, teal, orange
   location: text("location").notNull(),
+  clockInQrCode: text("clock_in_qr_code").notNull().default(''), // QR code for clock-in verification
+  clockInQrExpiry: timestamp("clock_in_qr_expiry"), // Expiry time for QR code
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -27,6 +29,8 @@ export const sites = pgTable("sites", {
 export const insertSiteSchema = createInsertSchema(sites).omit({
   id: true,
   createdAt: true,
+  clockInQrCode: true,
+  clockInQrExpiry: true,
 });
 export type InsertSite = z.infer<typeof insertSiteSchema>;
 export type Site = typeof sites.$inferSelect;
