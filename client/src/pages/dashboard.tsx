@@ -12,13 +12,17 @@ import { format, parseISO } from "date-fns";
 export default function Dashboard() {
   const today = format(new Date(), "yyyy-MM-dd");
   
-  const { data: shifts = [] } = useQuery<(Shift & { user?: User; site?: Site })[]>({
-    queryKey: ["/api/shifts", { date: today }],
+  // Get all upcoming shifts (not filtered by date)
+  const { data: allShifts = [] } = useQuery<(Shift & { user?: User; site?: Site })[]>({
+    queryKey: ["/api/shifts"],
   });
 
   const { data: attendance = [] } = useQuery<(Attendance & { user?: User; site?: Site })[]>({
     queryKey: ["/api/attendance", { limit: 5 }],
   });
+  
+  // Filter for today's and upcoming shifts
+  const shifts = allShifts.filter(shift => shift.date >= today).slice(0, 10);
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -74,7 +78,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
-            <CardTitle>Today's Shifts</CardTitle>
+            <CardTitle>Upcoming Shifts</CardTitle>
             <Link href="/rota">
               <Button variant="ghost" size="sm" data-testid="link-view-all-shifts">
                 View All
@@ -85,7 +89,7 @@ export default function Dashboard() {
           <CardContent className="space-y-3">
             {shifts.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No shifts scheduled for today
+                No upcoming shifts scheduled
               </p>
             ) : (
               shifts.slice(0, 5).map((shift) => (
