@@ -62,6 +62,10 @@ export default function WorkerClock() {
         throw new Error("Please scan the QR code");
       }
       
+      if (sitesLoading) {
+        throw new Error("Loading site data, please wait...");
+      }
+      
       // Decode QR code and verify
       try {
         const qrData = JSON.parse(atob(qrCode.trim()));
@@ -73,7 +77,7 @@ export default function WorkerClock() {
         // Find the site with this QR code
         const site = sites.find(s => s.id === qrData.siteId);
         if (!site) {
-          throw new Error("Site not found");
+          throw new Error(`Site not found for ID ${qrData.siteId}. Available sites: ${sites.map(s => s.id).join(', ')}`);
         }
         
         // Check if QR code matches and is not expired
@@ -292,7 +296,7 @@ export default function WorkerClock() {
                       variant="outline"
                       size="lg"
                       onClick={() => verifyQrMutation.mutate()}
-                      disabled={verifyQrMutation.isPending || !qrCode.trim()}
+                      disabled={verifyQrMutation.isPending || !qrCode.trim() || sitesLoading}
                       data-testid="button-verify-qr"
                     >
                       <QrCode className="h-5 w-5" />

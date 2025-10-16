@@ -98,7 +98,7 @@ export default function Sites() {
       color: "purple",
       location: "",
       isActive: true,
-    },
+    } as InsertSite,
   });
 
   const onSubmit = (data: InsertSite) => {
