@@ -1,11 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, UserCircle } from "lucide-react";
+import { Building2, UserCircle, Shield, Users, Briefcase } from "lucide-react";
 
 export default function Login() {
   const handleLogin = () => {
     window.location.href = "/api/login";
   };
+
+  const isDev = import.meta.env.DEV;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -34,6 +36,46 @@ export default function Login() {
             <UserCircle className="mr-2 h-5 w-5" />
             Login with Replit
           </Button>
+
+          {isDev && (
+            <div className="space-y-3 pt-4 border-t">
+              <p className="text-xs text-center text-muted-foreground font-medium">
+                Development Testing - Quick Login
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  onClick={() => window.location.href = "/api/dev-login/admin"}
+                  variant="outline"
+                  size="sm"
+                  className="flex flex-col gap-1 h-auto py-3"
+                  data-testid="button-dev-login-admin"
+                >
+                  <Shield className="h-4 w-4" />
+                  <span className="text-xs">Admin</span>
+                </Button>
+                <Button
+                  onClick={() => window.location.href = "/api/dev-login/site_manager"}
+                  variant="outline"
+                  size="sm"
+                  className="flex flex-col gap-1 h-auto py-3"
+                  data-testid="button-dev-login-manager"
+                >
+                  <Briefcase className="h-4 w-4" />
+                  <span className="text-xs">Manager</span>
+                </Button>
+                <Button
+                  onClick={() => window.location.href = "/api/dev-login/worker"}
+                  variant="outline"
+                  size="sm"
+                  className="flex flex-col gap-1 h-auto py-3"
+                  data-testid="button-dev-login-worker"
+                >
+                  <Users className="h-4 w-4" />
+                  <span className="text-xs">Worker</span>
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="text-xs text-center text-muted-foreground space-y-1">
             <p>Staff will see their mobile interface</p>

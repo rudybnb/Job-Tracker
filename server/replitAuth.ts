@@ -121,6 +121,62 @@ export async function setupAuth(app: Express) {
       );
     });
   });
+
+  // Development bypass for testing
+  if (process.env.NODE_ENV === 'development') {
+    app.get("/api/dev-login/:role", async (req, res) => {
+      const role = req.params.role as 'admin' | 'site_manager' | 'worker';
+      const testUsers = {
+        admin: {
+          sub: 'dev-admin-123',
+          email: 'admin@test.com',
+          first_name: 'Admin',
+          last_name: 'User',
+        },
+        site_manager: {
+          sub: 'dev-manager-123',
+          email: 'manager@test.com',
+          first_name: 'Site',
+          last_name: 'Manager',
+        },
+        worker: {
+          sub: 'dev-worker-123',
+          email: 'worker@test.com',
+          first_name: 'Test',
+          last_name: 'Worker',
+        },
+      };
+
+      const claims = testUsers[role] || testUsers.admin;
+      
+      // Create user in database
+      await storage.upsertUser({
+        id: claims.sub,
+        email: claims.email,
+        firstName: claims.first_name,
+        lastName: claims.last_name,
+      });
+
+      // Update role
+      const dbUser = await storage.getUser(claims.sub);
+      if (dbUser) {
+        await storage.updateUser(claims.sub, { 
+          role,
+          siteId: role === 'worker' ? 1 : undefined,
+          hourlyRate: role === 'worker' ? '15.00' : undefined,
+        });
+      }
+
+      // Create fake session
+      const user = { claims };
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ error: 'Login failed' });
+        }
+        res.redirect('/');
+      });
+    });
+  }
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
