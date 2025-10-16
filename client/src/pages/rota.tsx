@@ -40,6 +40,7 @@ export default function Rota() {
   const [overlapCount, setOverlapCount] = useState(0);
   const [showSecondaryShiftPrompt, setShowSecondaryShiftPrompt] = useState(false);
   const [createdShiftData, setCreatedShiftData] = useState<ShiftFormData | null>(null);
+  const [staffingImbalance, setStaffingImbalance] = useState<{current: number, complementary: number} | null>(null);
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -98,16 +99,28 @@ export default function Rota() {
       form.reset();
       setConflictWarning(false);
       
-      // Check if there's a complementary shift (secondary shift)
+      // Count current shift type workers (including the one just created)
+      const currentShiftWorkers = shifts.filter(s => 
+        s.siteId === variables.siteId && 
+        s.date === variables.date && 
+        s.shiftType === variables.shiftType
+      ).length + 1; // +1 for the shift just created
+      
+      // Count complementary shift type workers
       const complementaryType = variables.shiftType === "day" ? "night" : "day";
-      const hasComplementaryShift = shifts.some(s => 
+      const complementaryShiftWorkers = shifts.filter(s => 
         s.siteId === variables.siteId && 
         s.date === variables.date && 
         s.shiftType === complementaryType
-      );
+      ).length;
       
-      if (!hasComplementaryShift) {
+      // Prompt if complementary shift has fewer workers
+      if (complementaryShiftWorkers < currentShiftWorkers) {
         setCreatedShiftData(variables);
+        setStaffingImbalance({
+          current: currentShiftWorkers,
+          complementary: complementaryShiftWorkers
+        });
         setShowSecondaryShiftPrompt(true);
       }
       
@@ -253,6 +266,7 @@ export default function Rota() {
       
       setShowSecondaryShiftPrompt(false);
       setCreatedShiftData(null);
+      setStaffingImbalance(null);
       setIsCreateDialogOpen(true);
     }
   }
@@ -260,6 +274,7 @@ export default function Rota() {
   function handleSkipSecondaryShift() {
     setShowSecondaryShiftPrompt(false);
     setCreatedShiftData(null);
+    setStaffingImbalance(null);
   }
 
   const handlePreviousWeek = () => {
@@ -616,16 +631,27 @@ export default function Rota() {
       <Dialog open={showSecondaryShiftPrompt} onOpenChange={setShowSecondaryShiftPrompt}>
         <DialogContent className="max-w-md" data-testid="dialog-secondary-shift">
           <DialogHeader>
-            <DialogTitle>Create Secondary Shift?</DialogTitle>
+            <DialogTitle>Balance Staffing Levels?</DialogTitle>
             <DialogDescription>
-              This site runs 24 hours a day, 365 days a year.
+              This site runs 24 hours a day, 365 days a year and requires balanced coverage.
             </DialogDescription>
           </DialogHeader>
           
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              No <strong>{createdShiftData?.shiftType === "day" ? "night" : "day"} shift</strong> found for this site on this date. Would you like to create the complementary shift to ensure 24-hour coverage?
+              <strong>Staffing imbalance detected:</strong>
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span>{createdShiftData?.shiftType === "day" ? "Day" : "Night"} shift workers:</span>
+                  <strong className="text-lg">{staffingImbalance?.current}</strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>{createdShiftData?.shiftType === "day" ? "Night" : "Day"} shift workers:</span>
+                  <strong className="text-lg">{staffingImbalance?.complementary}</strong>
+                </div>
+              </div>
+              <p className="mt-3">Would you like to add another {createdShiftData?.shiftType === "day" ? "night" : "day"} shift worker to balance coverage?</p>
             </AlertDescription>
           </Alert>
 
@@ -643,7 +669,7 @@ export default function Rota() {
               onClick={handleCreateSecondaryShift}
               data-testid="button-create-secondary"
             >
-              Create {createdShiftData?.shiftType === "day" ? "Night" : "Day"} Shift
+              Add {createdShiftData?.shiftType === "day" ? "Night" : "Day"} Worker
             </Button>
           </DialogFooter>
         </DialogContent>
