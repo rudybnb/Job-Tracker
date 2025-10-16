@@ -3,8 +3,12 @@ import { Shield, Briefcase, Users, LogOut } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 
 export function DevToolbar() {
-  // Check both Vite dev mode and localhost URL
-  const isDev = import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname.includes('.replit.dev');
+  // Always show in development - check for replit.dev or localhost domains
+  const hostname = window.location.hostname;
+  const isDev = hostname.includes('.replit.dev') || 
+                hostname === 'localhost' || 
+                hostname === '127.0.0.1' ||
+                import.meta.env.DEV;
 
   if (!isDev) return null;
 
