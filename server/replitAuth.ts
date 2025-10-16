@@ -160,9 +160,16 @@ export async function setupAuth(app: Express) {
       // Update role
       const dbUser = await storage.getUser(claims.sub);
       if (dbUser) {
+        // Get first available site for workers
+        let siteId = undefined;
+        if (role === 'worker') {
+          const sites = await storage.getAllSites();
+          siteId = sites.length > 0 ? sites[0].id : undefined;
+        }
+        
         await storage.updateUser(claims.sub, { 
           role,
-          siteId: role === 'worker' ? 1 : undefined,
+          siteId,
           hourlyRate: role === 'worker' ? '15.00' : undefined,
         });
       }
