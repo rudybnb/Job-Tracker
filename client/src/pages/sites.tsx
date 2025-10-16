@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSiteSchema, type InsertSite, type Site } from "@shared/schema";
-import { Building2, MapPin, Plus, Edit2, CheckCircle2, XCircle } from "lucide-react";
+import { Building2, MapPin, Plus, Edit2, CheckCircle2, XCircle, QrCode, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const siteColors = [
@@ -66,6 +66,26 @@ export default function Sites() {
       toast({
         title: "Error",
         description: error.message || "Failed to update site",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const refreshQrMutation = useMutation({
+    mutationFn: async (siteId: number) => {
+      return await apiRequest("POST", `/api/sites/${siteId}/refresh-clock-qr`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sites"] });
+      toast({
+        title: "QR Code Refreshed",
+        description: "Clock-in QR code has been updated",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to refresh QR code",
         variant: "destructive",
       });
     },
@@ -201,6 +221,32 @@ export default function Sites() {
                       </>
                     )}
                     <div className={`ml-auto h-3 w-3 rounded-full ${colorClasses.bg}`} />
+                  </div>
+                  <div className="pt-2 border-t space-y-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <QrCode className="h-3 w-3" />
+                        Clock-in QR
+                      </span>
+                      {site.clockInQrExpiry ? (
+                        <span className={new Date(site.clockInQrExpiry) > new Date() ? "text-success" : "text-destructive"}>
+                          {new Date(site.clockInQrExpiry) > new Date() ? "Active" : "Expired"}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Not generated</span>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => refreshQrMutation.mutate(site.id)}
+                      disabled={refreshQrMutation.isPending}
+                      data-testid={`button-refresh-qr-${site.id}`}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-2" />
+                      {site.clockInQrCode ? "Refresh QR" : "Generate QR"}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
