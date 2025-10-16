@@ -8,7 +8,9 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { RoleRedirect } from "@/components/role-redirect";
+import { AuthWrapper } from "@/components/auth-wrapper";
 import NotFound from "@/pages/not-found";
+import Login from "@/pages/login";
 
 import Dashboard from "@/pages/dashboard";
 import Rota from "@/pages/rota";
@@ -59,62 +61,107 @@ function AdminDashboard() {
 function Router() {
   return (
     <Switch>
-      {/* Home Route - Auto-redirect based on role */}
+      {/* Public Login Route */}
+      <Route path="/login" component={Login} />
+
+      {/* Protected Home Route - Auto-redirect based on role */}
       <Route path="/">
-        <RoleRedirect adminComponent={AdminDashboard} workerRedirect="/worker" />
-      </Route>
-      <Route path="/rota">
-        <AdminLayout>
-          <Rota />
-        </AdminLayout>
-      </Route>
-      <Route path="/attendance">
-        <AdminLayout>
-          <Attendance />
-        </AdminLayout>
-      </Route>
-      <Route path="/rooms">
-        <AdminLayout>
-          <Rooms />
-        </AdminLayout>
-      </Route>
-      <Route path="/payroll">
-        <AdminLayout>
-          <Payroll />
-        </AdminLayout>
-      </Route>
-      <Route path="/reports">
-        <AdminLayout>
-          <Reports />
-        </AdminLayout>
-      </Route>
-      <Route path="/queries">
-        <AdminLayout>
-          <Queries />
-        </AdminLayout>
-      </Route>
-      <Route path="/sites">
-        <AdminLayout>
-          <Sites />
-        </AdminLayout>
-      </Route>
-      <Route path="/directory">
-        <AdminLayout>
-          <Directory />
-        </AdminLayout>
-      </Route>
-      <Route path="/settings">
-        <AdminLayout>
-          <Settings />
-        </AdminLayout>
+        <AuthWrapper>
+          <RoleRedirect adminComponent={AdminDashboard} workerRedirect="/worker" />
+        </AuthWrapper>
       </Route>
 
-      {/* Worker Routes - Mobile-First */}
-      <Route path="/worker" component={WorkerHome} />
-      <Route path="/worker/clock" component={WorkerClock} />
-      <Route path="/worker/pay" component={WorkerPay} />
-      <Route path="/worker/scan" component={WorkerScan} />
-      <Route path="/worker/profile" component={WorkerProfile} />
+      {/* Protected Admin Routes */}
+      <Route path="/rota">
+        <AuthWrapper>
+          <AdminLayout>
+            <Rota />
+          </AdminLayout>
+        </AuthWrapper>
+      </Route>
+      <Route path="/attendance">
+        <AuthWrapper>
+          <AdminLayout>
+            <Attendance />
+          </AdminLayout>
+        </AuthWrapper>
+      </Route>
+      <Route path="/rooms">
+        <AuthWrapper>
+          <AdminLayout>
+            <Rooms />
+          </AdminLayout>
+        </AuthWrapper>
+      </Route>
+      <Route path="/payroll">
+        <AuthWrapper>
+          <AdminLayout>
+            <Payroll />
+          </AdminLayout>
+        </AuthWrapper>
+      </Route>
+      <Route path="/reports">
+        <AuthWrapper>
+          <AdminLayout>
+            <Reports />
+          </AdminLayout>
+        </AuthWrapper>
+      </Route>
+      <Route path="/queries">
+        <AuthWrapper>
+          <AdminLayout>
+            <Queries />
+          </AdminLayout>
+        </AuthWrapper>
+      </Route>
+      <Route path="/sites">
+        <AuthWrapper>
+          <AdminLayout>
+            <Sites />
+          </AdminLayout>
+        </AuthWrapper>
+      </Route>
+      <Route path="/directory">
+        <AuthWrapper>
+          <AdminLayout>
+            <Directory />
+          </AdminLayout>
+        </AuthWrapper>
+      </Route>
+      <Route path="/settings">
+        <AuthWrapper>
+          <AdminLayout>
+            <Settings />
+          </AdminLayout>
+        </AuthWrapper>
+      </Route>
+
+      {/* Protected Worker Routes - Mobile-First */}
+      <Route path="/worker">
+        <AuthWrapper>
+          <WorkerHome />
+        </AuthWrapper>
+      </Route>
+      <Route path="/worker/clock">
+        <AuthWrapper>
+          <WorkerClock />
+        </AuthWrapper>
+      </Route>
+      <Route path="/worker/pay">
+        <AuthWrapper>
+          <WorkerPay />
+        </AuthWrapper>
+      </Route>
+      <Route path="/worker/scan">
+        <AuthWrapper>
+          <WorkerScan />
+        </AuthWrapper>
+      </Route>
+      <Route path="/worker/profile">
+        <AuthWrapper>
+          <WorkerProfile />
+        </AuthWrapper>
+      </Route>
 
       {/* Fallback to 404 */}
       <Route component={NotFound} />
