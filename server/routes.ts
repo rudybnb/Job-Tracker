@@ -444,8 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/rooms - create room (admin only)
   app.post("/api/rooms", isAuthenticated, hasRole(["admin"]), async (req, res) => {
     try {
-      const roomSchema = insertRoomSchema.omit({ qrCode: true, qrCodeExpiry: true });
-      const roomData = roomSchema.parse(req.body);
+      const roomData = insertRoomSchema.parse(req.body);
       const room = await storage.createRoom(roomData);
       res.status(201).json(room);
     } catch (error) {
