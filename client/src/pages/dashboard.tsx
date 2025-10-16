@@ -5,99 +5,69 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, Clock, AlertCircle, DollarSign, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import type { Shift, Attendance, User, Site } from "@shared/schema";
+import { format, parseISO } from "date-fns";
 
 export default function Dashboard() {
-  //todo: remove mock functionality
-  const mockShifts = [
-    {
-      id: "1",
-      staffName: "Sarah Johnson",
-      role: "Care Assistant",
-      site: "Kent",
-      siteColor: "purple" as const,
-      startTime: "08:00",
-      endTime: "16:00",
-      status: "in-progress" as const,
-      duration: "8h",
-    },
-    {
-      id: "2",
-      staffName: "Mike Chen",
-      role: "Senior Care",
-      site: "London",
-      siteColor: "teal" as const,
-      startTime: "14:00",
-      endTime: "22:00",
-      status: "scheduled" as const,
-      duration: "8h",
-    },
-    {
-      id: "3",
-      staffName: "Emma Wilson",
-      role: "Nurse",
-      site: "Essex",
-      siteColor: "orange" as const,
-      startTime: "22:00",
-      endTime: "06:00",
-      status: "scheduled" as const,
-      duration: "8h",
-    },
-  ];
+  const today = format(new Date(), "yyyy-MM-dd");
+  
+  const { data: shifts = [] } = useQuery<(Shift & { user?: User; site?: Site })[]>({
+    queryKey: ["/api/shifts", { date: today }],
+  });
 
-  const mockAttendance = [
-    {
-      id: "1",
-      staffName: "David Brown",
-      initials: "DB",
-      site: "Kent Site",
-      clockIn: "07:58",
-      clockOut: "16:05",
-      status: "pending-approval" as const,
-      duration: "8h 7m",
-    },
-    {
-      id: "2",
-      staffName: "Lisa White",
-      initials: "LW",
-      site: "London Site",
-      clockIn: "08:15",
-      status: "late" as const,
-    },
-  ];
+  const { data: attendance = [] } = useQuery<(Attendance & { user?: User; site?: Site })[]>({
+    queryKey: ["/api/attendance", { limit: 5 }],
+  });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const { data: sites = [] } = useQuery<Site[]>({
+    queryKey: ["/api/sites"],
+  });
+
+  const totalStaff = users.length;
+  const clockedInNow = attendance.filter(a => a.clockOut === null).length;
+  const pendingApprovals = attendance.filter(a => a.approvalStatus === "pending").length;
+
+  const getSiteColor = (siteId: number): "purple" | "teal" | "orange" => {
+    const site = sites.find(s => s.id === siteId);
+    return site?.color as "purple" | "teal" | "orange" || "purple";
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-semibold">Overview</h1>
         <p className="text-muted-foreground mt-1">
-          Workforce management dashboard for all 3 sites
+          Workforce management dashboard for all {sites.length} sites
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Staff"
-          value={156}
+          value={totalStaff}
           icon={Users}
-          trend={{ value: 12, label: "from last month" }}
         />
         <StatCard
           title="Clocked In Now"
-          value={89}
+          value={clockedInNow}
           icon={Clock}
           variant="success"
         />
         <StatCard
           title="Pending Approvals"
-          value={7}
+          value={pendingApprovals}
           icon={AlertCircle}
           variant="warning"
         />
         <StatCard
-          title="Weekly Payroll"
-          value="£45.2k"
+          title="Today's Shifts"
+          value={shifts.length}
           icon={DollarSign}
-          trend={{ value: -3, label: "from last week" }}
         />
       </div>
 
@@ -113,9 +83,26 @@ export default function Dashboard() {
             </Link>
           </CardHeader>
           <CardContent className="space-y-3">
-            {mockShifts.map((shift) => (
-              <ShiftCard key={shift.id} {...shift} />
-            ))}
+            {shifts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No shifts scheduled for today
+              </p>
+            ) : (
+              shifts.slice(0, 5).map((shift) => (
+                <ShiftCard
+                  key={shift.id}
+                  id={shift.id.toString()}
+                  staffName={shift.user ? `${shift.user.firstName} ${shift.user.lastName}` : "Unknown"}
+                  role={shift.role}
+                  site={shift.site?.name || "Unknown"}
+                  siteColor={getSiteColor(shift.siteId)}
+                  startTime={shift.startTime}
+                  endTime={shift.endTime}
+                  status={shift.status as "scheduled" | "in-progress" | "completed"}
+                  duration={`${Math.round((new Date(`2000-01-01 ${shift.endTime}`).getTime() - new Date(`2000-01-01 ${shift.startTime}`).getTime()) / 3600000)}h`}
+                />
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -130,14 +117,30 @@ export default function Dashboard() {
             </Link>
           </CardHeader>
           <CardContent className="space-y-0">
-            {mockAttendance.map((record) => (
-              <AttendanceRow
-                key={record.id}
-                {...record}
-                onApprove={() => console.log("Approved", record.id)}
-                onReject={() => console.log("Rejected", record.id)}
-              />
-            ))}
+            {attendance.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No recent attendance records
+              </p>
+            ) : (
+              attendance.slice(0, 5).map((record) => {
+                const user = record.user;
+                const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : "??";
+                return (
+                  <AttendanceRow
+                    key={record.id}
+                    id={record.id.toString()}
+                    staffName={user ? `${user.firstName} ${user.lastName}` : "Unknown"}
+                    initials={initials}
+                    site={record.site?.name || "Unknown"}
+                    clockIn={record.clockIn}
+                    clockOut={record.clockOut || undefined}
+                    status={record.approvalStatus as "pending-approval" | "approved" | "late"}
+                    onApprove={() => console.log("Approved", record.id)}
+                    onReject={() => console.log("Rejected", record.id)}
+                  />
+                );
+              })
+            )}
           </CardContent>
         </Card>
       </div>
