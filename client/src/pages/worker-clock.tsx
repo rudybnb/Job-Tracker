@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { WorkerBottomNav } from "@/components/worker-bottom-nav";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, MapPin, Calendar, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Clock, MapPin, Calendar, CheckCircle2, XCircle, AlertCircle, QrCode } from "lucide-react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -17,7 +17,8 @@ export default function WorkerClock() {
   const { toast } = useToast();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [notes, setNotes] = useState("");
-  const [selectedSiteId, setSelectedSiteId] = useState<number | null>(null);
+  const [qrCode, setQrCode] = useState("");
+  const [verifiedSiteId, setVerifiedSiteId] = useState<number | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -55,13 +56,67 @@ export default function WorkerClock() {
   )[0];
   const isClockedIn = lastAttendance && !lastAttendance.clockOut;
 
+  const verifyQrMutation = useMutation({
+    mutationFn: async () => {
+      if (!qrCode.trim()) {
+        throw new Error("Please scan the QR code");
+      }
+      
+      // Decode QR code and verify
+      try {
+        const qrData = JSON.parse(atob(qrCode.trim()));
+        
+        if (qrData.type !== 'clock-in') {
+          throw new Error("Invalid QR code type");
+        }
+        
+        // Find the site with this QR code
+        const site = sites.find(s => s.id === qrData.siteId);
+        if (!site) {
+          throw new Error("Site not found");
+        }
+        
+        // Check if QR code matches and is not expired
+        if (site.clockInQrCode !== qrCode.trim()) {
+          throw new Error("QR code does not match site");
+        }
+        
+        if (site.clockInQrExpiry && new Date(site.clockInQrExpiry) < new Date()) {
+          throw new Error("QR code has expired. Please ask a manager to refresh it.");
+        }
+        
+        return qrData.siteId;
+      } catch (error) {
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error("Invalid QR code format");
+      }
+    },
+    onSuccess: (siteId: number) => {
+      setVerifiedSiteId(siteId);
+      toast({
+        title: "QR Code Verified",
+        description: `Location verified: ${sites.find(s => s.id === siteId)?.name}`,
+      });
+    },
+    onError: (error: Error) => {
+      setVerifiedSiteId(null);
+      toast({
+        title: "Verification Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const clockInMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedSiteId) {
-        throw new Error("Please select a site");
+      if (!verifiedSiteId) {
+        throw new Error("Please scan the QR code first");
       }
       return apiRequest('POST', '/api/attendance/clock-in', {
-        siteId: selectedSiteId,
+        siteId: verifiedSiteId,
         shiftId: currentShift?.id,
         notes: notes || undefined,
       });
@@ -69,6 +124,8 @@ export default function WorkerClock() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/attendance'] });
       setNotes("");
+      setQrCode("");
+      setVerifiedSiteId(null);
       toast({
         title: "Clocked In",
         description: "You have successfully clocked in",
@@ -208,30 +265,47 @@ export default function WorkerClock() {
 
         {/* Clock In/Out Controls */}
         <Card data-testid="card-clock-controls">
-          <CardContent className="p-6 space-y-4">
+          <CardHeader>
+            <CardTitle className="text-base">
+              {isClockedIn ? "Clock Out" : "Clock In with QR Code"}
+            </CardTitle>
             {!isClockedIn && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Select Site</label>
-                <Select 
-                  value={selectedSiteId?.toString()} 
-                  onValueChange={(value) => setSelectedSiteId(parseInt(value))}
-                  data-testid="select-site"
-                >
-                  <SelectTrigger className="min-h-12">
-                    <SelectValue placeholder="Choose a site" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sites.filter(s => s.isActive).map(site => (
-                      <SelectItem key={site.id} value={site.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          {site.name} - {site.location}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <CardDescription>
+                Scan the QR code at your site to verify your location
+              </CardDescription>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!isClockedIn && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Scan Site QR Code</label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Paste QR code data here..."
+                      value={qrCode}
+                      onChange={(e) => setQrCode(e.target.value)}
+                      className="min-h-12"
+                      data-testid="input-qr-code"
+                    />
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={() => verifyQrMutation.mutate()}
+                      disabled={verifyQrMutation.isPending || !qrCode.trim()}
+                      data-testid="button-verify-qr"
+                    >
+                      <QrCode className="h-5 w-5" />
+                    </Button>
+                  </div>
+                  {verifiedSiteId && (
+                    <div className="flex items-center gap-2 text-sm text-chart-5">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Location verified: {sites.find(s => s.id === verifiedSiteId)?.name}</span>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
             <div className="space-y-2">
@@ -250,7 +324,7 @@ export default function WorkerClock() {
               className="w-full min-h-14"
               variant={isClockedIn ? "destructive" : "default"}
               onClick={() => isClockedIn ? clockOutMutation.mutate() : clockInMutation.mutate()}
-              disabled={clockInMutation.isPending || clockOutMutation.isPending || (!isClockedIn && !selectedSiteId)}
+              disabled={clockInMutation.isPending || clockOutMutation.isPending || (!isClockedIn && !verifiedSiteId)}
               data-testid={isClockedIn ? "button-clock-out-action" : "button-clock-in-action"}
             >
               <Clock className="h-5 w-5 mr-2" />
