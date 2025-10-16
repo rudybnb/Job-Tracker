@@ -22,12 +22,19 @@ export default function Settings() {
     mutationFn: async (dataType: string) => {
       await apiRequest("DELETE", `/api/admin/clear-data/${dataType}`);
     },
-    onSuccess: (_, dataType) => {
-      queryClient.invalidateQueries();
+    onSuccess: async (_, dataType) => {
+      // Clear React Query cache completely
+      await queryClient.clear();
+      
       toast({
         title: "Data cleared",
-        description: `Successfully cleared ${dataType} data`,
+        description: `Successfully cleared ${dataType} data. Reloading...`,
       });
+      
+      // Force page reload to clear all caches
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     },
     onError: () => {
       toast({
