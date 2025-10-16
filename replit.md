@@ -92,6 +92,18 @@ The system is built around these primary entities:
 - **Solution**: Integrated ticket system with category routing and status tracking
 - **Rationale**: Centralizes support requests, provides accountability and resolution tracking
 
+**7. Role-Based Automatic Routing**
+- **Problem**: Different user roles need different interfaces, but all login through same auth flow
+- **Solution**: Automatic redirect on home page (/) based on user role - workers→/worker, admins/managers→dashboard
+- **Rationale**: Provides appropriate interface automatically without manual navigation
+- **Implementation**: RoleRedirect component fetches user role from /api/auth/user and routes accordingly
+
+**8. Charcoal Dark Theme by Default**
+- **Problem**: Need consistent, professional appearance for workforce management
+- **Solution**: Dark charcoal theme (HSL 0 0% 12%) with purple primary, white text, gold/brown accents - default on all interfaces
+- **Rationale**: Reduces eye strain for long work sessions, professional appearance, high contrast (7:1) for accessibility
+- **Implementation**: ThemeProvider defaults to "dark" mode, users can toggle to light if preferred
+
 ## External Dependencies
 
 ### Third-Party Services

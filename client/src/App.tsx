@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { RoleRedirect } from "@/components/role-redirect";
 import NotFound from "@/pages/not-found";
 
 import Dashboard from "@/pages/dashboard";
@@ -47,14 +48,20 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AdminDashboard() {
+  return (
+    <AdminLayout>
+      <Dashboard />
+    </AdminLayout>
+  );
+}
+
 function Router() {
   return (
     <Switch>
-      {/* Admin Routes */}
+      {/* Home Route - Auto-redirect based on role */}
       <Route path="/">
-        <AdminLayout>
-          <Dashboard />
-        </AdminLayout>
+        <RoleRedirect adminComponent={AdminDashboard} workerRedirect="/worker" />
       </Route>
       <Route path="/rota">
         <AdminLayout>
