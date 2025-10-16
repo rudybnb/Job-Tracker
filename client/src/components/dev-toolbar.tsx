@@ -10,6 +10,13 @@ export function DevToolbar() {
                 hostname === '127.0.0.1' ||
                 import.meta.env.DEV;
 
+  console.log('DevToolbar check:', {
+    hostname,
+    isDev,
+    hasReplitDev: hostname.includes('.replit.dev'),
+    envDev: import.meta.env.DEV
+  });
+
   if (!isDev) return null;
 
   const switchRole = async (role: string) => {
