@@ -1029,6 +1029,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DELETE /api/admin/clear-data/:type - clear specific data type (admin only)
+  app.delete("/api/admin/clear-data/:type", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { type } = req.params;
+      
+      switch (type) {
+        case "shifts":
+          await storage.clearAllShifts();
+          break;
+        case "attendance":
+          await storage.clearAllAttendance();
+          break;
+        case "payroll":
+          await storage.clearAllPayroll();
+          break;
+        case "queries":
+          await storage.clearAllQueries();
+          break;
+        case "all":
+          await storage.clearAllShifts();
+          await storage.clearAllAttendance();
+          await storage.clearAllPayroll();
+          await storage.clearAllQueries();
+          break;
+        default:
+          return res.status(400).json({ message: "Invalid data type" });
+      }
+      
+      res.json({ message: `Successfully cleared ${type} data` });
+    } catch (error) {
+      console.error("Error clearing data:", error);
+      res.status(500).json({ message: "Failed to clear data" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

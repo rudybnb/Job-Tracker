@@ -1356,6 +1356,26 @@ export class DatabaseStorage implements IStorage {
 
     return summaries;
   }
+
+  // Data clearing methods for admin
+  async clearAllShifts(): Promise<void> {
+    await db.delete(shifts);
+  }
+
+  async clearAllAttendance(): Promise<void> {
+    await db.delete(attendance);
+  }
+
+  async clearAllPayroll(): Promise<void> {
+    await db.delete(payslipLineItems);
+    await db.delete(payslips);
+    await db.delete(payrollRuns);
+  }
+
+  async clearAllQueries(): Promise<void> {
+    await db.delete(queryMessages);
+    await db.delete(queries);
+  }
 }
 
 export const storage = new DatabaseStorage();

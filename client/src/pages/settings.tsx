@@ -1,33 +1,49 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings as SettingsIcon, Bell, Shield, Palette, Database } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Settings as SettingsIcon, Trash2, AlertTriangle } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function Settings() {
-  const settingsSections = [
-    {
-      title: "General",
-      description: "Manage general application settings",
-      icon: SettingsIcon,
+  const { toast } = useToast();
+  const clearDataMutation = useMutation({
+    mutationFn: async (dataType: string) => {
+      await apiRequest("DELETE", `/api/admin/clear-data/${dataType}`);
     },
-    {
-      title: "Notifications",
-      description: "Configure notification preferences",
-      icon: Bell,
+    onSuccess: (_, dataType) => {
+      queryClient.invalidateQueries();
+      toast({
+        title: "Data cleared",
+        description: `Successfully cleared ${dataType} data`,
+      });
     },
-    {
-      title: "Security",
-      description: "Security and authentication settings",
-      icon: Shield,
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to clear data",
+        variant: "destructive",
+      });
     },
-    {
-      title: "Appearance",
-      description: "Customize the application appearance",
-      icon: Palette,
-    },
-    {
-      title: "Data & Backup",
-      description: "Data management and backup options",
-      icon: Database,
-    },
+  });
+
+  const dataTypes = [
+    { id: "shifts", label: "All Shifts", description: "Remove all scheduled shifts" },
+    { id: "attendance", label: "All Attendance", description: "Remove all clock-in/out records" },
+    { id: "payroll", label: "All Payroll", description: "Remove all payroll runs and payslips" },
+    { id: "queries", label: "All Queries", description: "Remove all staff queries" },
+    { id: "all", label: "Everything", description: "Reset all data (keeps sites and users)" },
   ];
 
   return (
@@ -41,42 +57,58 @@ export default function Settings() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {settingsSections.map((section) => (
-          <Card
-            key={section.title}
-            className="hover-elevate cursor-pointer"
-            data-testid={`card-${section.title.toLowerCase().replace(/\s/g, '-')}`}
-          >
-            <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-2">
-              <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
-                <section.icon className="h-5 w-5 text-primary" />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            Data Management
+          </CardTitle>
+          <CardDescription>
+            Clear data for testing or resetting the system. This action cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {dataTypes.map((dataType) => (
+            <div
+              key={dataType.id}
+              className="flex items-center justify-between p-4 border rounded-lg"
+            >
+              <div>
+                <p className="font-medium">{dataType.label}</p>
+                <p className="text-sm text-muted-foreground">{dataType.description}</p>
               </div>
-              <CardTitle className="text-base font-medium">
-                {section.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {section.description}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card className="p-12">
-        <div className="text-center space-y-4">
-          <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-            <SettingsIcon className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <div>
-            <h3 className="font-medium">Settings Coming Soon</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Advanced configuration options will be available in a future update
-            </p>
-          </div>
-        </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant={dataType.id === "all" ? "destructive" : "outline"}
+                    size="sm"
+                    data-testid={`button-clear-${dataType.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete {dataType.label.toLowerCase()}. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => clearDataMutation.mutate(dataType.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete {dataType.label}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          ))}
+        </CardContent>
       </Card>
     </div>
   );
