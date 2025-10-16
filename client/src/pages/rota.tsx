@@ -34,6 +34,9 @@ export default function Rota() {
   const [selectedSiteId, setSelectedSiteId] = useState<number | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [conflictWarning, setConflictWarning] = useState(false);
+  const [showOverlapConfirm, setShowOverlapConfirm] = useState(false);
+  const [pendingShiftData, setPendingShiftData] = useState<ShiftFormData | null>(null);
+  const [overlapCount, setOverlapCount] = useState(0);
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -157,8 +160,54 @@ export default function Rota() {
     return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
   };
 
+  function checkOverlap(values: ShiftFormData): number {
+    // Check if there are other shifts at the same site/date with overlapping times
+    const overlapping = shifts.filter(shift => {
+      if (shift.siteId !== values.siteId || shift.date !== values.date) {
+        return false;
+      }
+      
+      // Check if times overlap
+      const newStart = values.startTime;
+      const newEnd = values.endTime;
+      const existingStart = shift.startTime;
+      const existingEnd = shift.endTime;
+      
+      // Times overlap if: new start is before existing end AND new end is after existing start
+      return newStart < existingEnd && newEnd > existingStart;
+    });
+    
+    return overlapping.length;
+  }
+
   async function onSubmit(values: ShiftFormData) {
-    createShiftMutation.mutate(values);
+    // Check for overlapping shifts
+    const overlapCount = checkOverlap(values);
+    
+    if (overlapCount > 0) {
+      // Show confirmation dialog
+      setPendingShiftData(values);
+      setOverlapCount(overlapCount);
+      setShowOverlapConfirm(true);
+    } else {
+      // No overlap, create directly
+      createShiftMutation.mutate(values);
+    }
+  }
+  
+  function handleConfirmOverlap() {
+    if (pendingShiftData) {
+      createShiftMutation.mutate(pendingShiftData);
+      setShowOverlapConfirm(false);
+      setPendingShiftData(null);
+      setOverlapCount(0);
+    }
+  }
+  
+  function handleCancelOverlap() {
+    setShowOverlapConfirm(false);
+    setPendingShiftData(null);
+    setOverlapCount(0);
   }
 
   const handlePreviousWeek = () => {
@@ -267,6 +316,7 @@ export default function Rota() {
                           role={shift.role}
                           site={shift.site.name}
                           siteColor={getSiteColor(shift.site.color)}
+                          date={shift.date}
                           startTime={shift.startTime}
                           endTime={shift.endTime}
                           status={shift.status as any}
@@ -446,6 +496,45 @@ export default function Rota() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showOverlapConfirm} onOpenChange={setShowOverlapConfirm}>
+        <DialogContent className="max-w-md" data-testid="dialog-overlap-confirm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Multiple Staff at Same Time
+            </DialogTitle>
+            <DialogDescription>
+              There {overlapCount === 1 ? 'is' : 'are'} already <strong>{overlapCount} staff member{overlapCount > 1 ? 's' : ''}</strong> scheduled at this site during this time period.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Is this intentional? Confirm if multiple staff should work at the same time, or cancel to adjust the schedule.
+            </AlertDescription>
+          </Alert>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelOverlap}
+              data-testid="button-cancel-overlap"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmOverlap}
+              data-testid="button-confirm-overlap"
+            >
+              Yes, Create Shift
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
