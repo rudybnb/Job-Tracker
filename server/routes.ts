@@ -93,6 +93,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/sites/:id/refresh-clock-qr - refresh site clock-in QR code (admin, site_manager)
+  app.post("/api/sites/:id/refresh-clock-qr", isAuthenticated, hasRole(["admin", "site_manager"]), async (req, res) => {
+    try {
+      const siteId = parseInt(req.params.id);
+      const site = await storage.refreshSiteClockQR(siteId);
+      
+      if (!site) {
+        return res.status(404).json({ message: "Site not found" });
+      }
+      
+      res.json(site);
+    } catch (error) {
+      console.error("Error refreshing site clock-in QR:", error);
+      res.status(500).json({ message: "Failed to refresh clock-in QR code" });
+    }
+  });
+
   // User Management Routes
 
   // GET /api/users - list all users with their site/role info

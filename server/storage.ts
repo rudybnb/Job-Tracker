@@ -46,6 +46,7 @@ export interface IStorage {
   getSite(id: number): Promise<Site | undefined>;
   createSite(site: InsertSite): Promise<Site>;
   updateSite(id: number, site: Partial<InsertSite>): Promise<Site | undefined>;
+  refreshSiteClockQR(id: number): Promise<Site | undefined>;
   
   // User management operations
   getAllUsers(): Promise<User[]>;
@@ -151,6 +152,31 @@ export class DatabaseStorage implements IStorage {
     const [site] = await db
       .update(sites)
       .set(siteData)
+      .where(eq(sites.id, id))
+      .returning();
+    return site;
+  }
+
+  async refreshSiteClockQR(id: number): Promise<Site | undefined> {
+    // Generate QR code data with site ID and timestamp
+    const qrData = {
+      siteId: id,
+      type: 'clock-in',
+      timestamp: Date.now(),
+      nonce: crypto.randomBytes(8).toString('hex')
+    };
+    const qrCode = Buffer.from(JSON.stringify(qrData)).toString('base64');
+    
+    // Set expiry to 24 hours from now
+    const expiry = new Date();
+    expiry.setHours(expiry.getHours() + 24);
+    
+    const [site] = await db
+      .update(sites)
+      .set({
+        clockInQrCode: qrCode,
+        clockInQrExpiry: expiry,
+      })
       .where(eq(sites.id, id))
       .returning();
     return site;
