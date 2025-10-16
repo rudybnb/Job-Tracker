@@ -121,6 +121,7 @@ export default function Dashboard() {
                   status={shift.status as "scheduled" | "in-progress" | "completed"}
                   duration={`${Math.round((new Date(`2000-01-01 ${shift.endTime}`).getTime() - new Date(`2000-01-01 ${shift.startTime}`).getTime()) / 3600000)}h`}
                   relievedBy={getRelief(shift)}
+                  shiftType={shift.shiftType as "day" | "night"}
                 />
               ))
             )}

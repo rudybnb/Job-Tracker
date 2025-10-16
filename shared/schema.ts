@@ -77,6 +77,7 @@ export const shifts = pgTable("shifts", {
   startTime: text("start_time").notNull(), // HH:MM format
   endTime: text("end_time").notNull(), // HH:MM format
   role: text("role").notNull(),
+  shiftType: text("shift_type").notNull().default("day"), // day, night
   status: text("status").notNull().default("scheduled"), // scheduled, in-progress, completed, cancelled, conflict
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

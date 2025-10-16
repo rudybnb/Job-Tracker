@@ -26,6 +26,7 @@ const shiftFormSchema = insertShiftSchema.extend({
   date: z.string().min(1, "Date is required"),
   startTime: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
   endTime: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
+  shiftType: z.enum(["day", "night"]),
 });
 
 export default function Rota() {
@@ -37,6 +38,8 @@ export default function Rota() {
   const [showOverlapConfirm, setShowOverlapConfirm] = useState(false);
   const [pendingShiftData, setPendingShiftData] = useState<ShiftFormData | null>(null);
   const [overlapCount, setOverlapCount] = useState(0);
+  const [showSecondaryShiftPrompt, setShowSecondaryShiftPrompt] = useState(false);
+  const [createdShiftData, setCreatedShiftData] = useState<ShiftFormData | null>(null);
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -89,11 +92,24 @@ export default function Rota() {
       }
       return response.json();
     },
-    onSuccess: (response: any) => {
+    onSuccess: (response: any, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
       setIsCreateDialogOpen(false);
       form.reset();
       setConflictWarning(false);
+      
+      // Check if there's a complementary shift (secondary shift)
+      const complementaryType = variables.shiftType === "day" ? "night" : "day";
+      const hasComplementaryShift = shifts.some(s => 
+        s.siteId === variables.siteId && 
+        s.date === variables.date && 
+        s.shiftType === complementaryType
+      );
+      
+      if (!hasComplementaryShift) {
+        setCreatedShiftData(variables);
+        setShowSecondaryShiftPrompt(true);
+      }
       
       if (response.hasConflict) {
         toast({
@@ -128,6 +144,7 @@ export default function Rota() {
       startTime: "09:00",
       endTime: "17:00",
       role: "",
+      shiftType: "day",
       status: "scheduled",
       notes: "",
     },
@@ -208,6 +225,37 @@ export default function Rota() {
     setShowOverlapConfirm(false);
     setPendingShiftData(null);
     setOverlapCount(0);
+  }
+  
+  function handleCreateSecondaryShift() {
+    if (createdShiftData) {
+      const complementaryType = createdShiftData.shiftType === "day" ? "night" : "day";
+      const complementaryTimes = complementaryType === "night" 
+        ? { startTime: "20:00", endTime: "08:00" }
+        : { startTime: "08:00", endTime: "20:00" };
+      
+      // Pre-fill form with complementary shift data
+      form.reset({
+        userId: "",
+        siteId: createdShiftData.siteId,
+        date: createdShiftData.date,
+        startTime: complementaryTimes.startTime,
+        endTime: complementaryTimes.endTime,
+        role: createdShiftData.role,
+        shiftType: complementaryType,
+        status: "scheduled",
+        notes: "",
+      });
+      
+      setShowSecondaryShiftPrompt(false);
+      setCreatedShiftData(null);
+      setIsCreateDialogOpen(true);
+    }
+  }
+  
+  function handleSkipSecondaryShift() {
+    setShowSecondaryShiftPrompt(false);
+    setCreatedShiftData(null);
   }
 
   const handlePreviousWeek = () => {
@@ -321,6 +369,7 @@ export default function Rota() {
                           endTime={shift.endTime}
                           status={shift.status as any}
                           duration={calculateDuration(shift.startTime, shift.endTime)}
+                          shiftType={shift.shiftType as "day" | "night"}
                         />
                       ))
                     ) : (
@@ -456,6 +505,28 @@ export default function Rota() {
 
               <FormField
                 control={form.control}
+                name="shiftType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Shift Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-shift-type">
+                          <SelectValue placeholder="Select shift type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="day">Day Shift</SelectItem>
+                        <SelectItem value="night">Night Shift</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
@@ -533,6 +604,42 @@ export default function Rota() {
               data-testid="button-confirm-overlap"
             >
               Yes, Create Shift
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSecondaryShiftPrompt} onOpenChange={setShowSecondaryShiftPrompt}>
+        <DialogContent className="max-w-md" data-testid="dialog-secondary-shift">
+          <DialogHeader>
+            <DialogTitle>Create Secondary Shift?</DialogTitle>
+            <DialogDescription>
+              This site runs 24 hours a day, 365 days a year.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              No <strong>{createdShiftData?.shiftType === "day" ? "night" : "day"} shift</strong> found for this site on this date. Would you like to create the complementary shift to ensure 24-hour coverage?
+            </AlertDescription>
+          </Alert>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSkipSecondaryShift}
+              data-testid="button-skip-secondary"
+            >
+              Skip for Now
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreateSecondaryShift}
+              data-testid="button-create-secondary"
+            >
+              Create {createdShiftData?.shiftType === "day" ? "Night" : "Day"} Shift
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -15,6 +15,7 @@ interface ShiftCardProps {
   status: "scheduled" | "in-progress" | "completed" | "conflict";
   duration?: string;
   relievedBy?: string;
+  shiftType?: "day" | "night";
 }
 
 const siteColors = {
@@ -42,12 +43,17 @@ export function ShiftCard({
   status,
   duration,
   relievedBy,
+  shiftType = "day",
 }: ShiftCardProps) {
   const formattedDate = format(parseISO(date), "EEE, MMM d");
   
+  const cardClass = shiftType === "night" 
+    ? "hover-elevate cursor-pointer transition-all bg-primary/5 border-primary/20" 
+    : "hover-elevate cursor-pointer transition-all";
+  
   return (
     <Card
-      className="hover-elevate cursor-pointer transition-all"
+      className={cardClass}
       data-testid={`shift-card-${id}`}
     >
       <CardContent className="p-4">
@@ -76,9 +82,16 @@ export function ShiftCard({
               <span>Relieved by: <span className="font-medium">{relievedBy}</span></span>
             </div>
           )}
-          <Badge className={statusColors[status]} variant="outline">
-            {status.replace("-", " ")}
-          </Badge>
+          <div className="flex gap-2 flex-wrap">
+            <Badge className={statusColors[status]} variant="outline">
+              {status.replace("-", " ")}
+            </Badge>
+            {shiftType === "night" && (
+              <Badge className="bg-primary/10 text-primary border-primary/20" variant="outline">
+                Night Shift
+              </Badge>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
