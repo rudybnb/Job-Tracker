@@ -3,7 +3,8 @@ import { Shield, Briefcase, Users, LogOut } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 
 export function DevToolbar() {
-  const isDev = import.meta.env.DEV;
+  // Check both Vite dev mode and localhost URL
+  const isDev = import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname.includes('.replit.dev');
 
   if (!isDev) return null;
 
@@ -19,7 +20,7 @@ export function DevToolbar() {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-chart-1 border-b border-chart-1/20 px-4 py-2">
+    <div className="fixed top-0 left-0 right-0 z-[9999] bg-chart-1 border-b-2 border-chart-1-foreground/30 px-4 py-2 shadow-lg">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-chart-1-foreground">DEV MODE:</span>
