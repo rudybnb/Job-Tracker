@@ -90,7 +90,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="space-y-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
             <CardTitle>Upcoming Shifts</CardTitle>
@@ -101,29 +101,31 @@ export default function Dashboard() {
               </Button>
             </Link>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent>
             {shifts.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 No upcoming shifts scheduled
               </p>
             ) : (
-              shifts.slice(0, 5).map((shift) => (
-                <ShiftCard
-                  key={shift.id}
-                  id={shift.id.toString()}
-                  staffName={shift.user ? `${shift.user.firstName} ${shift.user.lastName}` : "Unknown"}
-                  role={shift.role}
-                  site={shift.site?.name || "Unknown"}
-                  siteColor={getSiteColor(shift.siteId)}
-                  date={shift.date}
-                  startTime={shift.startTime}
-                  endTime={shift.endTime}
-                  status={shift.status as "scheduled" | "in-progress" | "completed"}
-                  duration={`${Math.round((new Date(`2000-01-01 ${shift.endTime}`).getTime() - new Date(`2000-01-01 ${shift.startTime}`).getTime()) / 3600000)}h`}
-                  relievedBy={getRelief(shift)}
-                  shiftType={shift.shiftType as "day" | "night"}
-                />
-              ))
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {shifts.slice(0, 6).map((shift) => (
+                  <ShiftCard
+                    key={shift.id}
+                    id={shift.id.toString()}
+                    staffName={shift.user ? `${shift.user.firstName} ${shift.user.lastName}` : "Unknown"}
+                    role={shift.role}
+                    site={shift.site?.name || "Unknown"}
+                    siteColor={getSiteColor(shift.siteId)}
+                    date={shift.date}
+                    startTime={shift.startTime}
+                    endTime={shift.endTime}
+                    status={shift.status as "scheduled" | "in-progress" | "completed"}
+                    duration={`${Math.round((new Date(`2000-01-01 ${shift.endTime}`).getTime() - new Date(`2000-01-01 ${shift.startTime}`).getTime()) / 3600000)}h`}
+                    relievedBy={getRelief(shift)}
+                    shiftType={shift.shiftType as "day" | "night"}
+                  />
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

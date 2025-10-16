@@ -230,9 +230,13 @@ export default function Rota() {
   function handleCreateSecondaryShift() {
     if (createdShiftData) {
       const complementaryType = createdShiftData.shiftType === "day" ? "night" : "day";
-      const complementaryTimes = complementaryType === "night" 
-        ? { startTime: "20:00", endTime: "08:00" }
-        : { startTime: "08:00", endTime: "20:00" };
+      
+      // For continuous coverage, the next shift should start exactly when this one ends
+      // and end when this one starts (completing the 24-hour cycle)
+      const complementaryTimes = {
+        startTime: createdShiftData.endTime,
+        endTime: createdShiftData.startTime,
+      };
       
       // Pre-fill form with complementary shift data
       form.reset({
