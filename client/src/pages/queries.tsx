@@ -17,9 +17,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Plus, MessageSquare, Clock, AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, resolveUrl } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+
 import type { Query, QueryMessage, User } from "@shared/schema";
 
 const createQuerySchema = z.object({
@@ -73,7 +74,7 @@ export default function Queries() {
       if (statusFilter !== "all") {
         params.append("status", statusFilter);
       }
-      const response = await fetch(`/api/queries?${params}`);
+      const response = await fetch(resolveUrl(`/api/queries?${params}`), { credentials: 'include' });
       if (!response.ok) throw new Error("Failed to fetch queries");
       return response.json();
     },
@@ -387,7 +388,7 @@ function QueryDetailDialog({
   const { data: query, isLoading } = useQuery<QueryWithMessages>({
     queryKey: ["/api/queries", queryId],
     queryFn: async () => {
-      const response = await fetch(`/api/queries/${queryId}`);
+      const response = await fetch(resolveUrl(`/api/queries/${queryId}`), { credentials: 'include' });
       if (!response.ok) throw new Error("Failed to fetch query");
       return response.json();
     },

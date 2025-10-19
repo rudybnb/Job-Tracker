@@ -97,6 +97,7 @@ export default function Sites() {
       name: "",
       color: "purple",
       location: "",
+      postCode: "",
       isActive: true,
     } as InsertSite,
   });
@@ -115,6 +116,7 @@ export default function Sites() {
       name: site.name,
       color: site.color,
       location: site.location,
+      postCode: site.postCode,
       isActive: site.isActive,
     });
   };
@@ -129,6 +131,7 @@ export default function Sites() {
       name: "",
       color: "purple",
       location: "",
+      postCode: "",
       isActive: true,
     });
   };
@@ -205,6 +208,10 @@ export default function Sites() {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="h-4 w-4" />
                     <span data-testid={`text-location-${site.id}`}>{site.location}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="font-medium">Post Code:</span>
+                    <span data-testid={`text-post-code-${site.id}`}>{site.postCode}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {site.isActive ? (
@@ -311,6 +318,24 @@ export default function Sites() {
                         placeholder="123 Main St, City"
                         {...field}
                         data-testid="input-site-location"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="postCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Post Code</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="CT1 2AB"
+                        {...field}
+                        data-testid="input-site-post-code"
                       />
                     </FormControl>
                     <FormMessage />

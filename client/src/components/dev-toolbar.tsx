@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { Shield, Briefcase, Users, LogOut } from "lucide-react";
+import { Shield, Briefcase, Users, LogOut, Download } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
+import { resolveUrl } from "@/lib/queryClient";
+import JSZip from "jszip";
 
 export function DevToolbar() {
   // Always show in development - check for replit.dev or localhost domains
@@ -22,12 +24,59 @@ export function DevToolbar() {
   const switchRole = async (role: string) => {
     // Clear all cached data before switching roles
     await queryClient.clear();
-    window.location.href = `/api/dev-login/${role}`;
+    window.location.href = resolveUrl(`/api/dev-login/${role}`);
   };
 
   const logout = async () => {
     await queryClient.clear();
-    window.location.href = '/api/logout';
+    window.location.href = resolveUrl('/api/logout');
+  };
+
+  // Add ZIP download handler
+  const handleZipDownload = async () => {
+    const zip = new JSZip();
+
+    // Top-level readme
+    zip.file(
+      "README.txt",
+      `Social Care Homes sample data\nGenerated at: ${new Date().toISOString()}`
+    );
+
+    // Data folder and CSV
+    const dataFolder = zip.folder("data");
+    dataFolder?.file(
+      "residents.csv",
+      [
+        "id,name,age,room",
+        "1,Alice Smith,83,101",
+        "2,Bob Jones,76,102",
+        "3,Charlotte Lee,79,103",
+      ].join("\n")
+    );
+
+    // Docs folder and a markdown file
+    const docsFolder = zip.folder("docs");
+    docsFolder?.file(
+      "instructions.md",
+      [
+        "# Instructions",
+        "This ZIP contains sample data for the Social Care Homes app.",
+        "- README.txt explains the contents",
+        "- data/residents.csv has example resident records",
+        "",
+        "You can extend the generator to include real exports later.",
+      ].join("\n")
+    );
+
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "social-care-sample.zip";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -65,6 +114,18 @@ export function DevToolbar() {
             >
               <Users className="h-3 w-3 mr-1" />
               Worker
+            </Button>
+
+            {/* New ZIP download button */}
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-7 text-xs"
+              onClick={handleZipDownload}
+              data-testid="dev-download-zip"
+            >
+              <Download className="h-3 w-3 mr-1" />
+              Sample ZIP
             </Button>
           </div>
         </div>

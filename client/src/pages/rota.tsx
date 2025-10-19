@@ -16,9 +16,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertShiftSchema, type InsertShift, type Shift, type User, type Site } from "@shared/schema";
 import { z } from "zod";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, resolveUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, addWeeks, startOfWeek, endOfWeek, addDays } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 type ShiftWithDetails = Shift & { user: User; site: Site };
 
@@ -41,10 +42,20 @@ export default function Rota() {
   const [showSecondaryShiftPrompt, setShowSecondaryShiftPrompt] = useState(false);
   const [createdShiftData, setCreatedShiftData] = useState<ShiftFormData | null>(null);
   const [staffingImbalance, setStaffingImbalance] = useState<{current: number, complementary: number} | null>(null);
+  // New: override prompt state
+  const [showOverrideConfirm, setShowOverrideConfirm] = useState(false);
+  const [overrideMessage, setOverrideMessage] = useState("");
+  const [pendingOverrideData, setPendingOverrideData] = useState<ShiftFormData | null>(null);
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
 
+  // Get current user for role-based overrides
+  const { data: currentUser } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+  });
+  const canOverride = currentUser?.role === "admin" || currentUser?.role === "site_manager";
+  const canDelete = currentUser?.role === "admin";
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const date = addDays(weekStart, i);
@@ -71,7 +82,7 @@ export default function Rota() {
       if (selectedSiteId) {
         params.append('siteId', selectedSiteId.toString());
       }
-      const response = await fetch(`/api/shifts?${params}`);
+      const response = await fetch(resolveUrl(`/api/shifts?${params}`), { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch shifts');
       return response.json();
     },
@@ -79,7 +90,7 @@ export default function Rota() {
 
   const createShiftMutation = useMutation({
     mutationFn: async (data: z.infer<typeof shiftFormSchema>) => {
-      const response = await fetch('/api/shifts', {
+      const response = await fetch(resolveUrl('/api/shifts'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -146,6 +157,36 @@ export default function Rota() {
     },
   });
 
+  // Delete shift mutation (admin only)
+  const deleteShiftMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(resolveUrl(`/api/shifts/${id}`), { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) {
+        let msg = 'Failed to delete shift';
+        try { const err = await res.json(); msg = err.message || msg; } catch {}
+        throw new Error(msg);
+      }
+    },
+    onSuccess: () => {
+      toast({ title: 'Shift deleted', description: 'The shift has been removed.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shifts', selectedSiteId] });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message || 'Failed to delete shift', variant: 'destructive' });
+    }
+  });
+
+  const handleDeleteShift = (id: number) => {
+    if (!canDelete) {
+      toast({ title: 'Not allowed', description: 'Only admins can delete shifts.', variant: 'destructive' });
+      return;
+    }
+    if (window.confirm('Delete this shift? This cannot be undone.')) {
+      deleteShiftMutation.mutate(id);
+    }
+  };
+
   type ShiftFormData = z.infer<typeof shiftFormSchema>;
 
   const form = useForm<ShiftFormData>({
@@ -183,12 +224,34 @@ export default function Rota() {
     const [startHour, startMin] = startTime.split(':').map(Number);
     const [endHour, endMin] = endTime.split(':').map(Number);
     const startMinutes = startHour * 60 + startMin;
-    const endMinutes = endHour * 60 + endMin;
+    let endMinutes = endHour * 60 + endMin;
+    if (endMinutes <= startMinutes) endMinutes += 24 * 60; // handle overnight
     const durationMinutes = endMinutes - startMinutes;
     const hours = Math.floor(durationMinutes / 60);
     const minutes = durationMinutes % 60;
     return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
   };
+
+  // Derive which users are already assigned during the selected time window
+  const watchedSiteId = form.watch('siteId');
+  const watchedDate = form.watch('date');
+  const watchedStart = form.watch('startTime');
+  const watchedEnd = form.watch('endTime');
+  const effectiveSiteId = watchedSiteId || selectedSiteId || null;
+
+  const assignedUserIds = useMemo(() => {
+    const set = new Set<string>();
+    if (!watchedDate || !watchedStart || !watchedEnd) return set;
+    shifts.forEach((s) => {
+      if (s.date !== watchedDate) return;
+      if (effectiveSiteId && s.siteId !== effectiveSiteId) return;
+      // overlap: new start < existing end AND new end > existing start
+      if (watchedStart < s.endTime && watchedEnd > s.startTime && s.user?.id) {
+        set.add(s.user.id);
+      }
+    });
+    return set;
+  }, [shifts, watchedDate, watchedStart, watchedEnd, effectiveSiteId]);
 
   function checkOverlap(values: ShiftFormData): number {
     // Check if there are other shifts at the same site/date with overlapping times
@@ -211,16 +274,73 @@ export default function Rota() {
   }
 
   async function onSubmit(values: ShiftFormData) {
-    // Check for overlapping shifts
+    // R3 – Shift limit: single shift must be <= 12 hours
+    const durH = calcDurationHours(values.startTime, values.endTime);
+    if (durH > 12) {
+      toast({ title: "Rule R3 violation", description: "Single shift cannot exceed 12 hours without explicit 24h approval.", variant: "destructive" });
+      return;
+    }
+
+    // R1 – No same-shift duplication (site + date + shiftType)
+    const sameShiftExists = shifts.some(s => s.siteId === values.siteId && s.date === values.date && s.shiftType === values.shiftType);
+    if (sameShiftExists) {
+      toast({ title: "Rule R1 violation", description: "Another worker is already scheduled for this shift type at this site.", variant: "destructive" });
+      return;
+    }
+
+    // R2 – Site exclusivity per day; allow 24h same-site day+night with override
+    const userDayShifts = shifts.filter(s => s.user?.id === values.userId && s.date === values.date);
+    if (userDayShifts.length) {
+      const atDifferentSite = userDayShifts.some(s => s.siteId !== values.siteId);
+      if (atDifferentSite) {
+        toast({ title: "Rule R2 violation", description: "Staff member is already scheduled at another site on this date.", variant: "destructive" });
+        return;
+      }
+      // same site — attempting second shift
+      const complementaryType = values.shiftType === "day" ? "night" : "day";
+      const hasComplementary = userDayShifts.some(s => s.shiftType === complementaryType);
+      if (hasComplementary) {
+        if (!canOverride) {
+          toast({ title: "Manager/Admin override required", description: "24-hour coverage (day + night at same site) requires approval.", variant: "destructive" });
+          return;
+        }
+        setOverrideMessage("Approve 24-hour coverage: same site day + night for selected staff.");
+        setPendingOverrideData(values);
+        setShowOverrideConfirm(true);
+        return;
+      } else {
+        // duplicate same type for same user at same site/day
+        toast({ title: "Rule R1 violation", description: "This staff already has the same shift type at this site on this date.", variant: "destructive" });
+        return;
+      }
+    }
+
+    // R5 – Rest period: minimum 12 hours before new shift
+    const newStartDT = getDateTime(values.date, values.startTime);
+    const prevShift = findPrevShiftForUser(values.userId, newStartDT);
+    if (prevShift) {
+      const prevEndBase = getDateTime(prevShift.date, prevShift.endTime);
+      const prevEndDT = prevShift.endTime <= prevShift.startTime ? new Date(prevEndBase.getTime() + 24 * 60 * 60 * 1000) : prevEndBase;
+      const restHours = (newStartDT.getTime() - prevEndDT.getTime()) / 3600000;
+      if (restHours < 12) {
+        if (!canOverride) {
+          toast({ title: "Rule R5 violation", description: `Rest period is ${restHours.toFixed(1)}h; minimum is 12h.`, variant: "destructive" });
+          return;
+        }
+        setOverrideMessage(`Approve consecutive shifts: rest ${restHours.toFixed(1)}h < 12h.`);
+        setPendingOverrideData(values);
+        setShowOverrideConfirm(true);
+        return;
+      }
+    }
+
+    // Existing overlap detection (same site/time window): prompt
     const overlapCount = checkOverlap(values);
-    
     if (overlapCount > 0) {
-      // Show confirmation dialog
       setPendingShiftData(values);
       setOverlapCount(overlapCount);
       setShowOverlapConfirm(true);
     } else {
-      // No overlap, create directly
       createShiftMutation.mutate(values);
     }
   }
@@ -354,13 +474,37 @@ export default function Rota() {
         </div>
       ) : (
         <Tabs defaultValue={weekDays[0].date} className="w-full">
-          <TabsList className="w-full justify-start">
+          <TabsList className="w-full justify-start bg-muted/30 p-2 rounded-md border border-muted/30">
             {weekDays.map((day) => (
-              <TabsTrigger key={day.date} value={day.date} data-testid={`tab-${day.name.toLowerCase()}`}>
-                <div className="flex flex-col items-center">
-                  <span>{day.name}</span>
-                  <span className="text-xs text-muted-foreground">{day.displayDate}</span>
-                </div>
+              <TabsTrigger
+                key={day.date}
+                value={day.date}
+                data-testid={`tab-${day.name.toLowerCase()}`}
+                className="rounded-md px-4 py-2 bg-background/20 border border-muted text-foreground data-[state=active]:bg-primary/10 data-[state=active]:border-primary/30"
+              >
+                {(() => {
+                  const dayShifts = shiftsByDay[day.date] || [];
+                  const dCount = dayShifts.filter((s) => s.shiftType === "day").length;
+                  const nCount = dayShifts.filter((s) => s.shiftType === "night").length;
+                  const dClass = dCount > 0
+                    ? "bg-emerald-600/20 text-emerald-300 border-emerald-600/30"
+                    : "bg-slate-700/40 text-slate-300 border-slate-600/40";
+                  const nClass = nCount > 0
+                    ? "bg-emerald-600/20 text-emerald-300 border-emerald-600/30"
+                    : "bg-slate-700/40 text-slate-300 border-slate-600/40";
+                  return (
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="flex flex-col items-center">
+                        <span className="font-medium">{day.name}</span>
+                        <span className="text-xs text-muted-foreground">{day.displayDate}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={`px-1 py-0.5 text-[10px] tracking-wide border ${dClass}`}>D{dCount}</Badge>
+                        <Badge variant="outline" className={`px-1 py-0.5 text-[10px] tracking-wide border ${nClass}`}>N{nCount}</Badge>
+                      </div>
+                    </div>
+                  );
+                })()}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -389,6 +533,7 @@ export default function Rota() {
                           status={shift.status as any}
                           duration={calculateDuration(shift.startTime, shift.endTime)}
                           shiftType={shift.shiftType as "day" | "night"}
+                          onDelete={canDelete ? () => handleDeleteShift(shift.id) : undefined}
                         />
                       ))
                     ) : (
@@ -427,11 +572,20 @@ export default function Rota() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {users.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || user.id}
-                          </SelectItem>
-                        ))}
+                        {users.map((user) => {
+                          const label = (`${user.firstName || ''} ${user.lastName || ''}`).trim() || user.email || user.id;
+                          const isAssigned = assignedUserIds.has(user.id);
+                          return (
+                            <SelectItem key={user.id} value={user.id} className={isAssigned ? 'text-amber-500' : undefined}>
+                              <span className="flex items-center justify-between w-full">
+                                <span>{label}</span>
+                                {isAssigned && (
+                                  <Badge variant="outline" className="ml-2 bg-amber-500/10 text-amber-500 border-amber-500/30">Assigned</Badge>
+                                )}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -623,6 +777,41 @@ export default function Rota() {
               data-testid="button-confirm-overlap"
             >
               Yes, Create Shift
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New: Manager/Admin Override Confirmation */}
+      <Dialog open={showOverrideConfirm} onOpenChange={setShowOverrideConfirm}>
+        <DialogContent className="max-w-md" data-testid="dialog-override-confirm">
+          <DialogHeader>
+            <DialogTitle>Manager/Admin Override Required</DialogTitle>
+            <DialogDescription>{overrideMessage}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => { setShowOverrideConfirm(false); setPendingOverrideData(null); }}
+              data-testid="button-cancel-override"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (pendingOverrideData) {
+                  const approvedBy = `${currentUser?.firstName ?? ''} ${currentUser?.lastName ?? ''}`.trim() || currentUser?.email || 'Manager';
+                  const notes = `${pendingOverrideData.notes ? pendingOverrideData.notes + ' ' : ''}[Override] ${overrideMessage} — ApprovedBy: ${approvedBy}`;
+                  createShiftMutation.mutate({ ...pendingOverrideData, notes });
+                  setShowOverrideConfirm(false);
+                  setPendingOverrideData(null);
+                }
+              }}
+              data-testid="button-confirm-override"
+            >
+              Proceed with Override
             </Button>
           </DialogFooter>
         </DialogContent>

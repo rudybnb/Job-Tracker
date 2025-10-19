@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MapPin, User, Calendar, Sun, Moon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, MapPin, User, Calendar, Sun, Moon, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 interface ShiftCardProps {
@@ -16,6 +17,7 @@ interface ShiftCardProps {
   duration?: string;
   relievedBy?: string;
   shiftType?: "day" | "night";
+  onDelete?: () => void; // optional delete handler
 }
 
 const siteColors = {
@@ -44,6 +46,7 @@ export function ShiftCard({
   duration,
   relievedBy,
   shiftType = "day",
+  onDelete,
 }: ShiftCardProps) {
   const formattedDate = format(parseISO(date), "EEE, MMM d");
   
@@ -71,9 +74,22 @@ export function ShiftCard({
               <p className="text-xs text-muted-foreground">{role}</p>
             </div>
           </div>
-          <Badge variant="outline" className={siteColors[siteColor]}>
-            {site}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className={siteColors[siteColor]}>
+              {site}
+            </Badge>
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onDelete}
+                aria-label="Delete shift"
+                data-testid={`button-delete-shift-${id}`}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
+          </div>
         </div>
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

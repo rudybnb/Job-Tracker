@@ -7,7 +7,9 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-if (!process.env.REPLIT_DOMAINS) {
+const isDev = process.env.NODE_ENV !== 'production';
+
+if (!process.env.REPLIT_DOMAINS && !isDev) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
 
@@ -23,21 +25,30 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
+  const usePgStore = !!process.env.DATABASE_URL && !isDev;
+  const MemoryStore = session.MemoryStore;
+  const sessionStore = usePgStore
+    ? new (connectPg(session))({
+        conString: process.env.DATABASE_URL,
+        createTableIfMissing: false,
+        ttl: sessionTtl,
+        tableName: "sessions",
+      })
+    : new MemoryStore();
+
+  const secret = process.env.SESSION_SECRET || "dev-secret";
+  const secure = process.env.NODE_ENV === "production";
+  const sameSite: boolean | "lax" | "strict" | "none" = secure ? "none" : "lax";
+
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure,
+      sameSite,
       maxAge: sessionTtl,
     },
   });
@@ -69,61 +80,66 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  const config = await getOidcConfig();
-
-  const verify: VerifyFunction = async (
-    tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-    verified: passport.AuthenticateCallback
-  ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
-  };
-
-  for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
-    const strategy = new Strategy(
-      {
-        name: `replitauth:${domain}`,
-        config,
-        scope: "openid email profile offline_access",
-        callbackURL: `https://${domain}/api/callback`,
-      },
-      verify
-    );
-    passport.use(strategy);
-  }
-
+  // Always configure Passport serialization for sessions (dev and prod)
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
-  app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
-  });
+  const isDevLocal = process.env.NODE_ENV !== 'production';
 
-  app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
-    })(req, res, next);
-  });
+  if (!isDevLocal) {
+    const config = await getOidcConfig();
 
-  app.get("/api/logout", (req, res) => {
-    req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
+    const verify: VerifyFunction = async (
+      tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
+      verified: passport.AuthenticateCallback
+    ) => {
+      const user = {};
+      updateUserSession(user, tokens);
+      await upsertUser(tokens.claims());
+      verified(null, user);
+    };
+
+    for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
+      const strategy = new Strategy(
+        {
+          name: `replitauth:${domain}`,
+          config,
+          scope: "openid email profile offline_access",
+          callbackURL: `https://${domain}/api/callback`,
+        },
+        verify
       );
+      passport.use(strategy);
+    }
+
+    app.get("/api/login", (req, res, next) => {
+      passport.authenticate(`replitauth:${req.hostname}`, {
+        prompt: "login consent",
+        scope: ["openid", "email", "profile", "offline_access"],
+      })(req, res, next);
     });
-  });
+
+    app.get("/api/callback", (req, res, next) => {
+      passport.authenticate(`replitauth:${req.hostname}`, {
+        successReturnToOrRedirect: "/",
+        failureRedirect: "/api/login",
+      })(req, res, next);
+    });
+
+    app.get("/api/logout", (req, res) => {
+      req.logout(() => {
+        res.redirect(
+          client.buildEndSessionUrl(config, {
+            client_id: process.env.REPL_ID!,
+            post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+          }).href
+        );
+      });
+    });
+  }
 
   // Development bypass for testing
-  if (process.env.NODE_ENV === 'development') {
+  if (isDevLocal) {
     app.get("/api/dev-login/:role", async (req, res) => {
       const role = req.params.role as 'admin' | 'site_manager' | 'worker';
       const testUsers = {
@@ -149,7 +165,6 @@ export async function setupAuth(app: Express) {
 
       const claims = testUsers[role] || testUsers.admin;
       
-      // Create user in database
       await storage.upsertUser({
         id: claims.sub,
         email: claims.email,
@@ -157,11 +172,9 @@ export async function setupAuth(app: Express) {
         lastName: claims.last_name,
       });
 
-      // Update role
       const dbUser = await storage.getUser(claims.sub);
       if (dbUser) {
-        // Get first available site for workers
-        let siteId = undefined;
+        let siteId = undefined as number | undefined;
         if (role === 'worker') {
           const sites = await storage.getAllSites();
           siteId = sites.length > 0 ? sites[0].id : undefined;
@@ -174,12 +187,61 @@ export async function setupAuth(app: Express) {
         });
       }
 
-      // Create fake session
-      const user = { claims };
+      const user = { claims } as any;
       req.login(user, (err) => {
         if (err) {
           return res.status(500).json({ error: 'Login failed' });
         }
+        res.redirect('/');
+      });
+    });
+
+    // Simple username/password dev login
+    app.post("/api/dev-simple-login", async (req, res) => {
+      try {
+        const { username, password } = req.body as { username?: string; password?: string };
+        if (!username || !password) {
+          return res.status(400).json({ message: "Missing username or password" });
+        }
+
+        const clean = String(username).trim();
+        const sub = `dev-${clean.toLowerCase().replace(/\s+/g, '-')}`;
+
+        await storage.upsertUser({
+          id: sub,
+          email: `${clean}@test.com`,
+          firstName: clean,
+          lastName: "",
+        });
+
+        const dbUser = await storage.getUser(sub);
+        if (dbUser) {
+          let siteId: number | undefined = undefined;
+          const sites = await storage.getAllSites();
+          siteId = sites.length > 0 ? sites[0].id : undefined;
+
+          await storage.updateUser(sub, {
+            role: "worker",
+            siteId,
+            hourlyRate: "15.00",
+          });
+        }
+
+        const user = { claims: { sub } } as any;
+        req.login(user, (err) => {
+          if (err) {
+            return res.status(500).json({ message: "Login failed" });
+          }
+          return res.json({ ok: true });
+        });
+      } catch (e) {
+        console.error("Error in dev-simple-login:", e);
+        return res.status(500).json({ message: "Server error" });
+      }
+    });
+
+    app.get("/api/logout", (req, res) => {
+      req.logout(() => {
         res.redirect('/');
       });
     });
@@ -188,49 +250,27 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
-
-  if (!req.isAuthenticated()) {
+  if (!user?.claims?.sub) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-
-  // If no expires_at (e.g., in testing), just proceed
-  if (!user.expires_at) {
-    return next();
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (now <= user.expires_at) {
-    return next();
-  }
-
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    return next();
-  } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
+  next();
 };
 
 export function hasRole(roles: string[]): RequestHandler {
-  return async (req, res, next) => {
+  return async (req: any, res, next) => {
     const user = req.user as any;
-    if (!user || !user.claims) {
+    const sub = user?.claims?.sub;
+    if (!sub) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const userId = user.claims.sub;
-    const dbUser = await storage.getUser(userId);
+    const dbUser = await storage.getUser(sub);
+    if (!dbUser) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
-    if (!dbUser || !roles.includes(dbUser.role)) {
+    const ok = roles.includes(dbUser.role);
+    if (!ok) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
