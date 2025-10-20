@@ -36,6 +36,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check endpoint for Render
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 (async () => {
   const server = await registerRoutes(app);
 
