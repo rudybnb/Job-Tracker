@@ -9,9 +9,17 @@ import { storage } from "./storage";
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-if (!process.env.REPLIT_DOMAINS && !isDev) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
-}
+// Get domains from environment or use a default for Render
+const getDomains = () => {
+  if (process.env.REPLIT_DOMAINS) {
+    return process.env.REPLIT_DOMAINS.split(",");
+  }
+  // Fallback: use RENDER_EXTERNAL_URL or a placeholder
+  if (process.env.RENDER_EXTERNAL_URL) {
+    return [new URL(process.env.RENDER_EXTERNAL_URL).hostname];
+  }
+  return ['localhost']; // Development fallback
+};
 
 const getOidcConfig = memoize(
   async () => {
@@ -97,7 +105,8 @@ export async function setupAuth(app: Express) {
       verified(null, user);
     };
 
-    for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
+    const domains = getDomains();
+    for (const domain of domains) {
       const strategy = new Strategy(
         {
           name: `replitauth:${domain}`,
