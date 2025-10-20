@@ -20,7 +20,6 @@ export const sites = pgTable("sites", {
   name: text("name").notNull().unique(),
   color: text("color").notNull(), // purple, teal, orange
   location: text("location").notNull(),
-  postCode: text("post_code").notNull(),
   clockInQrCode: text("clock_in_qr_code").notNull().default(''), // QR code for clock-in verification
   clockInQrExpiry: timestamp("clock_in_qr_expiry"), // Expiry time for QR code
   isActive: boolean("is_active").notNull().default(true),

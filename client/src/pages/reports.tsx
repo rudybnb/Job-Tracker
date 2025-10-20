@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Clock, DollarSign, Users, TrendingUp, Download, CalendarIcon, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveUrl } from "@/lib/queryClient";
 
 export default function Reports() {
   // Calculate default date range (current week)
@@ -47,7 +46,7 @@ export default function Reports() {
   const { data: hoursData, isLoading: hoursLoading } = useQuery({
     queryKey: ["/api/analytics/hours", getQueryParams()],
     queryFn: async () => {
-      const res = await fetch(resolveUrl(`/api/analytics/hours?${getQueryParams()}`), { credentials: 'include' });
+      const res = await fetch(`/api/analytics/hours?${getQueryParams()}`);
       if (!res.ok) throw new Error("Failed to fetch hours data");
       return res.json();
     },
@@ -56,7 +55,7 @@ export default function Reports() {
   const { data: costsData, isLoading: costsLoading } = useQuery({
     queryKey: ["/api/analytics/costs", getQueryParams()],
     queryFn: async () => {
-      const res = await fetch(resolveUrl(`/api/analytics/costs?${getQueryParams()}`), { credentials: 'include' });
+      const res = await fetch(`/api/analytics/costs?${getQueryParams()}`);
       if (!res.ok) throw new Error("Failed to fetch costs data");
       return res.json();
     },
@@ -65,7 +64,7 @@ export default function Reports() {
   const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
     queryKey: ["/api/analytics/attendance", getQueryParams()],
     queryFn: async () => {
-      const res = await fetch(resolveUrl(`/api/analytics/attendance?${getQueryParams()}`), { credentials: 'include' });
+      const res = await fetch(`/api/analytics/attendance?${getQueryParams()}`);
       if (!res.ok) throw new Error("Failed to fetch attendance data");
       return res.json();
     },
@@ -74,7 +73,7 @@ export default function Reports() {
   const { data: sitesData, isLoading: sitesLoading } = useQuery({
     queryKey: ["/api/analytics/sites"],
     queryFn: async () => {
-      const res = await fetch(resolveUrl("/api/analytics/sites"), { credentials: 'include' });
+      const res = await fetch("/api/analytics/sites");
       if (!res.ok) throw new Error("Failed to fetch sites data");
       return res.json();
     },

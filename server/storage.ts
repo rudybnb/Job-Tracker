@@ -35,7 +35,6 @@ import {
 import { db } from "./db";
 import { eq, and, or, gte, lte, isNull, isNotNull, desc } from "drizzle-orm";
 import crypto from "crypto";
-import { InMemoryStorage } from "./storage.memory";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -1378,4 +1377,4 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = process.env.DATABASE_URL ? new DatabaseStorage() : new InMemoryStorage();
+export const storage = new DatabaseStorage();

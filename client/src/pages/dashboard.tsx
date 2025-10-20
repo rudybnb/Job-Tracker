@@ -4,9 +4,9 @@ import { AttendanceRow } from "@/components/attendance-row";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, AlertCircle, Calendar, ArrowRight, Plus, TrendingUp, Building2, X } from "lucide-react";
+import { Users, Clock, AlertCircle, Calendar, ArrowRight, Plus, TrendingUp, Building2 } from "lucide-react";
 import { Link } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { Shift, Attendance, User, Site } from "@shared/schema";
 import { format, parseISO } from "date-fns";
 
@@ -17,17 +17,7 @@ export default function Dashboard() {
   const { data: currentUser } = useQuery<User>({
     queryKey: ["/api/auth/user"],
   });
-  const canManage = currentUser?.role === "admin" || currentUser?.role === "site_manager";
-
-  const unassignMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      return await apiRequest("PATCH", `/api/users/${userId}`, { siteId: null });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-    },
-  });
-
+  
   // Get all upcoming shifts (not filtered by date)
   const { data: allShifts = [] } = useQuery<(Shift & { user?: User; site?: Site })[]>({
     queryKey: ["/api/shifts"],
@@ -176,7 +166,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {sites.map((site) => {
           const siteShiftsToday = todaysShifts.filter(s => s.siteId === site.id);
-          const siteStaff = users.filter(u => u.siteId === site.id);
+          const siteStaffCount = users.filter(u => u.siteId === site.id).length;
           const siteColor = site.color === "purple" ? "chart-3" : site.color === "teal" ? "chart-2" : "chart-4";
           
           return (
@@ -195,31 +185,9 @@ export default function Dashboard() {
                   </Badge>
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-start justify-between text-sm">
+                  <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Staff assigned</span>
-                    <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
-                      {siteStaff.length ? (
-                        siteStaff.map((u) => {
-                          const label = (`${u.firstName ?? ""} ${u.lastName ?? ""}`).trim() || u.email;
-                          return (
-                            <Badge key={u.id} variant="outline" className="bg-muted/10 text-white border-muted/20">
-                              <span>{label}</span>
-                              {canManage && (
-                                <button
-                                  className="ml-1 hover:text-destructive"
-                                  onClick={() => unassignMutation.mutate(u.id)}
-                                  aria-label={`Remove ${label} from ${site.name}`}
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              )}
-                            </Badge>
-                          );
-                        })
-                      ) : (
-                        <span className="font-medium text-white">—</span>
-                      )}
-                    </div>
+                    <span className="font-medium text-white">{siteStaffCount}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Today's shifts</span>
@@ -305,21 +273,24 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground">No recent attendance</p>
               </div>
             ) : (
-              <div className="divide-y">
-                {attendance.slice(0, 6).map((record) => (
+              attendance.slice(0, 5).map((record) => {
+                const user = record.user;
+                const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : "??";
+                return (
                   <AttendanceRow
                     key={record.id}
-                    staffName={`${record.user?.firstName ?? ""} ${record.user?.lastName ?? ""}`.trim() || record.user?.email || "Unknown"}
-                    siteColor={getSiteColor(record.siteId)}
+                    id={record.id.toString()}
+                    staffName={user ? `${user.firstName} ${user.lastName}` : "Unknown"}
+                    initials={initials}
                     site={record.site?.name || "Unknown"}
-                    date={record.date}
                     clockIn={record.clockIn}
                     clockOut={record.clockOut || undefined}
-                    status={record.approvalStatus}
-                    duration={record.clockOut ? `${Math.round((new Date(`2000-01-01 ${record.clockOut}`).getTime() - new Date(`2000-01-01 ${record.clockIn}`).getTime()) / 3600000)}h` : undefined}
+                    status={record.approvalStatus as "pending-approval" | "approved" | "late"}
+                    onApprove={() => console.log("Approved", record.id)}
+                    onReject={() => console.log("Rejected", record.id)}
                   />
-                ))}
-              </div>
+                );
+              })
             )}
           </CardContent>
         </Card>

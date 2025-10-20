@@ -38,7 +38,6 @@ export function getSession() {
 
   const secret = process.env.SESSION_SECRET || "dev-secret";
   const secure = process.env.NODE_ENV === "production";
-  const sameSite: boolean | "lax" | "strict" | "none" = secure ? "none" : "lax";
 
   return session({
     secret,
@@ -48,7 +47,6 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure,
-      sameSite,
       maxAge: sessionTtl,
     },
   });
@@ -196,50 +194,6 @@ export async function setupAuth(app: Express) {
       });
     });
 
-    // Simple username/password dev login
-    app.post("/api/dev-simple-login", async (req, res) => {
-      try {
-        const { username, password } = req.body as { username?: string; password?: string };
-        if (!username || !password) {
-          return res.status(400).json({ message: "Missing username or password" });
-        }
-
-        const clean = String(username).trim();
-        const sub = `dev-${clean.toLowerCase().replace(/\s+/g, '-')}`;
-
-        await storage.upsertUser({
-          id: sub,
-          email: `${clean}@test.com`,
-          firstName: clean,
-          lastName: "",
-        });
-
-        const dbUser = await storage.getUser(sub);
-        if (dbUser) {
-          let siteId: number | undefined = undefined;
-          const sites = await storage.getAllSites();
-          siteId = sites.length > 0 ? sites[0].id : undefined;
-
-          await storage.updateUser(sub, {
-            role: "worker",
-            siteId,
-            hourlyRate: "15.00",
-          });
-        }
-
-        const user = { claims: { sub } } as any;
-        req.login(user, (err) => {
-          if (err) {
-            return res.status(500).json({ message: "Login failed" });
-          }
-          return res.json({ ok: true });
-        });
-      } catch (e) {
-        console.error("Error in dev-simple-login:", e);
-        return res.status(500).json({ message: "Server error" });
-      }
-    });
-
     app.get("/api/logout", (req, res) => {
       req.logout(() => {
         res.redirect('/');
@@ -250,27 +204,49 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
-  if (!user?.claims?.sub) {
+
+  if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-  next();
+
+  // If no expires_at (e.g., in testing), just proceed
+  if (!user.expires_at) {
+    return next();
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (now <= user.expires_at) {
+    return next();
+  }
+
+  const refreshToken = user.refresh_token;
+  if (!refreshToken) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const config = await getOidcConfig();
+    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+    updateUserSession(user, tokenResponse);
+    return next();
+  } catch (error) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
 };
 
 export function hasRole(roles: string[]): RequestHandler {
-  return async (req: any, res, next) => {
+  return async (req, res, next) => {
     const user = req.user as any;
-    const sub = user?.claims?.sub;
-    if (!sub) {
+    if (!user || !user.claims) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const dbUser = await storage.getUser(sub);
-    if (!dbUser) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+    const userId = user.claims.sub;
+    const dbUser = await storage.getUser(userId);
 
-    const ok = roles.includes(dbUser.role);
-    if (!ok) {
+    if (!dbUser || !roles.includes(dbUser.role)) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
