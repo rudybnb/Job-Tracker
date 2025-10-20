@@ -23,9 +23,15 @@ const getDomains = () => {
 
 const getOidcConfig = memoize(
   async () => {
+    if (!process.env.REPL_ID) {
+      throw new Error(
+        "REPL_ID environment variable is required for OAuth authentication. " +
+        "Please set it in your Render environment variables."
+      );
+    }
     return await client.discovery(
       new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
+      process.env.REPL_ID
     );
   },
   { maxAge: 3600 * 1000 }
@@ -91,8 +97,10 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   const isDevLocal = process.env.NODE_ENV !== 'production';
+  const hasReplitAuth = !!process.env.REPL_ID;
 
-  if (!isDevLocal) {
+  // Only use Replit OAuth if REPL_ID is configured
+  if (!isDevLocal && hasReplitAuth) {
     const config = await getOidcConfig();
 
     const verify: VerifyFunction = async (
@@ -145,8 +153,8 @@ export async function setupAuth(app: Express) {
     });
   }
 
-  // Development bypass for testing
-  if (isDevLocal) {
+  // Development bypass for testing (or when REPL_ID not configured)
+  if (isDevLocal || !hasReplitAuth) {
     app.get("/api/dev-login/:role", async (req, res) => {
       const role = req.params.role as 'admin' | 'site_manager' | 'worker';
       const testUsers = {
