@@ -72,16 +72,26 @@ export function serveStatic(app: Express) {
   // Use absolute path resolution to handle different deployment environments
   const distPath = path.resolve(import.meta.dirname, "public");
   
-  // Fallback: if public doesn't exist relative to server, try from project root
-  const fallbackPath = path.resolve(process.cwd(), "dist", "public");
-  const finalPath = fs.existsSync(distPath) ? distPath : fallbackPath;
+  // Fallback paths to try
+  const fallbackPaths = [
+    path.resolve(process.cwd(), "dist", "public"),  // From current working directory
+    path.resolve(import.meta.dirname, "..", "dist", "public"),  // One level up from server
+    path.resolve(import.meta.dirname, "..", "..", "dist", "public"),  // Two levels up
+  ];
+  
+  let finalPath = distPath;
+  if (!fs.existsSync(distPath)) {
+    finalPath = fallbackPaths.find(p => fs.existsSync(p)) || distPath;
+  }
 
   if (!fs.existsSync(finalPath)) {
+    const allPaths = [distPath, ...fallbackPaths];
     throw new Error(
       `Could not find the build directory. Tried:\n` +
-      `  - ${distPath}\n` +
-      `  - ${fallbackPath}\n` +
-      `Make sure to build the client first. Current working directory: ${process.cwd()}`,
+      allPaths.map(p => `  - ${p}`).join('\n') + '\n' +
+      `Make sure to build the client first.\n` +
+      `Current working directory: ${process.cwd()}\n` +
+      `Server location: ${import.meta.dirname}`,
     );
   }
 
