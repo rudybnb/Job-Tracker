@@ -29,6 +29,12 @@ import WorkerPay from "@/pages/worker-pay";
 import WorkerScan from "@/pages/worker-scan";
 import WorkerProfile from "@/pages/worker-profile";
 
+// Enable auth bypass in dev so UI can be previewed without backend
+const isDev = import.meta.env.DEV;
+function MaybeAuth({ children }: { children: React.ReactNode }) {
+  return isDev ? <>{children}</> : <AuthWrapper>{children}</AuthWrapper>;
+}
+
 function AdminLayout({ children }: { children: React.ReactNode }) {
   const style = {
     "--sidebar-width": "16rem",
@@ -67,101 +73,101 @@ function Router() {
 
       {/* Protected Home Route - Auto-redirect based on role */}
       <Route path="/">
-        <AuthWrapper>
+        <MaybeAuth>
           <RoleRedirect adminComponent={AdminDashboard} workerRedirect="/worker" />
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
 
       {/* Protected Admin Routes */}
       <Route path="/rota">
-        <AuthWrapper>
+        <MaybeAuth>
           <AdminLayout>
             <Rota />
           </AdminLayout>
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/attendance">
-        <AuthWrapper>
+        <MaybeAuth>
           <AdminLayout>
             <Attendance />
           </AdminLayout>
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/rooms">
-        <AuthWrapper>
+        <MaybeAuth>
           <AdminLayout>
             <Rooms />
           </AdminLayout>
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/payroll">
-        <AuthWrapper>
+        <MaybeAuth>
           <AdminLayout>
             <Payroll />
           </AdminLayout>
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/reports">
-        <AuthWrapper>
+        <MaybeAuth>
           <AdminLayout>
             <Reports />
           </AdminLayout>
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/queries">
-        <AuthWrapper>
+        <MaybeAuth>
           <AdminLayout>
             <Queries />
           </AdminLayout>
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/sites">
-        <AuthWrapper>
+        <MaybeAuth>
           <AdminLayout>
             <Sites />
           </AdminLayout>
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/directory">
-        <AuthWrapper>
+        <MaybeAuth>
           <AdminLayout>
             <Directory />
           </AdminLayout>
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/settings">
-        <AuthWrapper>
+        <MaybeAuth>
           <AdminLayout>
             <Settings />
           </AdminLayout>
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
 
       {/* Protected Worker Routes - Mobile-First */}
       <Route path="/worker">
-        <AuthWrapper>
+        <MaybeAuth>
           <WorkerHome />
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/worker/clock">
-        <AuthWrapper>
+        <MaybeAuth>
           <WorkerClock />
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/worker/pay">
-        <AuthWrapper>
+        <MaybeAuth>
           <WorkerPay />
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/worker/scan">
-        <AuthWrapper>
+        <MaybeAuth>
           <WorkerScan />
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
       <Route path="/worker/profile">
-        <AuthWrapper>
+        <MaybeAuth>
           <WorkerProfile />
-        </AuthWrapper>
+        </MaybeAuth>
       </Route>
 
       {/* Fallback to 404 */}
@@ -171,8 +177,6 @@ function Router() {
 }
 
 export default function App() {
-  const isDev = import.meta.env.DEV;
-  
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>

@@ -8,6 +8,13 @@ interface RoleRedirectProps {
 }
 
 export function RoleRedirect({ adminComponent: AdminComponent, workerRedirect = "/worker" }: RoleRedirectProps) {
+  const isDev = import.meta.env.DEV;
+
+  // In development, skip backend auth check to avoid loading spinner
+  if (isDev) {
+    return <AdminComponent />;
+  }
+
   const { data: user, isLoading } = useQuery<User>({
     queryKey: ["/api/auth/user"],
   });
