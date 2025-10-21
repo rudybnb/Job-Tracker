@@ -86,12 +86,42 @@ export function serveStatic(app: Express) {
 
   if (!fs.existsSync(finalPath)) {
     const allPaths = [distPath, ...fallbackPaths];
+    
+    // Debug: List what actually exists
+    const debugInfo = [];
+    debugInfo.push('=== Directory Debug Info ===');
+    debugInfo.push(`Current working directory: ${process.cwd()}`);
+    debugInfo.push(`Server location (import.meta.dirname): ${import.meta.dirname}`);
+    debugInfo.push(`\nChecking if directories exist:`);
+    
+    // Check each path
+    allPaths.forEach(p => {
+      const exists = fs.existsSync(p);
+      debugInfo.push(`  ${exists ? '✓' : '✗'} ${p}`);
+    });
+    
+    // List contents of server directory
+    debugInfo.push(`\nContents of server directory (${import.meta.dirname}):`);
+    try {
+      const files = fs.readdirSync(import.meta.dirname);
+      files.forEach(f => debugInfo.push(`  - ${f}`));
+    } catch (e) {
+      debugInfo.push(`  Error reading directory: ${e.message}`);
+    }
+    
+    // List contents of parent directory
+    const parentDir = path.resolve(import.meta.dirname, '..');
+    debugInfo.push(`\nContents of parent directory (${parentDir}):`);
+    try {
+      const files = fs.readdirSync(parentDir);
+      files.forEach(f => debugInfo.push(`  - ${f}`));
+    } catch (e) {
+      debugInfo.push(`  Error reading directory: ${e.message}`);
+    }
+    
     throw new Error(
-      `Could not find the build directory. Tried:\n` +
-      allPaths.map(p => `  - ${p}`).join('\n') + '\n' +
-      `Make sure to build the client first.\n` +
-      `Current working directory: ${process.cwd()}\n` +
-      `Server location: ${import.meta.dirname}`,
+      `Could not find the build directory.\n\n` +
+      debugInfo.join('\n')
     );
   }
 
