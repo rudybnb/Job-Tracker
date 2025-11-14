@@ -330,6 +330,10 @@ async function startAutomaticLogoutService() {
 }
 
 (async () => {
+  // Initialize database schema before starting services
+  const { initializeDatabase } = await import('./init-database');
+  await initializeDatabase();
+  
   const server = await registerRoutes(app);
   
   // Start automatic logout service
