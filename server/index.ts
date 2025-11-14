@@ -5,6 +5,7 @@ dotenv.config();
 import { registerRoutes } from "./routes";
 import { setupSimpleRoutes } from "./simple-routes";
 import { simpleInitDatabase } from "./simple-init-db";
+import { initFinancialTables } from "./init-financial-tables";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -341,6 +342,9 @@ async function startAutomaticLogoutService() {
 (async () => {
   // Initialize SIMPLE database schema for immediate login functionality
   await simpleInitDatabase();
+  
+  // Initialize financial tracking tables
+  await initFinancialTables();
   
   const server = await registerRoutes(app);
   
