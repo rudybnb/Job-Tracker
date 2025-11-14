@@ -4,14 +4,16 @@ import { sql } from "drizzle-orm";
 /**
  * Simple database initialization for immediate login functionality
  * Creates only the essential tables needed for basic authentication
+ * Drops and recreates tables to ensure clean schema
  */
 export async function simpleInitDatabase() {
-  console.log('🔧 Simple database initialization...');
+  console.log('🔧 Simple database initialization (dropping and recreating tables)...');
   
   try {
-    // Create a simple users table for authentication
+    // Drop and recreate simple_users table
+    await db.execute(sql`DROP TABLE IF EXISTS simple_users CASCADE;`);
     await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS simple_users (
+      CREATE TABLE simple_users (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         username TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
@@ -20,11 +22,12 @@ export async function simpleInitDatabase() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
-    console.log('✅ simple_users table ready');
-
-    // Create staff table if it doesn't exist (for admin login)
+    console.log('✅ simple_users table created');
+    
+    // Drop and recreate staff table
+    await db.execute(sql`DROP TABLE IF EXISTS staff CASCADE;`);
     await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS staff (
+      CREATE TABLE staff (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         username TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
@@ -33,37 +36,22 @@ export async function simpleInitDatabase() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
-    console.log('✅ staff table ready');
-
-    // Check if admin user exists, if not create one
-    const adminCheck = await db.execute(sql`
-      SELECT * FROM staff WHERE username = 'admin' LIMIT 1;
-    `);
+    console.log('✅ staff table created');
     
-    if (!Array.isArray(adminCheck) || adminCheck.length === 0) {
-      // Create default admin user (password: admin123)
-      // In production, this should be changed immediately
-      await db.execute(sql`
-        INSERT INTO staff (username, password, role, full_name)
-        VALUES ('admin', 'admin123', 'admin', 'System Administrator');
-      `);
-      console.log('✅ Default admin user created (username: admin, password: admin123)');
-    }
-
-    // Check if test contractor exists
-    const contractorCheck = await db.execute(sql`
-      SELECT * FROM simple_users WHERE username = 'rudy' LIMIT 1;
+    // Create default admin user (password: admin123)
+    await db.execute(sql`
+      INSERT INTO staff (username, password, role, full_name)
+      VALUES ('admin', 'admin123', 'admin', 'System Administrator');
     `);
+    console.log('✅ Default admin user created (username: admin, password: admin123)');
     
-    if (!Array.isArray(contractorCheck) || contractorCheck.length === 0) {
-      // Create test contractor user
-      await db.execute(sql`
-        INSERT INTO simple_users (username, password, role, full_name)
-        VALUES ('rudy', 'rudy123', 'contractor', 'Rudy Test User');
-      `);
-      console.log('✅ Test contractor user created (username: rudy, password: rudy123)');
-    }
-
+    // Create test contractor (password: rudy123)
+    await db.execute(sql`
+      INSERT INTO simple_users (username, password, role, full_name)
+      VALUES ('rudy', 'rudy123', 'contractor', 'Rudy Test');
+    `);
+    console.log('✅ Test contractor created (username: rudy, password: rudy123)');
+    
     console.log('✅ Simple database initialization complete');
     console.log('📝 You can now login with:');
     console.log('   Admin: username=admin, password=admin123');
