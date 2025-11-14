@@ -25,9 +25,13 @@ export async function initFinancialTables() {
     `);
     console.log('✅ clients table created');
     
+    // Drop and recreate jobs table to ensure correct schema
+    await db.execute(sql`DROP TABLE IF EXISTS jobs CASCADE;`);
+    console.log('🗑️  Dropped existing jobs table');
+    
     // Create jobs table
     await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS jobs (
+      CREATE TABLE jobs (
         id SERIAL PRIMARY KEY,
         client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
         job_name VARCHAR(255) NOT NULL,
