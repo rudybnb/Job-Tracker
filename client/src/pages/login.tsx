@@ -71,9 +71,9 @@ export default function Login() {
       return;
     }
     
-    // Check contractor credentials from database
+    // Check contractor credentials from database (using SIMPLE login)
     try {
-      const response = await apiFetch('/api/contractor-login', {
+      const response = await apiFetch('/api/simple-contractor-login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,16 +82,17 @@ export default function Login() {
       });
       
       if (response.ok) {
-        const contractor = await response.json();
+        const data = await response.json();
+        const contractor = data.user;
         
         // Successful contractor login
         localStorage.setItem('userRole', 'contractor');
         localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('contractorName', `${contractor.firstName} ${contractor.lastName}`);
+        localStorage.setItem('contractorName', contractor.fullName || contractor.username);
         localStorage.setItem('contractorId', contractor.id);
-        console.log(`✅ Contractor login successful - ${contractor.firstName} ${contractor.lastName}`);
+        console.log(`✅ Contractor login successful - ${contractor.fullName || contractor.username}`);
         setIsAuthenticated(true);
-        setAuthContractorName(`${contractor.firstName} ${contractor.lastName}`);
+        setAuthContractorName(contractor.fullName || contractor.username);
 
         if (latitude && longitude) {
           try {
@@ -101,7 +102,7 @@ export default function Login() {
               body: JSON.stringify({
                 userLatitude: latitude.toString(),
                 userLongitude: longitude.toString(),
-                contractorName: `${contractor.firstName} ${contractor.lastName}`
+                contractorName: contractor.fullName || contractor.username
               })
             });
             const prox = await proxResp.json();

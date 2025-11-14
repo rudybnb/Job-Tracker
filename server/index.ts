@@ -3,6 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
 import { registerRoutes } from "./routes";
+import { setupSimpleRoutes } from "./simple-routes";
+import { simpleInitDatabase } from "./simple-init-db";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -44,8 +46,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Automatic logout service - handles both time-based (5 PM) and GPS proximity-based logout
+// Automatic logout service - TEMPORARILY DISABLED for simple login
+// Will be re-enabled later with n8n integration
 async function startAutomaticLogoutService() {
+  console.log("⏸️  Automatic logout service disabled (will be added back with n8n integration)");
+  return;
+  
+  // Original code commented out:
+  /*
   const { storage } = await import('./storage');
   console.log("🕐 Starting automatic logout service (time + GPS proximity)...");
   
@@ -327,16 +335,19 @@ async function startAutomaticLogoutService() {
       console.error("❌ Error in automatic logout service:", error);
     }
   }, 120000); // Check every 2 minutes to reduce aggressive auto-logout
+  */
 }
 
 (async () => {
-  // Initialize database schema before starting services
-  const { initializeDatabase } = await import('./init-database');
-  await initializeDatabase();
+  // Initialize SIMPLE database schema for immediate login functionality
+  await simpleInitDatabase();
   
   const server = await registerRoutes(app);
   
-  // Start automatic logout service
+  // Setup simple authentication routes
+  setupSimpleRoutes(app);
+  
+  // Start automatic logout service (currently disabled)
   await startAutomaticLogoutService();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
