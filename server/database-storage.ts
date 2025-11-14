@@ -47,6 +47,22 @@ export class DatabaseStorage implements IStorage {
     console.log('✅ DatabaseStorage initialized with persistent PostgreSQL');
   }
 
+  // Staff (using raw SQL since staff table not in schema)
+  async getStaffByUsername(username: string): Promise<any | undefined> {
+    try {
+      const result = await sql`
+        SELECT id, name, role, email, username, password, status
+        FROM staff
+        WHERE username = ${username}
+        LIMIT 1
+      `;
+      return result[0];
+    } catch (error) {
+      console.error('Error fetching staff by username:', error);
+      return undefined;
+    }
+  }
+
   // Contractors
   async getContractors(): Promise<Contractor[]> {
     return db.select().from(contractors);

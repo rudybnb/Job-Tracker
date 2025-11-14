@@ -1384,7 +1384,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username and password required" });
       }
       
-      // Find contractor by username and password
+      // First, check staff table for admin/staff login
+      const staffMember = await storage.getStaffByUsername(username);
+      if (staffMember && staffMember.password) {
+        // Verify password (assuming bcrypt)
+        const bcrypt = await import('bcrypt');
+        const isValid = await bcrypt.compare(password, staffMember.password);
+        if (isValid) {
+          // Remove sensitive data before sending response
+          const { password: _, ...staffData } = staffMember;
+          return res.json({ ...staffData, role: staffMember.role, isStaff: true });
+        }
+      }
+      
+      // If not found in staff, check contractor applications
       const applications = await storage.getContractorApplications();
       const contractor = applications.find(app => 
         app.username === username && 
