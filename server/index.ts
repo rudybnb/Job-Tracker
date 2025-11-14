@@ -6,6 +6,7 @@ import { registerRoutes } from "./routes";
 import { setupSimpleRoutes } from "./simple-routes";
 import { simpleInitDatabase } from "./simple-init-db";
 import { initFinancialTables } from "./init-financial-tables";
+import { setupFinancialRoutes } from "./financial-routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -350,6 +351,9 @@ async function startAutomaticLogoutService() {
   
   // Setup simple authentication routes
   setupSimpleRoutes(app);
+  
+  // Setup financial tracking routes
+  setupFinancialRoutes(app);
   
   // Start automatic logout service (currently disabled)
   await startAutomaticLogoutService();
