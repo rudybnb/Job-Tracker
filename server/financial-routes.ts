@@ -17,7 +17,7 @@ export function setupFinancialRoutes(app: Express) {
    * GET /api/clients
    * Get all clients with their spending summary
    */
-  app.get("/api/clients", async (req: Request, res: Response) => {
+  app.get("/api/financial/clients", async (req: Request, res: Response) => {
     try {
       const clients = await db.execute(sql`
         SELECT * FROM clients ORDER BY created_at DESC
@@ -33,7 +33,7 @@ export function setupFinancialRoutes(app: Express) {
    * GET /api/clients/:id
    * Get a specific client with detailed information
    */
-  app.get("/api/clients/:id", async (req: Request, res: Response) => {
+  app.get("/api/financial/clients/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const client = await db.execute(sql`
@@ -63,7 +63,7 @@ export function setupFinancialRoutes(app: Express) {
    * POST /api/clients
    * Create a new client
    */
-  app.post("/api/clients", async (req: Request, res: Response) => {
+  app.post("/api/financial/clients", async (req: Request, res: Response) => {
     try {
       const { name, email, phone, address } = req.body;
       
@@ -88,7 +88,7 @@ export function setupFinancialRoutes(app: Express) {
    * PUT /api/clients/:id
    * Update a client
    */
-  app.put("/api/clients/:id", async (req: Request, res: Response) => {
+  app.put("/api/financial/clients/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { name, email, phone, address } = req.body;
@@ -119,7 +119,7 @@ export function setupFinancialRoutes(app: Express) {
    * DELETE /api/clients/:id
    * Delete a client (will cascade delete all associated jobs)
    */
-  app.delete("/api/clients/:id", async (req: Request, res: Response) => {
+  app.delete("/api/financial/clients/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -142,7 +142,7 @@ export function setupFinancialRoutes(app: Express) {
    * GET /api/jobs
    * Get all jobs with budget summary
    */
-  app.get("/api/jobs", async (req: Request, res: Response) => {
+  app.get("/api/financial/jobs", async (req: Request, res: Response) => {
     try {
       const jobs = await db.execute(sql`
         SELECT j.*, c.name as client_name
@@ -161,7 +161,7 @@ export function setupFinancialRoutes(app: Express) {
    * GET /api/jobs/:id
    * Get a specific job with detailed budget breakdown
    */
-  app.get("/api/jobs/:id", async (req: Request, res: Response) => {
+  app.get("/api/financial/jobs/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -202,7 +202,7 @@ export function setupFinancialRoutes(app: Express) {
    * POST /api/jobs
    * Create a new job
    */
-  app.post("/api/jobs", async (req: Request, res: Response) => {
+  app.post("/api/financial/jobs", async (req: Request, res: Response) => {
     try {
       const {
         client_id,
@@ -248,7 +248,7 @@ export function setupFinancialRoutes(app: Express) {
    * PUT /api/jobs/:id
    * Update a job
    */
-  app.put("/api/jobs/:id", async (req: Request, res: Response) => {
+  app.put("/api/financial/jobs/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const {
@@ -298,7 +298,7 @@ export function setupFinancialRoutes(app: Express) {
    * DELETE /api/jobs/:id
    * Delete a job
    */
-  app.delete("/api/jobs/:id", async (req: Request, res: Response) => {
+  app.delete("/api/financial/jobs/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -321,7 +321,7 @@ export function setupFinancialRoutes(app: Express) {
    * GET /api/jobs/:jobId/phases
    * Get all phases for a job
    */
-  app.get("/api/jobs/:jobId/phases", async (req: Request, res: Response) => {
+  app.get("/api/financial/jobs/:jobId/phases", async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
       
@@ -342,7 +342,7 @@ export function setupFinancialRoutes(app: Express) {
    * POST /api/jobs/:jobId/phases
    * Create a new phase for a job
    */
-  app.post("/api/jobs/:jobId/phases", async (req: Request, res: Response) => {
+  app.post("/api/financial/jobs/:jobId/phases", async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
       const {
@@ -385,7 +385,7 @@ export function setupFinancialRoutes(app: Express) {
    * PUT /api/phases/:id
    * Update a phase
    */
-  app.put("/api/phases/:id", async (req: Request, res: Response) => {
+  app.put("/api/financial/phases/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const {
@@ -433,7 +433,7 @@ export function setupFinancialRoutes(app: Express) {
    * DELETE /api/phases/:id
    * Delete a phase
    */
-  app.delete("/api/phases/:id", async (req: Request, res: Response) => {
+  app.delete("/api/financial/phases/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -456,7 +456,7 @@ export function setupFinancialRoutes(app: Express) {
    * GET /api/jobs/:jobId/expenses
    * Get all expenses for a job
    */
-  app.get("/api/jobs/:jobId/expenses", async (req: Request, res: Response) => {
+  app.get("/api/financial/jobs/:jobId/expenses", async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
       
@@ -479,7 +479,7 @@ export function setupFinancialRoutes(app: Express) {
    * POST /api/expenses
    * Create a new expense
    */
-  app.post("/api/expenses", async (req: Request, res: Response) => {
+  app.post("/api/financial/expenses", async (req: Request, res: Response) => {
     try {
       const {
         job_id,
@@ -522,7 +522,7 @@ export function setupFinancialRoutes(app: Express) {
    * PUT /api/expenses/:id
    * Update an expense
    */
-  app.put("/api/expenses/:id", async (req: Request, res: Response) => {
+  app.put("/api/financial/expenses/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const {
@@ -564,7 +564,7 @@ export function setupFinancialRoutes(app: Express) {
    * DELETE /api/expenses/:id
    * Delete an expense
    */
-  app.delete("/api/expenses/:id", async (req: Request, res: Response) => {
+  app.delete("/api/financial/expenses/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -587,7 +587,7 @@ export function setupFinancialRoutes(app: Express) {
    * GET /api/contractors
    * Get all contractors
    */
-  app.get("/api/contractors", async (req: Request, res: Response) => {
+  app.get("/api/financial/contractors", async (req: Request, res: Response) => {
     try {
       const contractors = await db.execute(sql`
         SELECT c.*, ct.type_name as contractor_type_name
@@ -606,7 +606,7 @@ export function setupFinancialRoutes(app: Express) {
    * POST /api/contractors
    * Create a new contractor
    */
-  app.post("/api/contractors", async (req: Request, res: Response) => {
+  app.post("/api/financial/contractors", async (req: Request, res: Response) => {
     try {
       const {
         name,
@@ -647,7 +647,7 @@ export function setupFinancialRoutes(app: Express) {
    * GET /api/contractor-types
    * Get all contractor types
    */
-  app.get("/api/contractor-types", async (req: Request, res: Response) => {
+  app.get("/api/financial/contractor-types", async (req: Request, res: Response) => {
     try {
       const types = await db.execute(sql`
         SELECT * FROM contractor_types ORDER BY type_name
@@ -667,7 +667,7 @@ export function setupFinancialRoutes(app: Express) {
    * GET /api/contractors/:contractorId/payments
    * Get all payments for a contractor
    */
-  app.get("/api/contractors/:contractorId/payments", async (req: Request, res: Response) => {
+  app.get("/api/financial/contractors/:contractorId/payments", async (req: Request, res: Response) => {
     try {
       const { contractorId } = req.params;
       
@@ -691,7 +691,7 @@ export function setupFinancialRoutes(app: Express) {
    * POST /api/payments
    * Record a new payment
    */
-  app.post("/api/payments", async (req: Request, res: Response) => {
+  app.post("/api/financial/payments", async (req: Request, res: Response) => {
     try {
       const {
         contractor_id,
@@ -738,7 +738,7 @@ export function setupFinancialRoutes(app: Express) {
    * GET /api/dashboard/summary
    * Get overall financial summary
    */
-  app.get("/api/dashboard/summary", async (req: Request, res: Response) => {
+  app.get("/api/financial/dashboard/summary", async (req: Request, res: Response) => {
     try {
       // Total clients
       const clientCount = await db.execute(sql`
