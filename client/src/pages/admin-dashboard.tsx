@@ -409,6 +409,17 @@ export default function AdminDashboard() {
                   <button 
                     onClick={() => {
                       setShowAvatarDropdown(false);
+                      window.location.href = '/admin-budget-tracking';
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-blue-400 bg-blue-900/20"
+                  >
+                    <i className="fas fa-chart-line mr-3 w-4"></i>
+                    📊 Budget Tracking 📊
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
                       window.location.href = '/contract-cashflow';
                     }}
                     className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-green-400 bg-green-900/20"

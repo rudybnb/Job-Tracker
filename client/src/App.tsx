@@ -31,6 +31,7 @@ import ContractorIdCapture from "@/pages/contractor-id-capture";
 import AdminSettings from "@/pages/admin-settings";
 import AdminInspections from "@/pages/admin-inspections";
 import AdminInspection from "@/pages/admin-inspection";
+import AdminBudgetTracking from "@/pages/admin-budget-tracking";
 import TelegramMessages from "@/pages/telegram-messages";
 import VoiceControl from "@/pages/voice-control";
 
@@ -191,6 +192,11 @@ function Router() {
         <Route path="/admin-site-inspections" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AdminInspections />
+          </ProtectedRoute>
+        )} />
+        <Route path="/admin-budget-tracking" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminBudgetTracking />
           </ProtectedRoute>
         )} />
         
