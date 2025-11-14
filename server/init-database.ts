@@ -17,7 +17,9 @@ export async function initializeDatabase() {
       AND table_name = 'work_sessions'
     `);
     
-    if (tableCheck.rows.length === 0) {
+    const tableExists = Array.isArray(tableCheck) && tableCheck.length > 0;
+    
+    if (!tableExists) {
       console.log('📋 Creating work_sessions table...');
       
       // Create work_sessions table
@@ -50,7 +52,7 @@ export async function initializeDatabase() {
         AND table_name = 'work_sessions'
       `);
       
-      const columnNames = columns.rows.map((row: any) => row.column_name);
+      const columnNames = Array.isArray(columns) ? columns.map((row: any) => row.column_name) : [];
       const requiredColumns = [
         'id', 'contractor_name', 'job_site_location', 'start_time', 
         'end_time', 'total_hours', 'start_latitude', 'start_longitude',
