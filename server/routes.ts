@@ -137,7 +137,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete CSV upload record
-  app.delete("/api/csv-uploads/:id", async (req, res) => {
+  /*
+app.delete("/api/csv-uploads/:id", async (req, res) => {
     try {
       const uploadId = req.params.id;
       console.log("🗑️ COMPLETE CLEANUP starting for upload:", uploadId);
@@ -191,6 +192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to complete cleanup" });
     }
   });
+*/
 
   // CSV Upload endpoint
   app.post("/api/upload-csv", upload.single('csvFile'), async (req: MulterRequest, res) => {
