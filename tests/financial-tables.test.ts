@@ -175,3 +175,40 @@ test("repeated initialization is idempotent", async () => {
   assert.equal(tables.contractor_types.has("daily_rate"), true);
   assert.equal(tables.contractor_types.has("price_job"), true);
 });
+
+test("every job_id referencing canonical jobs is varchar/text", () => {
+  const source = financialTableStatements().join("\n");
+  const refs = source.match(/job_id\s+(VARCHAR|TEXT)\s+REFERENCES\s+jobs\s*\(\s*id\s*\)/gi) ?? [];
+  assert.ok(refs.length >= 3, `expected job_id -> jobs(id) FKs as varchar/text, found ${refs.length}`);
+  assert.equal(/job_id\s+INTEGER\s+REFERENCES\s+jobs\b/i.test(source), false, "job_id must not be INTEGER");
+});
+
+test("every contractor_id referencing canonical contractors is varchar/text", () => {
+  const source = financialTableStatements().join("\n");
+  const refs = source.match(/contractor_id\s+(VARCHAR|TEXT)\s+REFERENCES\s+contractors\s*\(\s*id\s*\)/gi) ?? [];
+  assert.ok(refs.length >= 3, `expected contractor_id -> contractors(id) FKs as varchar/text, found ${refs.length}`);
+  assert.equal(/contractor_id\s+INTEGER\s+REFERENCES\s+contractors\b/i.test(source), false, "contractor_id must not be INTEGER");
+});
+
+test("no retained financial table references canonical jobs/contractors with INTEGER", () => {
+  const source = financialTableStatements().join("\n");
+  assert.equal(/INTEGER\s+REFERENCES\s+jobs\b/i.test(source), false);
+  assert.equal(/INTEGER\s+REFERENCES\s+contractors\b/i.test(source), false);
+});
+
+test("internal financial primary keys remain SERIAL/INTEGER", () => {
+  const source = financialTableStatements().join("\n");
+  const pkCount = (source.match(/id\s+SERIAL\s+PRIMARY\s+KEY/gi) ?? []).length;
+  assert.equal(pkCount, RETAINED_TABLES.length, "all financial tables keep SERIAL primary keys");
+  assert.equal(/id\s+VARCHAR\s+PRIMARY\s+KEY/i.test(source), false, "no financial PK may be varchar");
+});
+
+test("internal financial foreign keys remain INTEGER", () => {
+  const source = financialTableStatements().join("\n");
+  assert.equal(/phase_id\s+INTEGER\s+REFERENCES\s+job_phases\b/i.test(source), true);
+  assert.equal(/sub_phase_id\s+INTEGER\s+REFERENCES\s+sub_phases\b/i.test(source), true);
+  assert.equal(/assignment_id\s+INTEGER\s+REFERENCES\s+phase_assignments\b/i.test(source), true);
+  assert.equal(/milestone_id\s+INTEGER\s+REFERENCES\s+milestones\b/i.test(source), true);
+  assert.equal(/phase_id\s+VARCHAR\s+REFERENCES/i.test(source), false, "internal FKs must stay INTEGER");
+  assert.equal(/assignment_id\s+VARCHAR\s+REFERENCES/i.test(source), false);
+});
