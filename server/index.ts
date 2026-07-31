@@ -6,6 +6,7 @@ import { registerRoutes } from "./routes";
 import { setupSimpleRoutes } from "./simple-routes";
 import { simpleInitDatabase } from "./simple-init-db";
 import { initFinancialTables } from "./init-financial-tables";
+import { runDestructiveInitialization } from "./db-safety";
 import { setupFinancialRoutes } from "./financial-routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -341,11 +342,13 @@ async function startAutomaticLogoutService() {
 }
 
 (async () => {
-  // Initialize SIMPLE database schema for immediate login functionality
-  await simpleInitDatabase();
-  
-  // Initialize financial tracking tables
-  await initFinancialTables();
+  // Destructive database initialization is DISABLED by default.
+  // It only runs when ALLOW_DESTRUCTIVE_INIT=true AND NODE_ENV is not "production".
+  // DATABASE_URL is validated first; placeholders/invalid URLs are rejected.
+  await runDestructiveInitialization([
+    simpleInitDatabase,
+    initFinancialTables,
+  ]);
   
   const server = await registerRoutes(app);
   
