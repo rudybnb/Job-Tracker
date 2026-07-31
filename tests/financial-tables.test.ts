@@ -104,6 +104,32 @@ function createMockExecutor() {
   return { tables, indexes, executed, executor };
 }
 
+function fkColumnsFromCreateStatements(): Array<{ table: string; column: string; referenced: string }> {
+  const result: Array<{ table: string; column: string; referenced: string }> = [];
+  for (const statement of financialTableStatements()) {
+    const create = /^CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+(\w+)/i.exec(statement);
+    if (!create) continue;
+    const table = create[1];
+    const re = /(\w+)\s+(?:INTEGER|VARCHAR|TEXT)\s+REFERENCES\s+(\w+)\s*\(\s*(\w+)\s*\)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(statement)) !== null) {
+      result.push({ table, column: m[1], referenced: m[2] });
+    }
+  }
+  return result;
+}
+
+function indexStatements(): Array<{ name: string; table: string; column: string }> {
+  const result: Array<{ name: string; table: string; column: string }> = [];
+  for (const statement of financialTableStatements()) {
+    const m = /^CREATE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+(\w+)\s+ON\s+(\w+)\s*\(\s*(\w+)\s*\)/i.exec(statement);
+    if (m) {
+      result.push({ name: m[1], table: m[2], column: m[3] });
+    }
+  }
+  return result;
+}
+
 test("init-financial-tables.ts contains no DROP TABLE", () => {
   assert.equal(/DROP\s+TABLE/i.test(INIT_FINANCIAL_SOURCE), false);
   assert.equal(/DROP\s+TABLE/i.test(FINANCIAL_CORE_SOURCE), false);
@@ -211,4 +237,53 @@ test("internal financial foreign keys remain INTEGER", () => {
   assert.equal(/milestone_id\s+INTEGER\s+REFERENCES\s+milestones\b/i.test(source), true);
   assert.equal(/phase_id\s+VARCHAR\s+REFERENCES/i.test(source), false, "internal FKs must stay INTEGER");
   assert.equal(/assignment_id\s+VARCHAR\s+REFERENCES/i.test(source), false);
+});
+
+test("every REFERENCES column has a matching index", () => {
+  const fks = fkColumnsFromCreateStatements();
+  const indexes = indexStatements();
+  assert.ok(fks.length >= 16, `expected 16 FK columns, found ${fks.length}`);
+  assert.equal(indexes.length, fks.length, "each FK column must have exactly one index");
+  for (const fk of fks) {
+    const matches = indexes.filter((idx) => idx.table === fk.table && idx.column === fk.column);
+    assert.equal(matches.length, 1, `missing index for ${fk.table}.${fk.column} -> ${fk.referenced}`);
+  }
+});
+
+test("all indexes use CREATE INDEX IF NOT EXISTS and are not UNIQUE", () => {
+  const indexStmts = financialTableStatements().filter((s) => /^CREATE\s+INDEX/i.test(s.trim()));
+  assert.ok(indexStmts.length >= 16);
+  for (const stmt of indexStmts) {
+    assert.match(stmt, /^CREATE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+\w+/i);
+    assert.equal(/UNIQUE/i.test(stmt), false, "indexes must not be UNIQUE");
+  }
+});
+
+test("no duplicate index names", () => {
+  const names = indexStatements().map((idx) => idx.name);
+  assert.equal(new Set(names).size, names.length);
+});
+
+test("indexes target existing FK columns and no schema or column types changed", () => {
+  const source = financialTableStatements().join("\n");
+  const fks = fkColumnsFromCreateStatements();
+  const indexes = indexStatements();
+
+  assert.equal(/ALTER\s+TABLE/i.test(source), false, "no ALTER TABLE allowed");
+  assert.equal(/DROP\s+TABLE/i.test(source), false, "no DROP TABLE allowed");
+
+  for (const idx of indexes) {
+    assert.ok(
+      fks.some((fk) => fk.table === idx.table && fk.column === idx.column),
+      `index ${idx.name} must target an FK column of ${idx.table}`,
+    );
+  }
+
+  assert.equal(indexes.length, fks.length, "no extra indexes beyond FK coverage");
+
+  assert.equal(/job_id\s+VARCHAR\s+REFERENCES\s+jobs\b/i.test(source), true);
+  assert.equal(/contractor_id\s+VARCHAR\s+REFERENCES\s+contractors\b/i.test(source), true);
+  assert.equal(/INTEGER\s+REFERENCES\s+jobs\b/i.test(source), false);
+  assert.equal(/INTEGER\s+REFERENCES\s+contractors\b/i.test(source), false);
+  assert.equal(/id\s+SERIAL\s+PRIMARY\s+KEY/gi.test(source), true);
 });
