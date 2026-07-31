@@ -56,10 +56,6 @@ export function financialTableStatements(): ReadonlyArray<string> {
   type_name VARCHAR(50) UNIQUE NOT NULL,
   description TEXT
 );`,
-    `INSERT INTO contractor_types (type_name, description) VALUES
-  ('daily_rate', 'Contractors paid by hour/day worked'),
-  ('price_job', 'Contractors paid per milestone/job completion')
-ON CONFLICT (type_name) DO NOTHING;`,
     `CREATE TABLE IF NOT EXISTS phase_assignments (
   id SERIAL PRIMARY KEY,
   phase_id INTEGER REFERENCES job_phases(id) ON DELETE CASCADE,
@@ -180,6 +176,10 @@ ON CONFLICT (type_name) DO NOTHING;`,
     `CREATE INDEX IF NOT EXISTS idx_work_hours_assignment_id ON work_hours(assignment_id);`,
     `CREATE INDEX IF NOT EXISTS idx_budget_alerts_job_id ON budget_alerts(job_id);`,
     `CREATE INDEX IF NOT EXISTS idx_budget_alerts_phase_id ON budget_alerts(phase_id);`,
+    `INSERT INTO contractor_types (type_name, description) VALUES
+  ('daily_rate', 'Contractors paid by hour/day worked'),
+  ('price_job', 'Contractors paid per milestone/job completion')
+ON CONFLICT (type_name) DO NOTHING;`,
   ];
 }
 

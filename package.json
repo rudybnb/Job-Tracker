@@ -9,7 +9,8 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "test": "node --test tests/*.test.ts",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:bootstrap-empty": "tsx scripts/bootstrap-schema.ts"
   },
   "dependencies": {
     "@capacitor/android": "7.4.3",

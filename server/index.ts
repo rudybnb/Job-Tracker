@@ -4,9 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import { registerRoutes } from "./routes";
 import { setupSimpleRoutes } from "./simple-routes";
-import { simpleInitDatabase } from "./simple-init-db";
-import { initFinancialTables } from "./init-financial-tables";
-import { runDestructiveInitialization } from "./db-safety";
+import { verifySchemaHealth } from "./schema-health.ts";
 import { setupFinancialRoutes } from "./financial-routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -342,13 +340,14 @@ async function startAutomaticLogoutService() {
 }
 
 (async () => {
-  // Destructive database initialization is DISABLED by default.
-  // It only runs when ALLOW_DESTRUCTIVE_INIT=true AND NODE_ENV is not "production".
-  // DATABASE_URL is validated first; placeholders/invalid URLs are rejected.
-  await runDestructiveInitialization([
-    simpleInitDatabase,
-    initFinancialTables,
-  ]);
+  // Read-only database schema health check on application startup.
+  // Normal startup performs NO CREATE, ALTER, DROP, or TRUNCATE statements.
+  const health = await verifySchemaHealth();
+  if (health.ready) {
+    console.log(`✅ ${health.message}`);
+  } else {
+    console.warn(`⚠️ ${health.message}`);
+  }
   
   const server = await registerRoutes(app);
   
