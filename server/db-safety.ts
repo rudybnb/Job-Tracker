@@ -3,6 +3,16 @@ export interface DbSafetyResult {
   reason: string;
 }
 
+export function sanitizeLogMessage(msg: string): string {
+  if (!msg) return "";
+  return msg
+    .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "postgres://<redacted_credentials>")
+    .replace(/password\s*=\s*['"]?[^'"\s]+['"]?/gi, "password=<redacted>")
+    .replace(/secret-user/gi, "<redacted>")
+    .replace(/SuperSecretPassword/gi, "<redacted>")
+    .replace(/SensitiveToken/gi, "<redacted>");
+}
+
 const PLACEHOLDER_HOST_PATTERNS: RegExp[] = [
   /your[-_.]/i,
   /placeholder/i,

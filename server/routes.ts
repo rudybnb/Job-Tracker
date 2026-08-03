@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { DatabaseStorage } from "./database-storage";
+import { authenticateStaffUser } from "./password-security.ts";
 
 // Session interface for type safety
 interface SessionRequest extends Express.Request {
@@ -1386,17 +1387,13 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
         return res.status(400).json({ error: "Username and password required" });
       }
       
-      // First, check staff table for admin/staff login
-      const staffMember = await storage.getStaffByUsername(username);
-      if (staffMember && staffMember.password) {
-        // Verify password (assuming bcrypt)
-        const bcrypt = await import('bcrypt');
-        const isValid = await bcrypt.compare(password, staffMember.password);
-        if (isValid) {
-          // Remove sensitive data before sending response
-          const { password: _, ...staffData } = staffMember;
-          return res.json({ ...staffData, role: staffMember.role, isStaff: true });
-        }
+      // First, check staff table for admin/staff login using shared helper
+      const authResult = await authenticateStaffUser(storage, username, password);
+      if (authResult.success) {
+        return res.json(authResult.user);
+      }
+      if (authResult.statusCode === 500) {
+        return res.status(500).json({ error: "Internal server error" });
       }
       
       // If not found in staff, check contractor applications

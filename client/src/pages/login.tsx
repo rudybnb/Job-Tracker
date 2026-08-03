@@ -57,22 +57,34 @@ export default function Login() {
     localStorage.clear();
     sessionStorage.clear();
     
-    // Check admin credentials first
-    if (username === "admin" && password === "admin123") {
-      localStorage.setItem('userRole', 'admin');
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('adminName', "Admin");
-      console.log('✅ Admin login successful - role set to admin');
-      window.location.href = '/admin';
-      toast({
-        title: "Login Successful",
-        description: "Welcome back, Admin!",
-      });
-      return;
-    }
-    
-    // Check contractor credentials from database (using SIMPLE login)
     try {
+      const adminResponse = await apiFetch('/api/simple-admin-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (adminResponse.ok) {
+        const data = await adminResponse.json();
+        const staff = data.user;
+        localStorage.setItem('userRole', staff.role);
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('adminName', staff.fullName || staff.username);
+        window.location.href = '/admin';
+        toast({
+          title: "Login Successful",
+          description: `Welcome back, ${staff.fullName || staff.username}!`,
+        });
+        return;
+      }
+
+      if (adminResponse.status !== 401) {
+        throw new Error("Staff authentication service unavailable");
+      }
+
+      // Contractor authentication remains database-backed pending a separate hardening phase.
       const response = await apiFetch('/api/simple-contractor-login', {
         method: 'POST',
         headers: {
@@ -125,25 +137,11 @@ export default function Login() {
         });
         
       } else {
-        // Fallback to legacy contractor login
-        if (username === "contractor" && password === "contractor123") {
-          localStorage.setItem('userRole', 'contractor');
-          localStorage.setItem('isLoggedIn', 'true');
-          localStorage.setItem('contractorName', 'Dalwayne Diedericks');
-          console.log('✅ Legacy contractor login successful - Dalwayne Diedericks');
-          setIsAuthenticated(true);
-          setAuthContractorName('Dalwayne Diedericks');
-          toast({
-            title: "Login Successful",
-            description: "Welcome back, Dalwayne!",
-          });
-        } else {
-          toast({
-            title: "Login Failed",
-            description: "Invalid username or password",
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: "Login Failed",
+          description: "Invalid username or password",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Login error:', error);

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import bcrypt from "bcryptjs";
 import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +18,12 @@ import {
 } from "../server/canonical-migrations.ts";
 import { simpleInitStatements } from "../server/simple-init-core.ts";
 import { financialTableStatements } from "../server/financial-tables-core.ts";
-import { verifySchemaHealth, sanitizeErrorMessage } from "../server/schema-health.ts";
+import {
+  CRITICAL_COLUMNS,
+  REQUIRED_TABLES,
+  sanitizeErrorMessage,
+  verifySchemaHealthWithQuery,
+} from "../server/schema-health-core.ts";
 import { runStandaloneBootstrap, checkDatabaseEmptiness, sanitizeLogMessage } from "../scripts/bootstrap-schema.ts";
 import { verifyTableOwnershipManifest, TABLE_OWNERSHIP_MANIFEST } from "../server/table-manifest.ts";
 
@@ -272,9 +278,9 @@ test("single ordered-event assertion verifies exact 17-event relative bootstrap 
       events.push("pgcrypto");
     } else if (query.includes('CREATE TABLE "jobs"')) {
       if (!events.includes("canonical_migrations")) events.push("canonical_migrations");
-    } else if (query.includes("CREATE TABLE IF NOT EXISTS simple_users")) {
+    } else if (query.includes('CREATE TABLE IF NOT EXISTS "simple_users"') || query.includes("CREATE TABLE IF NOT EXISTS staff")) {
       events.push("simple_tables");
-    } else if (query.includes("INSERT INTO simple_users")) {
+    } else if (query.includes("INSERT INTO staff")) {
       events.push("simple_seeds");
     } else if (query.includes("CREATE TABLE IF NOT EXISTS clients")) {
       events.push("financial_tables");
@@ -302,7 +308,7 @@ test("single ordered-event assertion verifies exact 17-event relative bootstrap 
     events.push("final_seed_verification");
   };
 
-  await schemaBootstrapCore(mockExecutor, inTxCheck, finalSchemaVerification, finalSeedVerification);
+  await schemaBootstrapCore(mockExecutor, inTxCheck, finalSchemaVerification, finalSeedVerification, { adminPasswordHash: "test_hash" });
   events.push("client_close");
 
   const expectedOrder = [
@@ -314,10 +320,10 @@ test("single ordered-event assertion verifies exact 17-event relative bootstrap 
     "pgcrypto",
     "canonical_migrations",
     "simple_tables",
-    "simple_seeds",
     "financial_tables",
     "financial_indexes_and_constraints",
     "financial_seeds",
+    "simple_seeds",
     "final_schema_verification",
     "final_seed_verification",
     "migration_ledger_recording",
@@ -432,10 +438,99 @@ test("checkDatabaseEmptiness detects tables, views, matviews, sequences, enums, 
   assert.deepEqual(result.foundObjects, ["contractors", "app_view", "app_matview", "app_seq", "job_status"]);
 });
 
+test("manual bootstrap validates ADMIN_INITIAL_PASSWORD before creating a database client", async () => {
+  let clientCreations = 0;
+  let passwordHashes = 0;
+  await withEnv({
+    DATABASE_URL: "postgresql://localhost:5432/offline_test",
+    NODE_ENV: "development",
+    ADMIN_INITIAL_PASSWORD: undefined,
+  }, async () => {
+    await assert.rejects(
+      runStandaloneBootstrap(["node", "bootstrap-schema.ts", "--confirm-empty-database"], {
+        createClient: () => {
+          clientCreations++;
+          throw new Error("offline test must never create a database client");
+        },
+        hashAdminPassword: async () => {
+          passwordHashes++;
+          return "unused";
+        },
+      }),
+      /ADMIN_INITIAL_PASSWORD/i,
+    );
+  });
+  assert.equal(clientCreations, 0, "password validation must happen before database client creation");
+  assert.equal(passwordHashes, 0, "invalid passwords must be rejected before hashing");
+});
+
+test("manual bootstrap reserves one connection through verification, ledger, and commit", async () => {
+  let reserves = 0;
+  let releases = 0;
+  let closes = 0;
+  const unsafeQueries: string[] = [];
+
+  const reservedTag = async () => [];
+  const reservedClient = Object.assign(reservedTag, {
+    unsafe: async (query: string) => {
+      unsafeQueries.push(query);
+      if (query.includes("information_schema.columns")) {
+        return ["id", "username", "password", "role", "full_name", "created_at"].map((column_name) => ({ column_name }));
+      }
+      if (query.includes("pg_indexes")) {
+        return [{
+          indexname: "idx_staff_username_lower",
+          indexdef: "CREATE UNIQUE INDEX idx_staff_username_lower ON public.staff USING btree (lower(username))",
+        }];
+      }
+      if (query.includes("FROM staff")) {
+        return [{ username: "admin", password: await bcrypt.hash("OfflineAdminPassword123!", 10) }];
+      }
+      return [];
+    },
+    release: () => {
+      releases++;
+    },
+  });
+  const poolTag = async () => [];
+  const poolClient = Object.assign(poolTag, {
+    unsafe: async () => {
+      throw new Error("transaction queries must use the reserved connection");
+    },
+    reserve: async () => {
+      reserves++;
+      return reservedClient;
+    },
+    end: async () => {
+      closes++;
+    },
+  });
+
+  await withEnv({
+    DATABASE_URL: "postgresql://localhost:5432/offline_test",
+    NODE_ENV: "development",
+    ADMIN_INITIAL_PASSWORD: "OfflineAdminPassword123!",
+  }, async () => {
+    await runStandaloneBootstrap(["node", "bootstrap-schema.ts", "--confirm-empty-database"], {
+      createClient: () => poolClient as any,
+      hashAdminPassword: (password) => bcrypt.hash(password, 10),
+    });
+  });
+
+  assert.equal(reserves, 1);
+  assert.equal(releases, 1);
+  assert.equal(closes, 1);
+  const verificationIndex = unsafeQueries.findIndex((query) => query.includes("information_schema.columns"));
+  const ledgerIndex = unsafeQueries.findIndex((query) => query.includes("__drizzle_migrations"));
+  const commitIndex = unsafeQueries.indexOf("COMMIT;");
+  assert.ok(verificationIndex >= 0 && verificationIndex < ledgerIndex);
+  assert.ok(ledgerIndex < commitIndex);
+});
+
 // --- 6. Credential Sanitization Through 10 Failure Paths Tests ---
 
 test("sanitization redacts secret-user, SuperSecretPassword, SensitiveToken across all 10 failure paths", async () => {
-  await withEnv({ DATABASE_URL: SENSITIVE_TEST_URL, NODE_ENV: "development" }, async () => {
+  await withEnv({ DATABASE_URL: SENSITIVE_TEST_URL, NODE_ENV: "development", ADMIN_INITIAL_PASSWORD: "TestAdminPassword123!" }, async () => {
     // Path 1: DATABASE_URL validation failure
     try {
       await runStandaloneBootstrap(["--confirm-empty-database"]);
@@ -462,16 +557,19 @@ test("sanitization redacts secret-user, SuperSecretPassword, SensitiveToken acro
       assertNoSecretsExposed(err.message, "Path 4: Canonical migration failure");
     }
 
-    // Path 5: Simple seed failure
+    // Path 5: Staff seed failure
+    let staffSeedFailureObserved = false;
     try {
       await schemaBootstrapCore(async (query) => {
-        if (query.includes("INSERT INTO simple_users")) {
-          throw new Error(`Simple seed error with ${SENSITIVE_TEST_URL}`);
+        if (query.includes("INSERT INTO staff")) {
+          throw new Error(`Staff seed error with ${SENSITIVE_TEST_URL}`);
         }
-      });
+      }, undefined, undefined, undefined, { adminPasswordHash: "test_hash" });
     } catch (err: any) {
+      staffSeedFailureObserved = true;
       assertNoSecretsExposed(err.message, "Path 5: Simple seed failure");
     }
+    assert.equal(staffSeedFailureObserved, true, "staff seed failure path must execute and throw");
 
     // Path 6: Financial seed failure
     try {
@@ -551,10 +649,25 @@ test("schema health check is strictly read-only and contains no DDL/DML mutation
   assert.equal(/DELETE\s+FROM/i.test(codeOnly), false);
 });
 
-test("verifySchemaHealth returns structured codes (REQUIRED_TABLE_MISSING, CRITICAL_COLUMN_MISSING, SCHEMA_READY)", async () => {
-  const health = await verifySchemaHealth();
-  assert.ok(typeof health.ready === "boolean");
-  assert.ok(["SCHEMA_READY", "REQUIRED_TABLE_MISSING", "CRITICAL_COLUMN_MISSING", "SCHEMA_NOT_READY"].includes(health.code));
+test("schema health core returns structured codes using injected offline query results", async () => {
+  let queryCount = 0;
+  const ready = await verifySchemaHealthWithQuery(async (kind) => {
+    queryCount++;
+    return kind === "tables"
+      ? REQUIRED_TABLES.map((table_name) => ({ table_name }))
+      : CRITICAL_COLUMNS.map(({ table, column }) => ({ table_name: table, column_name: column }));
+  });
+  assert.equal(ready.code, "SCHEMA_READY");
+  assert.equal(queryCount, 2);
+
+  const missingTable = await verifySchemaHealthWithQuery(async () => []);
+  assert.equal(missingTable.code, "REQUIRED_TABLE_MISSING");
+
+  const failed = await verifySchemaHealthWithQuery(async () => {
+    throw new Error(`Health check error for ${SENSITIVE_TEST_URL}`);
+  });
+  assert.equal(failed.code, "SCHEMA_NOT_READY");
+  assertNoSecretsExposed(failed.message, "injected schema health failure");
 });
 
 test("no destructive SQL exists in any schema bootstrap statement", () => {

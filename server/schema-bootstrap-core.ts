@@ -3,7 +3,7 @@ import { simpleInitStatements } from "./simple-init-core.ts";
 import { financialTableStatements } from "./financial-tables-core.ts";
 import { verifyTableOwnershipManifest } from "./table-manifest.ts";
 
-export type SqlExecutor = (query: string) => Promise<unknown>;
+export type SqlExecutor = (query: string, params?: unknown[]) => Promise<unknown>;
 
 export interface BootstrapResult {
   success: boolean;
@@ -13,11 +13,15 @@ export interface BootstrapResult {
   message: string;
 }
 
+export interface BootstrapCoreOptions {
+  adminPasswordHash?: string;
+}
+
 /**
- * Returns the complete one-off schema bootstrap statement sequence (Phase 0C1):
+ * Returns the complete one-off schema bootstrap statement sequence:
  * 1. pgcrypto extension
  * 2. Canonical Drizzle migrations in journal order
- * 3. simpleInitCore tables & seeds
+ * 3. simpleInitCore tables
  * 4. financialTablesCore tables, indexes & seeds
  */
 export function schemaBootstrapStatements(): ReadonlyArray<string> {
@@ -89,6 +93,7 @@ export async function schemaBootstrapCore(
   checkInTxEmptiness?: () => Promise<boolean>,
   verifyFinalSchema?: () => Promise<void>,
   verifyFinalSeeds?: () => Promise<void>,
+  options?: BootstrapCoreOptions,
 ): Promise<BootstrapResult> {
   console.log("🛠️ Starting transactional schema bootstrap sequence...");
 
@@ -130,7 +135,17 @@ export async function schemaBootstrapCore(
       state.executedCount++;
     }
 
-    // 5. Final schema & seed verification (MUST occur BEFORE ledger recording & COMMIT)
+    // 5. Parameterized staff seed execution
+    if (options?.adminPasswordHash) {
+      await executor(
+        `INSERT INTO staff (username, password, role, full_name)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (username) DO NOTHING;`,
+        ["admin", options.adminPasswordHash, "admin", "System Administrator"],
+      );
+      state.executedCount++;
+    }
+    // 6. Final schema & seed verification (MUST occur BEFORE ledger recording & COMMIT)
     if (verifyFinalSchema) {
       await verifyFinalSchema();
     }
@@ -138,13 +153,13 @@ export async function schemaBootstrapCore(
       await verifyFinalSeeds();
     }
 
-    // 6. Drizzle migration ledger recording (inside transaction)
+    // 7. Drizzle migration ledger recording (inside transaction)
     for (const statement of ledgerStatements) {
       await executor(statement);
       state.executedCount++;
     }
 
-    // 7. COMMIT transaction
+    // 8. COMMIT transaction
     await executor("COMMIT;");
     state.inTransaction = false;
     console.log(`✅ Schema bootstrap transaction committed successfully (${state.executedCount} statements).`);

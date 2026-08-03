@@ -68,35 +68,28 @@ export function setupSimpleRoutes(app: Express) {
         return res.status(400).json({ error: "Username and password required" });
       }
 
-      // Check staff table
-      const users = await db.execute(sql`
-        SELECT * FROM staff 
-        WHERE username = ${username} 
-        AND password = ${password}
-        LIMIT 1;
-      `);
+      const { DatabaseStorage } = await import("./database-storage.ts");
+      const { authenticateStaffUser } = await import("./password-security.ts");
+      const storage = new DatabaseStorage();
 
-      if (!Array.isArray(users) || users.length === 0) {
-        console.log(`❌ Admin login failed for: ${username}`);
-        return res.status(401).json({ error: "Invalid credentials" });
+      const authResult = await authenticateStaffUser(storage, username, password);
+
+      if (!authResult.success) {
+        return res.status(authResult.statusCode).json({ error: authResult.error });
       }
 
-      const user = users[0];
-      console.log(`✅ Admin login successful for: ${username}`);
+      console.log(`✅ Admin login successful for: ${authResult.user.username}`);
 
       // Set session
-      req.session.userId = user.id;
-      req.session.username = user.username;
-      req.session.role = user.role;
+      if (req.session) {
+        req.session.userId = authResult.user.id;
+        req.session.username = authResult.user.username;
+        req.session.role = authResult.user.role;
+      }
 
       res.json({
         success: true,
-        user: {
-          id: user.id,
-          username: user.username,
-          fullName: user.full_name || username,
-          role: user.role
-        }
+        user: authResult.user,
       });
 
     } catch (error) {

@@ -1,7 +1,14 @@
 import "dotenv/config";
 import postgres from "postgres";
+import { hashPassword } from "../server/password-security.ts";
 import { validateDatabaseUrl, isProduction } from "../server/db-safety.ts";
 import { schemaBootstrapCore } from "../server/schema-bootstrap-core.ts";
+import { verifyFinalAdminSeed, verifyFinalStaffSchema } from "../server/schema-bootstrap-verification.ts";
+
+export interface BootstrapDependencies {
+  createClient?: (databaseUrl: string, options: { ssl: false | "require" }) => postgres.Sql;
+  hashAdminPassword?: (password: string) => Promise<string>;
+}
 
 export function sanitizeLogMessage(msg: string): string {
   if (!msg) return "";
@@ -69,12 +76,15 @@ export async function checkDatabaseEmptiness(client: postgres.Sql): Promise<{ is
 }
 
 /**
- * Standalone Manual Schema Bootstrap Command (Phase 0C1)
+ * Standalone Manual Schema Bootstrap Command
  * MUST NEVER RUN AUTOMATICALLY ON APPLICATION STARTUP OR BUILD.
  * Usage:
- *   npm run db:bootstrap-empty -- --confirm-empty-database
+ *   ADMIN_INITIAL_PASSWORD="your_secure_password" npm run db:bootstrap-empty -- --confirm-empty-database
  */
-export async function runStandaloneBootstrap(args: string[] = process.argv): Promise<void> {
+export async function runStandaloneBootstrap(
+  args: string[] = process.argv,
+  dependencies: BootstrapDependencies = {},
+): Promise<void> {
   const hasConfirmFlag = args.includes("--confirm-empty-database");
   const allowProduction = args.includes("--allow-production");
 
@@ -90,6 +100,13 @@ export async function runStandaloneBootstrap(args: string[] = process.argv): Pro
     throw new Error("Production execution refused without '--allow-production' flag.");
   }
 
+  const adminPassword = process.env.ADMIN_INITIAL_PASSWORD;
+  if (!adminPassword || typeof adminPassword !== "string" || adminPassword.trim().length === 0 || adminPassword.length < 8) {
+    const msg = "🚫 Refusing schema bootstrap: ADMIN_INITIAL_PASSWORD environment variable is required (minimum 8 characters, non-whitespace).";
+    console.error(msg);
+    throw new Error(msg);
+  }
+
   const databaseUrl = process.env.DATABASE_URL;
   const validation = validateDatabaseUrl(databaseUrl);
 
@@ -99,8 +116,12 @@ export async function runStandaloneBootstrap(args: string[] = process.argv): Pro
     throw new Error(`Invalid DATABASE_URL: ${sanitizedReason}`);
   }
 
+  const adminPasswordHash = await (dependencies.hashAdminPassword ?? hashPassword)(adminPassword);
+
   console.log("🔍 Running preflight empty-database check...");
-  const client = postgres(databaseUrl!, { ssl: isProduction() ? "require" : false });
+  const createClient = dependencies.createClient ?? ((url, options) => postgres(url, options));
+  const client = createClient(databaseUrl!, { ssl: isProduction() ? "require" : false });
+  let reservedClient: postgres.ReservedSql | undefined;
 
   try {
     const preflight = await checkDatabaseEmptiness(client);
@@ -111,14 +132,26 @@ export async function runStandaloneBootstrap(args: string[] = process.argv): Pro
     }
 
     console.log("🛠️ Starting single-client manual schema bootstrap sequence...");
+    reservedClient = await client.reserve();
+
+    const execute = async (query: string, params?: unknown[]) => {
+        if (params && params.length > 0) {
+          return reservedClient!.unsafe(query, params as any[]);
+        } else {
+          return reservedClient!.unsafe(query);
+        }
+      };
 
     await schemaBootstrapCore(
-      async (query: string) => {
-        await client.unsafe(query);
-      },
+      execute,
       async () => {
-        const inTxCheck = await checkDatabaseEmptiness(client);
+        const inTxCheck = await checkDatabaseEmptiness(reservedClient!);
         return inTxCheck.isEmpty;
+      },
+      () => verifyFinalStaffSchema(execute),
+      () => verifyFinalAdminSeed(execute, adminPassword),
+      {
+        adminPasswordHash,
       },
     );
 
@@ -128,6 +161,7 @@ export async function runStandaloneBootstrap(args: string[] = process.argv): Pro
     console.error(`❌ Bootstrap command failed: ${sanitized}`);
     throw new Error(sanitized);
   } finally {
+    reservedClient?.release();
     await client.end();
   }
 }
