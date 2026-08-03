@@ -367,69 +367,6 @@ You've been invited to join our construction team. Please complete your contract
       )}
     </div>
   );
-                <Button
-                  onClick={() => handleRejectApplication(application.id)}
-                  variant="destructive"
-                  className="flex-1 flex items-center justify-center space-x-2"
-                >
-                  <XCircle className="w-4 h-4" />
-                  <span>Reject</span>
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderApprovedTab = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-yellow-400 text-lg font-medium">Approved Contractors</h3>
-        <Badge variant="secondary" className="bg-green-600 text-white">
-          {reviewedApplications.length} Approved
-        </Badge>
-      </div>
-
-      {reviewedApplications.length === 0 ? (
-        <div className="bg-slate-800 border border-slate-600 rounded-lg p-8 text-center">
-          <CheckCircle className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-          <h4 className="text-slate-300 text-lg mb-2">No Approved Contractors</h4>
-          <p className="text-slate-500">Approved contractors will appear here after review.</p>
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {reviewedApplications.map((contractor) => (
-            <div key={contractor.id} className="bg-slate-800 border border-green-600 rounded-lg p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h4 className="text-white text-lg font-medium">{contractor.name}</h4>
-                  <div className="text-slate-400 text-sm space-y-1">
-                    <p>📧 {contractor.email}</p>
-                    <p>📞 {contractor.phone}</p>
-                    <p>✅ Approved: {contractor.reviewedDate}</p>
-                    {contractor.telegramId && <p>💬 {contractor.telegramId}</p>}
-                  </div>
-                </div>
-                <Badge variant="secondary" className="bg-green-600 text-white">
-                  Approved
-                </Badge>
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {contractor.specialization.map((spec, index) => (
-                  <Badge key={index} variant="outline" className="border-yellow-500 text-yellow-400">
-                    {spec}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-slate-900 text-white relative">
