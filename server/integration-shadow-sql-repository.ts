@@ -95,21 +95,32 @@ function requiredString(row: IntegrationSqlRow, column: string): string {
   return value;
 }
 
+const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const POSTGRES_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}(?::\d{2})?)?$/;
+
+function parseTimestampString(value: string): Date | undefined {
+  if (ISO_TIMESTAMP_PATTERN.test(value)) {
+    return new Date(value);
+  }
+  if (POSTGRES_TIMESTAMP_PATTERN.test(value)) {
+    const normalized = value.replace(/([+-]\d{2})$/, "$1:00");
+    return new Date(normalized);
+  }
+  return undefined;
+}
+
 function requiredTimestamp(row: IntegrationSqlRow, column: string): string {
   const value = row[column];
-  let timestamp: Date;
+  let timestamp: Date | undefined;
   if (value instanceof Date) {
     timestamp = value;
-  } else if (
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
-  ) {
-    timestamp = new Date(value);
+  } else if (typeof value === "string") {
+    timestamp = parseTimestampString(value);
   } else {
     throw new Error(`Invalid integration shadow receipt timestamp: ${column}`);
   }
 
-  if (Number.isNaN(timestamp.getTime())) {
+  if (timestamp === undefined || Number.isNaN(timestamp.getTime())) {
     throw new Error(`Invalid integration shadow receipt timestamp: ${column}`);
   }
   return timestamp.toISOString();

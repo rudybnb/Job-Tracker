@@ -7,10 +7,18 @@ import { setupSimpleRoutes } from "./simple-routes";
 import { verifySchemaHealth } from "./schema-health.ts";
 import { setupFinancialRoutes } from "./financial-routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { client } from "./db";
+import { createLocalJarvisShadowRouter } from "./integration-shadow-live.ts";
 
 const app = express();
 // Allow mobile WebView (capacitor://localhost) and other origins to call the API
 app.use(cors({ origin: true, credentials: true }));
+
+// Local Jarvis shadow intake. Dormant (404) unless JARVIS_SHADOW_API_KEY_ID
+// and JARVIS_SHADOW_API_KEY_SECRET are set. Mounted before express.json() so
+// the raw body is available for HMAC content-hash verification.
+app.use(createLocalJarvisShadowRouter(client));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
