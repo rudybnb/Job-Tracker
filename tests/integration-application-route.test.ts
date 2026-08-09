@@ -11,6 +11,8 @@ import {
 import { requireAdmin } from "../server/integration-review-route.ts";
 import type {
   ApplicationReadiness,
+  ApplyApplicationInput,
+  ApplyApplicationResult,
   CreateApplicationRecordInput,
   CreateApplicationRecordResult,
   CreateProjectMappingInput,
@@ -39,7 +41,9 @@ class InMemoryApplicationRepository implements IntegrationChangeOrderApplication
   readonly mappingInputs: CreateProjectMappingInput[] = [];
   createApplicationOutcome: CreateApplicationRecordResult["outcome"] = "ready";
   createMappingOutcome: CreateProjectMappingResult["outcome"] = "created";
+  applyOutcome: ApplyApplicationResult["outcome"] = "applied";
   fail = false;
+  readonly applyInputs: ApplyApplicationInput[] = [];
   readonly sideEffects = {
     jobsCreated: 0,
     operationalTasksCreated: 0,
@@ -105,6 +109,19 @@ class InMemoryApplicationRepository implements IntegrationChangeOrderApplication
       return { outcome: "job_not_found" };
     }
     return { outcome: "invalid_input" };
+  }
+
+  async applyApplication(input: ApplyApplicationInput): Promise<ApplyApplicationResult> {
+    if (this.fail) throw new Error("offline application repository failure");
+    this.applyInputs.push(input);
+    if (this.applyOutcome === "applied") {
+      return {
+        outcome: "applied",
+        application_id: "application-route-0001",
+        applied_to_job_id: "job-existing-0001",
+      };
+    }
+    return { outcome: this.applyOutcome };
   }
 }
 
@@ -184,6 +201,10 @@ function readinessPath(changeOrderId = "co-route-0001", revision = 1): string {
 }
 
 const MAPPINGS_PATH = `${JARVIS_APPLICATION_ROUTE}/mappings`;
+
+function applyPath(changeOrderId = "co-route-0001", revision = 1): string {
+  return `${JARVIS_APPLICATION_ROUTE}/change-orders/${encodeURIComponent(changeOrderId)}/revisions/${revision}/apply`;
+}
 
 test("requireAdmin rejects missing and non-admin sessions", () => {
   const call = (session: { role?: string; username?: string } | undefined): number => {
@@ -350,6 +371,101 @@ test("mapping job_not_found and already_exists map to clear responses", async ()
     });
     assert.equal(exists.status, 200);
     assert.equal(exists.body.status, "already_exists");
+    assertNoSideEffects(repository);
+  });
+});
+
+test("apply endpoint rejects missing and non-admin sessions", async () => {
+  await withTestRoute(async ({ repository, post, setSession }) => {
+    setSession(undefined);
+    assert.equal((await post(applyPath(), {})).status, 401);
+
+    setSession({ role: "contractor", username: "bob" });
+    assert.equal((await post(applyPath(), {})).status, 401);
+
+    setSession({ role: "admin" });
+    assert.equal((await post(applyPath(), {})).status, 401);
+
+    assert.equal(repository.applyInputs.length, 0);
+    assertNoSideEffects(repository);
+  });
+});
+
+test("admin apply returns applied for an approved mapped change", async () => {
+  await withTestRoute(async ({ repository, post }) => {
+    repository.applyOutcome = "applied";
+
+    const response = await post(applyPath(), {});
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body, {
+      status: "applied",
+      application_id: "application-route-0001",
+      applied_to_job_id: "job-existing-0001",
+    });
+    assert.equal(repository.applyInputs.length, 1);
+    assert.deepEqual(repository.applyInputs[0], {
+      change_order_id: "co-route-0001",
+      revision: 1,
+      applied_by: "admin",
+      applied_at: "2026-08-03T12:30:00.000Z",
+    });
+    assertNoSideEffects(repository);
+  });
+});
+
+test("apply does not accept a job id override from the request body", async () => {
+  await withTestRoute(async ({ repository, post }) => {
+    const response = await post(applyPath(), { job_id: "job-override-9999" });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.applied_to_job_id, "job-existing-0001");
+    assert.equal(repository.applyInputs.length, 1);
+    assert.equal("job_id" in repository.applyInputs[0], false);
+    assert.equal((repository.applyInputs[0] as { job_id?: string }).job_id, undefined);
+    assertNoSideEffects(repository);
+  });
+});
+
+test("apply duplicate attempt returns already_applied without job changes", async () => {
+  await withTestRoute(async ({ repository, post }) => {
+    repository.applyOutcome = "already_applied";
+
+    const response = await post(applyPath(), {});
+    assert.equal(response.status, 200);
+    assert.equal(response.body.status, "already_applied");
+    assert.equal(repository.applyInputs.length, 1);
+    assertNoSideEffects(repository);
+  });
+});
+
+test("apply blocked outcomes map to clear error responses", async () => {
+  await withTestRoute(async ({ repository, post }) => {
+    const blocked: ApplyApplicationResult["outcome"][] = [
+      "not_approved",
+      "blocked_no_mapping",
+      "job_not_found",
+      "invalid_phase_task_data",
+    ];
+    for (const outcome of blocked) {
+      repository.applyOutcome = outcome;
+      const response = await post(applyPath(), {});
+      assert.equal(response.status, 409, `expected 409 for ${outcome}`);
+    }
+
+    repository.applyOutcome = "change_not_found";
+    const missing = await post(applyPath(), {});
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error, "Change not found");
+    assertNoSideEffects(repository);
+  });
+});
+
+test("apply rejects an invalid revision", async () => {
+  await withTestRoute(async ({ repository, post }) => {
+    assert.equal((await post(applyPath("co-route-0001", -1), {})).status, 400);
+    assert.equal((await post(applyPath("co-route-0001", 0), {})).status, 400);
+    assert.equal(repository.applyInputs.length, 0);
     assertNoSideEffects(repository);
   });
 });

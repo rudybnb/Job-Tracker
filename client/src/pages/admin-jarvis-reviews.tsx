@@ -163,6 +163,7 @@ export default function AdminJarvisReviews() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedJob, setSelectedJob] = useState<JobWithContractor | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [applyConfirmOpen, setApplyConfirmOpen] = useState(false);
 
   const listUrl = "/api/integrations/review/change-orders";
   const detailUrl = selected
@@ -310,6 +311,54 @@ export default function AdminJarvisReviews() {
     mappingMutation.mutate({
       projectIntegrationId: readiness.project_integration_id,
       jobId: selectedJob.id,
+    });
+  };
+
+  const applyMutation = useMutation({
+    mutationFn: async ({
+      changeOrderId,
+      revision,
+    }: {
+      changeOrderId: string;
+      revision: number;
+    }) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/integrations/applications/change-orders/${encodeURIComponent(changeOrderId)}/revisions/${revision}/apply`,
+      );
+      return (await response.json()) as { status: string };
+    },
+    onSuccess: (result) => {
+      if (readinessUrl !== null) {
+        queryClient.invalidateQueries({ queryKey: [readinessUrl] });
+      }
+      setApplyConfirmOpen(false);
+      if (result.status === "already_applied") {
+        toast({
+          title: "Already applied",
+          description: "This change was already applied to the mapped job. No job data changed.",
+        });
+      } else {
+        toast({
+          title: "Applied to job",
+          description: "Approved scope and tasks were appended to the mapped job.",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Apply failed",
+        description: error instanceof Error ? extractErrorMessage(error.message) : "Unexpected error",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const confirmApply = () => {
+    if (selected === null) return;
+    applyMutation.mutate({
+      changeOrderId: selected.changeOrderId,
+      revision: selected.revision,
     });
   };
 
@@ -495,7 +544,7 @@ export default function AdminJarvisReviews() {
                       </div>
 
                       {readiness.mapping ? (
-                        <div>
+                        <div className="space-y-2">
                           <div className="text-slate-400 text-xs">Mapped Job Tracker Job</div>
                           <div className="text-slate-200 text-sm">
                             {mappedJob
@@ -505,6 +554,17 @@ export default function AdminJarvisReviews() {
                           <div className="text-xs text-slate-500">
                             ID: {readiness.mapping.job_id} · Mapped by {readiness.mapping.mapped_by}
                           </div>
+                          {readiness.status === "ready" ? (
+                            <div className="pt-1">
+                              <Button
+                                className="bg-yellow-600 text-black hover:bg-yellow-700"
+                                disabled={applyMutation.isPending}
+                                onClick={() => setApplyConfirmOpen(true)}
+                              >
+                                {applyMutation.isPending ? "Applying..." : "Apply to Job"}
+                              </Button>
+                            </div>
+                          ) : null}
                         </div>
                       ) : readiness.status === "pending_mapping" ? (
                         <div className="pt-1">
@@ -701,6 +761,92 @@ export default function AdminJarvisReviews() {
               onClick={confirmMapping}
             >
               {mappingMutation.isPending ? "Mapping..." : "Confirm Mapping"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={applyConfirmOpen}
+        onOpenChange={(open) => !open && setApplyConfirmOpen(false)}
+      >
+        <AlertDialogContent className="bg-slate-800 border-slate-600 max-h-[85vh] overflow-y-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Final Confirmation: Apply to Job</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300">
+              This will append the approved scope and tasks to the mapped Job Tracker job. Existing
+              job information will not be replaced.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-4 text-sm">
+            <div className="rounded-lg border border-slate-700 p-3 space-y-1">
+              <div className="text-slate-400 text-xs font-medium">Mapped Job Tracker Job</div>
+              <div className="text-slate-100">
+                {mappedJob ? mappedJob.title : `Job ${readiness?.mapping?.job_id}`}
+              </div>
+              <div className="text-slate-300">
+                ID: {readiness?.mapping?.job_id} · Location: {mappedJob?.location ?? "—"}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-slate-400 text-xs">Change Order ID</div>
+                <div className="text-slate-200">{readiness?.change_order_id}</div>
+              </div>
+              <div>
+                <div className="text-slate-400 text-xs">Revision</div>
+                <div className="text-slate-200">{readiness?.revision}</div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-slate-400 text-xs">Scope</div>
+              <div className="text-slate-200 whitespace-pre-wrap">
+                {detail?.scope ?? readiness?.title}
+              </div>
+            </div>
+
+            {detail && detail.tasks.length > 0 ? (
+              <div>
+                <div className="text-slate-400 text-xs mb-1">Tasks</div>
+                <div className="rounded-lg border border-slate-700 divide-y divide-slate-700">
+                  {detail.tasks.map((task) => (
+                    <div key={task.task_id} className="p-2 space-y-0.5">
+                      <div className="font-medium text-white">{task.title}</div>
+                      <div className="text-xs text-slate-400">
+                        {task.quantity} × {task.unit}
+                      </div>
+                      <div className="text-xs text-slate-400 whitespace-pre-wrap">
+                        {task.instructions}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
+              <div className="text-slate-300">
+                {readiness?.currency} {formatMinorAmount(readiness?.approved_amount_minor ?? 0)}
+              </div>
+              <div className="text-xs text-slate-500">
+                Reference only — not written to Job Tracker operational or financial data.
+              </div>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-yellow-600 text-black hover:bg-yellow-700"
+              disabled={applyMutation.isPending}
+              onClick={confirmApply}
+            >
+              {applyMutation.isPending ? "Applying..." : "Confirm Apply"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

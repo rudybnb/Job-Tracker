@@ -128,5 +128,58 @@ export function createJarvisApplicationRouter(options: JarvisApplicationRouteOpt
     },
   );
 
+  router.post(
+    `${JARVIS_APPLICATION_ROUTE}/change-orders/:changeOrderId/revisions/:revision/apply`,
+    async (request: AdminSessionRequest, response) => {
+      try {
+        const revision = parseRevision(request.params.revision);
+        if (revision === undefined) {
+          response.status(400).json({ error: "Invalid revision" });
+          return;
+        }
+        const appliedBy = (request.session?.username ?? "").trim();
+        const result = await options.repository.applyApplication({
+          change_order_id: request.params.changeOrderId,
+          revision,
+          applied_by: appliedBy,
+          applied_at: now(),
+        });
+
+        if (result.outcome === "change_not_found") {
+          response.status(404).json({ error: "Change not found" });
+          return;
+        }
+        if (result.outcome === "not_approved") {
+          response.status(409).json({ error: "Change is not approved" });
+          return;
+        }
+        if (result.outcome === "blocked_no_mapping") {
+          response.status(409).json({ error: "Project is not mapped to a job" });
+          return;
+        }
+        if (result.outcome === "job_not_found") {
+          response.status(409).json({ error: "Mapped job no longer exists" });
+          return;
+        }
+        if (result.outcome === "invalid_phase_task_data") {
+          response.status(409).json({ error: "Mapped job has invalid phase task data" });
+          return;
+        }
+        if (result.outcome === "already_applied") {
+          response.json({ status: "already_applied" });
+          return;
+        }
+        response.json({
+          status: "applied",
+          application_id: result.application_id,
+          applied_to_job_id: result.applied_to_job_id,
+        });
+      } catch (error) {
+        console.error("Error applying Jarvis change order:", error);
+        response.status(500).json({ error: "Failed to apply change order" });
+      }
+    },
+  );
+
   return router;
 }

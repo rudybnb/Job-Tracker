@@ -82,6 +82,26 @@ export type CreateProjectMappingResult =
   | { readonly outcome: "invalid_input" }
   | { readonly outcome: "job_not_found" };
 
+export interface ApplyApplicationInput {
+  readonly change_order_id: string;
+  readonly revision: number;
+  readonly applied_by: string;
+  readonly applied_at: string;
+}
+
+export type ApplyApplicationResult =
+  | { readonly outcome: "change_not_found" }
+  | { readonly outcome: "not_approved" }
+  | { readonly outcome: "blocked_no_mapping" }
+  | { readonly outcome: "job_not_found" }
+  | { readonly outcome: "invalid_phase_task_data" }
+  | { readonly outcome: "already_applied" }
+  | {
+      readonly outcome: "applied";
+      readonly application_id: string;
+      readonly applied_to_job_id: string;
+    };
+
 export interface IntegrationChangeOrderApplicationRepository {
   getReadiness(
     changeOrderId: string,
@@ -89,6 +109,7 @@ export interface IntegrationChangeOrderApplicationRepository {
   ): Promise<ApplicationReadiness | undefined>;
   createApplicationRecord(input: CreateApplicationRecordInput): Promise<CreateApplicationRecordResult>;
   createProjectMapping(input: CreateProjectMappingInput): Promise<CreateProjectMappingResult>;
+  applyApplication(input: ApplyApplicationInput): Promise<ApplyApplicationResult>;
 }
 
 export interface SqlApplicationRepositoryOptions {
@@ -148,6 +169,55 @@ const FIND_APPLICATION_SQL = `
          records_touched
   FROM integration_change_order_applications
   WHERE change_order_id = $1 AND revision = $2
+`;
+
+const FIND_APPLICATION_FOR_UPDATE_SQL = `
+  SELECT application_id,
+         change_order_id,
+         revision,
+         receipt_id,
+         event_id,
+         project_integration_id,
+         applied_to_job_id,
+         applied_by,
+         applied_at,
+         title,
+         approved_amount_minor,
+         currency,
+         approved_snapshot_hash,
+         result,
+         records_touched
+  FROM integration_change_order_applications
+  WHERE change_order_id = $1 AND revision = $2
+  FOR UPDATE
+`;
+
+const FIND_JOB_FOR_UPDATE_SQL = `
+  SELECT id,
+         notes,
+         phases,
+         phase_task_data
+  FROM jobs
+  WHERE id = $1
+  FOR UPDATE
+`;
+
+const UPDATE_JOB_APPEND_SQL = `
+  UPDATE jobs
+  SET notes = $1,
+      phases = $2,
+      phase_task_data = $3
+  WHERE id = $4
+`;
+
+const UPDATE_APPLICATION_APPLIED_SQL = `
+  UPDATE integration_change_order_applications
+  SET result = 'applied',
+      applied_by = $1,
+      applied_at = $2,
+      records_touched = $3
+  WHERE change_order_id = $4 AND revision = $5 AND result <> 'applied'
+  RETURNING application_id
 `;
 
 const INSERT_APPLICATION_SQL = `
@@ -270,6 +340,61 @@ function parseSnapshot(value: unknown): ApprovedChangeSnapshot | undefined {
 
 function snapshotHash(snapshot: ApprovedChangeSnapshot): string {
   return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
+}
+
+function changeOrderPhaseKey(changeOrderId: string, revision: number): string {
+  return `CO ${changeOrderId} rev ${revision}`;
+}
+
+function buildNotesBlock(input: {
+  readonly change_order_id: string;
+  readonly revision: number;
+  readonly title: string;
+  readonly scope: string;
+  readonly applied_at: string;
+  readonly applied_by: string;
+}): string {
+  return [
+    "",
+    "",
+    `=== Jarvis Change Order ${input.change_order_id} rev ${input.revision} ===`,
+    `Title: ${input.title}`,
+    `Scope: ${input.scope}`,
+    `Applied: ${input.applied_at} by ${input.applied_by}`,
+  ].join("\n");
+}
+
+function appendPhaseName(
+  existing: unknown,
+  phaseKey: string,
+): { readonly value: string; readonly appended: boolean } {
+  const parts =
+    typeof existing === "string" && existing.trim().length > 0
+      ? existing.split(",").map((part) => part.trim()).filter((part) => part.length > 0)
+      : [];
+  if (parts.includes(phaseKey)) return { value: parts.join(", "), appended: false };
+  parts.push(phaseKey);
+  return { value: parts.join(", "), appended: true };
+}
+
+function parsePhaseTaskDataValue(value: unknown):
+  | { readonly success: true; readonly value: Record<string, unknown> }
+  | { readonly success: false } {
+  if (value === null || value === undefined) return { success: true, value: {} };
+  let candidate: unknown = value;
+  if (typeof candidate === "string") {
+    const trimmed = candidate.trim();
+    if (trimmed.length === 0 || trimmed === "{}") return { success: true, value: {} };
+    try {
+      candidate = JSON.parse(trimmed);
+    } catch {
+      return { success: false };
+    }
+  }
+  if (candidate === null || typeof candidate !== "object" || Array.isArray(candidate)) {
+    return { success: false };
+  }
+  return { success: true, value: candidate as Record<string, unknown> };
 }
 
 function firstContextRow(
@@ -468,6 +593,140 @@ export class SqlIntegrationChangeOrderApplicationRepository
         mapped_at: toIsoTimestamp(input.mapped_at),
       },
     };
+  }
+
+  async applyApplication(input: ApplyApplicationInput): Promise<ApplyApplicationResult> {
+    return this.#executor.transaction(async (transaction) => {
+      const context = firstContextRow(
+        await transaction.query(FIND_APPROVAL_CONTEXT_SQL, [
+          input.change_order_id,
+          input.revision,
+        ]),
+      );
+      if (context === undefined) return { outcome: "change_not_found" as const };
+      const { row, snapshot } = context;
+
+      const reviewStatus = optionalText(row, "review_status");
+      if (reviewStatus !== "approved") return { outcome: "not_approved" as const };
+
+      const existingApplication = this.#findApplication(
+        await transaction.query(FIND_APPLICATION_FOR_UPDATE_SQL, [
+          input.change_order_id,
+          input.revision,
+        ]),
+      );
+      if (existingApplication !== undefined && existingApplication.status === "applied") {
+        return { outcome: "already_applied" as const };
+      }
+
+      const mapping = this.#findMapping(
+        await transaction.query(FIND_MAPPING_SQL, [snapshot.project_integration_id]),
+      );
+      if (mapping === undefined) return { outcome: "blocked_no_mapping" as const };
+
+      const jobRow = (
+        await transaction.query(FIND_JOB_FOR_UPDATE_SQL, [mapping.job_id])
+      ).rows[0];
+      if (jobRow === undefined) return { outcome: "job_not_found" as const };
+
+      const parsedTaskData = parsePhaseTaskDataValue(jobRow.phase_task_data);
+      if (!parsedTaskData.success) return { outcome: "invalid_phase_task_data" as const };
+
+      const phaseKey = changeOrderPhaseKey(snapshot.change_order_id, snapshot.revision);
+      const nextTaskData: Record<string, unknown> = { ...parsedTaskData.value };
+      const existingTasks = nextTaskData[phaseKey];
+      const existingTaskIds = new Set<string>();
+      if (Array.isArray(existingTasks)) {
+        for (const task of existingTasks) {
+          const taskId = (task as { task_id?: unknown } | null | undefined)?.task_id;
+          if (typeof taskId === "string") existingTaskIds.add(taskId);
+        }
+      }
+      const tasksToAppend: Record<string, unknown>[] = [];
+      for (const task of snapshot.tasks) {
+        if (typeof task.task_id === "string" && existingTaskIds.has(task.task_id)) continue;
+        existingTaskIds.add(task.task_id);
+        tasksToAppend.push({
+          task_id: task.task_id,
+          task: task.title,
+          description: task.instructions,
+          quantity: task.quantity,
+          unit: task.unit,
+        });
+      }
+      if (Array.isArray(existingTasks)) {
+        nextTaskData[phaseKey] = [...existingTasks, ...tasksToAppend];
+      } else {
+        nextTaskData[phaseKey] = tasksToAppend;
+      }
+
+      const existingNotes =
+        typeof jobRow.notes === "string" ? jobRow.notes : "";
+      const notesBlock = buildNotesBlock({
+        change_order_id: snapshot.change_order_id,
+        revision: snapshot.revision,
+        title: snapshot.title,
+        scope: snapshot.scope,
+        applied_at: input.applied_at,
+        applied_by: input.applied_by,
+      });
+      const nextNotes =
+        existingNotes.length === 0 ? notesBlock.trimStart() : existingNotes + notesBlock;
+
+      const phases = appendPhaseName(jobRow.phases, phaseKey);
+      const recordsTouched = JSON.stringify({
+        applied_to_job_id: mapping.job_id,
+        notes_appended: true,
+        phase_key: phaseKey,
+        tasks_appended: tasksToAppend.length,
+        phases_appended: phases.appended,
+      });
+
+      let applicationId: string;
+      if (existingApplication === undefined) {
+        const inserted = await transaction.query(INSERT_APPLICATION_SQL, [
+          this.#applicationId(),
+          input.change_order_id,
+          input.revision,
+          requiredString(row, "receipt_id"),
+          requiredString(row, "event_id"),
+          snapshot.project_integration_id,
+          mapping.job_id,
+          input.applied_by,
+          input.applied_at,
+          snapshot.title,
+          snapshot.approved_amount_minor,
+          snapshot.currency,
+          snapshotHash(snapshot),
+          "applied",
+          recordsTouched,
+        ]);
+        if (inserted.rows.length === 0) return { outcome: "already_applied" as const };
+        applicationId = requiredString(inserted.rows[0], "application_id");
+      } else {
+        const updated = await transaction.query(UPDATE_APPLICATION_APPLIED_SQL, [
+          input.applied_by,
+          input.applied_at,
+          recordsTouched,
+          input.change_order_id,
+          input.revision,
+        ]);
+        applicationId = requiredString(updated.rows[0], "application_id");
+      }
+
+      await transaction.query(UPDATE_JOB_APPEND_SQL, [
+        nextNotes,
+        phases.value,
+        JSON.stringify(nextTaskData),
+        mapping.job_id,
+      ]);
+
+      return {
+        outcome: "applied" as const,
+        application_id: applicationId,
+        applied_to_job_id: mapping.job_id,
+      };
+    });
   }
 
   #findMapping(result: IntegrationSqlQueryResult): IntegrationProjectMapping | undefined {

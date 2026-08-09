@@ -88,6 +88,45 @@ interface ApplicationRow {
   records_touched: string | null;
 }
 
+interface JobRow {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string;
+  status: string;
+  contractor_id: string | null;
+  contractor_name: string | null;
+  due_date: string;
+  start_date: string | null;
+  upload_id: string | null;
+  telegram_notified: string;
+  notes: string | null;
+  phases: string | null;
+  phase_task_data: string | null;
+}
+
+function jobRowFixture(overrides: Partial<JobRow> = {}): JobRow {
+  return {
+    id: "job-existing-0001",
+    title: "Existing build project",
+    description: "Full fit-out",
+    location: "ME5 9GX",
+    status: "pending",
+    contractor_id: null,
+    contractor_name: null,
+    due_date: "2026-09-01",
+    start_date: null,
+    upload_id: "upload-app-0001",
+    telegram_notified: "false",
+    notes: "Original project notes.",
+    phases: "Groundwork, Frames",
+    phase_task_data: JSON.stringify({
+      Groundwork: [{ task: "Excavate", description: "Dig foundations", quantity: 1, unit: "m3" }],
+    }),
+    ...overrides,
+  };
+}
+
 function acceptedChangeRow(overrides: Partial<ChangeRow> = {}): ChangeRow {
   return {
     id: "change-app-0001",
@@ -109,6 +148,7 @@ class InMemoryApplicationExecutor implements IntegrationSqlExecutor {
   reviews: ReviewRow[] = [];
   mappings: MappingRow[] = [];
   applications: ApplicationRow[] = [];
+  jobs: JobRow[] = [];
   readonly queries: string[] = [];
   fail = false;
 
@@ -231,6 +271,45 @@ class InMemoryApplicationExecutor implements IntegrationSqlExecutor {
       return { rows: [{ application_id: applicationId }] };
     }
 
+    if (normalized.startsWith("select id, notes, phases, phase_task_data from jobs")) {
+      const [jobId] = parameters;
+      return {
+        rows: this.jobs.filter((job) => job.id === jobId).map((job) => ({ ...job })),
+      };
+    }
+
+    if (normalized.startsWith("update jobs set")) {
+      const [notes, phases, phaseTaskData, jobId] = parameters as [string, string, string, string];
+      const job = this.jobs.find((candidate) => candidate.id === jobId);
+      if (job === undefined) return { rows: [] };
+      job.notes = notes;
+      job.phases = phases;
+      job.phase_task_data = phaseTaskData;
+      return { rows: [{ id: jobId }] };
+    }
+
+    if (normalized.startsWith("update integration_change_order_applications set result = 'applied'")) {
+      const [appliedBy, appliedAt, recordsTouched, changeOrderId, revision] = parameters as [
+        string,
+        string,
+        string,
+        string,
+        number,
+      ];
+      const application = this.applications.find(
+        (candidate) =>
+          candidate.change_order_id === changeOrderId &&
+          candidate.revision === revision &&
+          candidate.result !== "applied",
+      );
+      if (application === undefined) return { rows: [] };
+      application.applied_by = appliedBy;
+      application.applied_at = appliedAt;
+      application.records_touched = recordsTouched;
+      application.result = "applied";
+      return { rows: [{ application_id: application.application_id }] };
+    }
+
     return { rows: [] };
   }
 
@@ -271,6 +350,24 @@ function createRepository(
     jobExists,
     applicationId: () => "application-fixed-0001",
   });
+}
+
+function assertApplyScope(executor: InMemoryApplicationExecutor): void {
+  assert.ok(executor.queries.length > 0);
+  const forbidden =
+    /\b(delete\s+from|truncate|drop\s+table|alter\s+table)\b/i;
+  const forbiddenTables =
+    /\b(contractors|work_sessions|job_assignments|task_progress|clients|staff|simple_users|project_cashflow_weekly|material_purchases|project_master|job_phases|sub_phases|phase_assignments|milestones|expenses|contractor_payments|work_hours|budget_alerts)\b/i;
+  for (const sql of executor.queries) {
+    assert.doesNotMatch(sql, forbidden);
+    assert.doesNotMatch(sql, forbiddenTables);
+    if (/^\s*update\s+jobs\b/i.test(sql)) {
+      assert.match(
+        sql,
+        /set\s+notes\s*=\s*\$1,\s*phases\s*=\s*\$2,\s*phase_task_data\s*=\s*\$3\s*where\s+id\s*=\s*\$4/i,
+      );
+    }
+  }
 }
 
 function assertNoOperationalWrites(executor: InMemoryApplicationExecutor): void {
@@ -668,4 +765,280 @@ test("application storage design is additive, non-destructive, and unregistered"
   assert.doesNotMatch(withoutComments, /\b(DROP|DELETE|TRUNCATE|ALTER|UPDATE)\b/i);
   assert.doesNotMatch(withoutComments, /CREATE TABLE IF NOT EXISTS integration_shadow_(receipts|changes|reviews)/i);
   assert.doesNotMatch(migrationUrl.pathname, /\/migrations\//i);
+});
+
+function setupApprovedMappedExecutor(
+  overrides: {
+    readonly reviewStatus?: string;
+    readonly withMapping?: boolean;
+    readonly job?: JobRow;
+    readonly readyApplication?: ApplicationRow;
+  } = {},
+): InMemoryApplicationExecutor {
+  const executor = new InMemoryApplicationExecutor();
+  executor.changes.push(acceptedChangeRow());
+  executor.reviews.push({
+    review_id: "review-app-0001",
+    change_order_id: "co-app-0001",
+    revision: 1,
+    receipt_id: "receipt-app-0001",
+    review_status: overrides.reviewStatus ?? "approved",
+    reviewed_by: "admin",
+    reviewed_at: "2026-08-03T12:30:00.000Z",
+    note: null,
+  });
+  if (overrides.withMapping !== false) {
+    executor.mappings.push({
+      project_integration_id: "project-app-0001",
+      job_id: overrides.job?.id ?? "job-existing-0001",
+      mapped_by: "admin",
+      mapped_at: "2026-08-03T12:31:00.000Z",
+    });
+  }
+  if (overrides.job !== undefined) executor.jobs.push(overrides.job);
+  if (overrides.readyApplication !== undefined) executor.applications.push(overrides.readyApplication);
+  return executor;
+}
+
+const APPLY_INPUT = {
+  change_order_id: "co-app-0001",
+  revision: 1,
+  applied_by: "admin",
+  applied_at: "2026-08-03T13:00:00.000Z",
+};
+
+test("applyApplication appends approved scope and tasks and records the ledger", async () => {
+  const executor = setupApprovedMappedExecutor({ job: jobRowFixture() });
+  const repository = createRepository(executor);
+
+  const result = await repository.applyApplication(APPLY_INPUT);
+
+  assert.deepEqual(result, {
+    outcome: "applied",
+    application_id: "application-fixed-0001",
+    applied_to_job_id: "job-existing-0001",
+  });
+
+  const job = executor.jobs[0];
+  assert.ok(job.notes.startsWith("Original project notes."), "existing notes must be preserved");
+  assert.match(job.notes, /=== Jarvis Change Order co-app-0001 rev 1 ===/);
+  assert.match(job.notes, /Title: Approved application shadow change/);
+  assert.match(job.notes, /Scope: Full supplied scope for review\./);
+  assert.match(job.notes, /Applied: 2026-08-03T13:00:00\.000Z by admin/);
+  assert.doesNotMatch(job.notes, /GBP|420/);
+
+  const taskData = JSON.parse(job.phase_task_data ?? "") as Record<string, unknown[]>;
+  assert.deepEqual(
+    taskData["Groundwork"],
+    [{ task: "Excavate", description: "Dig foundations", quantity: 1, unit: "m3" }],
+    "existing task JSON keys must be preserved",
+  );
+  const appliedTasks = taskData["CO co-app-0001 rev 1"];
+  assert.ok(Array.isArray(appliedTasks));
+  assert.equal(appliedTasks.length, 1);
+  assert.deepEqual(appliedTasks[0], {
+    task_id: "task-app-0001",
+    task: "Application task",
+    description: "Retain inside the application ledger only.",
+    quantity: 2,
+    unit: "m2",
+  });
+  assert.equal(JSON.stringify(taskData).includes("approved_amount_minor"), false);
+  assert.equal(JSON.stringify(taskData).includes("currency"), false);
+
+  assert.match(job.phases ?? "", /Groundwork, Frames/);
+  assert.match(job.phases ?? "", /CO co-app-0001 rev 1/);
+
+  const record = executor.applications[0];
+  assert.ok(record !== undefined);
+  assert.equal(record.result, "applied");
+  assert.equal(record.applied_by, "admin");
+  assert.equal(record.applied_at, "2026-08-03T13:00:00.000Z");
+  assert.equal(record.applied_to_job_id, "job-existing-0001");
+  const touched = JSON.parse(record.records_touched ?? "{}") as Record<string, unknown>;
+  assert.equal(touched.notes_appended, true);
+  assert.equal(touched.phase_key, "CO co-app-0001 rev 1");
+  assert.equal(touched.tasks_appended, 1);
+  assert.equal(touched.phases_appended, true);
+
+  assert.deepEqual(
+    { ...job, notes: jobRowFixture().notes, phases: jobRowFixture().phases, phase_task_data: jobRowFixture().phase_task_data },
+    jobRowFixture(),
+    "status, contractor, dates and other job fields must be unchanged",
+  );
+  assertApplyScope(executor);
+});
+
+test("applyApplication never writes amount or currency into operational job data", async () => {
+  const executor = setupApprovedMappedExecutor({
+    job: jobRowFixture({ notes: null, phases: null, phase_task_data: null }),
+  });
+  const repository = createRepository(executor);
+
+  const result = await repository.applyApplication(APPLY_INPUT);
+  assert.equal(result.outcome, "applied");
+
+  const job = executor.jobs[0];
+  const blob = `${job.notes ?? ""} ${job.phases ?? ""} ${job.phase_task_data ?? ""}`;
+  assert.doesNotMatch(blob, /GBP/);
+  assert.doesNotMatch(blob, /approved_amount_minor/);
+  assert.doesNotMatch(blob, /currency/);
+  assert.doesNotMatch(blob, /420/);
+  assertApplyScope(executor);
+});
+
+test("duplicate apply returns already_applied with no second mutation", async () => {
+  const executor = setupApprovedMappedExecutor({ job: jobRowFixture() });
+  const repository = createRepository(executor);
+
+  const first = await repository.applyApplication(APPLY_INPUT);
+  assert.equal(first.outcome, "applied");
+  const afterFirst = { ...executor.jobs[0] };
+  const updateQueriesAfterFirst = executor.queries.filter((sql) => /^\s*update\s+jobs\b/i.test(sql)).length;
+
+  const second = await repository.applyApplication(APPLY_INPUT);
+  assert.deepEqual(second, { outcome: "already_applied" });
+  assert.deepEqual(executor.jobs[0], afterFirst, "job data must not change on the duplicate attempt");
+  assert.equal(
+    executor.queries.filter((sql) => /^\s*update\s+jobs\b/i.test(sql)).length,
+    updateQueriesAfterFirst,
+    "no second job mutation may be issued",
+  );
+  assert.equal(executor.applications.length, 1);
+});
+
+test("applyApplication upgrades an existing ready record to applied", async () => {
+  const readyApplication: ApplicationRow = {
+    application_id: "application-ready-0001",
+    change_order_id: "co-app-0001",
+    revision: 1,
+    receipt_id: "receipt-app-0001",
+    event_id: "evt-app-0001",
+    project_integration_id: "project-app-0001",
+    applied_to_job_id: "job-existing-0001",
+    applied_by: null,
+    applied_at: null,
+    title: "Approved application shadow change",
+    approved_amount_minor: 42000,
+    currency: "GBP",
+    approved_snapshot_hash: "a".repeat(64),
+    result: "ready",
+    records_touched: null,
+  };
+  const executor = setupApprovedMappedExecutor({
+    job: jobRowFixture(),
+    readyApplication,
+  });
+  const repository = createRepository(executor);
+
+  const result = await repository.applyApplication(APPLY_INPUT);
+  assert.deepEqual(result, {
+    outcome: "applied",
+    application_id: "application-ready-0001",
+    applied_to_job_id: "job-existing-0001",
+  });
+  assert.equal(executor.applications.length, 1);
+  assert.equal(executor.applications[0].result, "applied");
+  assert.equal(executor.applications[0].applied_by, "admin");
+  assert.match(executor.jobs[0].notes ?? "", /=== Jarvis Change Order co-app-0001 rev 1 ===/);
+
+  const second = await repository.applyApplication(APPLY_INPUT);
+  assert.deepEqual(second, { outcome: "already_applied" });
+  assertApplyScope(executor);
+});
+
+test("applyApplication requires an approved review", async () => {
+  for (const reviewStatus of ["rejected", "sent_back", "pending", null]) {
+    const executor = setupApprovedMappedExecutor({
+      reviewStatus: reviewStatus ?? "approved",
+      job: jobRowFixture(),
+    });
+    if (reviewStatus === null) executor.reviews[0].review_status = "pending";
+    const repository = createRepository(executor);
+
+    const result = await repository.applyApplication(APPLY_INPUT);
+    assert.deepEqual(result, { outcome: "not_approved" });
+    assert.equal(executor.applications.length, 0);
+    assert.deepEqual(executor.jobs[0], jobRowFixture(), "zero operational writes");
+    assert.equal(executor.queries.filter((sql) => /^\s*update\s+jobs\b/i.test(sql)).length, 0);
+  }
+});
+
+test("applyApplication is blocked when the project mapping is missing", async () => {
+  const executor = setupApprovedMappedExecutor({
+    withMapping: false,
+    job: jobRowFixture(),
+  });
+  const repository = createRepository(executor);
+
+  const result = await repository.applyApplication(APPLY_INPUT);
+  assert.deepEqual(result, { outcome: "blocked_no_mapping" });
+  assert.equal(executor.applications.length, 0);
+  assert.deepEqual(executor.jobs[0], jobRowFixture(), "zero operational writes");
+  assert.equal(executor.queries.filter((sql) => /^\s*update\s+jobs\b/i.test(sql)).length, 0);
+});
+
+test("applyApplication is blocked when the mapped job no longer exists", async () => {
+  const executor = setupApprovedMappedExecutor();
+  const repository = createRepository(executor);
+
+  const result = await repository.applyApplication(APPLY_INPUT);
+  assert.deepEqual(result, { outcome: "job_not_found" });
+  assert.equal(executor.applications.length, 0);
+  assert.equal(executor.queries.filter((sql) => /^\s*update\s+jobs\b/i.test(sql)).length, 0);
+});
+
+test("applyApplication is blocked on invalid existing phase_task_data", async () => {
+  const executor = setupApprovedMappedExecutor({
+    job: jobRowFixture({ phase_task_data: "{not-valid-json" }),
+  });
+  const repository = createRepository(executor);
+
+  const result = await repository.applyApplication(APPLY_INPUT);
+  assert.deepEqual(result, { outcome: "invalid_phase_task_data" });
+  assert.equal(executor.applications.length, 0);
+  assert.deepEqual(executor.jobs[0], jobRowFixture({ phase_task_data: "{not-valid-json" }), "zero operational writes");
+  assert.equal(executor.queries.filter((sql) => /^\s*update\s+jobs\b/i.test(sql)).length, 0);
+});
+
+test("applyApplication returns change_not_found for a missing change", async () => {
+  const executor = setupApprovedMappedExecutor({ job: jobRowFixture() });
+  const repository = createRepository(executor);
+
+  const result = await repository.applyApplication({
+    change_order_id: "co-app-missing",
+    revision: 1,
+    applied_by: "admin",
+    applied_at: "2026-08-03T13:00:00.000Z",
+  });
+  assert.deepEqual(result, { outcome: "change_not_found" });
+  assert.equal(executor.applications.length, 0);
+  assert.deepEqual(executor.jobs[0], jobRowFixture(), "zero operational writes");
+});
+
+test("applyApplication already-applied record blocks immediately", async () => {
+  const appliedRow: ApplicationRow = {
+    application_id: "application-applied-0001",
+    change_order_id: "co-app-0001",
+    revision: 1,
+    receipt_id: "receipt-app-0001",
+    event_id: "evt-app-0001",
+    project_integration_id: "project-app-0001",
+    applied_to_job_id: "job-existing-0001",
+    applied_by: "admin",
+    applied_at: "2026-08-03T12:55:00.000Z",
+    title: "Approved application shadow change",
+    approved_amount_minor: 42000,
+    currency: "GBP",
+    approved_snapshot_hash: "a".repeat(64),
+    result: "applied",
+    records_touched: "{}",
+  };
+  const executor = setupApprovedMappedExecutor({ job: jobRowFixture(), readyApplication: appliedRow });
+  const repository = createRepository(executor);
+
+  const result = await repository.applyApplication(APPLY_INPUT);
+  assert.deepEqual(result, { outcome: "already_applied" });
+  assert.deepEqual(executor.jobs[0], jobRowFixture(), "zero operational writes");
+  assert.equal(executor.queries.filter((sql) => /^\s*update\s+jobs\b/i.test(sql)).length, 0);
 });
