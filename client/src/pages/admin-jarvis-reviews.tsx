@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   AlertDialog,
@@ -12,9 +12,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { JobWithContractor } from "@shared/schema";
 
 type ReviewStatus = "pending" | "approved" | "rejected" | "sent_back";
 type ReviewDecision = "approved" | "rejected" | "sent_back";
@@ -50,6 +60,34 @@ interface ShadowChangeReviewDetail extends ShadowChangeReviewSummary {
   approved_at: string;
   approved_by_actor_id: string;
   tasks: ShadowReviewTask[];
+}
+
+type ApplicationStatus =
+  | "pending_mapping"
+  | "ready"
+  | "applied"
+  | "blocked_no_mapping"
+  | "already_applied"
+  | "not_approved";
+
+interface IntegrationProjectMapping {
+  project_integration_id: string;
+  job_id: string;
+  mapped_by: string;
+  mapped_at: string;
+}
+
+interface ApplicationReadiness {
+  change_order_id: string;
+  revision: number;
+  project_integration_id: string;
+  title: string;
+  currency: string;
+  approved_amount_minor: number;
+  review_status: string | null;
+  review_approved: boolean;
+  mapping?: IntegrationProjectMapping;
+  status: ApplicationStatus;
 }
 
 const FILTERS: ReadonlyArray<{ label: string; value: ReviewStatus | "all" }> = [
@@ -88,12 +126,43 @@ function statusBadge(status: ReviewStatus) {
   }
 }
 
+function readinessBadge(status: ApplicationStatus) {
+  switch (status) {
+    case "ready":
+      return <Badge className="bg-green-600 text-white">Ready</Badge>;
+    case "pending_mapping":
+      return <Badge className="bg-yellow-600 text-black">Pending Mapping</Badge>;
+    default:
+      return <Badge className="bg-slate-600 text-white">{status.replace(/_/g, " ")}</Badge>;
+  }
+}
+
+function jobStatusBadge(status: string) {
+  const classes =
+    status === "completed"
+      ? "bg-green-600 text-white"
+      : status === "assigned"
+        ? "bg-blue-600 text-white"
+        : "bg-yellow-600 text-black";
+  return <Badge className={classes}>{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>;
+}
+
+function extractErrorMessage(raw: string): string {
+  const match = raw.match(/"error"\s*:\s*"([^"]+)"/);
+  return match ? match[1] : raw;
+}
+
 export default function AdminJarvisReviews() {
   const { toast } = useToast();
   const [filter, setFilter] = useState<ReviewStatus | "all">("all");
   const [selected, setSelected] = useState<{ changeOrderId: string; revision: number } | null>(null);
   const [pendingDecision, setPendingDecision] = useState<ReviewDecision | null>(null);
   const [note, setNote] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedJob, setSelectedJob] = useState<JobWithContractor | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const listUrl = "/api/integrations/review/change-orders";
   const detailUrl = selected
@@ -107,6 +176,34 @@ export default function AdminJarvisReviews() {
   const { data: detail, isLoading: detailLoading } = useQuery<ShadowChangeReviewDetail>({
     queryKey: [detailUrl ?? "no-detail-selected"],
     enabled: detailUrl !== null,
+  });
+
+  const readinessUrl = selected
+    ? `/api/integrations/applications/change-orders/${encodeURIComponent(selected.changeOrderId)}/revisions/${selected.revision}/readiness`
+    : null;
+
+  const { data: readiness } = useQuery<ApplicationReadiness>({
+    queryKey: [readinessUrl ?? "no-readiness-selected"],
+    enabled: readinessUrl !== null,
+  });
+
+  const mappedJobId = readiness?.mapping?.job_id;
+  const { data: mappedJob } = useQuery<JobWithContractor>({
+    queryKey: [mappedJobId === undefined ? "no-mapped-job" : `/api/jobs/${mappedJobId}`],
+    enabled: mappedJobId !== undefined,
+  });
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchTerm]);
+
+  const {
+    data: jobSearchResults = [],
+    isLoading: jobSearchLoading,
+  } = useQuery<JobWithContractor[]>({
+    queryKey: ["/api/jobs", { search: debouncedSearch }],
+    enabled: pickerOpen,
   });
 
   const changes = data?.changes ?? [];
@@ -163,6 +260,56 @@ export default function AdminJarvisReviews() {
       revision: selected.revision,
       decision: pendingDecision,
       decisionNote: note.trim() || undefined,
+    });
+  };
+
+  const mappingMutation = useMutation({
+    mutationFn: async ({
+      projectIntegrationId,
+      jobId,
+    }: {
+      projectIntegrationId: string;
+      jobId: string;
+    }) => {
+      const response = await apiRequest("POST", "/api/integrations/applications/mappings", {
+        project_integration_id: projectIntegrationId,
+        job_id: jobId,
+      });
+      return (await response.json()) as { status: string; mapping?: IntegrationProjectMapping };
+    },
+    onSuccess: (result) => {
+      if (readinessUrl !== null) {
+        queryClient.invalidateQueries({ queryKey: [readinessUrl] });
+      }
+      queryClient.invalidateQueries({ queryKey: [listUrl] });
+      if (result.status === "already_exists") {
+        toast({
+          title: "Mapping already exists",
+          description: "Showing the existing mapping for this project.",
+        });
+      } else {
+        toast({ title: "Project mapped", description: "Application readiness is now Ready." });
+      }
+      setConfirmOpen(false);
+      setPickerOpen(false);
+      setSelectedJob(null);
+      setSearchTerm("");
+      setDebouncedSearch("");
+    },
+    onError: (error) => {
+      toast({
+        title: "Mapping failed",
+        description: error instanceof Error ? extractErrorMessage(error.message) : "Unexpected error",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const confirmMapping = () => {
+    if (selectedJob === null || readiness === undefined) return;
+    mappingMutation.mutate({
+      projectIntegrationId: readiness.project_integration_id,
+      jobId: selectedJob.id,
     });
   };
 
@@ -328,6 +475,51 @@ export default function AdminJarvisReviews() {
                   </div>
                 </div>
 
+                <div className="rounded-lg border border-slate-700 p-3 space-y-2">
+                  <div className="text-slate-400 text-sm font-medium">Application Readiness</div>
+                  {readiness === undefined ? (
+                    <div className="text-xs text-slate-500">
+                      Readiness is not available for this change.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <div className="text-slate-400 text-xs">Project (Integration ID)</div>
+                          <div className="text-slate-200">{readiness.project_integration_id}</div>
+                        </div>
+                        <div>
+                          <div className="text-slate-400 text-xs">Status</div>
+                          <div className="pt-1">{readinessBadge(readiness.status)}</div>
+                        </div>
+                      </div>
+
+                      {readiness.mapping ? (
+                        <div>
+                          <div className="text-slate-400 text-xs">Mapped Job Tracker Job</div>
+                          <div className="text-slate-200 text-sm">
+                            {mappedJob
+                              ? `${mappedJob.title} — ${mappedJob.location}`
+                              : `#${readiness.mapping.job_id}`}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            ID: {readiness.mapping.job_id} · Mapped by {readiness.mapping.mapped_by}
+                          </div>
+                        </div>
+                      ) : readiness.status === "pending_mapping" ? (
+                        <div className="pt-1">
+                          <Button
+                            className="bg-yellow-600 text-black hover:bg-yellow-700"
+                            onClick={() => setPickerOpen(true)}
+                          >
+                            Map Project
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+
                 {detail.reviewed_by ? (
                   <div className="text-xs text-slate-400">
                     Reviewed by {detail.reviewed_by} on {formatTimestamp(detail.reviewed_at)}
@@ -394,6 +586,121 @@ export default function AdminJarvisReviews() {
               onClick={confirmDecision}
             >
               {decisionMutation.isPending ? "Recording..." : "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={pickerOpen} onOpenChange={(open) => !open && setPickerOpen(false)}>
+        <DialogContent className="bg-slate-800 border-slate-600 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">Map Project to an Existing Job</DialogTitle>
+            <DialogDescription className="text-slate-300">
+              Manually select ONE existing Job Tracker job for project{" "}
+              <span className="text-slate-100">{readiness?.project_integration_id}</span>. Jobs are
+              never auto-matched or auto-created.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by title, location or contractor..."
+              className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-400"
+            />
+
+            {jobSearchLoading ? (
+              <div className="text-sm text-slate-400">Searching jobs...</div>
+            ) : jobSearchResults.length === 0 ? (
+              <div className="py-8 text-center text-sm text-slate-400 border border-dashed border-slate-600 rounded-lg">
+                No matching jobs found.
+                <div className="mt-1 text-xs text-slate-500">
+                  No new job will be created. Adjust the search or cancel.
+                </div>
+              </div>
+            ) : (
+              <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-700 divide-y divide-slate-700">
+                {jobSearchResults.map((job) => {
+                  const isSelected = selectedJob?.id === job.id;
+                  return (
+                    <button
+                      key={job.id}
+                      type="button"
+                      onClick={() => setSelectedJob(job)}
+                      className={`w-full text-left p-3 border-l-4 transition-colors ${
+                        isSelected
+                          ? "bg-slate-700 border-yellow-600"
+                          : "border-transparent hover:bg-slate-700/60"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-medium text-white truncate">{job.title}</div>
+                        {jobStatusBadge(job.status)}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-400 space-y-0.5">
+                        <div>
+                          ID: <span className="text-slate-300">{job.id}</span>
+                        </div>
+                        <div>{job.location}</div>
+                        <div>
+                          {job.contractor ? `Contractor: ${job.contractor.name}` : "Unassigned"}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600"
+              onClick={() => {
+                setPickerOpen(false);
+                setSelectedJob(null);
+                setSearchTerm("");
+                setDebouncedSearch("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-yellow-600 text-black hover:bg-yellow-700"
+              disabled={selectedJob === null}
+              onClick={() => setConfirmOpen(true)}
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmOpen} onOpenChange={(open) => !open && setConfirmOpen(false)}>
+        <AlertDialogContent className="bg-slate-800 border-slate-600">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Confirm Project Mapping</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300">
+              Map project{" "}
+              <span className="text-slate-100 font-medium">{readiness?.project_integration_id}</span>{" "}
+              to Job Tracker job{" "}
+              <span className="text-slate-100 font-medium">{selectedJob?.id}</span> —{" "}
+              {selectedJob?.title} ({selectedJob?.location})? This only records the human mapping.
+              No operational job/task data is changed and no application is created yet.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-yellow-600 text-black hover:bg-yellow-700"
+              disabled={mappingMutation.isPending}
+              onClick={confirmMapping}
+            >
+              {mappingMutation.isPending ? "Mapping..." : "Confirm Mapping"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
