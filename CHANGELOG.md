@@ -504,7 +504,7 @@ ADD COLUMN IF NOT EXISTS notes TEXT;
 **Telegram Integration & Notifications**
 - ✅ Admin notifications when new contractor applications submitted
 - ✅ Automatic contractor notifications for application approval/rejection
-- ✅ Telegram Bot Token: 8382710567:AAFshEGUHA-3P-Jf_PuLIQjskb-1_fY6iEA
+- ✅ Telegram Bot Token: <REDACTED_TELEGRAM_BOT_TOKEN>
 - ✅ Admin Chat ID configured: 7617462316
 
 **Contractor Application System**

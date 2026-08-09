@@ -106,7 +106,7 @@ You've been invited to join our construction team. Please complete your contract
 
       // Send via Telegram API
       if (telegramId) {
-        const response = await fetch('https://api.telegram.org/bot8382710567:AAFshEGUHA-3P-Jf_PuLIQjskb-1_fY6iEA/sendMessage', {
+        const response = await fetch('https://api.telegram.org/bot<REDACTED_TELEGRAM_BOT_TOKEN>/sendMessage', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -1,7 +1,7 @@
 // Send a test "hello" message
 const fetch = require('node-fetch');
 
-const botToken = '8382710567:AAFshEGUHA-3P-Jf_PuLIQjskb-1_fY6iEA';
+const botToken = '<REDACTED_TELEGRAM_BOT_TOKEN>';
 const baseUrl = `https://api.telegram.org/bot${botToken}`;
 
 async function sendHello(chatId) {
