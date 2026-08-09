@@ -15,6 +15,10 @@ import { SqlIntegrationReviewRepository } from "./integration-review-repository.
 import { createJarvisReviewRouter } from "./integration-review-route.ts";
 import { SqlIntegrationChangeOrderApplicationRepository } from "./integration-change-order-applications.ts";
 import { createJarvisApplicationRouter } from "./integration-application-route.ts";
+import { SqlIntegrationContractorMessageRepository } from "./integration-contractor-message-repository.ts";
+import { SqlContractorMessageService } from "./integration-contractor-message-service.ts";
+import { createContractorMessageRouter } from "./integration-contractor-message-route.ts";
+import { createWhatsAppProvider } from "./whatsapp.ts";
 
 const app = express();
 // Allow mobile WebView (capacitor://localhost) and other origins to call the API
@@ -85,6 +89,27 @@ app.use((request, response, next) => {
 app.use((request, response, next) => {
   if (request.path.startsWith("/api/integrations/applications")) {
     return jarvisApplicationRouter(request, response, next);
+  }
+  return next();
+});
+
+// Admin-only contractor WhatsApp message foundation. Generates instruction
+// previews from APPLIED change orders and sends them ONLY after an explicit
+// human confirmation (preview_hash + confirmed_by + confirmed_at). The provider
+// is created from the environment; when WHATSAPP_ACCESS_TOKEN / PHONE_NUMBER_ID
+// are absent the provider is undefined and SEND is blocked without a live call.
+const contractorMessageRouter = createContractorMessageRouter({
+  service: new SqlContractorMessageService({
+    repository: new SqlIntegrationContractorMessageRepository({
+      executor: new PostgresIntegrationSqlExecutor(client),
+    }),
+    provider: createWhatsAppProvider(),
+  }),
+});
+
+app.use((request, response, next) => {
+  if (request.path.startsWith("/api/integrations/messages")) {
+    return contractorMessageRouter(request, response, next);
   }
   return next();
 });

@@ -1,0 +1,880 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import type { AddressInfo } from "node:net";
+import { test } from "node:test";
+import express from "express";
+import type { NextFunction, Request, Response } from "express";
+import { SqlIntegrationContractorMessageRepository } from "../server/integration-contractor-message-repository.ts";
+import type {
+  IntegrationSqlExecutor,
+  IntegrationSqlQueryResult,
+  IntegrationSqlRow,
+  IntegrationSqlTransaction,
+} from "../server/integration-shadow-sql-repository.ts";
+import {
+  SqlContractorMessageService,
+  type ContractorMessageService,
+} from "../server/integration-contractor-message-service.ts";
+import {
+  CONTRACTOR_MESSAGE_ROUTE,
+  createContractorMessageRouter,
+} from "../server/integration-contractor-message-route.ts";
+import type {
+  WhatsAppProvider,
+  WhatsAppSendInput,
+  WhatsAppSendResult,
+} from "../server/whatsapp.ts";
+
+function snapshotFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    schema_version: 1,
+    event_id: "evt-msg-0001",
+    event_type: "change_order.approved",
+    producer: "jarvis",
+    correlation_id: "corr-msg-0001",
+    occurred_at: "2026-08-03T11:59:00.000Z",
+    change_order_id: "co-msg-0001",
+    revision: 1,
+    project_integration_id: "project-msg-0001",
+    title: "Approved message shadow change",
+    scope: "Install new electrical supply.",
+    approval_status: "approved",
+    approved_at: "2026-08-03T11:58:00.000Z",
+    approved_by_actor_id: "actor-msg-0042",
+    currency: "GBP",
+    approved_amount_minor: 250000,
+    tasks: [
+      {
+        task_id: "task-msg-0001",
+        title: "Run new supply cable",
+        instructions: "Install conduit and cable to DB.",
+        quantity: 12,
+        unit: "m",
+        approved_amount_minor: 20000,
+      },
+    ],
+    ...overrides,
+  };
+}
+
+interface ApplicationRow {
+  application_id: string;
+  change_order_id: string;
+  revision: number;
+  applied_to_job_id: string;
+  title: string;
+  result: string;
+  approved_snapshot: string;
+  job_title: string;
+}
+
+function applicationRowFixture(overrides: Partial<ApplicationRow> = {}): ApplicationRow {
+  return {
+    application_id: "application-msg-0001",
+    change_order_id: "co-msg-0001",
+    revision: 1,
+    applied_to_job_id: "job-msg-0001",
+    title: "Approved message shadow change",
+    result: "applied",
+    approved_snapshot: JSON.stringify(snapshotFixture()),
+    job_title: "Job 49 Flat2 1 Bedroom",
+    ...overrides,
+  };
+}
+
+interface MessageRow {
+  id: string;
+  application_id: string;
+  job_id: string;
+  change_order_id: string;
+  revision: number;
+  contractor_id: string;
+  phone_e164: string;
+  body: string;
+  preview_hash: string;
+  status: string;
+  provider_message_id: string | null;
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+  sent_at: string | null;
+  error_code: string | null;
+}
+
+class InMemoryMessageExecutor implements IntegrationSqlExecutor {
+  applications: ApplicationRow[] = [];
+  contractors: { id: string; name: string }[] = [];
+  contractorPhones: { name: string; phone: string }[] = [];
+  messages: MessageRow[] = [];
+  readonly queries: string[] = [];
+  fail = false;
+
+  async query(sql: string, parameters: readonly unknown[]): Promise<IntegrationSqlQueryResult> {
+    this.queries.push(sql);
+    if (this.fail) throw new Error("offline message executor failure");
+
+    const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
+
+    if (normalized.includes("from integration_change_order_applications a")) {
+      const [applicationId] = parameters;
+      const row = this.applications.find((app) => app.application_id === applicationId);
+      return { rows: row === undefined ? [] : [{ ...row }] };
+    }
+
+    if (normalized.startsWith("select id, name from contractors")) {
+      const [contractorId] = parameters;
+      const row = this.contractors.find((contractor) => contractor.id === contractorId);
+      return { rows: row === undefined ? [] : [{ ...row }] };
+    }
+
+    if (normalized.includes("from contractor_applications")) {
+      const [name] = parameters;
+      const match = this.contractorPhones.find(
+        (candidate) =>
+          candidate.name.toLowerCase().trim() === String(name).toLowerCase().trim(),
+      );
+      return { rows: match === undefined ? [] : [{ phone: match.phone }] };
+    }
+
+    if (normalized.startsWith("insert into contractor_messages")) {
+      const [
+        id,
+        applicationId,
+        jobId,
+        changeOrderId,
+        revision,
+        contractorId,
+        _direction,
+        _channel,
+        phoneE164,
+        body,
+        previewHash,
+        status,
+        createdAt,
+      ] = parameters as [
+        string, string, string, string, number, string, string, string,
+        string, string, string, string, string,
+      ];
+      this.messages.push({
+        id,
+        application_id: applicationId,
+        job_id: jobId,
+        change_order_id: changeOrderId,
+        revision,
+        contractor_id: contractorId,
+        phone_e164: phoneE164,
+        body,
+        preview_hash: previewHash,
+        status,
+        provider_message_id: null,
+        confirmed_by: null,
+        confirmed_at: null,
+        created_at: createdAt,
+        sent_at: null,
+        error_code: null,
+      });
+      return { rows: [{ id }] };
+    }
+
+    if (normalized.startsWith("update contractor_messages set status = 'sent'")) {
+      const [providerMessageId, confirmedBy, confirmedAt, sentAt, id] = parameters;
+      const message = this.messages.find(
+        (candidate) => candidate.id === id && candidate.status === "previewed",
+      );
+      if (message === undefined) return { rows: [] };
+      message.status = "sent";
+      message.provider_message_id = providerMessageId as string;
+      message.confirmed_by = confirmedBy as string;
+      message.confirmed_at = confirmedAt as string;
+      message.sent_at = sentAt as string;
+      return { rows: [{ id }] };
+    }
+
+    if (normalized.startsWith("update contractor_messages set status = 'failed'")) {
+      const [errorCode, id] = parameters;
+      const message = this.messages.find(
+        (candidate) => candidate.id === id && candidate.status === "previewed",
+      );
+      if (message === undefined) return { rows: [] };
+      message.status = "failed";
+      message.error_code = errorCode as string;
+      return { rows: [{ id }] };
+    }
+
+    if (
+      normalized.startsWith("select id,") &&
+      normalized.includes("from contractor_messages") &&
+      normalized.includes("status = 'previewed'")
+    ) {
+      const [applicationId, contractorId] = parameters;
+      const rows = this.messages
+        .filter(
+          (message) =>
+            message.application_id === applicationId &&
+            message.contractor_id === contractorId &&
+            message.status === "previewed",
+        )
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, 1)
+        .map((message) => ({ ...message }));
+      return { rows };
+    }
+
+    if (
+      normalized.startsWith("select id,") &&
+      normalized.includes("from contractor_messages")
+    ) {
+      const [id] = parameters;
+      const row = this.messages.find((message) => message.id === id);
+      return { rows: row === undefined ? [] : [{ ...row }] };
+    }
+
+    return { rows: [] };
+  }
+
+  async transaction<T>(
+    work: (transaction: IntegrationSqlTransaction) => Promise<T>,
+  ): Promise<T> {
+    const adapter: IntegrationSqlTransaction = {
+      query: (sql, parameters) => this.query(sql, parameters),
+    };
+    return work(adapter);
+  }
+}
+
+class RecordingProvider implements WhatsAppProvider {
+  readonly name = "test";
+  readonly calls: WhatsAppSendInput[] = [];
+  result: WhatsAppSendResult = { ok: true, providerMessageId: "wamid.msg-0001" };
+  throwError = false;
+
+  async sendText(input: WhatsAppSendInput): Promise<WhatsAppSendResult> {
+    if (this.throwError) throw new Error("provider offline");
+    this.calls.push(input);
+    return this.result;
+  }
+}
+
+function createService(
+  executor: InMemoryMessageExecutor,
+  provider: WhatsAppProvider | undefined,
+): ContractorMessageService {
+  return new SqlContractorMessageService({
+    repository: new SqlIntegrationContractorMessageRepository({ executor }),
+    provider,
+    now: () => "2026-08-03T14:00:00.000Z",
+    messageId: () => "message-msg-0001",
+  });
+}
+
+function setupExecutor(executor: InMemoryMessageExecutor): void {
+  executor.applications.push(applicationRowFixture());
+  executor.contractors.push({ id: "contractor-msg-0001", name: "Marius Andronache" });
+  executor.contractorPhones.push({ name: "Marius Andronache", phone: "07912 345678" });
+}
+
+const APPLICATION_ID = "application-msg-0001";
+const CONTRACTOR_ID = "contractor-msg-0001";
+const PHONE_E164 = "+447912345678";
+
+function assertNoOperationalWrites(executor: InMemoryMessageExecutor): void {
+  assert.ok(executor.queries.length > 0);
+  for (const sql of executor.queries) {
+    assert.doesNotMatch(sql, /\b(delete\s+from|truncate|drop\s+table|alter\s+table)\b/i);
+    assert.doesNotMatch(
+      sql,
+      /\b(update|insert)\s+(into\s+)?(jobs|contractors|contractor_applications|work_sessions|job_assignments|task_progress|clients|staff|simple_users)\b/i,
+    );
+    if (/^\s*insert into/i.test(sql)) {
+      assert.match(sql, /^\s*insert into contractor_messages\b/i);
+    }
+    if (/^\s*update/i.test(sql)) {
+      assert.match(sql, /^\s*update contractor_messages\b/i);
+    }
+  }
+}
+
+function assertNoFinancialReferences(executor: InMemoryMessageExecutor): void {
+  const financialTables =
+    /\b(clients|job_phases|sub_phases|phase_assignments|milestones|expenses|contractor_payments|work_hours|materials_catalog|budget_alerts|project_cashflow_weekly|project_master|material_purchases)\b/i;
+  for (const sql of executor.queries) {
+    assert.doesNotMatch(sql, financialTables);
+  }
+}
+
+test("preview builds the instruction from the applied change only and sends nothing", async () => {
+  const executor = new InMemoryMessageExecutor();
+  setupExecutor(executor);
+  const provider = new RecordingProvider();
+  const service = createService(executor, provider);
+
+  const result = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+
+  assert.equal(result.outcome, "previewed");
+  if (result.outcome !== "previewed") return;
+  const { preview } = result;
+
+  assert.equal(preview.contractor_name, "Marius Andronache");
+  assert.equal(preview.phone_e164, PHONE_E164);
+  assert.equal(preview.status, "previewed");
+
+  const body = preview.body;
+  assert.match(body, /WORK INSTRUCTION - Job 49 Flat2 1 Bedroom/);
+  assert.match(body, /Change order: co-msg-0001 \(revision 1\)/);
+  assert.match(body, /Scope: Install new electrical supply\./);
+  assert.match(body, /- 12 m: Run new supply cable/);
+  assert.match(body, /Install conduit and cable to DB\./);
+
+  assert.doesNotMatch(body, /approved_amount_minor/);
+  assert.doesNotMatch(body, /currency/);
+  assert.doesNotMatch(body, /GBP/);
+  assert.doesNotMatch(body, /250000/);
+  assert.doesNotMatch(body, /20000/);
+  assert.doesNotMatch(body, /evt-msg-0001/);
+  assert.doesNotMatch(body, /producer/);
+  assert.doesNotMatch(body, /correlation_id/);
+  assert.doesNotMatch(body, /actor-msg-0042/);
+  assert.doesNotMatch(body, /project_integration_id/);
+
+  assert.equal(provider.calls.length, 0);
+  assert.equal(executor.messages.length, 1);
+  assert.equal(executor.messages[0].status, "previewed");
+  assert.equal(executor.messages[0].preview_hash, preview.preview_hash);
+  assertNoOperationalWrites(executor);
+  assertNoFinancialReferences(executor);
+});
+
+test("unapplied and missing changes are blocked with zero provider calls", async () => {
+  for (const result of ["ready", "pending_mapping", "blocked_no_mapping"]) {
+    const executor = new InMemoryMessageExecutor();
+    executor.applications.push(
+      applicationRowFixture({ result }),
+    );
+    executor.contractors.push({ id: CONTRACTOR_ID, name: "Marius Andronache" });
+    executor.contractorPhones.push({ name: "Marius Andronache", phone: "07912 345678" });
+    const provider = new RecordingProvider();
+    const service = createService(executor, provider);
+
+    const preview = await service.previewApplicationMessage({
+      application_id: APPLICATION_ID,
+      contractor_id: CONTRACTOR_ID,
+    });
+    assert.equal(preview.outcome, "not_applied", `expected not_applied for ${result}`);
+    assert.equal(provider.calls.length, 0);
+    assert.equal(executor.messages.length, 0);
+    assertNoOperationalWrites(executor);
+  }
+
+  const missing = new InMemoryMessageExecutor();
+  const provider = new RecordingProvider();
+  const service = createService(missing, provider);
+  const result = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(result.outcome, "application_not_found");
+  assert.equal(provider.calls.length, 0);
+});
+
+test("missing contractor is blocked", async () => {
+  const executor = new InMemoryMessageExecutor();
+  executor.applications.push(applicationRowFixture());
+  const provider = new RecordingProvider();
+  const service = createService(executor, provider);
+
+  const result = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: "contractor-missing-0001",
+  });
+  assert.equal(result.outcome, "contractor_not_found");
+  assert.equal(provider.calls.length, 0);
+  assert.equal(executor.messages.length, 0);
+  assertNoOperationalWrites(executor);
+});
+
+test("invalid contractor phone is blocked", async () => {
+  const executor = new InMemoryMessageExecutor();
+  executor.applications.push(applicationRowFixture());
+  executor.contractors.push({ id: CONTRACTOR_ID, name: "Marius Andronache" });
+  executor.contractorPhones.push({ name: "Marius Andronache", phone: "not-a-number" });
+  const provider = new RecordingProvider();
+  const service = createService(executor, provider);
+
+  const result = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(result.outcome, "no_usable_phone");
+  assert.equal(provider.calls.length, 0);
+  assert.equal(executor.messages.length, 0);
+  assertNoOperationalWrites(executor);
+});
+
+test("missing mapped job is blocked", async () => {
+  const executor = new InMemoryMessageExecutor();
+  executor.applications.push(applicationRowFixture({ job_title: "" }));
+  executor.contractors.push({ id: CONTRACTOR_ID, name: "Marius Andronache" });
+  executor.contractorPhones.push({ name: "Marius Andronache", phone: "07912 345678" });
+  const provider = new RecordingProvider();
+  const service = createService(executor, provider);
+
+  const result = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(result.outcome, "job_not_found");
+  assert.equal(provider.calls.length, 0);
+  assert.equal(executor.messages.length, 0);
+});
+
+test("international phone numbers are normalized without guessing the country", async () => {
+  const executor = new InMemoryMessageExecutor();
+  executor.applications.push(applicationRowFixture());
+  executor.contractors.push({ id: CONTRACTOR_ID, name: "Hamza Aouichaoui" });
+  executor.contractorPhones.push({ name: "Hamza Aouichaoui", phone: "+353 87 123 4567" });
+  const provider = new RecordingProvider();
+  const service = createService(executor, provider);
+
+  const result = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(result.outcome, "previewed");
+  if (result.outcome !== "previewed") return;
+  assert.equal(result.preview.phone_e164, "+353871234567");
+  assert.equal(provider.calls.length, 0);
+});
+
+test("send without explicit human confirmation is blocked", async () => {
+  const executor = new InMemoryMessageExecutor();
+  setupExecutor(executor);
+  const provider = new RecordingProvider();
+  const service = createService(executor, provider);
+
+  const preview = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(preview.outcome, "previewed");
+  if (preview.outcome !== "previewed") return;
+
+  const noBy = await service.sendConfirmedMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+    preview_hash: preview.preview.preview_hash,
+    confirmed_by: "",
+    confirmed_at: "2026-08-03T14:01:00.000Z",
+  });
+  assert.equal(noBy.outcome, "confirmation_required");
+
+  const badAt = await service.sendConfirmedMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+    preview_hash: preview.preview.preview_hash,
+    confirmed_by: "admin",
+    confirmed_at: "not-a-timestamp",
+  });
+  assert.equal(badAt.outcome, "confirmation_required");
+
+  assert.equal(provider.calls.length, 0);
+  assert.equal(executor.messages[0].status, "previewed");
+  assertNoOperationalWrites(executor);
+});
+
+test("preview hash mismatch blocks the send with zero provider calls", async () => {
+  const executor = new InMemoryMessageExecutor();
+  setupExecutor(executor);
+  const provider = new RecordingProvider();
+  const service = createService(executor, provider);
+
+  const preview = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(preview.outcome, "previewed");
+  if (preview.outcome !== "previewed") return;
+
+  const result = await service.sendConfirmedMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+    preview_hash: "f".repeat(64),
+    confirmed_by: "admin",
+    confirmed_at: "2026-08-03T14:01:00.000Z",
+  });
+  assert.equal(result.outcome, "preview_hash_mismatch");
+  assert.equal(provider.calls.length, 0);
+  assert.equal(executor.messages[0].status, "previewed");
+  assertNoOperationalWrites(executor);
+});
+
+test("send without a matching stored preview is blocked", async () => {
+  const executor = new InMemoryMessageExecutor();
+  setupExecutor(executor);
+  const provider = new RecordingProvider();
+  const service = createService(executor, provider);
+
+  const preview = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(preview.outcome, "previewed");
+  if (preview.outcome !== "previewed") return;
+
+  executor.messages = [];
+
+  const result = await service.sendConfirmedMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+    preview_hash: preview.preview.preview_hash,
+    confirmed_by: "admin",
+    confirmed_at: "2026-08-03T14:01:00.000Z",
+  });
+  assert.equal(result.outcome, "no_preview");
+  assert.equal(provider.calls.length, 0);
+  assertNoOperationalWrites(executor);
+});
+
+test("valid confirmed send calls the provider exactly once and persists the message", async () => {
+  const executor = new InMemoryMessageExecutor();
+  setupExecutor(executor);
+  const provider = new RecordingProvider();
+  const service = createService(executor, provider);
+
+  const preview = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(preview.outcome, "previewed");
+  if (preview.outcome !== "previewed") return;
+
+  const result = await service.sendConfirmedMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+    preview_hash: preview.preview.preview_hash,
+    confirmed_by: "admin",
+    confirmed_at: "2026-08-03T14:01:00.000Z",
+  });
+
+  assert.equal(result.outcome, "sent");
+  if (result.outcome !== "sent") return;
+
+  assert.equal(provider.calls.length, 1);
+  assert.equal(provider.calls[0].to, PHONE_E164);
+  assert.equal(provider.calls[0].body, preview.preview.body);
+
+  const { message } = result;
+  assert.equal(message.status, "sent");
+  assert.equal(message.provider_message_id, "wamid.msg-0001");
+  assert.equal(message.confirmed_by, "admin");
+  assert.equal(message.confirmed_at, "2026-08-03T14:01:00.000Z");
+  assert.equal(message.sent_at, "2026-08-03T14:00:00.000Z");
+  assert.equal(message.preview_hash, preview.preview.preview_hash);
+
+  assert.equal(executor.messages.length, 1);
+  assert.equal(executor.messages[0].status, "sent");
+
+  assertNoOperationalWrites(executor);
+  assertNoFinancialReferences(executor);
+});
+
+test("provider failure is recorded safely as failed without a second call", async () => {
+  const executor = new InMemoryMessageExecutor();
+  setupExecutor(executor);
+  const provider = new RecordingProvider();
+  provider.result = { ok: false, errorCode: "whatsapp_error_500" };
+  const service = createService(executor, provider);
+
+  const preview = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(preview.outcome, "previewed");
+  if (preview.outcome !== "previewed") return;
+
+  const result = await service.sendConfirmedMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+    preview_hash: preview.preview.preview_hash,
+    confirmed_by: "admin",
+    confirmed_at: "2026-08-03T14:01:00.000Z",
+  });
+
+  assert.deepEqual(result, { outcome: "provider_failed", error_code: "whatsapp_error_500" });
+  assert.equal(provider.calls.length, 1);
+  assert.equal(executor.messages[0].status, "failed");
+  assert.equal(executor.messages[0].error_code, "whatsapp_error_500");
+  assert.equal(executor.messages[0].provider_message_id, null);
+  assertNoOperationalWrites(executor);
+});
+
+test("provider exception is recorded safely as failed", async () => {
+  const executor = new InMemoryMessageExecutor();
+  setupExecutor(executor);
+  const provider = new RecordingProvider();
+  provider.throwError = true;
+  const service = createService(executor, provider);
+
+  const preview = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(preview.outcome, "previewed");
+  if (preview.outcome !== "previewed") return;
+
+  const result = await service.sendConfirmedMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+    preview_hash: preview.preview.preview_hash,
+    confirmed_by: "admin",
+    confirmed_at: "2026-08-03T14:01:00.000Z",
+  });
+
+  assert.deepEqual(result, {
+    outcome: "provider_failed",
+    error_code: "whatsapp_provider_exception",
+  });
+  assert.equal(executor.messages[0].status, "failed");
+  assert.equal(executor.messages[0].error_code, "whatsapp_provider_exception");
+  assertNoOperationalWrites(executor);
+});
+
+test("unconfigured provider blocks the send without a live call", async () => {
+  const executor = new InMemoryMessageExecutor();
+  setupExecutor(executor);
+  const service = createService(executor, undefined);
+
+  const preview = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(preview.outcome, "previewed");
+  if (preview.outcome !== "previewed") return;
+
+  const result = await service.sendConfirmedMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+    preview_hash: preview.preview.preview_hash,
+    confirmed_by: "admin",
+    confirmed_at: "2026-08-03T14:01:00.000Z",
+  });
+  assert.equal(result.outcome, "provider_unconfigured");
+  assert.equal(executor.messages[0].status, "previewed");
+  assertNoOperationalWrites(executor);
+});
+
+test("approval and apply paths never import the WhatsApp provider or message service", async () => {
+  for (const file of [
+    "../server/integration-application-route.ts",
+    "../server/integration-change-order-applications.ts",
+    "../server/integration-review-route.ts",
+    "../server/integration-review-repository.ts",
+    "../server/integration-shadow-route.ts",
+  ]) {
+    const source = await readFile(new URL(file, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /whatsapp|whats-app|WhatsApp/i);
+    assert.doesNotMatch(source, /integration-contractor-message|ContractorMessage|sendText|graph\.facebook/i);
+  }
+});
+
+test("contractor message route imports only express, admin guard, and service types", async () => {
+  const source = await readFile(
+    new URL("../server/integration-contractor-message-route.ts", import.meta.url),
+    "utf8",
+  );
+  const importedModules = [...source.matchAll(/from\s+"([^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(importedModules, [
+    "express",
+    "./integration-review-route.ts",
+    "./integration-contractor-message-service.ts",
+  ]);
+  assert.doesNotMatch(
+    source,
+    /database-storage|\.\/db|integration-shadow-sql-repository|whatsapp\.ts|Telegram|sendgrid|twilio|stripe|notifications/i,
+  );
+});
+
+test("contractor messages design migration is additive, non-destructive, and unregistered", async () => {
+  const migrationUrl = new URL(
+    "../migration-designs/phase1c-step1-contractor-messages.sql",
+    import.meta.url,
+  );
+  const sql = await readFile(migrationUrl, "utf8");
+  const withoutComments = sql.replace(/^\s*--.*$/gm, "");
+  const statements = withoutComments.split(";").map((statement) => statement.trim()).filter(Boolean);
+
+  assert.equal(statements.length, 1);
+  assert.match(statements[0], /^CREATE TABLE IF NOT EXISTS contractor_messages\b/i);
+  assert.match(withoutComments, /REFERENCES integration_change_order_applications\(application_id\)/i);
+  assert.match(withoutComments, /REFERENCES jobs\(id\)/i);
+  assert.match(withoutComments, /REFERENCES contractors\(id\)/i);
+  assert.match(
+    withoutComments,
+    /status TEXT NOT NULL CHECK\s*\(status IN \('previewed',\s*'queued',\s*'sent',\s*'failed'\)\)/i,
+  );
+  assert.match(withoutComments, /direction TEXT NOT NULL CHECK\s*\(direction = 'outbound'\)/i);
+  assert.match(withoutComments, /channel TEXT NOT NULL CHECK\s*\(channel = 'whatsapp'\)/i);
+  assert.match(withoutComments, /phone_e164 TEXT NOT NULL CHECK\s*\(phone_e164 ~ '\^\\\+\[0-9\]\{8,15\}\$'\)/i);
+  assert.doesNotMatch(withoutComments, /\b(DROP|DELETE|TRUNCATE|ALTER|UPDATE)\b/i);
+  assert.doesNotMatch(migrationUrl.pathname, /\/migrations\//i);
+});
+
+interface TestRouteContext {
+  readonly executor: InMemoryMessageExecutor;
+  readonly provider: RecordingProvider;
+  setSession(session: { role?: string; username?: string } | undefined): void;
+  post(path: string, body: unknown): Promise<{ status: number; body: Record<string, unknown> }>;
+}
+
+async function withTestRoute(
+  run: (context: TestRouteContext) => Promise<void>,
+): Promise<void> {
+  const executor = new InMemoryMessageExecutor();
+  setupExecutor(executor);
+  const provider = new RecordingProvider();
+  const app = express();
+  app.use(express.json());
+
+  let session: { role?: string; username?: string } | undefined = { role: "admin", username: "admin" };
+  app.use((request: Request, _response: Response, next: NextFunction) => {
+    (request as unknown as { session?: { role?: string; username?: string } }).session = session;
+    next();
+  });
+  app.use(createContractorMessageRouter({
+    service: createService(executor, provider),
+  }));
+
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  try {
+    const address = server.address();
+    assert.equal(typeof address, "object");
+    assert.ok(address !== null);
+    const base = `http://127.0.0.1:${(address as AddressInfo).port}`;
+
+    const post = async (path: string, body: unknown) => {
+      const response = await fetch(base + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const text = await response.text();
+      return {
+        status: response.status,
+        body: text.length === 0 ? {} : (JSON.parse(text) as Record<string, unknown>),
+      };
+    };
+
+    await run({
+      executor,
+      provider,
+      setSession: (nextSession) => {
+        session = nextSession;
+      },
+      post,
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error === undefined ? resolve() : reject(error)));
+    });
+  }
+}
+
+const PREVIEW_PATH = `${CONTRACTOR_MESSAGE_ROUTE}/previews`;
+const SEND_PATH = `${CONTRACTOR_MESSAGE_ROUTE}/sends`;
+
+const previewBody = { application_id: APPLICATION_ID, contractor_id: CONTRACTOR_ID };
+
+test("message endpoints reject missing and non-admin sessions", async () => {
+  await withTestRoute(async ({ executor, provider, post, setSession }) => {
+    setSession(undefined);
+    assert.equal((await post(PREVIEW_PATH, previewBody)).status, 401);
+    assert.equal((await post(SEND_PATH, previewBody)).status, 401);
+
+    setSession({ role: "contractor", username: "bob" });
+    assert.equal((await post(PREVIEW_PATH, previewBody)).status, 401);
+    assert.equal((await post(SEND_PATH, previewBody)).status, 401);
+
+    assert.equal(provider.calls.length, 0);
+    assert.equal(executor.messages.length, 0);
+    assertNoOperationalWrites(executor);
+  });
+});
+
+test("admin preview returns the generated instruction and never sends", async () => {
+  await withTestRoute(async ({ executor, provider, post }) => {
+    const response = await post(PREVIEW_PATH, previewBody);
+
+    assert.equal(response.status, 201);
+    assert.equal(response.body.status, "previewed");
+    const preview = response.body.preview as Record<string, unknown>;
+    assert.equal(preview.contractor_name, "Marius Andronache");
+    assert.equal(preview.phone_e164, PHONE_E164);
+    assert.equal(typeof preview.preview_hash, "string");
+    assert.match(String(preview.body), /WORK INSTRUCTION/);
+    assert.equal(provider.calls.length, 0);
+    assert.equal(executor.messages.length, 1);
+    assertNoOperationalWrites(executor);
+  });
+});
+
+test("admin preview rejects missing contractor phone", async () => {
+  await withTestRoute(async ({ executor, provider, post }) => {
+    executor.contractorPhones = [{ name: "Marius Andronache", phone: "nope" }];
+    const response = await post(PREVIEW_PATH, previewBody);
+    assert.equal(response.status, 422);
+    assert.equal(provider.calls.length, 0);
+    assertNoOperationalWrites(executor);
+  });
+});
+
+test("confirmed send returns sent and calls the provider exactly once", async () => {
+  await withTestRoute(async ({ executor, provider, post }) => {
+    const preview = await post(PREVIEW_PATH, previewBody);
+    assert.equal(preview.status, 201);
+    const hash = (preview.body.preview as Record<string, unknown>).preview_hash as string;
+
+    const send = await post(SEND_PATH, {
+      application_id: APPLICATION_ID,
+      contractor_id: CONTRACTOR_ID,
+      preview_hash: hash,
+      confirmed_by: "admin",
+      confirmed_at: "2026-08-03T14:01:00.000Z",
+    });
+
+    assert.equal(send.status, 200);
+    assert.equal(send.body.status, "sent");
+    assert.equal(provider.calls.length, 1);
+    assert.equal((send.body.message as Record<string, unknown>).provider_message_id, "wamid.msg-0001");
+    assertNoOperationalWrites(executor);
+  });
+});
+
+test("send without human confirmation returns 400 and never calls the provider", async () => {
+  await withTestRoute(async ({ executor, provider, post }) => {
+    const preview = await post(PREVIEW_PATH, previewBody);
+    const hash = (preview.body.preview as Record<string, unknown>).preview_hash as string;
+
+    const noConfirm = await post(SEND_PATH, {
+      application_id: APPLICATION_ID,
+      contractor_id: CONTRACTOR_ID,
+      preview_hash: hash,
+    });
+    assert.equal(noConfirm.status, 400);
+
+    const mismatch = await post(SEND_PATH, {
+      application_id: APPLICATION_ID,
+      contractor_id: CONTRACTOR_ID,
+      preview_hash: "f".repeat(64),
+      confirmed_by: "admin",
+      confirmed_at: "2026-08-03T14:01:00.000Z",
+    });
+    assert.equal(mismatch.status, 409);
+
+    assert.equal(provider.calls.length, 0);
+    assert.equal(executor.messages[0].status, "previewed");
+    assertNoOperationalWrites(executor);
+  });
+});
