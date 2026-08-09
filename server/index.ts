@@ -11,6 +11,8 @@ import { client } from "./db";
 import { createLocalJarvisShadowRouter, PostgresIntegrationSqlExecutor } from "./integration-shadow-live.ts";
 import { SqlIntegrationReviewRepository } from "./integration-review-repository.ts";
 import { createJarvisReviewRouter } from "./integration-review-route.ts";
+import { SqlIntegrationChangeOrderApplicationRepository } from "./integration-change-order-applications.ts";
+import { createJarvisApplicationRouter } from "./integration-application-route.ts";
 
 const app = express();
 // Allow mobile WebView (capacitor://localhost) and other origins to call the API
@@ -31,6 +33,19 @@ app.use(express.urlencoded({ extended: false }));
 app.use(createJarvisReviewRouter({
   repository: new SqlIntegrationReviewRepository({
     executor: new PostgresIntegrationSqlExecutor(client),
+  }),
+}));
+
+// Admin-only Jarvis mapping + application readiness. Reads approved reviews and
+// the mapping ledger; writes ONLY to integration_project_mapping and
+// integration_change_order_applications. Never modifies operational job/task data.
+app.use(createJarvisApplicationRouter({
+  repository: new SqlIntegrationChangeOrderApplicationRepository({
+    executor: new PostgresIntegrationSqlExecutor(client),
+    jobExists: async (jobId) => {
+      const rows = await client`SELECT id FROM jobs WHERE id = ${jobId}`;
+      return rows.length > 0;
+    },
   }),
 }));
 
