@@ -301,10 +301,16 @@ function requiredRevision(row: IntegrationSqlRow): number {
 
 function requiredMinor(row: IntegrationSqlRow): number {
   const value = row.approved_amount_minor;
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
-    throw new Error("Invalid change-order application amount");
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER) {
+    return value;
   }
-  return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    const parsed = Number(value);
+    if (Number.isSafeInteger(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+  throw new Error("Invalid change-order application amount");
 }
 
 function applicationStatusOf(value: unknown): ApplicationStatus {

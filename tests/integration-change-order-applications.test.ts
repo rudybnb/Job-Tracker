@@ -81,7 +81,7 @@ interface ApplicationRow {
   applied_by: string | null;
   applied_at: string | null;
   title: string;
-  approved_amount_minor: number;
+  approved_amount_minor: number | string;
   currency: string;
   approved_snapshot_hash: string;
   result: string;
@@ -1041,4 +1041,84 @@ test("applyApplication already-applied record blocks immediately", async () => {
   assert.deepEqual(result, { outcome: "already_applied" });
   assert.deepEqual(executor.jobs[0], jobRowFixture(), "zero operational writes");
   assert.equal(executor.queries.filter((sql) => /^\s*update\s+jobs\b/i.test(sql)).length, 0);
+});
+
+function appliedApplicationRow(overrides: Partial<ApplicationRow> = {}): ApplicationRow {
+  return {
+    application_id: "application-applied-0001",
+    change_order_id: "co-app-0001",
+    revision: 1,
+    receipt_id: "receipt-app-0001",
+    event_id: "evt-app-0001",
+    project_integration_id: "project-app-0001",
+    applied_to_job_id: "job-existing-0001",
+    applied_by: "admin",
+    applied_at: "2026-08-03T12:55:00.000Z",
+    title: "Approved application shadow change",
+    approved_amount_minor: "100",
+    currency: "GBP",
+    approved_snapshot_hash: "a".repeat(64),
+    result: "applied",
+    records_touched: "{}",
+    ...overrides,
+  };
+}
+
+test("readiness maps a bigint string approved_amount_minor to a safe number", async () => {
+  const executor = setupApprovedMappedExecutor({
+    job: jobRowFixture(),
+    readyApplication: appliedApplicationRow(),
+  });
+  const repository = createRepository(executor);
+
+  const readiness = await repository.getReadiness("co-app-0001", 1);
+  assert.ok(readiness !== undefined);
+  assert.equal(readiness.status, "applied");
+  assert.ok(readiness.application !== undefined);
+  assert.equal(readiness.application.approved_amount_minor, 100);
+  assert.equal(typeof readiness.application.approved_amount_minor, "number");
+  assertNoOperationalWrites(executor);
+});
+
+test("readiness rejects invalid bigint strings for approved_amount_minor", async () => {
+  const invalidAmounts: unknown[] = [
+    "-5",
+    "1.5",
+    "12px",
+    "100 ",
+    " 100",
+    "100.0",
+    "",
+    "1e3",
+    "9007199254740992",
+    "NaN",
+    "Infinity",
+  ];
+  for (const amount of invalidAmounts) {
+    const executor = setupApprovedMappedExecutor({
+      job: jobRowFixture(),
+      readyApplication: appliedApplicationRow({ approved_amount_minor: amount as ApplicationRow["approved_amount_minor"] }),
+    });
+    const repository = createRepository(executor);
+    await assert.rejects(
+      () => repository.getReadiness("co-app-0001", 1),
+      /Invalid change-order application amount/,
+      `expected rejection for amount ${JSON.stringify(amount)}`,
+    );
+  }
+});
+
+test("already-applied row with a bigint string returns already_applied", async () => {
+  const executor = setupApprovedMappedExecutor({
+    job: jobRowFixture(),
+    readyApplication: appliedApplicationRow({ approved_amount_minor: "100" }),
+  });
+  const repository = createRepository(executor);
+
+  const result = await repository.applyApplication(APPLY_INPUT);
+  assert.deepEqual(result, { outcome: "already_applied" });
+  assert.deepEqual(executor.jobs[0], jobRowFixture(), "zero operational writes");
+  assert.equal(executor.queries.filter((sql) => /^\s*update\s+jobs\b/i.test(sql)).length, 0);
+  assert.equal(executor.applications.length, 1);
+  assertNoOperationalWrites(executor);
 });
