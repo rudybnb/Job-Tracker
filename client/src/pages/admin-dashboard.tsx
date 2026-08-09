@@ -449,6 +449,17 @@ export default function AdminDashboard() {
                     <i className="fas fa-robot mr-3 w-4"></i>
                     AI Agent Management
                   </button>
+
+                  <button
+                    onClick={() => {
+                      setShowAvatarDropdown(false);
+                      window.location.href = '/admin-jarvis-reviews';
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-purple-400 bg-purple-900/20"
+                  >
+                    <i className="fas fa-inbox mr-3 w-4"></i>
+                    📥 Jarvis Shadow Reviews 📥
+                  </button>
                   
 
                   

@@ -34,6 +34,7 @@ import AdminInspection from "@/pages/admin-inspection";
 import AdminBudgetTracking from "@/pages/admin-budget-tracking";
 import TelegramMessages from "@/pages/telegram-messages";
 import VoiceControl from "@/pages/voice-control";
+import AdminJarvisReviews from "@/pages/admin-jarvis-reviews";
 
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -200,6 +201,12 @@ function Router() {
           </ProtectedRoute>
         )} />
         
+        <Route path="/admin-jarvis-reviews" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminJarvisReviews />
+          </ProtectedRoute>
+        )} />
+
         <Route path="/voice-control" component={() => (
           <ProtectedRoute requiredRole="admin">
             <VoiceControl />

@@ -16,7 +16,7 @@ import {
 export const JARVIS_SHADOW_API_KEY_ID_ENV = "JARVIS_SHADOW_API_KEY_ID";
 export const JARVIS_SHADOW_API_KEY_SECRET_ENV = "JARVIS_SHADOW_API_KEY_SECRET";
 
-class PostgresIntegrationSqlExecutor implements IntegrationSqlExecutor {
+export class PostgresIntegrationSqlExecutor implements IntegrationSqlExecutor {
   private readonly sql: postgres.Sql;
 
   constructor(sql: postgres.Sql) {
