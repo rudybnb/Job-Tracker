@@ -13,14 +13,35 @@
       "idx": 1,
       "version": "7",
       "when": 1786291200306,
-      "tag": "0001_phase1c_contractor_messages",
+      "tag": "0001_phase1a_shadow_storage",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
       "when": 1786291200307,
-      "tag": "0002_phase1c_contractor_messages_inbound",
+      "tag": "0002_phase1b_review_storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786291200308,
+      "tag": "0003_phase1b_application_storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786291200309,
+      "tag": "0004_phase1c_contractor_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786291200310,
+      "tag": "0005_phase1c_contractor_messages_inbound",
       "breakpoints": true
     }
   ]
