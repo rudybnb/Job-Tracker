@@ -4,8 +4,11 @@ import type { WhatsAppProvider } from "./whatsapp.ts";
 import type { WhatsAppWebhookEvent } from "./whatsapp-webhook.ts";
 import type {
   ContractorApplicationContext,
+  ContractorMessageCandidateRow,
+  ContractorMessageHistoryRow,
   ContractorMessageRow,
   IntegrationContractorMessageRepository,
+  UnmatchedInboundMessageRow,
 } from "./integration-contractor-message-repository.ts";
 
 export interface MessagePreview {
@@ -31,6 +34,8 @@ export type PreviewOutcome =
   | { readonly outcome: "no_usable_phone" }
   | { readonly outcome: "previewed"; readonly preview: MessagePreview };
 
+type ResolveBlockedOutcome = Exclude<PreviewOutcome, { readonly outcome: "previewed"; readonly preview: MessagePreview }>;
+
 export type SendOutcome =
   | { readonly outcome: "application_not_found" }
   | { readonly outcome: "not_applied" }
@@ -43,6 +48,35 @@ export type SendOutcome =
   | { readonly outcome: "provider_unconfigured" }
   | { readonly outcome: "provider_failed"; readonly error_code: string }
   | { readonly outcome: "sent"; readonly message: ContractorMessageRow };
+
+export interface MessageHistoryReply {
+  readonly id: string;
+  readonly phone_e164: string;
+  readonly body: string;
+  readonly created_at: string;
+  readonly inbound_provider_message_id?: string;
+}
+
+export interface MessageHistoryOutbound {
+  readonly id: string;
+  readonly application_id: string;
+  readonly job_id: string;
+  readonly change_order_id: string;
+  readonly revision: number;
+  readonly contractor_id: string;
+  readonly contractor_name?: string;
+  readonly phone_e164: string;
+  readonly body: string;
+  readonly status: string;
+  readonly delivery_status: string;
+  readonly provider_message_id?: string;
+  readonly sent_at?: string;
+  readonly delivered_at?: string;
+  readonly read_at?: string;
+  readonly acknowledged_at?: string;
+  readonly error_code?: string;
+  readonly replies: readonly MessageHistoryReply[];
+}
 
 export interface ContractorMessageService {
   previewApplicationMessage(input: {
@@ -57,6 +91,12 @@ export interface ContractorMessageService {
     readonly confirmed_by: string;
     readonly confirmed_at: string;
   }): Promise<SendOutcome>;
+
+  listApplicationMessages(applicationId: string): Promise<readonly MessageHistoryOutbound[]>;
+
+  listUnmatchedInboundMessages(): Promise<readonly UnmatchedInboundMessageRow[]>;
+
+  listContractorCandidates(jobId: string): Promise<readonly ContractorMessageCandidateRow[]>;
 
   handleWhatsAppWebhookEvents(events: readonly WhatsAppWebhookEvent[]): Promise<void>;
 }
@@ -77,7 +117,7 @@ type ResolvedContext =
       readonly contractorName: string;
       readonly phoneE164: string;
     }
-  | { readonly kind: "blocked"; readonly outcome: PreviewOutcome };
+  | { readonly kind: "blocked"; readonly outcome: ResolveBlockedOutcome };
 
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
@@ -243,6 +283,50 @@ export class SqlContractorMessageService implements ContractorMessageService {
     return { outcome: "sent", message: updated };
   }
 
+  async listApplicationMessages(applicationId: string): Promise<readonly MessageHistoryOutbound[]> {
+    const rows = await this.#repository.listMessagesForApplication(applicationId);
+    const repliesByProviderMessageId = new Map<string, MessageHistoryReply[]>();
+    for (const row of rows) {
+      if (row.direction !== "inbound" || row.reply_to_provider_message_id === undefined) continue;
+      const replies = repliesByProviderMessageId.get(row.reply_to_provider_message_id) ?? [];
+      replies.push(toReply(row));
+      repliesByProviderMessageId.set(row.reply_to_provider_message_id, replies);
+    }
+
+    return rows
+      .filter((row) => row.direction === "outbound")
+      .map((row) => ({
+        id: row.id,
+        application_id: row.application_id,
+        job_id: row.job_id,
+        change_order_id: row.change_order_id,
+        revision: row.revision,
+        contractor_id: row.contractor_id,
+        ...(row.contractor_name === undefined ? {} : { contractor_name: row.contractor_name }),
+        phone_e164: row.phone_e164,
+        body: row.body,
+        status: row.status,
+        delivery_status: row.delivery_status,
+        ...(row.provider_message_id === undefined ? {} : { provider_message_id: row.provider_message_id }),
+        ...(row.sent_at === undefined ? {} : { sent_at: row.sent_at }),
+        ...(row.delivered_at === undefined ? {} : { delivered_at: row.delivered_at }),
+        ...(row.read_at === undefined ? {} : { read_at: row.read_at }),
+        ...(row.acknowledged_at === undefined ? {} : { acknowledged_at: row.acknowledged_at }),
+        ...(row.error_code === undefined ? {} : { error_code: row.error_code }),
+        replies: row.provider_message_id === undefined
+          ? []
+          : repliesByProviderMessageId.get(row.provider_message_id) ?? [],
+      }));
+  }
+
+  async listUnmatchedInboundMessages(): Promise<readonly UnmatchedInboundMessageRow[]> {
+    return this.#repository.listUnmatchedInboundMessages();
+  }
+
+  async listContractorCandidates(jobId: string): Promise<readonly ContractorMessageCandidateRow[]> {
+    return this.#repository.listContractorCandidates(jobId);
+  }
+
   async handleWhatsAppWebhookEvents(events: readonly WhatsAppWebhookEvent[]): Promise<void> {
     for (const event of events) {
       if (event.kind === "status") {
@@ -365,6 +449,16 @@ export class SqlContractorMessageService implements ContractorMessageService {
       phoneE164,
     };
   }
+}
+
+function toReply(row: ContractorMessageHistoryRow): MessageHistoryReply {
+  return {
+    id: row.id,
+    phone_e164: row.phone_e164,
+    body: row.body,
+    created_at: row.created_at,
+    ...(row.inbound_provider_message_id === undefined ? {} : { inbound_provider_message_id: row.inbound_provider_message_id }),
+  };
 }
 
 function phoneFromWaId(waId: string): string {

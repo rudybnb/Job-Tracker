@@ -77,6 +77,16 @@ interface IntegrationProjectMapping {
   mapped_at: string;
 }
 
+interface ChangeOrderApplicationRecord {
+  application_id: string;
+  change_order_id: string;
+  revision: number;
+  applied_to_job_id?: string;
+  applied_by?: string;
+  applied_at?: string;
+  status: ApplicationStatus;
+}
+
 interface ApplicationReadiness {
   change_order_id: string;
   revision: number;
@@ -87,7 +97,61 @@ interface ApplicationReadiness {
   review_status: string | null;
   review_approved: boolean;
   mapping?: IntegrationProjectMapping;
+  application?: ChangeOrderApplicationRecord;
   status: ApplicationStatus;
+}
+
+interface ContractorCandidate {
+  contractor_id: string;
+  name: string;
+  phone: string;
+  assigned_job_id?: string;
+  assigned_job_title?: string;
+}
+
+interface ContractorMessagePreview {
+  id: string;
+  application_id: string;
+  contractor_id: string;
+  contractor_name: string;
+  phone_e164: string;
+  body: string;
+  preview_hash: string;
+  created_at: string;
+}
+
+interface ContractorMessageReply {
+  id: string;
+  phone_e164: string;
+  body: string;
+  created_at: string;
+  inbound_provider_message_id?: string;
+}
+
+interface ContractorMessageHistoryItem {
+  id: string;
+  contractor_id: string;
+  contractor_name?: string;
+  phone_e164: string;
+  body: string;
+  status: string;
+  delivery_status: string;
+  provider_message_id?: string;
+  sent_at?: string;
+  delivered_at?: string;
+  read_at?: string;
+  acknowledged_at?: string;
+  error_code?: string;
+  replies: ContractorMessageReply[];
+}
+
+interface UnmatchedInboundMessage {
+  id: string;
+  phone_e164: string;
+  body: string;
+  created_at: string;
+  unmatched_reason: string;
+  inbound_provider_message_id?: string;
 }
 
 const FILTERS: ReadonlyArray<{ label: string; value: ReviewStatus | "all" }> = [
@@ -147,6 +211,30 @@ function jobStatusBadge(status: string) {
   return <Badge className={classes}>{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>;
 }
 
+function whatsappStatusBadge(message: ContractorMessageHistoryItem) {
+  if (message.status === "failed" || message.delivery_status === "failed") {
+    return <Badge className="bg-red-600 text-white">Failed</Badge>;
+  }
+  if (message.delivery_status === "read") {
+    return <Badge className="bg-green-600 text-white">Read</Badge>;
+  }
+  if (message.delivery_status === "delivered") {
+    return <Badge className="bg-blue-600 text-white">Delivered</Badge>;
+  }
+  if (message.delivery_status === "sent" || message.status === "sent") {
+    return <Badge className="bg-yellow-600 text-black">Sent</Badge>;
+  }
+  return <Badge className="bg-slate-600 text-white">Queued</Badge>;
+}
+
+function shouldPollMessages(messages: ContractorMessageHistoryItem[]): boolean {
+  const latest = messages[0];
+  if (latest === undefined) return false;
+  if (latest.acknowledged_at || latest.delivery_status === "read") return false;
+  if (latest.status === "failed" || latest.delivery_status === "failed") return false;
+  return latest.status === "sent" || latest.delivery_status === "sent" || latest.delivery_status === "delivered";
+}
+
 function extractErrorMessage(raw: string): string {
   const match = raw.match(/"error"\s*:\s*"([^"]+)"/);
   return match ? match[1] : raw;
@@ -164,6 +252,10 @@ export default function AdminJarvisReviews() {
   const [selectedJob, setSelectedJob] = useState<JobWithContractor | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [applyConfirmOpen, setApplyConfirmOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [selectedContractor, setSelectedContractor] = useState<ContractorCandidate | null>(null);
+  const [messagePreview, setMessagePreview] = useState<ContractorMessagePreview | null>(null);
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
 
   const listUrl = "/api/integrations/review/change-orders";
   const detailUrl = selected
@@ -194,10 +286,42 @@ export default function AdminJarvisReviews() {
     enabled: mappedJobId !== undefined,
   });
 
+  const appliedApplication = readiness?.application?.status === "applied"
+    ? readiness.application
+    : undefined;
+  const applicationId = appliedApplication?.application_id;
+  const appliedJobId = appliedApplication?.applied_to_job_id ?? readiness?.mapping?.job_id;
+
+  const { data: messageHistory, refetch: refetchMessageHistory } = useQuery<{ messages: ContractorMessageHistoryItem[] }>({
+    queryKey: ["/api/integrations/messages", { application_id: applicationId ?? "" }],
+    enabled: applicationId !== undefined,
+    refetchInterval: (query) => {
+      const current = query.state.data as { messages: ContractorMessageHistoryItem[] } | undefined;
+      return shouldPollMessages(current?.messages ?? []) ? 10000 : false;
+    },
+  });
+
+  const { data: unmatchedInbound } = useQuery<{ messages: UnmatchedInboundMessage[] }>({
+    queryKey: ["/api/integrations/messages/unmatched"],
+    refetchInterval: 30000,
+  });
+
+  const { data: contractorCandidates, isLoading: contractorCandidatesLoading } = useQuery<{ contractors: ContractorCandidate[] }>({
+    queryKey: ["/api/integrations/messages/contractor-candidates", { job_id: appliedJobId ?? "" }],
+    enabled: contactOpen && appliedJobId !== undefined,
+  });
+
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [searchTerm]);
+
+  useEffect(() => {
+    setContactOpen(false);
+    setSelectedContractor(null);
+    setMessagePreview(null);
+    setSendConfirmOpen(false);
+  }, [applicationId]);
 
   const {
     data: jobSearchResults = [],
@@ -326,7 +450,7 @@ export default function AdminJarvisReviews() {
         "POST",
         `/api/integrations/applications/change-orders/${encodeURIComponent(changeOrderId)}/revisions/${revision}/apply`,
       );
-      return (await response.json()) as { status: string };
+      return (await response.json()) as { status: string; application_id?: string; applied_to_job_id?: string };
     },
     onSuccess: (result) => {
       if (readinessUrl !== null) {
@@ -361,6 +485,68 @@ export default function AdminJarvisReviews() {
       revision: selected.revision,
     });
   };
+
+  const resetContactDialog = () => {
+    setContactOpen(false);
+    setSelectedContractor(null);
+    setMessagePreview(null);
+    setSendConfirmOpen(false);
+  };
+
+  const previewMutation = useMutation({
+    mutationFn: async () => {
+      if (applicationId === undefined || selectedContractor === null) {
+        throw new Error("Select a contractor before previewing");
+      }
+      const response = await apiRequest("POST", "/api/integrations/messages/previews", {
+        application_id: applicationId,
+        contractor_id: selectedContractor.contractor_id,
+      });
+      return (await response.json()) as { status: string; preview: ContractorMessagePreview };
+    },
+    onSuccess: (result) => {
+      setMessagePreview(result.preview);
+      refetchMessageHistory();
+      toast({ title: "Preview generated", description: "No WhatsApp message has been sent." });
+    },
+    onError: (error) => {
+      toast({
+        title: "Preview failed",
+        description: error instanceof Error ? extractErrorMessage(error.message) : "Unexpected error",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: async () => {
+      if (applicationId === undefined || selectedContractor === null || messagePreview === null) {
+        throw new Error("Generate a preview before sending");
+      }
+      const response = await apiRequest("POST", "/api/integrations/messages/sends", {
+        application_id: applicationId,
+        contractor_id: selectedContractor.contractor_id,
+        preview_hash: messagePreview.preview_hash,
+        confirmed_by: localStorage.getItem("adminName") || "Admin",
+        confirmed_at: new Date().toISOString(),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      setSendConfirmOpen(false);
+      resetContactDialog();
+      refetchMessageHistory();
+      queryClient.invalidateQueries({ queryKey: ["/api/integrations/messages", { application_id: applicationId ?? "" }] });
+      toast({ title: "WhatsApp sent", description: "Delivery and reply status will refresh here." });
+    },
+    onError: (error) => {
+      toast({
+        title: "Send failed",
+        description: error instanceof Error ? extractErrorMessage(error.message) : "Unexpected error",
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <div className="min-h-screen bg-slate-800">
@@ -580,6 +766,82 @@ export default function AdminJarvisReviews() {
                   )}
                 </div>
 
+                <div className="rounded-lg border border-slate-700 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-slate-400 text-sm font-medium">WhatsApp Communication</div>
+                      <div className="text-xs text-slate-500">
+                        Human-confirmed contractor instructions only. No automatic sends.
+                      </div>
+                    </div>
+                    {appliedApplication && appliedJobId ? (
+                      <Button
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        onClick={() => setContactOpen(true)}
+                      >
+                        Contact Contractor
+                      </Button>
+                    ) : null}
+                  </div>
+
+                  {!appliedApplication ? (
+                    <div className="text-xs text-slate-500">
+                      WhatsApp contact is available after the change has been applied.
+                    </div>
+                  ) : (messageHistory?.messages ?? []).length === 0 ? (
+                    <div className="text-xs text-slate-500">No WhatsApp instructions for this application yet.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {(messageHistory?.messages ?? []).map((message) => (
+                        <div key={message.id} className="rounded-lg border border-slate-700 bg-slate-900/60 p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <div className="text-sm font-medium text-white">
+                                {message.contractor_name ?? message.contractor_id}
+                              </div>
+                              <div className="text-xs text-slate-400">{message.phone_e164}</div>
+                            </div>
+                            {whatsappStatusBadge(message)}
+                          </div>
+
+                          <div className="text-xs text-slate-400">
+                            Sent: {formatTimestamp(message.sent_at)}
+                            {message.provider_message_id ? ` · Provider: ${message.provider_message_id}` : ""}
+                          </div>
+                          {message.delivered_at ? (
+                            <div className="text-xs text-slate-400">Delivered: {formatTimestamp(message.delivered_at)}</div>
+                          ) : null}
+                          {message.read_at ? (
+                            <div className="text-xs text-slate-400">Read: {formatTimestamp(message.read_at)}</div>
+                          ) : null}
+                          <div className="text-xs text-slate-400">
+                            {message.acknowledged_at ? "Acknowledged: Contractor replied." : "Awaiting Reply"}
+                          </div>
+                          {message.error_code ? (
+                            <div className="text-xs text-red-300">Failure detail: {message.error_code}</div>
+                          ) : null}
+                          <div className="rounded border border-slate-700 bg-slate-950/50 p-2 text-xs text-slate-200 whitespace-pre-wrap">
+                            {message.body}
+                          </div>
+                          {message.replies.length > 0 ? (
+                            <div className="space-y-2">
+                              <div className="text-xs font-medium text-slate-400">Contractor replies</div>
+                              {message.replies.map((reply) => (
+                                <div key={reply.id} className="rounded border border-slate-700 bg-slate-800 p-2">
+                                  <div className="text-xs text-slate-400">
+                                    {reply.phone_e164} · {formatTimestamp(reply.created_at)}
+                                  </div>
+                                  <div className="text-sm text-slate-200 whitespace-pre-wrap">{reply.body}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {detail.reviewed_by ? (
                   <div className="text-xs text-slate-400">
                     Reviewed by {detail.reviewed_by} on {formatTimestamp(detail.reviewed_at)}
@@ -612,6 +874,35 @@ export default function AdminJarvisReviews() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="bg-slate-900 rounded-lg border border-slate-700 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
+                Unmatched WhatsApp Inbound
+              </h2>
+              <p className="text-xs text-slate-500">Display-only messages that need human review.</p>
+            </div>
+            <Badge className="bg-red-600 text-white">Needs Review</Badge>
+          </div>
+          {(unmatchedInbound?.messages ?? []).length === 0 ? (
+            <div className="text-sm text-slate-500">No unmatched inbound WhatsApp messages.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(unmatchedInbound?.messages ?? []).map((message) => (
+                <div key={message.id} className="rounded-lg border border-slate-700 bg-slate-800 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium text-white">{message.phone_e164}</div>
+                    <Badge className="bg-red-600 text-white">Needs Review</Badge>
+                  </div>
+                  <div className="text-xs text-slate-400">Received: {formatTimestamp(message.created_at)}</div>
+                  <div className="text-xs text-slate-400">Reason: {message.unmatched_reason}</div>
+                  <div className="text-sm text-slate-200 whitespace-pre-wrap">{message.body}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -847,6 +1138,163 @@ export default function AdminJarvisReviews() {
               onClick={confirmApply}
             >
               {applyMutation.isPending ? "Applying..." : "Confirm Apply"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        open={contactOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setContactOpen(true);
+          } else {
+            resetContactDialog();
+          }
+        }}
+      >
+        <DialogContent className="bg-slate-800 border-slate-600 text-white max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white">Contact Contractor</DialogTitle>
+            <DialogDescription className="text-slate-300">
+              Manually select a contractor, preview the exact WhatsApp instruction, then confirm before sending.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <div className="text-sm font-medium text-slate-300 mb-2">Select Contractor</div>
+              {contractorCandidatesLoading ? (
+                <div className="text-sm text-slate-400">Loading contractors...</div>
+              ) : (contractorCandidates?.contractors ?? []).length === 0 ? (
+                <div className="text-sm text-slate-400 border border-dashed border-slate-600 rounded-lg p-4">
+                  No contractor candidates with an approved phone were found for this job.
+                </div>
+              ) : (
+                <div className="max-h-56 overflow-y-auto rounded-lg border border-slate-700 divide-y divide-slate-700">
+                  {(contractorCandidates?.contractors ?? []).map((contractor) => {
+                    const isSelected = selectedContractor?.contractor_id === contractor.contractor_id;
+                    return (
+                      <button
+                        key={contractor.contractor_id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedContractor(contractor);
+                          setMessagePreview(null);
+                        }}
+                        className={`w-full text-left p-3 border-l-4 transition-colors ${
+                          isSelected
+                            ? "bg-slate-700 border-green-600"
+                            : "border-transparent hover:bg-slate-700/60"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium text-white">{contractor.name}</div>
+                          {contractor.assigned_job_id ? (
+                            <Badge className="bg-blue-600 text-white">Assigned Job</Badge>
+                          ) : null}
+                        </div>
+                        <div className="text-xs text-slate-400">{contractor.phone}</div>
+                        {contractor.assigned_job_title ? (
+                          <div className="text-xs text-slate-500">{contractor.assigned_job_title}</div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {messagePreview ? (
+              <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3 space-y-3">
+                <div>
+                  <div className="text-sm font-medium text-slate-300">Preview</div>
+                  <div className="text-xs text-slate-500">No WhatsApp message has been sent yet.</div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <div className="text-slate-400 text-xs">Contractor</div>
+                    <div className="text-slate-100">{messagePreview.contractor_name}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-400 text-xs">Destination Phone</div>
+                    <div className="text-slate-100">{messagePreview.phone_e164}</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-400 text-xs mb-1">Exact Message Body</div>
+                  <div className="rounded border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200 whitespace-pre-wrap">
+                    {messagePreview.body}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600"
+              onClick={resetContactDialog}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-yellow-600 text-black hover:bg-yellow-700"
+              disabled={selectedContractor === null || previewMutation.isPending}
+              onClick={() => previewMutation.mutate()}
+            >
+              {previewMutation.isPending ? "Previewing..." : "Preview"}
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={messagePreview === null}
+              onClick={() => setSendConfirmOpen(true)}
+            >
+              Send WhatsApp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={sendConfirmOpen}
+        onOpenChange={(open) => !open && setSendConfirmOpen(false)}
+      >
+        <AlertDialogContent className="bg-slate-800 border-slate-600 max-h-[85vh] overflow-y-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Final Confirmation: Send WhatsApp</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300">
+              This WhatsApp instruction will now be sent to the selected contractor.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {messagePreview ? (
+            <div className="space-y-3 text-sm">
+              <div className="rounded-lg border border-slate-700 p-3">
+                <div className="text-slate-400 text-xs">Contractor</div>
+                <div className="text-slate-100">{messagePreview.contractor_name}</div>
+                <div className="text-slate-300">{messagePreview.phone_e164}</div>
+              </div>
+              <div>
+                <div className="text-slate-400 text-xs mb-1">Full Message Body</div>
+                <div className="rounded border border-slate-700 bg-slate-950/50 p-3 text-slate-200 whitespace-pre-wrap">
+                  {messagePreview.body}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={sendMessageMutation.isPending || messagePreview === null}
+              onClick={() => sendMessageMutation.mutate()}
+            >
+              {sendMessageMutation.isPending ? "Sending..." : "Confirm Send"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

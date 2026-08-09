@@ -35,6 +35,28 @@ export interface ContractorMessageRow {
   readonly unmatched_reason?: string;
 }
 
+export interface ContractorMessageHistoryRow extends ContractorMessageRow {
+  readonly direction: "outbound" | "inbound";
+  readonly contractor_name?: string;
+}
+
+export interface UnmatchedInboundMessageRow {
+  readonly id: string;
+  readonly phone_e164: string;
+  readonly body: string;
+  readonly created_at: string;
+  readonly unmatched_reason: string;
+  readonly inbound_provider_message_id?: string;
+}
+
+export interface ContractorMessageCandidateRow {
+  readonly contractor_id: string;
+  readonly name: string;
+  readonly phone: string;
+  readonly assigned_job_id?: string;
+  readonly assigned_job_title?: string;
+}
+
 export interface ContractorApplicationContext {
   readonly application_id: string;
   readonly change_order_id: string;
@@ -113,6 +135,9 @@ export interface NewInboundReplyInput {
 export interface IntegrationContractorMessageRepository {
   loadApplicationContext(applicationId: string): Promise<LoadApplicationContextResult>;
   loadContractor(contractorId: string): Promise<ContractorIdentity | undefined>;
+  listMessagesForApplication(applicationId: string): Promise<readonly ContractorMessageHistoryRow[]>;
+  listUnmatchedInboundMessages(): Promise<readonly UnmatchedInboundMessageRow[]>;
+  listContractorCandidates(jobId: string): Promise<readonly ContractorMessageCandidateRow[]>;
   insertPreview(input: NewPreviewInput): Promise<ContractorMessageRow>;
   findLatestPreview(
     applicationId: string,
@@ -158,6 +183,32 @@ const MESSAGE_COLUMNS = `
   unmatched_reason
 `;
 
+const ALIASED_MESSAGE_COLUMNS = `
+  m.id,
+  m.application_id,
+  m.job_id,
+  m.change_order_id,
+  m.revision,
+  m.contractor_id,
+  m.phone_e164,
+  m.body,
+  m.preview_hash,
+  m.status,
+  m.delivery_status,
+  m.provider_message_id,
+  m.reply_to_provider_message_id,
+  m.inbound_provider_message_id,
+  m.confirmed_by,
+  m.confirmed_at,
+  m.created_at,
+  m.sent_at,
+  m.delivered_at,
+  m.read_at,
+  m.acknowledged_at,
+  m.error_code,
+  m.unmatched_reason
+`;
+
 const LOAD_APPLICATION_CONTEXT_SQL = `
   SELECT a.application_id,
          a.change_order_id,
@@ -190,6 +241,53 @@ const CONTRACTOR_PHONE_SQL = `
     AND lower(trim(first_name || ' ' || last_name)) = lower(trim($1))
   ORDER BY submitted_at DESC
   LIMIT 1
+`;
+
+const LIST_APPLICATION_MESSAGES_SQL = `
+  SELECT ${ALIASED_MESSAGE_COLUMNS},
+         m.direction,
+         c.name AS contractor_name
+  FROM contractor_messages m
+  LEFT JOIN contractors c
+    ON c.id = m.contractor_id
+  WHERE m.application_id = $1
+  ORDER BY m.created_at DESC
+`;
+
+const LIST_UNMATCHED_INBOUND_MESSAGES_SQL = `
+  SELECT m.id,
+         m.phone_e164,
+         m.body,
+         m.created_at,
+         m.unmatched_reason,
+         m.inbound_provider_message_id
+  FROM contractor_messages m
+  WHERE m.direction = 'inbound'
+    AND m.unmatched_reason IS NOT NULL
+    AND m.unmatched_reason <> ''
+  ORDER BY m.created_at DESC
+`;
+
+const LIST_CONTRACTOR_CANDIDATES_SQL = `
+  SELECT c.id AS contractor_id,
+         c.name,
+         phone_match.phone,
+         j.id AS assigned_job_id,
+         j.title AS assigned_job_title
+  FROM contractors c
+  LEFT JOIN jobs j
+    ON j.id = $1 AND j.contractor_id = c.id
+  INNER JOIN LATERAL (
+    SELECT ca.phone
+    FROM contractor_applications ca
+    WHERE ca.status = 'approved'
+      AND ca.phone IS NOT NULL
+      AND ca.phone <> ''
+      AND lower(trim(ca.first_name || ' ' || ca.last_name)) = lower(trim(c.name))
+    ORDER BY ca.submitted_at DESC
+    LIMIT 1
+  ) phone_match ON true
+  ORDER BY CASE WHEN j.id IS NULL THEN 1 ELSE 0 END, c.name
 `;
 
 const INSERT_PREVIEW_SQL = `
@@ -480,6 +578,45 @@ function mapMessageRow(row: IntegrationSqlRow): ContractorMessageRow {
   };
 }
 
+function directionOf(value: unknown): "outbound" | "inbound" {
+  if (value === "outbound" || value === "inbound") return value;
+  throw new Error("Invalid contractor message direction");
+}
+
+function mapMessageHistoryRow(row: IntegrationSqlRow): ContractorMessageHistoryRow {
+  const message = mapMessageRow(row);
+  const contractorName = optionalText(row, "contractor_name");
+  return {
+    ...message,
+    direction: directionOf(row.direction),
+    ...(contractorName === undefined ? {} : { contractor_name: contractorName }),
+  };
+}
+
+function mapUnmatchedInboundMessageRow(row: IntegrationSqlRow): UnmatchedInboundMessageRow {
+  const inboundProviderMessageId = optionalText(row, "inbound_provider_message_id");
+  return {
+    id: requiredString(row, "id"),
+    phone_e164: requiredString(row, "phone_e164"),
+    body: requiredString(row, "body"),
+    created_at: toIsoTimestamp(row.created_at),
+    unmatched_reason: requiredString(row, "unmatched_reason"),
+    ...(inboundProviderMessageId === undefined ? {} : { inbound_provider_message_id: inboundProviderMessageId }),
+  };
+}
+
+function mapContractorCandidateRow(row: IntegrationSqlRow): ContractorMessageCandidateRow {
+  const assignedJobId = optionalText(row, "assigned_job_id");
+  const assignedJobTitle = optionalText(row, "assigned_job_title");
+  return {
+    contractor_id: requiredString(row, "contractor_id"),
+    name: requiredString(row, "name"),
+    phone: requiredString(row, "phone"),
+    ...(assignedJobId === undefined ? {} : { assigned_job_id: assignedJobId }),
+    ...(assignedJobTitle === undefined ? {} : { assigned_job_title: assignedJobTitle }),
+  };
+}
+
 export class SqlIntegrationContractorMessageRepository
   implements IntegrationContractorMessageRepository
 {
@@ -526,6 +663,21 @@ export class SqlIntegrationContractorMessageRepository
     const phoneRow = (await this.#executor.query(CONTRACTOR_PHONE_SQL, [name])).rows[0];
     const phone = phoneRow === undefined ? undefined : optionalText(phoneRow, "phone");
     return { contractor_id: contractorId, name, ...(phone === undefined ? {} : { phone }) };
+  }
+
+  async listMessagesForApplication(applicationId: string): Promise<readonly ContractorMessageHistoryRow[]> {
+    const result = await this.#executor.query(LIST_APPLICATION_MESSAGES_SQL, [applicationId]);
+    return result.rows.map(mapMessageHistoryRow);
+  }
+
+  async listUnmatchedInboundMessages(): Promise<readonly UnmatchedInboundMessageRow[]> {
+    const result = await this.#executor.query(LIST_UNMATCHED_INBOUND_MESSAGES_SQL, []);
+    return result.rows.map(mapUnmatchedInboundMessageRow);
+  }
+
+  async listContractorCandidates(jobId: string): Promise<readonly ContractorMessageCandidateRow[]> {
+    const result = await this.#executor.query(LIST_CONTRACTOR_CANDIDATES_SQL, [jobId]);
+    return result.rows.map(mapContractorCandidateRow);
   }
 
   async insertPreview(input: NewPreviewInput): Promise<ContractorMessageRow> {

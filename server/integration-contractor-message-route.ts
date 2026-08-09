@@ -9,6 +9,8 @@ import type {
 export const CONTRACTOR_MESSAGE_ROUTE = "/api/integrations/messages";
 const PREVIEW_PATH = `${CONTRACTOR_MESSAGE_ROUTE}/previews`;
 const SEND_PATH = `${CONTRACTOR_MESSAGE_ROUTE}/sends`;
+const UNMATCHED_PATH = `${CONTRACTOR_MESSAGE_ROUTE}/unmatched`;
+const CONTRACTOR_CANDIDATES_PATH = `${CONTRACTOR_MESSAGE_ROUTE}/contractor-candidates`;
 
 const MAX_ID_LENGTH = 200;
 const MAX_CONFIRMED_BY_LENGTH = 200;
@@ -24,12 +26,15 @@ function trimmedString(value: unknown, label: string): string | undefined {
   return trimmed;
 }
 
-interface PreviewBody {
-  readonly application_id: string;
-  readonly contractor_id: string;
-}
+type PreviewBodyResult =
+  | {
+      readonly success: true;
+      readonly application_id: string;
+      readonly contractor_id: string;
+    }
+  | { readonly success: false; readonly error: string };
 
-function parsePreviewBody(body: unknown): PreviewBody | { readonly success: false; readonly error: string } {
+function parsePreviewBody(body: unknown): PreviewBodyResult {
   if (body === null || typeof body !== "object" || Array.isArray(body)) {
     return { success: false, error: "Invalid request body" };
   }
@@ -45,15 +50,18 @@ function parsePreviewBody(body: unknown): PreviewBody | { readonly success: fals
   return { success: true, application_id: applicationId, contractor_id: contractorId };
 }
 
-interface SendBody {
-  readonly application_id: string;
-  readonly contractor_id: string;
-  readonly preview_hash: string;
-  readonly confirmed_by: string;
-  readonly confirmed_at: string;
-}
+type SendBodyResult =
+  | {
+      readonly success: true;
+      readonly application_id: string;
+      readonly contractor_id: string;
+      readonly preview_hash: string;
+      readonly confirmed_by: string;
+      readonly confirmed_at: string;
+    }
+  | { readonly success: false; readonly error: string };
 
-function parseSendBody(body: unknown): SendBody | { readonly success: false; readonly error: string } {
+function parseSendBody(body: unknown): SendBodyResult {
   if (body === null || typeof body !== "object" || Array.isArray(body)) {
     return { success: false, error: "Invalid request body" };
   }
@@ -96,7 +104,47 @@ export function createContractorMessageRouter(options: ContractorMessageRouteOpt
   const router = express.Router();
   const { service } = options;
 
-  router.use(requireAdmin);
+  router.use(requireAdmin as express.RequestHandler);
+
+  router.get(CONTRACTOR_MESSAGE_ROUTE, async (request: Request, response: Response) => {
+    try {
+      const applicationId = trimmedString(request.query.application_id, "application_id");
+      if (applicationId === undefined) {
+        response.status(400).json({ error: "Invalid application_id" });
+        return;
+      }
+      const messages = await service.listApplicationMessages(applicationId);
+      response.json({ messages });
+    } catch (error) {
+      console.error("❌ Contractor message history read error:", error);
+      response.status(500).json({ error: "Failed to read contractor message history" });
+    }
+  });
+
+  router.get(UNMATCHED_PATH, async (_request: Request, response: Response) => {
+    try {
+      const messages = await service.listUnmatchedInboundMessages();
+      response.json({ messages });
+    } catch (error) {
+      console.error("❌ Unmatched contractor message read error:", error);
+      response.status(500).json({ error: "Failed to read unmatched contractor messages" });
+    }
+  });
+
+  router.get(CONTRACTOR_CANDIDATES_PATH, async (request: Request, response: Response) => {
+    try {
+      const jobId = trimmedString(request.query.job_id, "job_id");
+      if (jobId === undefined) {
+        response.status(400).json({ error: "Invalid job_id" });
+        return;
+      }
+      const contractors = await service.listContractorCandidates(jobId);
+      response.json({ contractors });
+    } catch (error) {
+      console.error("❌ Contractor candidate read error:", error);
+      response.status(500).json({ error: "Failed to read contractor candidates" });
+    }
+  });
 
   router.post(PREVIEW_PATH, async (request: Request, response: Response) => {
     try {

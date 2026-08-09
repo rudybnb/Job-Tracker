@@ -106,6 +106,7 @@ interface MessageRow {
   acknowledged_at: string | null;
   error_code: string | null;
   unmatched_reason: string | null;
+  direction: "outbound" | "inbound";
 }
 
 class InMemoryMessageExecutor implements IntegrationSqlExecutor {
@@ -132,6 +133,26 @@ class InMemoryMessageExecutor implements IntegrationSqlExecutor {
       const [contractorId] = parameters;
       const row = this.contractors.find((contractor) => contractor.id === contractorId);
       return { rows: row === undefined ? [] : [{ ...row }] };
+    }
+
+    if (normalized.includes("from contractors c") && normalized.includes("inner join lateral")) {
+      const [jobId] = parameters;
+      const rows = this.contractors
+        .map((contractor) => {
+          const phone = this.contractorPhones.find(
+            (candidate) => candidate.name.toLowerCase().trim() === contractor.name.toLowerCase().trim(),
+          )?.phone;
+          if (phone === undefined || phone.length === 0) return undefined;
+          return {
+            contractor_id: contractor.id,
+            name: contractor.name,
+            phone,
+            assigned_job_id: jobId === "job-msg-0001" && contractor.id === CONTRACTOR_ID ? jobId : null,
+            assigned_job_title: jobId === "job-msg-0001" && contractor.id === CONTRACTOR_ID ? "Job 49 Flat2 1 Bedroom" : null,
+          };
+        })
+        .filter((candidate): candidate is IntegrationSqlRow => candidate !== undefined);
+      return { rows };
     }
 
     if (normalized.includes("from contractor_applications")) {
@@ -188,6 +209,7 @@ class InMemoryMessageExecutor implements IntegrationSqlExecutor {
         acknowledged_at: null,
         error_code: null,
         unmatched_reason: unmatchedReason,
+        direction: "inbound",
       });
       return { rows: [{ id }] };
     }
@@ -235,6 +257,7 @@ class InMemoryMessageExecutor implements IntegrationSqlExecutor {
         acknowledged_at: null,
         error_code: null,
         unmatched_reason: null,
+        direction: "outbound",
       });
       return { rows: [{ id }] };
     }
@@ -343,6 +366,26 @@ class InMemoryMessageExecutor implements IntegrationSqlExecutor {
         )
         .sort((a, b) => b.created_at.localeCompare(a.created_at))
         .slice(0, 1)
+        .map((message) => ({ ...message }));
+      return { rows };
+    }
+
+    if (normalized.includes("from contractor_messages m") && normalized.includes("where m.application_id = $1")) {
+      const [applicationId] = parameters;
+      const rows = this.messages
+        .filter((message) => message.application_id === applicationId)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .map((message) => ({
+          ...message,
+          contractor_name: this.contractors.find((contractor) => contractor.id === message.contractor_id)?.name ?? null,
+        }));
+      return { rows };
+    }
+
+    if (normalized.includes("from contractor_messages m") && normalized.includes("m.unmatched_reason is not null")) {
+      const rows = this.messages
+        .filter((message) => message.direction === "inbound" && message.unmatched_reason !== null)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
         .map((message) => ({ ...message }));
       return { rows };
     }
@@ -1067,6 +1110,7 @@ interface TestRouteContext {
   readonly executor: InMemoryMessageExecutor;
   readonly provider: RecordingProvider;
   setSession(session: { role?: string; username?: string } | undefined): void;
+  get(path: string): Promise<{ status: number; body: Record<string, unknown> }>;
   post(path: string, body: unknown): Promise<{ status: number; body: Record<string, unknown> }>;
 }
 
@@ -1109,12 +1153,22 @@ async function withTestRoute(
       };
     };
 
+    const get = async (path: string) => {
+      const response = await fetch(base + path);
+      const text = await response.text();
+      return {
+        status: response.status,
+        body: text.length === 0 ? {} : (JSON.parse(text) as Record<string, unknown>),
+      };
+    };
+
     await run({
       executor,
       provider,
       setSession: (nextSession) => {
         session = nextSession;
       },
+      get,
       post,
     });
   } finally {
@@ -1126,21 +1180,179 @@ async function withTestRoute(
 
 const PREVIEW_PATH = `${CONTRACTOR_MESSAGE_ROUTE}/previews`;
 const SEND_PATH = `${CONTRACTOR_MESSAGE_ROUTE}/sends`;
+const HISTORY_PATH = `${CONTRACTOR_MESSAGE_ROUTE}?application_id=${APPLICATION_ID}`;
+const UNMATCHED_PATH = `${CONTRACTOR_MESSAGE_ROUTE}/unmatched`;
+const CONTRACTOR_CANDIDATES_PATH = `${CONTRACTOR_MESSAGE_ROUTE}/contractor-candidates?job_id=job-msg-0001`;
 
 const previewBody = { application_id: APPLICATION_ID, contractor_id: CONTRACTOR_ID };
 
 test("message endpoints reject missing and non-admin sessions", async () => {
-  await withTestRoute(async ({ executor, provider, post, setSession }) => {
+  await withTestRoute(async ({ executor, provider, get, post, setSession }) => {
     setSession(undefined);
+    assert.equal((await get(HISTORY_PATH)).status, 401);
+    assert.equal((await get(UNMATCHED_PATH)).status, 401);
+    assert.equal((await get(CONTRACTOR_CANDIDATES_PATH)).status, 401);
     assert.equal((await post(PREVIEW_PATH, previewBody)).status, 401);
     assert.equal((await post(SEND_PATH, previewBody)).status, 401);
 
     setSession({ role: "contractor", username: "bob" });
+    assert.equal((await get(HISTORY_PATH)).status, 401);
+    assert.equal((await get(UNMATCHED_PATH)).status, 401);
+    assert.equal((await get(CONTRACTOR_CANDIDATES_PATH)).status, 401);
     assert.equal((await post(PREVIEW_PATH, previewBody)).status, 401);
     assert.equal((await post(SEND_PATH, previewBody)).status, 401);
 
     assert.equal(provider.calls.length, 0);
     assert.equal(executor.messages.length, 0);
+    assertNoOperationalWrites(executor);
+  });
+});
+
+test("admin history returns outbound delivery state with linked inbound replies", async () => {
+  await withTestRoute(async ({ executor, get, post }) => {
+    const preview = await post(PREVIEW_PATH, previewBody);
+    assert.equal(preview.status, 201);
+    const hash = (preview.body.preview as Record<string, unknown>).preview_hash as string;
+    const send = await post(SEND_PATH, {
+      application_id: APPLICATION_ID,
+      contractor_id: CONTRACTOR_ID,
+      preview_hash: hash,
+      confirmed_by: "admin",
+      confirmed_at: "2026-08-03T14:01:00.000Z",
+    });
+    assert.equal(send.status, 200);
+    executor.messages[0].delivery_status = "read";
+    executor.messages[0].delivered_at = "2026-08-03T14:02:00.000Z";
+    executor.messages[0].read_at = "2026-08-03T14:03:00.000Z";
+    executor.messages[0].acknowledged_at = "2026-08-03T14:04:00.000Z";
+    executor.messages.push({
+      id: "message-inbound-0001",
+      application_id: APPLICATION_ID,
+      job_id: "job-msg-0001",
+      change_order_id: "co-msg-0001",
+      revision: 1,
+      contractor_id: CONTRACTOR_ID,
+      phone_e164: PHONE_E164,
+      body: "Received, thanks.",
+      preview_hash: "",
+      status: "received",
+      delivery_status: "none",
+      provider_message_id: null,
+      reply_to_provider_message_id: "wamid.msg-0001",
+      inbound_provider_message_id: "wamid.inbound-0001",
+      confirmed_by: null,
+      confirmed_at: null,
+      created_at: "2026-08-03T14:04:00.000Z",
+      sent_at: null,
+      delivered_at: null,
+      read_at: null,
+      acknowledged_at: null,
+      error_code: null,
+      unmatched_reason: null,
+      direction: "inbound",
+    });
+
+    const history = await get(HISTORY_PATH);
+    assert.equal(history.status, 200);
+    const messages = history.body.messages as Record<string, unknown>[];
+    assert.equal(messages.length, 1);
+    assert.equal(messages[0].contractor_name, "Marius Andronache");
+    assert.equal(messages[0].delivery_status, "read");
+    assert.equal(messages[0].delivered_at, "2026-08-03T14:02:00.000Z");
+    assert.equal(messages[0].read_at, "2026-08-03T14:03:00.000Z");
+    assert.equal(messages[0].acknowledged_at, "2026-08-03T14:04:00.000Z");
+    const replies = messages[0].replies as Record<string, unknown>[];
+    assert.equal(replies.length, 1);
+    assert.equal(replies[0].body, "Received, thanks.");
+    assertNoOperationalWrites(executor);
+  });
+});
+
+test("admin unmatched endpoint returns only unmatched inbound messages", async () => {
+  await withTestRoute(async ({ executor, get }) => {
+    executor.messages.push({
+      id: "message-unmatched-0001",
+      application_id: "",
+      job_id: "",
+      change_order_id: "",
+      revision: 0,
+      contractor_id: "",
+      phone_e164: "+447700900123",
+      body: "What job is this?",
+      preview_hash: "",
+      status: "received",
+      delivery_status: "none",
+      provider_message_id: null,
+      reply_to_provider_message_id: null,
+      inbound_provider_message_id: "wamid.unmatched-0001",
+      confirmed_by: null,
+      confirmed_at: null,
+      created_at: "2026-08-03T15:00:00.000Z",
+      sent_at: null,
+      delivered_at: null,
+      read_at: null,
+      acknowledged_at: null,
+      error_code: null,
+      unmatched_reason: "no_matching_outbound",
+      direction: "inbound",
+    });
+    executor.messages.push({
+      id: "message-matched-inbound-0001",
+      application_id: APPLICATION_ID,
+      job_id: "job-msg-0001",
+      change_order_id: "co-msg-0001",
+      revision: 1,
+      contractor_id: CONTRACTOR_ID,
+      phone_e164: PHONE_E164,
+      body: "Matched reply",
+      preview_hash: "",
+      status: "received",
+      delivery_status: "none",
+      provider_message_id: null,
+      reply_to_provider_message_id: "wamid.msg-0001",
+      inbound_provider_message_id: "wamid.inbound-0002",
+      confirmed_by: null,
+      confirmed_at: null,
+      created_at: "2026-08-03T14:00:00.000Z",
+      sent_at: null,
+      delivered_at: null,
+      read_at: null,
+      acknowledged_at: null,
+      error_code: null,
+      unmatched_reason: null,
+      direction: "inbound",
+    });
+
+    const response = await get(UNMATCHED_PATH);
+    assert.equal(response.status, 200);
+    const messages = response.body.messages as Record<string, unknown>[];
+    assert.equal(messages.length, 1);
+    assert.equal(messages[0].phone_e164, "+447700900123");
+    assert.equal(messages[0].body, "What job is this?");
+    assert.equal(messages[0].unmatched_reason, "no_matching_outbound");
+    assert.equal(messages[0].inbound_provider_message_id, "wamid.unmatched-0001");
+    assertNoOperationalWrites(executor);
+  });
+});
+
+test("admin contractor candidates endpoint returns narrow safe fields", async () => {
+  await withTestRoute(async ({ executor, get }) => {
+    executor.contractors.push({ id: "contractor-msg-0002", name: "No Phone" });
+    const response = await get(CONTRACTOR_CANDIDATES_PATH);
+
+    assert.equal(response.status, 200);
+    const contractors = response.body.contractors as Record<string, unknown>[];
+    assert.equal(contractors.length, 1);
+    assert.deepEqual(Object.keys(contractors[0]).sort(), [
+      "assigned_job_id",
+      "assigned_job_title",
+      "contractor_id",
+      "name",
+      "phone",
+    ]);
+    assert.equal(contractors[0].contractor_id, CONTRACTOR_ID);
+    assert.equal(contractors[0].name, "Marius Andronache");
+    assert.equal(contractors[0].phone, "07912 345678");
     assertNoOperationalWrites(executor);
   });
 });
