@@ -46,6 +46,45 @@ CREATE TABLE IF NOT EXISTS contractor_messages (
     CHECK (status NOT IN ('queued', 'sent') OR (confirmed_by IS NOT NULL AND confirmed_at IS NOT NULL))
 );
 
+ALTER TABLE contractor_messages
+  ALTER COLUMN application_id DROP NOT NULL,
+  ALTER COLUMN change_order_id DROP NOT NULL,
+  ALTER COLUMN revision DROP NOT NULL,
+  ALTER COLUMN contractor_id DROP NOT NULL,
+  ALTER COLUMN preview_hash DROP NOT NULL,
+  ADD COLUMN IF NOT EXISTS reply_to_provider_message_id TEXT,
+  ADD COLUMN IF NOT EXISTS inbound_provider_message_id TEXT,
+  ADD COLUMN IF NOT EXISTS delivery_status TEXT NOT NULL DEFAULT 'none',
+  ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS acknowledged_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS unmatched_reason TEXT;
+
+ALTER TABLE contractor_messages
+  DROP CONSTRAINT IF EXISTS contractor_messages_direction_check,
+  DROP CONSTRAINT IF EXISTS contractor_messages_status_check,
+  DROP CONSTRAINT IF EXISTS contractor_messages_delivery_status_check,
+  DROP CONSTRAINT IF EXISTS contractor_messages_outbound_guard;
+
+ALTER TABLE contractor_messages
+  ADD CONSTRAINT contractor_messages_direction_check
+    CHECK (direction IN ('outbound', 'inbound')),
+  ADD CONSTRAINT contractor_messages_status_check
+    CHECK (status IN ('previewed', 'queued', 'sent', 'failed', 'received')),
+  ADD CONSTRAINT contractor_messages_delivery_status_check
+    CHECK (delivery_status IN ('none', 'sent', 'delivered', 'read', 'failed')),
+  ADD CONSTRAINT contractor_messages_outbound_guard
+    CHECK (
+      direction <> 'outbound'
+      OR (
+        application_id IS NOT NULL
+        AND change_order_id IS NOT NULL
+        AND revision IS NOT NULL
+        AND contractor_id IS NOT NULL
+        AND preview_hash IS NOT NULL
+      )
+    );
+
 CREATE UNIQUE INDEX IF NOT EXISTS contractor_messages_inbound_provider_message_id_unique
   ON contractor_messages (inbound_provider_message_id)
   WHERE inbound_provider_message_id IS NOT NULL;
