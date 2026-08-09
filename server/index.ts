@@ -18,6 +18,7 @@ import { createJarvisApplicationRouter } from "./integration-application-route.t
 import { SqlIntegrationContractorMessageRepository } from "./integration-contractor-message-repository.ts";
 import { SqlContractorMessageService } from "./integration-contractor-message-service.ts";
 import { createContractorMessageRouter } from "./integration-contractor-message-route.ts";
+import { createWhatsAppWebhookRouter } from "./whatsapp-webhook-route.ts";
 import { createWhatsAppProvider } from "./whatsapp.ts";
 
 const app = express();
@@ -28,6 +29,21 @@ app.use(cors({ origin: true, credentials: true }));
 // and JARVIS_SHADOW_API_KEY_SECRET are set. Mounted before express.json() so
 // the raw body is available for HMAC content-hash verification.
 app.use(createLocalJarvisShadowRouter(client));
+
+const contractorMessageService = new SqlContractorMessageService({
+  repository: new SqlIntegrationContractorMessageRepository({
+    executor: new PostgresIntegrationSqlExecutor(client),
+  }),
+  provider: createWhatsAppProvider(),
+});
+
+// Meta-authenticated WhatsApp webhook. Mounted before express.json() so the POST
+// route verifies the HMAC over the raw request bytes.
+app.use(createWhatsAppWebhookRouter({
+  service: contractorMessageService,
+  verifyToken: process.env.WHATSAPP_VERIFY_TOKEN,
+  appSecret: process.env.WHATSAPP_APP_SECRET,
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -99,12 +115,7 @@ app.use((request, response, next) => {
 // is created from the environment; when WHATSAPP_ACCESS_TOKEN / PHONE_NUMBER_ID
 // are absent the provider is undefined and SEND is blocked without a live call.
 const contractorMessageRouter = createContractorMessageRouter({
-  service: new SqlContractorMessageService({
-    repository: new SqlIntegrationContractorMessageRepository({
-      executor: new PostgresIntegrationSqlExecutor(client),
-    }),
-    provider: createWhatsAppProvider(),
-  }),
+  service: contractorMessageService,
 });
 
 app.use((request, response, next) => {

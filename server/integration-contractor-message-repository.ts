@@ -6,7 +6,8 @@ import type {
   IntegrationSqlRow,
 } from "./integration-shadow-sql-repository.ts";
 
-export type ContractorMessageStatus = "previewed" | "queued" | "sent" | "failed";
+export type ContractorMessageStatus = "previewed" | "queued" | "sent" | "failed" | "received";
+export type ContractorMessageDeliveryStatus = "none" | "sent" | "delivered" | "read" | "failed";
 
 export interface ContractorMessageRow {
   readonly id: string;
@@ -19,12 +20,19 @@ export interface ContractorMessageRow {
   readonly body: string;
   readonly preview_hash: string;
   readonly status: ContractorMessageStatus;
+  readonly delivery_status: ContractorMessageDeliveryStatus;
   readonly provider_message_id?: string;
+  readonly reply_to_provider_message_id?: string;
+  readonly inbound_provider_message_id?: string;
   readonly confirmed_by?: string;
   readonly confirmed_at?: string;
   readonly created_at: string;
   readonly sent_at?: string;
+  readonly delivered_at?: string;
+  readonly read_at?: string;
+  readonly acknowledged_at?: string;
   readonly error_code?: string;
+  readonly unmatched_reason?: string;
 }
 
 export interface ContractorApplicationContext {
@@ -80,6 +88,28 @@ export interface MarkFailedInput {
   readonly error_code: string;
 }
 
+export interface UpdateDeliveryStatusInput {
+  readonly provider_message_id: string;
+  readonly delivery_status: ContractorMessageDeliveryStatus;
+  readonly occurred_at: string;
+  readonly error_code?: string;
+}
+
+export interface NewInboundReplyInput {
+  readonly id: string;
+  readonly provider_message_id: string;
+  readonly reply_to_provider_message_id?: string;
+  readonly contractor_id?: string;
+  readonly application_id?: string;
+  readonly job_id?: string;
+  readonly change_order_id?: string;
+  readonly revision?: number;
+  readonly phone_e164: string;
+  readonly body: string;
+  readonly created_at: string;
+  readonly unmatched_reason?: string;
+}
+
 export interface IntegrationContractorMessageRepository {
   loadApplicationContext(applicationId: string): Promise<LoadApplicationContextResult>;
   loadContractor(contractorId: string): Promise<ContractorIdentity | undefined>;
@@ -90,6 +120,12 @@ export interface IntegrationContractorMessageRepository {
   ): Promise<ContractorMessageRow | undefined>;
   markSent(input: MarkSentInput): Promise<ContractorMessageRow | undefined>;
   markFailed(input: MarkFailedInput): Promise<ContractorMessageRow | undefined>;
+  findOutboundByProviderMessageId(providerMessageId: string): Promise<ContractorMessageRow | undefined>;
+  updateOutboundDeliveryStatus(input: UpdateDeliveryStatusInput): Promise<ContractorMessageRow | undefined>;
+  markOutboundAcknowledged(providerMessageId: string, acknowledgedAt: string): Promise<void>;
+  inboundProviderMessageExists(providerMessageId: string): Promise<boolean>;
+  insertInboundWhatsAppReply(input: NewInboundReplyInput): Promise<{ readonly inserted: boolean }>;
+  findRecentSentOutboundMessagesByPhone(phoneE164: string, limit: number): Promise<readonly ContractorMessageRow[]>;
 }
 
 export interface SqlContractorMessageRepositoryOptions {
@@ -107,12 +143,19 @@ const MESSAGE_COLUMNS = `
   body,
   preview_hash,
   status,
+  delivery_status,
   provider_message_id,
+  reply_to_provider_message_id,
+  inbound_provider_message_id,
   confirmed_by,
   confirmed_at,
   created_at,
   sent_at,
-  error_code
+  delivered_at,
+  read_at,
+  acknowledged_at,
+  error_code,
+  unmatched_reason
 `;
 
 const LOAD_APPLICATION_CONTEXT_SQL = `
@@ -185,6 +228,7 @@ const FIND_MESSAGE_BY_ID_SQL = `
 const MARK_SENT_SQL = `
   UPDATE contractor_messages
   SET status = 'sent',
+      delivery_status = 'sent',
       provider_message_id = $1,
       confirmed_by = $2,
       confirmed_at = $3,
@@ -201,11 +245,95 @@ const MARK_FAILED_SQL = `
   RETURNING id
 `;
 
+const FIND_OUTBOUND_BY_PROVIDER_MESSAGE_ID_SQL = `
+  SELECT ${MESSAGE_COLUMNS}
+  FROM contractor_messages
+  WHERE direction = 'outbound' AND provider_message_id = $1
+  LIMIT 1
+`;
+
+const UPDATE_DELIVERY_STATUS_SQL = `
+  UPDATE contractor_messages
+  SET delivery_status = CASE
+        WHEN delivery_status = 'read' THEN delivery_status
+        WHEN delivery_status = 'delivered' AND $1 IN ('sent') THEN delivery_status
+        WHEN delivery_status = 'failed' AND $1 IN ('sent', 'delivered', 'read') THEN delivery_status
+        ELSE $1
+      END,
+      delivered_at = CASE
+        WHEN $1 IN ('delivered', 'read') AND delivered_at IS NULL THEN $2::timestamptz
+        ELSE delivered_at
+      END,
+      read_at = CASE
+        WHEN $1 = 'read' AND read_at IS NULL THEN $2::timestamptz
+        ELSE read_at
+      END,
+      error_code = CASE
+        WHEN $1 = 'failed' AND $3::text IS NOT NULL THEN $3::text
+        ELSE error_code
+      END
+  WHERE direction = 'outbound' AND provider_message_id = $4
+  RETURNING id
+`;
+
+const MARK_OUTBOUND_ACKNOWLEDGED_SQL = `
+  UPDATE contractor_messages
+  SET acknowledged_at = COALESCE(acknowledged_at, $1::timestamptz)
+  WHERE direction = 'outbound' AND provider_message_id = $2
+`;
+
+const INBOUND_PROVIDER_MESSAGE_EXISTS_SQL = `
+  SELECT id
+  FROM contractor_messages
+  WHERE inbound_provider_message_id = $1
+  LIMIT 1
+`;
+
+const INSERT_INBOUND_REPLY_SQL = `
+  INSERT INTO contractor_messages (
+    id,
+    application_id,
+    job_id,
+    change_order_id,
+    revision,
+    contractor_id,
+    direction,
+    channel,
+    phone_e164,
+    body,
+    status,
+    delivery_status,
+    reply_to_provider_message_id,
+    inbound_provider_message_id,
+    created_at,
+    unmatched_reason
+  ) VALUES ($1, $2, $3, $4, $5, $6, 'inbound', 'whatsapp', $7, $8, 'received', 'none', $9, $10, $11, $12)
+  ON CONFLICT (inbound_provider_message_id) WHERE inbound_provider_message_id IS NOT NULL DO NOTHING
+  RETURNING id
+`;
+
+const FIND_RECENT_SENT_OUTBOUND_BY_PHONE_SQL = `
+  SELECT ${MESSAGE_COLUMNS}
+  FROM contractor_messages
+  WHERE direction = 'outbound'
+    AND status = 'sent'
+    AND regexp_replace(phone_e164, '[^0-9]', '', 'g') = regexp_replace($1, '[^0-9]', '', 'g')
+  ORDER BY sent_at DESC NULLS LAST, created_at DESC
+  LIMIT $2
+`;
+
 function requiredString(row: IntegrationSqlRow, column: string): string {
   const value = row[column];
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Invalid contractor message column: ${column}`);
   }
+  return value;
+}
+
+function nullableString(row: IntegrationSqlRow, column: string): string | undefined {
+  const value = row[column];
+  if (value === null || value === undefined) return undefined;
+  if (typeof value !== "string" || value.length === 0) return undefined;
   return value;
 }
 
@@ -263,11 +391,25 @@ function messageStatusOf(value: unknown): ContractorMessageStatus {
     value === "previewed" ||
     value === "queued" ||
     value === "sent" ||
-    value === "failed"
+    value === "failed" ||
+    value === "received"
   ) {
     return value;
   }
   throw new Error("Invalid contractor message status");
+}
+
+function deliveryStatusOf(value: unknown): ContractorMessageDeliveryStatus {
+  if (
+    value === "none" ||
+    value === "sent" ||
+    value === "delivered" ||
+    value === "read" ||
+    value === "failed"
+  ) {
+    return value;
+  }
+  throw new Error("Invalid contractor message delivery status");
 }
 
 function parseSnapshot(value: unknown): ApprovedChangeOrder | undefined {
@@ -291,18 +433,25 @@ function mapMessageRow(row: IntegrationSqlRow): ContractorMessageRow {
   const status = messageStatusOf(row.status);
   return {
     id: requiredString(row, "id"),
-    application_id: requiredString(row, "application_id"),
+    application_id: nullableString(row, "application_id") ?? "",
     job_id: optionalText(row, "job_id") ?? "",
-    change_order_id: requiredString(row, "change_order_id"),
+    change_order_id: nullableString(row, "change_order_id") ?? "",
     revision: requiredRevision(row),
-    contractor_id: requiredString(row, "contractor_id"),
+    contractor_id: nullableString(row, "contractor_id") ?? "",
     phone_e164: requiredString(row, "phone_e164"),
     body: requiredString(row, "body"),
-    preview_hash: requiredString(row, "preview_hash"),
+    preview_hash: nullableString(row, "preview_hash") ?? "",
     status,
+    delivery_status: deliveryStatusOf(row.delivery_status ?? "none"),
     ...(optionalText(row, "provider_message_id") === undefined
       ? {}
       : { provider_message_id: optionalText(row, "provider_message_id") as string }),
+    ...(optionalText(row, "reply_to_provider_message_id") === undefined
+      ? {}
+      : { reply_to_provider_message_id: optionalText(row, "reply_to_provider_message_id") as string }),
+    ...(optionalText(row, "inbound_provider_message_id") === undefined
+      ? {}
+      : { inbound_provider_message_id: optionalText(row, "inbound_provider_message_id") as string }),
     ...(optionalText(row, "confirmed_by") === undefined
       ? {}
       : { confirmed_by: optionalText(row, "confirmed_by") as string }),
@@ -313,9 +462,21 @@ function mapMessageRow(row: IntegrationSqlRow): ContractorMessageRow {
     ...(optionalTimestamp(row.sent_at) === undefined
       ? {}
       : { sent_at: optionalTimestamp(row.sent_at) as string }),
+    ...(optionalTimestamp(row.delivered_at) === undefined
+      ? {}
+      : { delivered_at: optionalTimestamp(row.delivered_at) as string }),
+    ...(optionalTimestamp(row.read_at) === undefined
+      ? {}
+      : { read_at: optionalTimestamp(row.read_at) as string }),
+    ...(optionalTimestamp(row.acknowledged_at) === undefined
+      ? {}
+      : { acknowledged_at: optionalTimestamp(row.acknowledged_at) as string }),
     ...(optionalText(row, "error_code") === undefined
       ? {}
       : { error_code: optionalText(row, "error_code") as string }),
+    ...(optionalText(row, "unmatched_reason") === undefined
+      ? {}
+      : { unmatched_reason: optionalText(row, "unmatched_reason") as string }),
   };
 }
 
@@ -394,6 +555,7 @@ export class SqlIntegrationContractorMessageRepository
       body: input.body,
       preview_hash: input.preview_hash,
       status: "previewed",
+      delivery_status: "none",
       created_at: input.created_at,
     };
   }
@@ -426,5 +588,62 @@ export class SqlIntegrationContractorMessageRepository
     if (updated.rows.length === 0) return undefined;
     const row = (await this.#executor.query(FIND_MESSAGE_BY_ID_SQL, [input.id])).rows[0];
     return row === undefined ? undefined : mapMessageRow(row);
+  }
+
+  async findOutboundByProviderMessageId(
+    providerMessageId: string,
+  ): Promise<ContractorMessageRow | undefined> {
+    const row = (
+      await this.#executor.query(FIND_OUTBOUND_BY_PROVIDER_MESSAGE_ID_SQL, [providerMessageId])
+    ).rows[0];
+    return row === undefined ? undefined : mapMessageRow(row);
+  }
+
+  async updateOutboundDeliveryStatus(
+    input: UpdateDeliveryStatusInput,
+  ): Promise<ContractorMessageRow | undefined> {
+    const updated = await this.#executor.query(UPDATE_DELIVERY_STATUS_SQL, [
+      input.delivery_status,
+      input.occurred_at,
+      input.error_code ?? null,
+      input.provider_message_id,
+    ]);
+    if (updated.rows.length === 0) return undefined;
+    return this.findOutboundByProviderMessageId(input.provider_message_id);
+  }
+
+  async markOutboundAcknowledged(providerMessageId: string, acknowledgedAt: string): Promise<void> {
+    await this.#executor.query(MARK_OUTBOUND_ACKNOWLEDGED_SQL, [acknowledgedAt, providerMessageId]);
+  }
+
+  async inboundProviderMessageExists(providerMessageId: string): Promise<boolean> {
+    const row = (await this.#executor.query(INBOUND_PROVIDER_MESSAGE_EXISTS_SQL, [providerMessageId])).rows[0];
+    return row !== undefined;
+  }
+
+  async insertInboundWhatsAppReply(input: NewInboundReplyInput): Promise<{ readonly inserted: boolean }> {
+    const inserted = await this.#executor.query(INSERT_INBOUND_REPLY_SQL, [
+      input.id,
+      input.application_id ?? null,
+      input.job_id ?? null,
+      input.change_order_id ?? null,
+      input.revision ?? null,
+      input.contractor_id ?? null,
+      input.phone_e164,
+      input.body,
+      input.reply_to_provider_message_id ?? null,
+      input.provider_message_id,
+      input.created_at,
+      input.unmatched_reason ?? null,
+    ]);
+    return { inserted: inserted.rows.length > 0 };
+  }
+
+  async findRecentSentOutboundMessagesByPhone(
+    phoneE164: string,
+    limit: number,
+  ): Promise<readonly ContractorMessageRow[]> {
+    const result = await this.#executor.query(FIND_RECENT_SENT_OUTBOUND_BY_PHONE_SQL, [phoneE164, limit]);
+    return result.rows.map(mapMessageRow);
   }
 }

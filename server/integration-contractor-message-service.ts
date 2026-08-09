@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { normalizePhoneToE164 } from "./phone-utils.ts";
 import type { WhatsAppProvider } from "./whatsapp.ts";
+import type { WhatsAppWebhookEvent } from "./whatsapp-webhook.ts";
 import type {
   ContractorApplicationContext,
   ContractorMessageRow,
@@ -56,6 +57,8 @@ export interface ContractorMessageService {
     readonly confirmed_by: string;
     readonly confirmed_at: string;
   }): Promise<SendOutcome>;
+
+  handleWhatsAppWebhookEvents(events: readonly WhatsAppWebhookEvent[]): Promise<void>;
 }
 
 export interface ContractorMessageServiceOptions {
@@ -240,6 +243,98 @@ export class SqlContractorMessageService implements ContractorMessageService {
     return { outcome: "sent", message: updated };
   }
 
+  async handleWhatsAppWebhookEvents(events: readonly WhatsAppWebhookEvent[]): Promise<void> {
+    for (const event of events) {
+      if (event.kind === "status") {
+        await this.#repository.updateOutboundDeliveryStatus({
+          provider_message_id: event.provider_message_id,
+          delivery_status: event.status,
+          occurred_at: event.occurred_at,
+          error_code: event.error_code,
+        });
+        continue;
+      }
+      await this.#recordInboundReply(event);
+    }
+  }
+
+  async #recordInboundReply(event: Extract<WhatsAppWebhookEvent, { readonly kind: "inbound_text" }>): Promise<void> {
+    if (await this.#repository.inboundProviderMessageExists(event.provider_message_id)) return;
+
+    const phoneE164 = phoneFromWaId(event.from_wa_id);
+    const contextId = event.context_provider_message_id;
+
+    if (contextId !== undefined) {
+      const exact = await this.#repository.findOutboundByProviderMessageId(contextId);
+      if (exact !== undefined) {
+        const inserted = await this.#repository.insertInboundWhatsAppReply({
+          id: this.#messageId(),
+          provider_message_id: event.provider_message_id,
+          reply_to_provider_message_id: exact.provider_message_id,
+          contractor_id: exact.contractor_id,
+          application_id: exact.application_id,
+          job_id: exact.job_id,
+          change_order_id: exact.change_order_id,
+          revision: exact.revision,
+          phone_e164: phoneE164,
+          body: event.body,
+          created_at: event.occurred_at,
+        });
+        if (inserted.inserted) {
+          await this.#repository.markOutboundAcknowledged(contextId, event.occurred_at);
+        }
+        return;
+      }
+
+      await this.#storeUnmatchedInbound(event, phoneE164, "context_message_not_found");
+      return;
+    }
+
+    const candidates = await this.#repository.findRecentSentOutboundMessagesByPhone(phoneE164, 2);
+    if (candidates.length === 1) {
+      const match = candidates[0];
+      const inserted = await this.#repository.insertInboundWhatsAppReply({
+        id: this.#messageId(),
+        provider_message_id: event.provider_message_id,
+        reply_to_provider_message_id: match.provider_message_id,
+        contractor_id: match.contractor_id,
+        application_id: match.application_id,
+        job_id: match.job_id,
+        change_order_id: match.change_order_id,
+        revision: match.revision,
+        phone_e164: phoneE164,
+        body: event.body,
+        created_at: event.occurred_at,
+      });
+      if (inserted.inserted && match.provider_message_id !== undefined) {
+        await this.#repository.markOutboundAcknowledged(match.provider_message_id, event.occurred_at);
+      }
+      return;
+    }
+
+    await this.#storeUnmatchedInbound(
+      event,
+      phoneE164,
+      candidates.length === 0 ? "no_matching_outbound" : "ambiguous_phone_match",
+    );
+  }
+
+  async #storeUnmatchedInbound(
+    event: Extract<WhatsAppWebhookEvent, { readonly kind: "inbound_text" }>,
+    phoneE164: string,
+    unmatchedReason: string,
+  ): Promise<void> {
+    await this.#repository.insertInboundWhatsAppReply({
+      id: this.#messageId(),
+      provider_message_id: event.provider_message_id,
+      reply_to_provider_message_id: event.context_provider_message_id,
+      phone_e164: phoneE164,
+      body: event.body,
+      created_at: event.occurred_at,
+      unmatched_reason: unmatchedReason,
+    });
+  }
+
   async #resolve(
     applicationId: string,
     contractorId: string,
@@ -270,4 +365,9 @@ export class SqlContractorMessageService implements ContractorMessageService {
       phoneE164,
     };
   }
+}
+
+function phoneFromWaId(waId: string): string {
+  const digits = waId.replace(/\D/g, "");
+  return digits.length > 0 ? `+${digits}` : "+00000000";
 }

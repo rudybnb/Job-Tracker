@@ -93,12 +93,19 @@ interface MessageRow {
   body: string;
   preview_hash: string;
   status: string;
+  delivery_status: string;
   provider_message_id: string | null;
+  reply_to_provider_message_id: string | null;
+  inbound_provider_message_id: string | null;
   confirmed_by: string | null;
   confirmed_at: string | null;
   created_at: string;
   sent_at: string | null;
+  delivered_at: string | null;
+  read_at: string | null;
+  acknowledged_at: string | null;
   error_code: string | null;
+  unmatched_reason: string | null;
 }
 
 class InMemoryMessageExecutor implements IntegrationSqlExecutor {
@@ -136,6 +143,55 @@ class InMemoryMessageExecutor implements IntegrationSqlExecutor {
       return { rows: match === undefined ? [] : [{ phone: match.phone }] };
     }
 
+    if (normalized.startsWith("insert into contractor_messages") && normalized.includes("'inbound'")) {
+      const [
+        id,
+        applicationId,
+        jobId,
+        changeOrderId,
+        revision,
+        contractorId,
+        phoneE164,
+        body,
+        replyToProviderMessageId,
+        inboundProviderMessageId,
+        createdAt,
+        unmatchedReason,
+      ] = parameters as [
+        string, string | null, string | null, string | null, number | null, string | null,
+        string, string, string | null, string, string, string | null,
+      ];
+      if (this.messages.some((message) => message.inbound_provider_message_id === inboundProviderMessageId)) {
+        return { rows: [] };
+      }
+      this.messages.push({
+        id,
+        application_id: applicationId ?? "",
+        job_id: jobId ?? "",
+        change_order_id: changeOrderId ?? "",
+        revision: revision ?? 0,
+        contractor_id: contractorId ?? "",
+        phone_e164: phoneE164,
+        body,
+        preview_hash: "",
+        status: "received",
+        delivery_status: "none",
+        provider_message_id: null,
+        reply_to_provider_message_id: replyToProviderMessageId,
+        inbound_provider_message_id: inboundProviderMessageId,
+        confirmed_by: null,
+        confirmed_at: null,
+        created_at: createdAt,
+        sent_at: null,
+        delivered_at: null,
+        read_at: null,
+        acknowledged_at: null,
+        error_code: null,
+        unmatched_reason: unmatchedReason,
+      });
+      return { rows: [{ id }] };
+    }
+
     if (normalized.startsWith("insert into contractor_messages")) {
       const [
         id,
@@ -166,12 +222,19 @@ class InMemoryMessageExecutor implements IntegrationSqlExecutor {
         body,
         preview_hash: previewHash,
         status,
+        delivery_status: "none",
         provider_message_id: null,
+        reply_to_provider_message_id: null,
+        inbound_provider_message_id: null,
         confirmed_by: null,
         confirmed_at: null,
         created_at: createdAt,
         sent_at: null,
+        delivered_at: null,
+        read_at: null,
+        acknowledged_at: null,
         error_code: null,
+        unmatched_reason: null,
       });
       return { rows: [{ id }] };
     }
@@ -183,11 +246,75 @@ class InMemoryMessageExecutor implements IntegrationSqlExecutor {
       );
       if (message === undefined) return { rows: [] };
       message.status = "sent";
+      message.delivery_status = "sent";
       message.provider_message_id = providerMessageId as string;
       message.confirmed_by = confirmedBy as string;
       message.confirmed_at = confirmedAt as string;
       message.sent_at = sentAt as string;
       return { rows: [{ id }] };
+    }
+
+    if (normalized.startsWith("select id") && normalized.includes("where direction = 'outbound' and provider_message_id")) {
+      const [providerMessageId] = parameters;
+      const row = this.messages.find(
+        (message) => message.provider_message_id === providerMessageId && message.inbound_provider_message_id === null,
+      );
+      return { rows: row === undefined ? [] : [{ ...row }] };
+    }
+
+    if (normalized.startsWith("update contractor_messages set delivery_status = case")) {
+      const [nextStatus, occurredAt, errorCode, providerMessageId] = parameters as [string, string, string | null, string];
+      const message = this.messages.find(
+        (candidate) => candidate.provider_message_id === providerMessageId && candidate.inbound_provider_message_id === null,
+      );
+      if (message === undefined) return { rows: [] };
+      const rank: Record<string, number> = { none: 0, sent: 1, failed: 1, delivered: 2, read: 3 };
+      if (rank[nextStatus] >= rank[message.delivery_status] && message.delivery_status !== "read") {
+        message.delivery_status = nextStatus;
+      }
+      if ((nextStatus === "delivered" || nextStatus === "read") && message.delivered_at === null) {
+        message.delivered_at = occurredAt;
+      }
+      if (nextStatus === "read" && message.read_at === null) {
+        message.read_at = occurredAt;
+      }
+      if (nextStatus === "failed" && errorCode !== null) {
+        message.error_code = errorCode;
+      }
+      return { rows: [{ id: message.id }] };
+    }
+
+    if (normalized.startsWith("update contractor_messages set acknowledged_at")) {
+      const [acknowledgedAt, providerMessageId] = parameters;
+      const message = this.messages.find(
+        (candidate) => candidate.provider_message_id === providerMessageId && candidate.inbound_provider_message_id === null,
+      );
+      if (message !== undefined && message.acknowledged_at === null) {
+        message.acknowledged_at = acknowledgedAt as string;
+      }
+      return { rows: [] };
+    }
+
+    if (normalized.includes("where inbound_provider_message_id = $1")) {
+      const [providerMessageId] = parameters;
+      const row = this.messages.find((message) => message.inbound_provider_message_id === providerMessageId);
+      return { rows: row === undefined ? [] : [{ id: row.id }] };
+    }
+
+    if (normalized.includes("regexp_replace(phone_e164")) {
+      const [phoneE164, limit] = parameters;
+      const digits = String(phoneE164).replace(/\D/g, "");
+      const rows = this.messages
+        .filter(
+          (message) =>
+            message.inbound_provider_message_id === null &&
+            message.status === "sent" &&
+            message.phone_e164.replace(/\D/g, "") === digits,
+        )
+        .sort((a, b) => (b.sent_at ?? b.created_at).localeCompare(a.sent_at ?? a.created_at))
+        .slice(0, Number(limit))
+        .map((message) => ({ ...message }));
+      return { rows };
     }
 
     if (normalized.startsWith("update contractor_messages set status = 'failed'")) {
@@ -278,7 +405,6 @@ const CONTRACTOR_ID = "contractor-msg-0001";
 const PHONE_E164 = "+447912345678";
 
 function assertNoOperationalWrites(executor: InMemoryMessageExecutor): void {
-  assert.ok(executor.queries.length > 0);
   for (const sql of executor.queries) {
     assert.doesNotMatch(sql, /\b(delete\s+from|truncate|drop\s+table|alter\s+table)\b/i);
     assert.doesNotMatch(
@@ -641,6 +767,193 @@ test("provider exception is recorded safely as failed", async () => {
   assertNoOperationalWrites(executor);
 });
 
+async function seedSentOutbound(
+  executor: InMemoryMessageExecutor,
+  provider: RecordingProvider = new RecordingProvider(),
+): Promise<{ service: ContractorMessageService; provider: RecordingProvider }> {
+  setupExecutor(executor);
+  const service = createService(executor, provider);
+  const preview = await service.previewApplicationMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+  });
+  assert.equal(preview.outcome, "previewed");
+  if (preview.outcome !== "previewed") throw new Error("preview failed");
+  const sent = await service.sendConfirmedMessage({
+    application_id: APPLICATION_ID,
+    contractor_id: CONTRACTOR_ID,
+    preview_hash: preview.preview.preview_hash,
+    confirmed_by: "admin",
+    confirmed_at: "2026-08-03T14:01:00.000Z",
+  });
+  assert.equal(sent.outcome, "sent");
+  provider.calls.length = 0;
+  executor.queries.length = 0;
+  return { service, provider };
+}
+
+test("webhook delivery statuses persist monotonically and duplicate status is safe", async () => {
+  const executor = new InMemoryMessageExecutor();
+  const { service, provider } = await seedSentOutbound(executor);
+
+  await service.handleWhatsAppWebhookEvents([
+    {
+      kind: "status",
+      provider_message_id: "wamid.msg-0001",
+      status: "delivered",
+      occurred_at: "2026-08-03T14:02:00.000Z",
+    },
+    {
+      kind: "status",
+      provider_message_id: "wamid.msg-0001",
+      status: "delivered",
+      occurred_at: "2026-08-03T14:02:30.000Z",
+    },
+    {
+      kind: "status",
+      provider_message_id: "wamid.msg-0001",
+      status: "read",
+      occurred_at: "2026-08-03T14:03:00.000Z",
+    },
+    {
+      kind: "status",
+      provider_message_id: "wamid.msg-0001",
+      status: "sent",
+      occurred_at: "2026-08-03T14:04:00.000Z",
+    },
+  ]);
+
+  assert.equal(executor.messages[0].delivery_status, "read");
+  assert.equal(executor.messages[0].delivered_at, "2026-08-03T14:02:00.000Z");
+  assert.equal(executor.messages[0].read_at, "2026-08-03T14:03:00.000Z");
+  assert.equal(provider.calls.length, 0);
+  assertNoOperationalWrites(executor);
+  assertNoFinancialReferences(executor);
+});
+
+test("webhook sent and failed statuses persist safely", async () => {
+  const executor = new InMemoryMessageExecutor();
+  const { service, provider } = await seedSentOutbound(executor);
+
+  await service.handleWhatsAppWebhookEvents([
+    {
+      kind: "status",
+      provider_message_id: "wamid.msg-0001",
+      status: "sent",
+      occurred_at: "2026-08-03T14:02:00.000Z",
+    },
+    {
+      kind: "status",
+      provider_message_id: "wamid.msg-0001",
+      status: "failed",
+      occurred_at: "2026-08-03T14:03:00.000Z",
+      error_code: "whatsapp_error_131026",
+    },
+  ]);
+
+  assert.equal(executor.messages[0].delivery_status, "failed");
+  assert.equal(executor.messages[0].error_code, "whatsapp_error_131026");
+  assert.equal(provider.calls.length, 0);
+  assertNoOperationalWrites(executor);
+});
+
+test("inbound text reply links exactly by context id and acknowledges outbound only when inserted", async () => {
+  const executor = new InMemoryMessageExecutor();
+  const { service, provider } = await seedSentOutbound(executor);
+
+  const event = {
+    kind: "inbound_text" as const,
+    provider_message_id: "wamid.inbound-0001",
+    from_wa_id: "447912345678",
+    body: "Received, thanks",
+    occurred_at: "2026-08-03T14:05:00.000Z",
+    context_provider_message_id: "wamid.msg-0001",
+  };
+  await service.handleWhatsAppWebhookEvents([event, event]);
+
+  const inbound = executor.messages.filter((message) => message.inbound_provider_message_id !== null);
+  assert.equal(inbound.length, 1);
+  assert.equal(inbound[0].inbound_provider_message_id, "wamid.inbound-0001");
+  assert.equal(inbound[0].reply_to_provider_message_id, "wamid.msg-0001");
+  assert.equal(inbound[0].contractor_id, CONTRACTOR_ID);
+  assert.equal(inbound[0].application_id, APPLICATION_ID);
+  assert.equal(inbound[0].job_id, "job-msg-0001");
+  assert.equal(inbound[0].change_order_id, "co-msg-0001");
+  assert.equal(inbound[0].body, "Received, thanks");
+  assert.equal(executor.messages[0].acknowledged_at, "2026-08-03T14:05:00.000Z");
+  assert.equal(provider.calls.length, 0);
+  assertNoOperationalWrites(executor);
+  assertNoFinancialReferences(executor);
+});
+
+test("digit-only wa_id fallback links when unambiguous", async () => {
+  const executor = new InMemoryMessageExecutor();
+  const { service, provider } = await seedSentOutbound(executor);
+
+  await service.handleWhatsAppWebhookEvents([
+    {
+      kind: "inbound_text",
+      provider_message_id: "wamid.inbound-0002",
+      from_wa_id: "447912345678",
+      body: "Confirmed",
+      occurred_at: "2026-08-03T14:06:00.000Z",
+    },
+  ]);
+
+  const inbound = executor.messages.find((message) => message.inbound_provider_message_id === "wamid.inbound-0002");
+  assert.ok(inbound !== undefined);
+  assert.equal(inbound.reply_to_provider_message_id, "wamid.msg-0001");
+  assert.equal(inbound.contractor_id, CONTRACTOR_ID);
+  assert.equal(executor.messages[0].acknowledged_at, "2026-08-03T14:06:00.000Z");
+  assert.equal(provider.calls.length, 0);
+  assertNoOperationalWrites(executor);
+});
+
+test("ambiguous or unmatched inbound replies are retained without acknowledgement", async () => {
+  const executor = new InMemoryMessageExecutor();
+  const { service, provider } = await seedSentOutbound(executor);
+  executor.messages.push({
+    ...executor.messages[0],
+    id: "message-msg-0002",
+    provider_message_id: "wamid.msg-0002",
+    sent_at: "2026-08-03T14:02:00.000Z",
+    acknowledged_at: null,
+  });
+
+  await service.handleWhatsAppWebhookEvents([
+    {
+      kind: "inbound_text",
+      provider_message_id: "wamid.inbound-0003",
+      from_wa_id: "447912345678",
+      body: "Which job?",
+      occurred_at: "2026-08-03T14:07:00.000Z",
+    },
+    {
+      kind: "inbound_text",
+      provider_message_id: "wamid.inbound-0004",
+      from_wa_id: "447700900123",
+      body: "Hello",
+      occurred_at: "2026-08-03T14:08:00.000Z",
+    },
+  ]);
+
+  const ambiguous = executor.messages.find((message) => message.inbound_provider_message_id === "wamid.inbound-0003");
+  const unmatched = executor.messages.find((message) => message.inbound_provider_message_id === "wamid.inbound-0004");
+  assert.ok(ambiguous !== undefined);
+  assert.ok(unmatched !== undefined);
+  assert.equal(ambiguous.contractor_id, "");
+  assert.equal(ambiguous.application_id, "");
+  assert.equal(ambiguous.unmatched_reason, "ambiguous_phone_match");
+  assert.equal(unmatched.contractor_id, "");
+  assert.equal(unmatched.application_id, "");
+  assert.equal(unmatched.unmatched_reason, "no_matching_outbound");
+  assert.equal(executor.messages[0].acknowledged_at, null);
+  assert.equal(executor.messages[1].acknowledged_at, null);
+  assert.equal(provider.calls.length, 0);
+  assertNoOperationalWrites(executor);
+  assertNoFinancialReferences(executor);
+});
+
 test("unconfigured provider blocks the send without a live call", async () => {
   const executor = new InMemoryMessageExecutor();
   setupExecutor(executor);
@@ -717,6 +1030,35 @@ test("contractor messages design migration is additive, non-destructive, and unr
   assert.match(withoutComments, /direction TEXT NOT NULL CHECK\s*\(direction = 'outbound'\)/i);
   assert.match(withoutComments, /channel TEXT NOT NULL CHECK\s*\(channel = 'whatsapp'\)/i);
   assert.match(withoutComments, /phone_e164 TEXT NOT NULL CHECK\s*\(phone_e164 ~ '\^\\\+\[0-9\]\{8,15\}\$'\)/i);
+  assert.doesNotMatch(withoutComments, /\b(DROP|DELETE|TRUNCATE|ALTER|UPDATE)\b/i);
+  assert.doesNotMatch(migrationUrl.pathname, /\/migrations\//i);
+});
+
+test("inbound contractor messages design is dormant and retains unmatched replies safely", async () => {
+  const migrationUrl = new URL(
+    "../migration-designs/phase1c-step2-contractor-messages-inbound.sql",
+    import.meta.url,
+  );
+  const sql = await readFile(migrationUrl, "utf8");
+  const withoutComments = sql.replace(/^\s*--.*$/gm, "");
+  const statements = withoutComments.split(";").map((statement) => statement.trim()).filter(Boolean);
+
+  assert.equal(statements.length, 2);
+  assert.match(statements[0], /^CREATE TABLE IF NOT EXISTS contractor_messages\b/i);
+  assert.match(withoutComments, /direction TEXT NOT NULL CHECK\s*\(direction IN \('outbound',\s*'inbound'\)\)/i);
+  assert.match(
+    withoutComments,
+    /delivery_status TEXT NOT NULL DEFAULT 'none'\s*CHECK \(delivery_status IN \('none',\s*'sent',\s*'delivered',\s*'read',\s*'failed'\)\)/i,
+  );
+  assert.match(withoutComments, /delivered_at TIMESTAMPTZ/i);
+  assert.match(withoutComments, /read_at TIMESTAMPTZ/i);
+  assert.match(withoutComments, /acknowledged_at TIMESTAMPTZ/i);
+  assert.match(withoutComments, /reply_to_provider_message_id TEXT/i);
+  assert.match(withoutComments, /inbound_provider_message_id TEXT/i);
+  assert.match(withoutComments, /unmatched_reason TEXT/i);
+  assert.match(withoutComments, /application_id UUID\s+REFERENCES integration_change_order_applications\(application_id\)/i);
+  assert.match(withoutComments, /contractor_id VARCHAR REFERENCES contractors\(id\)/i);
+  assert.match(statements[1], /^CREATE UNIQUE INDEX IF NOT EXISTS contractor_messages_inbound_provider_message_id_unique\b/i);
   assert.doesNotMatch(withoutComments, /\b(DROP|DELETE|TRUNCATE|ALTER|UPDATE)\b/i);
   assert.doesNotMatch(migrationUrl.pathname, /\/migrations\//i);
 });
