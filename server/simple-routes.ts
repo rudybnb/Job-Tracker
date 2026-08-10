@@ -68,6 +68,42 @@ export function setupSimpleRoutes(app: Express) {
         return res.status(400).json({ error: "Username and password required" });
       }
 
+      const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH?.trim();
+      if (adminPasswordHash) {
+        const { verifyPassword } = await import("./password-security.ts");
+        const configuredUsername = (process.env.ADMIN_USERNAME?.trim() || "admin").toLowerCase();
+        const submittedUsername = String(username).trim().toLowerCase();
+        const isValidUsername = submittedUsername === configuredUsername;
+        const isValidPassword = await verifyPassword(String(password), adminPasswordHash);
+
+        if (!isValidUsername || !isValidPassword) {
+          console.log(`❌ Admin login failed for: ${username}`);
+          return res.status(401).json({ error: "Invalid credentials" });
+        }
+
+        const adminUser = {
+          id: "env-admin",
+          username: configuredUsername,
+          fullName: "System Administrator",
+          name: "System Administrator",
+          role: "admin",
+          isStaff: true,
+        };
+
+        console.log(`✅ Admin login successful for: ${adminUser.username}`);
+
+        if (req.session) {
+          req.session.userId = adminUser.id;
+          req.session.username = adminUser.username;
+          req.session.role = adminUser.role;
+        }
+
+        return res.json({
+          success: true,
+          user: adminUser,
+        });
+      }
+
       const { DatabaseStorage } = await import("./database-storage.ts");
       const { authenticateStaffUser } = await import("./password-security.ts");
       const storage = new DatabaseStorage();
