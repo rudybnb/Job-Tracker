@@ -43,6 +43,13 @@
       "when": 1786291200310,
       "tag": "0005_phase1c_contractor_messages_inbound",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786377600000,
+      "tag": "0018_client_contact_methods",
+      "breakpoints": true
     }
   ]
 }

@@ -82,7 +82,7 @@ test("table ownership manifest contains zero duplicate table ownership", () => {
     TABLE_OWNERSHIP_MANIFEST.canonical.length +
     TABLE_OWNERSHIP_MANIFEST.simpleInitCore.length +
     TABLE_OWNERSHIP_MANIFEST.financialTablesCore.length;
-  assert.equal(totalTables, 33, "must account for all 33 application tables");
+  assert.equal(totalTables, 35, "must account for all 35 application tables");
 });
 
 // --- 2. Migration-Loader Corruption Tests ---

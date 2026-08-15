@@ -16,6 +16,7 @@ export const TABLE_OWNERSHIP_MANIFEST: TableOwnershipManifest = {
     "admin_inspections",
     "admin_settings",
     "calendar_events",
+    "client_contact_methods",
     "contractor_applications",
     "contractor_messages",
     "contractor_replies",

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, pgEnum, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, pgEnum, boolean, uuid, index, check, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -38,6 +38,39 @@ export const jobs = pgTable("jobs", {
   latitude: text("latitude"), // GPS latitude for work site
   longitude: text("longitude"), // GPS longitude for work site
 });
+
+export const clients = pgTable("clients", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+}, (table) => [
+  uniqueIndex("clients_name_unique").on(table.name),
+]);
+
+export const clientContactMethods = pgTable("client_contact_methods", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "restrict" }),
+  contactName: text("contact_name"),
+  methodType: text("method_type").notNull(),
+  valueNormalized: text("value_normalized").notNull(),
+  verificationStatus: text("verification_status").notNull().default("UNVERIFIED"),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  verifiedBy: text("verified_by"),
+  isActive: boolean("is_active").notNull().default(true),
+  source: text("source"),
+  evidence: text("evidence"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_client_contact_methods_client").on(table.clientId),
+  index("idx_client_contact_methods_lookup").on(table.methodType, table.valueNormalized, table.isActive, table.verificationStatus),
+  check("client_contact_methods_type_check", sql`${table.methodType} IN ('PHONE', 'WHATSAPP')`),
+  check("client_contact_methods_verification_check", sql`${table.verificationStatus} IN ('UNVERIFIED', 'VERIFIED')`),
+  check("client_contact_methods_e164_check", sql`${table.valueNormalized} ~ '^\\+[0-9]{8,15}$'`),
+  check("client_contact_methods_verified_guard", sql`${table.verificationStatus} <> 'VERIFIED' OR (${table.verifiedAt} IS NOT NULL AND NULLIF(BTRIM(${table.verifiedBy}), '') IS NOT NULL)`),
+]);
 
 export const csvUploads = pgTable("csv_uploads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
