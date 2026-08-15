@@ -10,7 +10,7 @@ import { verifySchemaHealth } from "./schema-health.ts";
 import { setupFinancialRoutes } from "./financial-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { client } from "./db";
-import { createLocalJarvisShadowRouter, PostgresIntegrationSqlExecutor } from "./integration-shadow-live.ts";
+import { createLocalJarvisShadowRouter, JARVIS_SHADOW_API_KEY_ID_ENV, JARVIS_SHADOW_API_KEY_SECRET_ENV, PostgresIntegrationSqlExecutor } from "./integration-shadow-live.ts";
 import { SqlIntegrationReviewRepository } from "./integration-review-repository.ts";
 import { createJarvisReviewRouter } from "./integration-review-route.ts";
 import { SqlIntegrationChangeOrderApplicationRepository } from "./integration-change-order-applications.ts";
@@ -20,6 +20,7 @@ import { SqlContractorMessageService } from "./integration-contractor-message-se
 import { createContractorMessageRouter } from "./integration-contractor-message-route.ts";
 import { createWhatsAppWebhookRouter } from "./whatsapp-webhook-route.ts";
 import { createWhatsAppProvider } from "./whatsapp.ts";
+import { createJarvisIdentityResolverRouter, SqlJarvisIdentityResolver } from "./jarvis-identity-resolver.ts";
 
 const app = express();
 // Allow mobile WebView (capacitor://localhost) and other origins to call the API
@@ -29,6 +30,22 @@ app.use(cors({ origin: true, credentials: true }));
 // and JARVIS_SHADOW_API_KEY_SECRET are set. Mounted before express.json() so
 // the raw body is available for HMAC content-hash verification.
 app.use(createLocalJarvisShadowRouter(client));
+
+const jarvisMachineKeyId = process.env[JARVIS_SHADOW_API_KEY_ID_ENV]?.trim();
+const jarvisMachineSecret = process.env[JARVIS_SHADOW_API_KEY_SECRET_ENV]?.trim();
+const jarvisIdentityNonces = new Set<string>();
+
+// Internal Jarvis identity resolver. Reuses the existing Jarvis machine-auth
+// HMAC headers and remains dormant unless the same integration key env vars are set.
+app.use(createJarvisIdentityResolverRouter({
+  enabled: !!jarvisMachineKeyId && !!jarvisMachineSecret,
+  resolver: new SqlJarvisIdentityResolver(new PostgresIntegrationSqlExecutor(client)),
+  keyLookup: (candidate) => candidate === jarvisMachineKeyId ? jarvisMachineSecret : undefined,
+  nonceLookup: (candidateKeyId, nonce) => jarvisIdentityNonces.has(`${candidateKeyId}:${nonce}`),
+  nonceStore: (candidateKeyId, nonce) => {
+    jarvisIdentityNonces.add(`${candidateKeyId}:${nonce}`);
+  },
+}));
 
 const contractorMessageService = new SqlContractorMessageService({
   repository: new SqlIntegrationContractorMessageRepository({
