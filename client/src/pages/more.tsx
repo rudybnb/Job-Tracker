@@ -85,8 +85,10 @@ export default function More() {
   const getUsernameFromFirstName = (firstName: string) => {
     switch (firstName.toLowerCase()) {
       case 'dalwayne': return 'dalwayne';
-      case 'mohamed': return 'mohamed'; // Fixed: Map Mohamed to correct database username "mohamed"
-      case 'said': return 'said.tiss'; // Fixed: Map SAID to correct database username "said.tiss"
+      case 'mohamed': return 'mohamed.shawky';
+      case 'ahmed': return 'ahmed.gouda';
+      case 'rudy': return 'rudy.test';
+      case 'said': return 'said.tiss';
       default: return firstName.toLowerCase();
     }
   };
@@ -118,7 +120,7 @@ export default function More() {
   });
 
   // Contractor details with AUTHENTIC data only - use contractorApplication from the API
-  const hourlyRate = contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) : 18.75;
+  const hourlyRate = contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) : 16.25;
   const contractorInfo = {
     name: contractorApplication?.firstName && contractorApplication?.lastName 
       ? `${contractorApplication.firstName} ${contractorApplication.lastName}` 

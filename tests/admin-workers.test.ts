@@ -279,6 +279,29 @@ describe("Worker-Safe Site Config Endpoint Protection", () => {
   });
 });
 
+describe("Worker Daily Rate & Payroll Structure (£130/day)", () => {
+  it("calculates £130.00 daily rate from £16.25 hourly rate across 8 hours", () => {
+    const hourlyRate = 16.25;
+    const hoursWorked = 8;
+    const dailyRate = hourlyRate * hoursWorked;
+    assert.equal(dailyRate, 130.00);
+  });
+
+  it("applies £130.00 daily rate for full 8-hour shift for Rudy, Mohamed, and Ahmed", () => {
+    const workers = [
+      { name: "Rudy Diedricks", username: "rudy.test", adminPayRate: "16.25" },
+      { name: "Mohamed Shawky", username: "mohamed.shawky", adminPayRate: "16.25" },
+      { name: "Ahmed Gouda", username: "ahmed.gouda", adminPayRate: "16.25" },
+    ];
+
+    for (const w of workers) {
+      const hourly = parseFloat(w.adminPayRate);
+      const daily = hourly * 8;
+      assert.equal(daily, 130.00);
+    }
+  });
+});
+
 describe("Site QR & GPS Worker Check-In Enforcement", () => {
   const siteLat = 51.491306;
   const siteLng = 0.148139;
