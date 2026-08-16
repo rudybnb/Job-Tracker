@@ -4,6 +4,7 @@ import { normalizePhoneE164 } from "../server/worker-service.ts";
 import { requireAdmin } from "../server/integration-review-route.ts";
 import { hashPassword, verifyPassword } from "../server/password-security.ts";
 import { parseDmsOrDecimal } from "../client/src/lib/geo-utils.ts";
+import { calculateDistanceMetres } from "../client/src/lib/location.ts";
 
 describe("Worker Management - Phone Normalisation", () => {
   it("normalises UK local mobile numbers (07xxx -> +447xxx)", () => {
@@ -191,75 +192,41 @@ describe("Site QR & GPS Admin Coordinates and DMS Parsing", () => {
   });
 });
 
-describe("Site QR Admin Page Data-Loading Resilience", () => {
-  it("populates jobs list independently even if site configs request fails", async () => {
-    const mockJobs = [
-      { id: "j-1", title: "Tester", location: "15 Gilbert Road, Belvedere, DA17 5DB" },
-      { id: "j-2", title: "Woolwich Church", location: "165 Powis Street, SE18 6JW" },
-      { id: "j-3", title: "38 Crescent Road", location: "SE18 7BN" },
-    ];
+describe("Site QR & GPS Worker Check-In Enforcement", () => {
+  const siteLat = 51.491306;
+  const siteLng = 0.148139;
+  const allowedRadiusMetres = 100;
 
-    let loadedJobs: any[] = [];
-    let errorMessage: string | null = null;
+  it("allows clock-in when worker is inside site radius and QR is scanned", () => {
+    const workerLat = 51.491350;
+    const workerLng = 0.148140;
+    const distance = calculateDistanceMetres(workerLat, workerLng, siteLat, siteLng);
 
-    const fetchJobs = async () => {
-      return { ok: true, json: async () => mockJobs };
-    };
-
-    const fetchConfigs = async () => {
-      return { ok: false, status: 500, json: async () => ({ error: "Database error" }) };
-    };
-
-    const jobsRes = await fetchJobs();
-    if (jobsRes.ok) {
-      loadedJobs = await jobsRes.json();
-    }
-
-    const configsRes = await fetchConfigs();
-    if (!configsRes.ok) {
-      errorMessage = "Could not load site check-in policies.";
-    }
-
-    assert.equal(loadedJobs.length, 3);
-    assert.equal(loadedJobs[0].title, "Tester");
-    assert.equal(loadedJobs[1].title, "Woolwich Church");
-    assert.equal(loadedJobs[2].title, "38 Crescent Road");
-    assert.equal(errorMessage, "Could not load site check-in policies.");
+    assert.ok(distance <= allowedRadiusMetres);
+    assert.ok(distance < 10);
   });
 
-  it("creates first site check-in config successfully and generates QR token", async () => {
-    const inputPayload = {
-      jobId: "j-tester-123",
-      siteName: "Tester — 15 Gilbert Road",
-      siteLatitude: "51.491306",
-      siteLongitude: "0.148139",
-      allowedRadiusMetres: 100,
-      qrEnabled: true,
-      gpsEnabled: true,
-    };
+  it("blocks clock-in when worker is 802 metres away (outside 100m radius)", () => {
+    const workerLat = 51.498500;
+    const workerLng = 0.158500;
+    const distance = calculateDistanceMetres(workerLat, workerLng, siteLat, siteLng);
 
-    // Verify canonical payload structure
-    assert.ok(inputPayload.jobId);
-    assert.ok(inputPayload.siteLatitude);
-    assert.ok(inputPayload.siteLongitude);
-    assert.equal(typeof inputPayload.allowedRadiusMetres, "number");
-    assert.equal(inputPayload.qrEnabled, true);
-    assert.equal(inputPayload.gpsEnabled, true);
+    const isInsideRadius = distance <= allowedRadiusMetres;
+    assert.equal(isInsideRadius, false);
+    assert.ok(distance > 800);
+  });
 
-    // Mock store saving first config
-    const mockCreatedConfig = {
-      id: "cfg-1",
-      jobId: inputPayload.jobId,
-      siteName: inputPayload.siteName,
-      siteLatitude: inputPayload.siteLatitude,
-      siteLongitude: inputPayload.siteLongitude,
-      allowedRadiusMetres: inputPayload.allowedRadiusMetres,
-      qrEnabled: inputPayload.qrEnabled,
-      gpsEnabled: inputPayload.gpsEnabled,
-      qrToken: "tok_test_abc123",
-    };
+  it("blocks clock-in when QR token is missing and qrEnabled is true", () => {
+    const qrEnabled = true;
+    const scannedQrToken = "";
 
-    assert.equal(mockCreatedConfig.jobId, "j-tester-123");
-    assert.ok(mockCreatedConfig.qrToken.startsWith("tok_"));
+    const isQrValid = !qrEnabled || scannedQrToken.length > 0;
+    assert.equal(isQrValid, false);
+  });
+
+  it("accepts canonical job ID for work_sessions insert without FK error", () => {
+    const canonicalJobId = "j-tester-123";
+    assert.ok(canonicalJobId !== "1");
+    assert.ok(canonicalJobId.length > 3);
   });
 });

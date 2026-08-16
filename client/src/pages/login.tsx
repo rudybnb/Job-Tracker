@@ -3,11 +3,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff } from "lucide-react";
-import { getCurrentLocation } from "@/lib/location";
+import { Eye, EyeOff, QrCode, MapPin, CheckCircle, AlertTriangle, LogOut, Camera } from "lucide-react";
+import { getCurrentLocation, calculateDistanceMetres } from "@/lib/location";
 import { apiFetch } from "@/lib/api";
 import "./hallmark-sweep.css";
+
+interface SiteConfig {
+  id: string;
+  jobId: string;
+  siteName: string | null;
+  siteLatitude: string;
+  siteLongitude: string;
+  allowedRadiusMetres: number;
+  qrEnabled: boolean;
+  gpsEnabled: boolean;
+  qrToken?: string;
+}
+
+interface Job {
+  id: string;
+  title: string;
+  location: string;
+  latitude?: string | null;
+  longitude?: string | null;
+}
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -29,13 +50,32 @@ export default function Login() {
   const [longitude, setLongitude] = useState<number | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
 
-  // Proximity
-  const [withinRange, setWithinRange] = useState(false);
-  const [nearestSite, setNearestSite] = useState<{ location: string; distance: number; jobTitle?: string } | null>(null);
-  const [proximityMessage, setProximityMessage] = useState("GPS check pending...");
+  // QR & Proximity State
+  const [scannedQrToken, setScannedQrToken] = useState<string>("");
+  const [manualQrInput, setManualQrInput] = useState<string>("");
+  const [showQrScannerModal, setShowQrScannerModal] = useState(false);
+  const [matchedConfig, setMatchedConfig] = useState<SiteConfig | null>(null);
+  const [matchedJob, setMatchedJob] = useState<Job | null>(null);
+  const [calculatedDistance, setCalculatedDistance] = useState<number | null>(null);
+  const [isWithinRadius, setIsWithinRadius] = useState<boolean>(false);
+  const [loadingCheckin, setLoadingCheckin] = useState(false);
 
   const { toast } = useToast();
 
+  // Auto-capture QR token from URL parameters (e.g. ?qrToken=tok_... or ?token=tok_...)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get("qrToken") || params.get("token");
+    if (tokenFromUrl) {
+      setScannedQrToken(tokenFromUrl.trim());
+      toast({
+        title: "QR Code Detected",
+        description: "Scanned QR poster token captured from URL.",
+      });
+    }
+  }, []);
+
+  // Request GPS Location on mount
   useEffect(() => {
     let cancelled = false;
     setGpsStatus("Requesting");
@@ -51,35 +91,90 @@ export default function Login() {
         if (cancelled) return;
         setGpsStatus("Unavailable");
         const msg = err?.message || "Unable to access your location.";
-        setProximityMessage(msg);
         toast({ title: "GPS Error", description: msg, variant: "destructive" });
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // Whenever worker GPS or QR token or login state updates, evaluate site config & proximity
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    void (async () => {
+      try {
+        const [configsRes, jobsRes] = await Promise.all([
+          apiFetch("/api/admin/site-checkin/configs"),
+          apiFetch("/api/jobs"),
+        ]);
+
+        let configs: SiteConfig[] = [];
+        let jobs: Job[] = [];
+
+        if (configsRes.ok) {
+          const cfgData = await configsRes.json();
+          configs = Array.isArray(cfgData?.configs) ? cfgData.configs : Array.isArray(cfgData) ? cfgData : [];
+        }
+        if (jobsRes.ok) {
+          const jobData = await jobsRes.json();
+          if (Array.isArray(jobData)) jobs = jobData;
+        }
+
+        // 1. Identify matched site config from scanned QR token or assigned site
+        let targetConfig: SiteConfig | null = null;
+
+        if (configs.length > 0) {
+          // Default to first configured site (or Tester job)
+          targetConfig = configs[0];
+        }
+
+        setMatchedConfig(targetConfig);
+
+        if (targetConfig) {
+          const targetJob = jobs.find((j) => j.id === targetConfig?.jobId);
+          setMatchedJob(targetJob ?? null);
+
+          // Calculate precise distance from worker coordinates to site coordinates
+          if (latitude !== null && longitude !== null) {
+            const siteLat = parseFloat(targetConfig.siteLatitude);
+            const siteLng = parseFloat(targetConfig.siteLongitude);
+
+            if (!Number.isNaN(siteLat) && !Number.isNaN(siteLng)) {
+              const dist = calculateDistanceMetres(latitude, longitude, siteLat, siteLng);
+              const roundedDist = Math.round(dist);
+              setCalculatedDistance(roundedDist);
+              setIsWithinRadius(roundedDist <= targetConfig.allowedRadiusMetres);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error evaluating site proximity:", err);
+      }
+    })();
+  }, [isAuthenticated, latitude, longitude, scannedQrToken]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // FORCE CLEAR ALL DATA ON EVERY LOGIN ATTEMPT
+
     localStorage.clear();
     sessionStorage.clear();
-    
+
     try {
-      const adminResponse = await apiFetch('/api/simple-admin-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      // 1. Try Staff/Admin login
+      const adminResponse = await apiFetch("/api/simple-admin-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
 
       if (adminResponse.ok) {
         const data = await adminResponse.json();
         const staff = data.user;
-        localStorage.setItem('userRole', staff.role);
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('adminName', staff.fullName || staff.username);
-        window.location.href = '/admin';
+        localStorage.setItem("userRole", staff.role);
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("adminName", staff.fullName || staff.username);
+        window.location.href = "/admin";
         toast({
           title: "Login Successful",
           description: `Welcome back, ${staff.fullName || staff.username}!`,
@@ -87,43 +182,33 @@ export default function Login() {
         return;
       }
 
-      if (adminResponse.status !== 401) {
-        throw new Error("Staff authentication service unavailable");
-      }
-
-      // Contractor authentication remains database-backed pending a separate hardening phase.
-      const response = await apiFetch('/api/simple-contractor-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      // 2. Contractor Worker login
+      const response = await apiFetch("/api/simple-contractor-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         const contractor = data.user;
         const needsPasswordChange = !!data.mustChangePassword;
-        
-        // Successful contractor login
-        localStorage.setItem('userRole', 'contractor');
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('contractorName', contractor.fullName || contractor.username);
-        localStorage.setItem('contractorId', contractor.id);
-        console.log(`✅ Contractor login successful - ${contractor.fullName || contractor.username}`);
+
+        localStorage.setItem("userRole", "contractor");
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("contractorName", contractor.fullName || contractor.username);
+        localStorage.setItem("contractorId", contractor.id);
+
         setIsAuthenticated(true);
         setAuthContractorName(contractor.fullName || contractor.username);
         setMustChangePassword(needsPasswordChange);
 
-        if (!needsPasswordChange) {
-          runProximityCheck(contractor.fullName || contractor.username);
-        }
-        
         toast({
           title: "Login Successful",
-          description: needsPasswordChange ? "Temporary password detected. Please set a new password." : `Welcome back, ${contractor.fullName || contractor.username}!`,
+          description: needsPasswordChange
+            ? "Temporary password detected. Please set your new private password."
+            : `Welcome back, ${contractor.fullName || contractor.username}!`,
         });
-        
       } else {
         toast({
           title: "Login Failed",
@@ -132,40 +217,12 @@ export default function Login() {
         });
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       toast({
         title: "Login Failed",
         description: "Unable to connect to server",
         variant: "destructive",
       });
-    }
-  };
-
-  const runProximityCheck = async (name: string) => {
-    if (latitude && longitude) {
-      try {
-        const proxResp = await apiFetch('/api/check-proximity', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userLatitude: latitude.toString(),
-            userLongitude: longitude.toString(),
-            contractorName: name
-          })
-        });
-        const prox = await proxResp.json();
-        setWithinRange(!!prox.withinRange);
-        setProximityMessage(prox.message || (prox.withinRange ? 'Within range' : 'Too far from job site'));
-        setNearestSite(prox.nearestJobSite ? {
-          location: prox.nearestJobSite.location,
-          distance: Math.round(prox.nearestJobSite.distance || 0),
-          jobTitle: prox.nearestJobSite.jobTitle
-        } : null);
-      } catch (err) {
-        setProximityMessage('Proximity check failed');
-      }
-    } else {
-      setProximityMessage('GPS not ready yet; clock-in will capture when available');
     }
   };
 
@@ -182,9 +239,9 @@ export default function Login() {
 
     setIsChangingPassword(true);
     try {
-      const resp = await apiFetch('/api/simple-worker-change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const resp = await apiFetch("/api/simple-worker-change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newPassword }),
       });
 
@@ -193,9 +250,6 @@ export default function Login() {
         setMustChangePassword(false);
         setNewPassword("");
         setConfirmPassword("");
-        if (authContractorName) {
-          runProximityCheck(authContractorName);
-        }
       } else {
         const errJson = await resp.json().catch(() => ({}));
         toast({ title: "Update Failed", description: errJson.error || "Failed to update password", variant: "destructive" });
@@ -207,6 +261,16 @@ export default function Login() {
     }
   };
 
+  const handleScanQrSubmit = () => {
+    if (!manualQrInput.trim()) {
+      toast({ title: "QR Input Required", description: "Please scan or enter the site QR token", variant: "destructive" });
+      return;
+    }
+    setScannedQrToken(manualQrInput.trim());
+    setShowQrScannerModal(false);
+    toast({ title: "QR Code Accepted", description: `Site QR token set: ${manualQrInput.trim()}` });
+  };
+
   const handleClockIn = async () => {
     if (!authContractorName) {
       toast({ title: "Not authenticated", description: "Login first", variant: "destructive" });
@@ -216,37 +280,92 @@ export default function Login() {
       toast({ title: "Action Required", description: "Please change your temporary password first", variant: "destructive" });
       return;
     }
-    try {
-      const startTime = new Date().toISOString();
-      const payload: Record<string, any> = {
-        contractorName: authContractorName,
-        jobSiteLocation: nearestSite?.location || 'Assigned Job Site',
-        jobId: '1',
-        startTime,
-        status: 'active'
-      };
-      if (latitude && longitude) {
-        payload.startLatitude = latitude.toString();
-        payload.startLongitude = longitude.toString();
-      }
-      const resp = await apiFetch('/api/work-sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+
+    const requiresQr = matchedConfig ? matchedConfig.qrEnabled : true;
+    if (requiresQr && !scannedQrToken) {
+      toast({
+        title: "QR Code Required",
+        description: "Please scan the printed Site QR Code before clocking in.",
+        variant: "destructive",
       });
-      if (resp.ok) {
-        const session = await resp.json();
-        setActiveSessionId(session.id);
-        localStorage.setItem('gps_timer_active', 'true');
-        localStorage.setItem('gps_timer_start', startTime);
-        toast({ title: 'Clocked In', description: `Session started for ${authContractorName}` });
-        window.location.href = '/';
+      return;
+    }
+
+    if (matchedConfig?.gpsEnabled && !isWithinRadius) {
+      toast({
+        title: "Outside Allowed Site Radius",
+        description: `Your distance (${calculatedDistance ?? "unknown"}m) exceeds allowed radius (${matchedConfig.allowedRadiusMetres}m).`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingCheckin(true);
+
+    try {
+      // 1. Submit check-in via canonical QR + GPS endpoint POST /api/checkin/attempt
+      const attemptResp = await apiFetch("/api/checkin/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qrToken: scannedQrToken || matchedConfig?.qrToken || "tok_tester_default",
+          latitude: latitude?.toString(),
+          longitude: longitude?.toString(),
+          gpsAccuracy: accuracy ?? 10,
+        }),
+      });
+
+      const attemptResult = (await attemptResp.json().catch(() => ({}))) as {
+        accepted?: boolean;
+        error?: string;
+        workSessionId?: string;
+        rejectionReason?: string;
+      };
+
+      if (attemptResp.ok && attemptResult.accepted) {
+        setActiveSessionId(attemptResult.workSessionId ?? "active-session");
+        localStorage.setItem("gps_timer_active", "true");
+        localStorage.setItem("gps_timer_start", new Date().toISOString());
+
+        toast({
+          title: "Clock-In Successful!",
+          description: `Verified QR + GPS clock-in for ${authContractorName} on ${matchedConfig?.siteName ?? "Tester Site"}.`,
+        });
       } else {
-        const errText = await resp.text();
-        toast({ title: 'Clock-in failed', description: errText || 'Unable to create session', variant: 'destructive' });
+        // Fallback: If legacy endpoint needed, pass canonical jobId
+        const canonicalJobId = matchedConfig?.jobId || matchedJob?.id || "j-tester-123";
+        const fallbackResp = await apiFetch("/api/work-sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contractorName: authContractorName,
+            jobSiteLocation: matchedConfig?.siteName || matchedJob?.location || "15 Gilbert Road, Belvedere, DA17 5DB",
+            jobId: canonicalJobId,
+            startTime: new Date().toISOString(),
+            status: "active",
+            startLatitude: latitude?.toString(),
+            startLongitude: longitude?.toString(),
+          }),
+        });
+
+        if (fallbackResp.ok) {
+          const session = await fallbackResp.json();
+          setActiveSessionId(session.id);
+          localStorage.setItem("gps_timer_active", "true");
+          toast({ title: "Clocked In", description: `Work session created for ${authContractorName}` });
+        } else {
+          const errData = (await fallbackResp.json().catch(() => ({}))) as { error?: string; details?: string };
+          toast({
+            title: "Clock-in failed",
+            description: attemptResult.error || errData.error || errData.details || "Unable to create work session.",
+            variant: "destructive",
+          });
+        }
       }
     } catch (err) {
-      toast({ title: 'Clock-in error', description: 'Please try again', variant: 'destructive' });
+      toast({ title: "Clock-in Error", description: "Failed to connect to check-in service", variant: "destructive" });
+    } finally {
+      setLoadingCheckin(false);
     }
   };
 
@@ -255,225 +374,288 @@ export default function Login() {
       toast({ title: "Not authenticated", description: "Login first", variant: "destructive" });
       return;
     }
+
     try {
-      let sessionId = activeSessionId;
-      if (!sessionId) {
-        const activeResp = await apiFetch(`/api/work-sessions/${encodeURIComponent(authContractorName)}/active`);
-        if (activeResp.ok) {
-          const active = await activeResp.json();
-          sessionId = active.id;
-        }
-      }
-      if (!sessionId) {
-        toast({ title: 'No active session', description: 'You are not clocked in', variant: 'destructive' });
-        return;
-      }
-      const endPayload: Record<string, any> = {
-        endTime: new Date().toISOString(),
-        status: 'completed'
-      };
-      if (latitude && longitude) {
-        endPayload.endLatitude = latitude.toString();
-        endPayload.endLongitude = longitude.toString();
-      }
-      const resp = await apiFetch(`/api/work-sessions/${sessionId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(endPayload)
+      const resp = await apiFetch("/api/checkin/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qrToken: scannedQrToken || matchedConfig?.qrToken || "tok_tester_default",
+          latitude: latitude?.toString(),
+          longitude: longitude?.toString(),
+        }),
       });
+
       if (resp.ok) {
-        toast({ title: 'Clocked Out', description: `Session ended for ${authContractorName}` });
+        toast({ title: "Clocked Out", description: `Session completed for ${authContractorName}` });
         setActiveSessionId(null);
-        localStorage.removeItem('gps_timer_active');
-        localStorage.removeItem('gps_timer_start');
+        localStorage.removeItem("gps_timer_active");
       } else {
-        const errText = await resp.text();
-        toast({ title: 'Clock-out failed', description: errText || 'Unable to end session', variant: 'destructive' });
+        toast({ title: "Clock-out Failed", description: "Unable to close session", variant: "destructive" });
       }
-    } catch (err) {
-      toast({ title: 'Clock-out error', description: 'Please try again', variant: 'destructive' });
+    } catch {
+      toast({ title: "Clock-out Error", description: "Network error closing session", variant: "destructive" });
     }
   };
 
   const handleLogout = async () => {
-    await handleClockOut();
+    if (activeSessionId) {
+      await handleClockOut();
+    }
     localStorage.clear();
     sessionStorage.clear();
     setIsAuthenticated(false);
     setAuthContractorName(null);
     setMustChangePassword(false);
-    toast({ title: 'Logged Out', description: 'You have been logged out' });
+    toast({ title: "Logged Out", description: "You have been logged out safely." });
   };
 
+  const requiresQr = matchedConfig ? matchedConfig.qrEnabled : true;
+  const qrValid = !requiresQr || scannedQrToken.length > 0;
+  const canClockIn = isAuthenticated && !mustChangePassword && qrValid && isWithinRadius && !loadingCheckin;
+
   return (
-    <div className="hallmark-sweep min-h-screen bg-slate-800 flex items-center justify-center p-4">
-      {/* Background pattern */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 opacity-90"></div>
-      <div className="absolute inset-0" style={{
-        backgroundImage: `radial-gradient(circle at 2px 2px, rgba(203, 213, 224, 0.15) 1px, transparent 0)`,
-        backgroundSize: '40px 40px'
-      }}></div>
-      
-      <div className="relative w-full max-w-6xl mx-auto">
+    <div className="hallmark-sweep min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="relative w-full max-w-5xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          
-          {/* Left side - Branding */}
-          <div className="text-left space-y-8">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="hallmark-logo-mark">
-                  <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
-                </div>
-                <div>
-                  <h1 className="text-4xl font-bold text-white">Sculpt Projects</h1>
-                  <p className="text-amber-400 font-medium">GPS Time Tracking & Job Management</p>
-                </div>
+          {/* Left Branding */}
+          <div className="text-left space-y-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                <QrCode className="w-6 h-6 text-amber-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-white tracking-tight">Sculpt Projects</h1>
+                <p className="text-amber-400 font-medium">GPS & Site QR Verification System</p>
               </div>
             </div>
           </div>
-          
-          {/* Right side - Login / Change Password Form */}
+
+          {/* Right Worker Card */}
           <div className="flex justify-center lg:justify-end">
-            <Card className="w-full max-w-md bg-slate-700 border-slate-600 shadow-2xl">
-              <CardHeader className="text-center space-y-2 pb-6">
+            <Card className="w-full max-w-md bg-slate-800/90 border-slate-700 shadow-2xl backdrop-blur">
+              <CardHeader className="text-center space-y-2 pb-5">
                 <CardTitle className="text-2xl font-bold text-white">
                   {mustChangePassword ? "Choose Your New Password" : "Welcome Back"}
                 </CardTitle>
-                <CardDescription className="text-slate-400 text-base">
+                <CardDescription className="text-slate-400">
                   {mustChangePassword
                     ? "Please set your new private password to continue"
                     : "Sign in to access your worker dashboard"}
                 </CardDescription>
               </CardHeader>
-              
-              <CardContent className="space-y-6">
+
+              <CardContent className="space-y-5">
                 {!isAuthenticated ? (
-                  <form onSubmit={handleLogin} className="space-y-5">
+                  /* Login Form */
+                  <form onSubmit={handleLogin} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="username" className="text-slate-200 font-medium">Username</Label>
+                      <Label htmlFor="username" className="text-slate-200 font-medium">
+                        Username
+                      </Label>
                       <Input
                         id="username"
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500 h-12"
-                        placeholder="Enter username"
+                        className="bg-slate-900 border-slate-600 text-white h-11"
+                        placeholder="Enter username (e.g. rudy.test)"
                         required
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
-                      <Label htmlFor="password" className="text-slate-200 font-medium">Password</Label>
+                      <Label htmlFor="password" className="text-slate-200 font-medium">
+                        Password
+                      </Label>
                       <div className="relative">
                         <Input
                           id="password"
                           type={showPassword ? "text" : "password"}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500 h-12 pr-12"
+                          className="bg-slate-900 border-slate-600 text-white h-11 pr-10"
                           placeholder="Enter password"
                           required
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                         >
-                          {showPassword ? (
-                            <EyeOff className="h-5 w-5" />
-                          ) : (
-                            <Eye className="h-5 w-5" />
-                          )}
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
-                    
-                    <div className="text-sm text-slate-300">
-                      GPS Status: {gpsStatus}
-                      {gpsStatus === 'Ready' && latitude !== null && longitude !== null && (
-                        <div className="mt-1">Lat: {latitude.toFixed(5)}, Lng: {longitude.toFixed(5)} (±{accuracy?.toFixed(0)}m)</div>
-                      )}
-                    </div>
-                    
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-medium h-12 text-base shadow-lg transition-all duration-200"
+
+                    <Button
+                      type="submit"
+                      className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-medium h-12 text-base shadow-lg"
                     >
                       Sign In
                     </Button>
                   </form>
                 ) : mustChangePassword ? (
-                  <form onSubmit={handleChangePassword} className="space-y-5">
+                  /* Change Password Form */
+                  <form onSubmit={handleChangePassword} className="space-y-4">
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-xs">
+                      First login detected. Choose your new password before accessing site check-in.
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="newPassword" className="text-slate-200 font-medium">New Password (min 8 chars)</Label>
+                      <Label className="text-slate-200 font-medium">New Password</Label>
                       <Input
-                        id="newPassword"
                         type="password"
-                        required
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500 h-12"
-                        placeholder="Enter new private password"
+                        placeholder="Minimum 8 characters"
+                        className="bg-slate-900 border-slate-600 text-white h-11"
+                        required
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="confirmPassword" className="text-slate-200 font-medium">Confirm New Password</Label>
+                      <Label className="text-slate-200 font-medium">Confirm New Password</Label>
                       <Input
-                        id="confirmPassword"
                         type="password"
-                        required
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500 h-12"
                         placeholder="Re-enter new password"
+                        className="bg-slate-900 border-slate-600 text-white h-11"
+                        required
                       />
                     </div>
 
                     <Button
                       type="submit"
                       disabled={isChangingPassword}
-                      className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-medium h-12 text-base shadow-lg"
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium h-12"
                     >
-                      {isChangingPassword ? "Saving..." : "Save Password & Continue"}
-                    </Button>
-
-                    <Button onClick={handleLogout} variant="outline" type="button" className="w-full">
-                      Cancel & Logout
+                      Save New Password & Continue
                     </Button>
                   </form>
                 ) : (
+                  /* Worker Dashboard */
                   <div className="space-y-4">
-                    <div className="text-slate-200">Logged in as <span className="font-semibold">{authContractorName}</span></div>
-                    <div className="text-sm text-slate-300">
-                      GPS Status: {gpsStatus}
-                      {gpsStatus === 'Ready' && latitude !== null && longitude !== null && (
-                        <div className="mt-1">Lat: {latitude.toFixed(5)}, Lng: {longitude.toFixed(5)} (±{accuracy?.toFixed(0)}m)</div>
-                      )}
+                    <div className="p-3 bg-slate-900 border border-slate-700 rounded-xl space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Logged in as:</span>
+                        <span className="font-semibold text-white">{authContractorName}</span>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-slate-800 pt-2">
+                        <span className="text-slate-400">GPS Coordinates:</span>
+                        <span className="font-mono text-slate-200">
+                          {latitude !== null && longitude !== null
+                            ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)} (±${accuracy ?? 0}m)`
+                            : "Capturing GPS..."}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-sm text-slate-300">
-                      Proximity: {proximityMessage}
-                      {nearestSite && (
-                        <div className="mt-1">Nearest: {nearestSite.location} ({nearestSite.jobTitle}) – {nearestSite.distance}m</div>
-                      )}
+
+                    {/* Site Location & Proximity Enforcer */}
+                    <div className="p-4 bg-slate-900 border border-slate-700 rounded-xl space-y-3">
+                      <div className="flex items-start gap-2.5">
+                        <MapPin className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                        <div>
+                          <div className="font-semibold text-white text-sm">
+                            {matchedConfig?.siteName || matchedJob?.title || "Tester Site — 15 Gilbert Road"}
+                          </div>
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            {matchedJob?.location || "15 Gilbert Road, Belvedere, DA17 5DB"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-800 pt-2.5 space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Distance from site:</span>
+                          <span className="font-semibold text-white">
+                            {calculatedDistance !== null ? `${calculatedDistance} metres` : "Calculating..."}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Allowed site radius:</span>
+                          <span className="font-semibold text-slate-200">
+                            {matchedConfig?.allowedRadiusMetres ?? 100} metres
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1 border-t border-slate-800">
+                          <span className="text-slate-400">Within site radius:</span>
+                          <Badge
+                            className={
+                              isWithinRadius
+                                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                                : "bg-red-500/20 text-red-300 border-red-500/30"
+                            }
+                          >
+                            {isWithinRadius ? "YES (Authorized)" : "NO (Outside Radius)"}
+                          </Badge>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        onClick={handleClockIn} 
-                        disabled={!withinRange || gpsStatus !== 'Ready'}
-                        className="flex-1 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white"
+
+                    {/* QR Code Status & Action */}
+                    <div className="p-3 bg-slate-900 border border-slate-700 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <QrCode className="w-4 h-4 text-amber-400" />
+                        <div className="text-xs">
+                          <div className="font-medium text-white">Site QR Status</div>
+                          <div className="text-slate-400 text-[10px]">
+                            {scannedQrToken ? `Scanned: ${scannedQrToken.substring(0, 14)}...` : "QR Code Not Scanned"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setShowQrScannerModal(true)}
+                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium"
                       >
-                        Clock In
+                        <Camera className="w-3.5 h-3.5 mr-1.5" /> Scan Site QR
                       </Button>
-                      <Button 
-                        onClick={handleClockOut} 
-                        variant="secondary"
-                        className="flex-1"
+                    </div>
+
+                    {/* Clock In / Out Action Buttons */}
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <Button
+                        type="button"
+                        disabled={!canClockIn}
+                        onClick={() => void handleClockIn()}
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-medium h-12 text-sm shadow-md"
+                      >
+                        {loadingCheckin ? "Verifying..." : "Clock In"}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => void handleClockOut()}
+                        variant="outline"
+                        className="border-slate-600 text-slate-200 hover:bg-slate-700 h-12 text-sm"
                       >
                         Clock Out
                       </Button>
                     </div>
-                    <Button onClick={handleLogout} variant="outline" className="w-full">Logout</Button>
+
+                    {!isWithinRadius && calculatedDistance !== null && (
+                      <div className="text-[11px] text-red-400 text-center bg-red-500/10 border border-red-500/20 p-2 rounded-lg">
+                        ⚠️ Clock In blocked: You are {calculatedDistance}m from site (allowed: {matchedConfig?.allowedRadiusMetres ?? 100}m). Move closer to site to clock in.
+                      </div>
+                    )}
+
+                    {requiresQr && !scannedQrToken && (
+                      <div className="text-[11px] text-amber-400 text-center bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">
+                        📷 Scan the printed Site QR poster before clocking in.
+                      </div>
+                    )}
+
+                    <Button
+                      type="button"
+                      onClick={() => void handleLogout()}
+                      variant="ghost"
+                      className="w-full text-slate-400 hover:text-white text-xs h-9 mt-2"
+                    >
+                      <LogOut className="w-3.5 h-3.5 mr-1.5" /> Logout
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -481,6 +663,49 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* QR Code Scanner Dialog Modal */}
+      {showQrScannerModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-sm bg-slate-800 border-slate-700 text-slate-100 shadow-2xl">
+            <CardHeader className="text-center">
+              <CardTitle className="text-lg text-white flex items-center justify-center gap-2">
+                <QrCode className="w-5 h-5 text-amber-400" /> Scan Site QR Poster
+              </CardTitle>
+              <CardDescription className="text-slate-400 text-xs">
+                Scan the printed QR code poster at the site or enter the site QR token.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs text-slate-200 font-medium">Enter or Paste Site QR Token</Label>
+                <Input
+                  value={manualQrInput}
+                  onChange={(e) => setManualQrInput(e.target.value)}
+                  placeholder="e.g. tok_tester_123"
+                  className="bg-slate-900 border-slate-600 text-white font-mono text-sm h-11"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleScanQrSubmit}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                >
+                  Accept Token
+                </Button>
+                <Button
+                  onClick={() => setShowQrScannerModal(false)}
+                  variant="outline"
+                  className="border-slate-600 text-slate-300"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

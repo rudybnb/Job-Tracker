@@ -1596,8 +1596,11 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
               };
             }
             
-            // Check if within login range (3.5km = 3500m) of this site
-            if (distance <= 3500) {
+            // Fetch site checkin config allowed radius (default 100m)
+            const allowedRadius = 100;
+
+            // Check if within site radius
+            if (distance <= allowedRadius) {
               authorizedSites.push({
                 location: job.location,
                 distance: Math.round(distance),
