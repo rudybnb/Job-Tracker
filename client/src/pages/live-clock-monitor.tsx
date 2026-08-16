@@ -141,6 +141,8 @@ export default function LiveClockMonitor() {
               {activeSessions.map((session: any) => {
                 const location = contractorLocations[session.contractorName];
                 const hasLocation = location && location.latitude && location.longitude;
+                const isCheckedOut = session.status === 'checked_out' || session.displayStatus === 'CHECKED OUT';
+                const statusLabel = session.displayStatus || (isCheckedOut ? 'CHECKED OUT' : 'ON SITE');
                 
                 return (
                   <div key={session.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
@@ -150,8 +152,10 @@ export default function LiveClockMonitor() {
                         <span className="text-white font-medium">{session.contractorName}</span>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-white text-xs px-2 py-1 bg-green-700 rounded">Active</span>
+                        <div className={`w-2 h-2 rounded-full ${isCheckedOut ? 'bg-slate-500' : 'bg-green-500'}`}></div>
+                        <span className={`text-white text-xs px-2 py-1 rounded ${isCheckedOut ? 'bg-slate-600' : 'bg-green-700'}`}>
+                          {statusLabel}
+                        </span>
                       </div>
                     </div>
                     
@@ -166,6 +170,15 @@ export default function LiveClockMonitor() {
                         </span>
                       </div>
                       
+                      {isCheckedOut && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 text-sm">Check-out Time</span>
+                          <span className="text-slate-300 text-sm">
+                            {session.checkedOutAt || 'Unknown'}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400 text-sm">Location</span>
                         <span className={`text-xs px-2 py-1 rounded ${hasLocation ? 'bg-green-700 text-white' : 'bg-yellow-700 text-white'}`}>
