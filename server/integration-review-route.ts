@@ -48,6 +48,7 @@ export function requireAdmin(
   const hasIdentity = rawUsername.length > 0;
 
   if (!isAdminRole || !hasIdentity) {
+    console.warn(`[AUTH] requireAdmin DENIED ${request.method} ${request.path} - sessionExists: ${!!session}, role: "${rawRole}", hasIdentity: ${hasIdentity}`);
     response.status(401).json({ error: "Unauthorized" });
     return;
   }

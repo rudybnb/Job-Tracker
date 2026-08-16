@@ -34,6 +34,7 @@ import { createJarvisIdentityResolverRouter, SqlJarvisIdentityResolver } from ".
 import { createWorkerRouter } from "./worker-routes.ts";
 
 const app = express();
+app.set("trust proxy", 1);
 // Allow mobile WebView (capacitor://localhost) and other origins to call the API
 app.use(cors({ origin: true, credentials: true }));
 
