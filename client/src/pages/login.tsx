@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, QrCode, MapPin, CheckCircle, AlertTriangle, LogOut, Camera } from "lucide-react";
+import { Eye, EyeOff, QrCode, MapPin, CheckCircle, AlertTriangle, LogOut, Camera, X } from "lucide-react";
 import { getCurrentLocation, calculateDistanceMetres } from "@/lib/location";
 import { apiFetch } from "@/lib/api";
 import "./hallmark-sweep.css";
@@ -28,6 +29,19 @@ interface Job {
   location: string;
   latitude?: string | null;
   longitude?: string | null;
+}
+
+function extractTokenFromUrlOrText(input: string): string {
+  if (!input) return "";
+  const trimmed = input.trim();
+  try {
+    const url = new URL(trimmed);
+    const token = url.searchParams.get("t") || url.searchParams.get("qrToken") || url.searchParams.get("token");
+    if (token) return token.trim();
+  } catch {
+    // Not a URL: use literal string
+  }
+  return trimmed;
 }
 
 export default function Login() {
@@ -54,23 +68,48 @@ export default function Login() {
   const [scannedQrToken, setScannedQrToken] = useState<string>("");
   const [manualQrInput, setManualQrInput] = useState<string>("");
   const [showQrScannerModal, setShowQrScannerModal] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [matchedConfig, setMatchedConfig] = useState<SiteConfig | null>(null);
   const [matchedJob, setMatchedJob] = useState<Job | null>(null);
   const [calculatedDistance, setCalculatedDistance] = useState<number | null>(null);
   const [isWithinRadius, setIsWithinRadius] = useState<boolean>(false);
   const [loadingCheckin, setLoadingCheckin] = useState(false);
 
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerDivId = "login-qr-scanner-modal";
+
   const { toast } = useToast();
 
-  // Auto-capture QR token from URL parameters (e.g. ?qrToken=tok_... or ?token=tok_...)
+  // Check login state on mount
+  useEffect(() => {
+    const loggedIn = localStorage.getItem("isLoggedIn") === "true";
+    const role = localStorage.getItem("userRole");
+    const contractor = localStorage.getItem("contractorName");
+
+    if (loggedIn && role === "contractor" && contractor) {
+      setIsAuthenticated(true);
+      setAuthContractorName(contractor);
+    }
+  }, []);
+
+  // Auto-capture QR token on mount from URL parameters or sessionStorage
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const tokenFromUrl = params.get("qrToken") || params.get("token");
-    if (tokenFromUrl) {
-      setScannedQrToken(tokenFromUrl.trim());
+    let token = params.get("t") || params.get("qrToken") || params.get("token");
+
+    if (!token) {
+      token = sessionStorage.getItem("pendingQrToken");
+      if (token) {
+        sessionStorage.removeItem("pendingQrToken");
+      }
+    }
+
+    if (token && token.trim().length > 0) {
+      const cleanToken = extractTokenFromUrlOrText(token);
+      setScannedQrToken(cleanToken);
       toast({
-        title: "QR Code Detected",
-        description: "Scanned QR poster token captured from URL.",
+        title: "Site QR Code Verified",
+        description: "QR poster token captured successfully.",
       });
     }
   }, []);
@@ -98,7 +137,7 @@ export default function Login() {
     };
   }, []);
 
-  // Whenever worker GPS or QR token or login state updates, evaluate site config & proximity
+  // Evaluate site proximity when GPS or QR token updates
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -121,11 +160,8 @@ export default function Login() {
           if (Array.isArray(jobData)) jobs = jobData;
         }
 
-        // 1. Identify matched site config from scanned QR token or assigned site
         let targetConfig: SiteConfig | null = null;
-
         if (configs.length > 0) {
-          // Default to first configured site (or Tester job)
           targetConfig = configs[0];
         }
 
@@ -135,7 +171,6 @@ export default function Login() {
           const targetJob = jobs.find((j) => j.id === targetConfig?.jobId);
           setMatchedJob(targetJob ?? null);
 
-          // Calculate precise distance from worker coordinates to site coordinates
           if (latitude !== null && longitude !== null) {
             const siteLat = parseFloat(targetConfig.siteLatitude);
             const siteLng = parseFloat(targetConfig.siteLongitude);
@@ -154,14 +189,62 @@ export default function Login() {
     })();
   }, [isAuthenticated, latitude, longitude, scannedQrToken]);
 
+  // Start live HTML5 camera scanner when modal opens
+  useEffect(() => {
+    if (!showQrScannerModal) {
+      if (scannerRef.current) {
+        void scannerRef.current.stop().catch(() => undefined);
+        scannerRef.current = null;
+      }
+      setCameraError(null);
+      return;
+    }
+
+    let isMounted = true;
+    setCameraError(null);
+
+    const timer = setTimeout(() => {
+      if (!isMounted) return;
+      const scanner = new Html5Qrcode(scannerDivId);
+      scannerRef.current = scanner;
+
+      scanner
+        .start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          (decodedText) => {
+            const token = extractTokenFromUrlOrText(decodedText);
+            if (token) {
+              setScannedQrToken(token);
+              setShowQrScannerModal(false);
+              toast({ title: "QR Code Verified!", description: `Scanned token: ${token.substring(0, 14)}...` });
+            }
+          },
+          () => undefined,
+        )
+        .catch((err) => {
+          console.warn("Camera start failed:", err);
+          if (isMounted) {
+            setCameraError("Camera unavailable or permission denied. Scan printed poster with native phone camera.");
+          }
+        });
+    }, 200);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+      if (scannerRef.current) {
+        void scannerRef.current.stop().catch(() => undefined);
+        scannerRef.current = null;
+      }
+    };
+  }, [showQrScannerModal]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    localStorage.clear();
-    sessionStorage.clear();
-
     try {
-      // 1. Try Staff/Admin login
+      // 1. Admin login
       const adminResponse = await apiFetch("/api/simple-admin-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -175,14 +258,11 @@ export default function Login() {
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("adminName", staff.fullName || staff.username);
         window.location.href = "/admin";
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${staff.fullName || staff.username}!`,
-        });
+        toast({ title: "Login Successful", description: `Welcome back, ${staff.fullName || staff.username}!` });
         return;
       }
 
-      // 2. Contractor Worker login
+      // 2. Contractor login
       const response = await apiFetch("/api/simple-contractor-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -203,6 +283,13 @@ export default function Login() {
         setAuthContractorName(contractor.fullName || contractor.username);
         setMustChangePassword(needsPasswordChange);
 
+        // Check if there was a pending QR token from url/sessionStorage
+        const pendingToken = sessionStorage.getItem("pendingQrToken");
+        if (pendingToken) {
+          setScannedQrToken(extractTokenFromUrlOrText(pendingToken));
+          sessionStorage.removeItem("pendingQrToken");
+        }
+
         toast({
           title: "Login Successful",
           description: needsPasswordChange
@@ -210,19 +297,11 @@ export default function Login() {
             : `Welcome back, ${contractor.fullName || contractor.username}!`,
         });
       } else {
-        toast({
-          title: "Login Failed",
-          description: "Invalid username or password",
-          variant: "destructive",
-        });
+        toast({ title: "Login Failed", description: "Invalid username or password", variant: "destructive" });
       }
     } catch (error) {
       console.error("Login error:", error);
-      toast({
-        title: "Login Failed",
-        description: "Unable to connect to server",
-        variant: "destructive",
-      });
+      toast({ title: "Login Failed", description: "Unable to connect to server", variant: "destructive" });
     }
   };
 
@@ -261,14 +340,15 @@ export default function Login() {
     }
   };
 
-  const handleScanQrSubmit = () => {
-    if (!manualQrInput.trim()) {
+  const handleManualQrSubmit = () => {
+    const cleanToken = extractTokenFromUrlOrText(manualQrInput);
+    if (!cleanToken) {
       toast({ title: "QR Input Required", description: "Please scan or enter the site QR token", variant: "destructive" });
       return;
     }
-    setScannedQrToken(manualQrInput.trim());
+    setScannedQrToken(cleanToken);
     setShowQrScannerModal(false);
-    toast({ title: "QR Code Accepted", description: `Site QR token set: ${manualQrInput.trim()}` });
+    toast({ title: "QR Code Accepted", description: `Token set: ${cleanToken.substring(0, 14)}...` });
   };
 
   const handleClockIn = async () => {
@@ -303,7 +383,6 @@ export default function Login() {
     setLoadingCheckin(true);
 
     try {
-      // 1. Submit check-in via canonical QR + GPS endpoint POST /api/checkin/attempt
       const attemptResp = await apiFetch("/api/checkin/attempt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -325,14 +404,12 @@ export default function Login() {
       if (attemptResp.ok && attemptResult.accepted) {
         setActiveSessionId(attemptResult.workSessionId ?? "active-session");
         localStorage.setItem("gps_timer_active", "true");
-        localStorage.setItem("gps_timer_start", new Date().toISOString());
 
         toast({
           title: "Clock-In Successful!",
           description: `Verified QR + GPS clock-in for ${authContractorName} on ${matchedConfig?.siteName ?? "Tester Site"}.`,
         });
       } else {
-        // Fallback: If legacy endpoint needed, pass canonical jobId
         const canonicalJobId = matchedConfig?.jobId || matchedJob?.id || "j-tester-123";
         const fallbackResp = await apiFetch("/api/work-sessions", {
           method: "POST",
@@ -601,7 +678,7 @@ export default function Login() {
                         <div className="text-xs">
                           <div className="font-medium text-white">Site QR Status</div>
                           <div className="text-slate-400 text-[10px]">
-                            {scannedQrToken ? `Scanned: ${scannedQrToken.substring(0, 14)}...` : "QR Code Not Scanned"}
+                            {scannedQrToken ? `Verified: ${scannedQrToken.substring(0, 14)}...` : "QR Code Not Scanned"}
                           </div>
                         </div>
                       </div>
@@ -644,7 +721,7 @@ export default function Login() {
 
                     {requiresQr && !scannedQrToken && (
                       <div className="text-[11px] text-amber-400 text-center bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">
-                        📷 Scan the printed Site QR poster before clocking in.
+                        📷 Scan printed Site QR poster (or tap Scan Site QR Code) before clocking in.
                       </div>
                     )}
 
@@ -664,43 +741,59 @@ export default function Login() {
         </div>
       </div>
 
-      {/* QR Code Scanner Dialog Modal */}
+      {/* QR Code Camera Scanner Modal */}
       {showQrScannerModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-sm bg-slate-800 border-slate-700 text-slate-100 shadow-2xl">
-            <CardHeader className="text-center">
-              <CardTitle className="text-lg text-white flex items-center justify-center gap-2">
-                <QrCode className="w-5 h-5 text-amber-400" /> Scan Site QR Poster
-              </CardTitle>
-              <CardDescription className="text-slate-400 text-xs">
-                Scan the printed QR code poster at the site or enter the site QR token.
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div>
+                <CardTitle className="text-lg text-white flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-amber-400" /> Scan Site QR Poster
+                </CardTitle>
+                <CardDescription className="text-slate-400 text-xs">
+                  Point camera at the printed Site QR poster
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowQrScannerModal(false)}
+                className="text-slate-400 hover:text-white p-1 h-auto"
+              >
+                <X className="w-5 h-5" />
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs text-slate-200 font-medium">Enter or Paste Site QR Token</Label>
-                <Input
-                  value={manualQrInput}
-                  onChange={(e) => setManualQrInput(e.target.value)}
-                  placeholder="e.g. tok_tester_123"
-                  className="bg-slate-900 border-slate-600 text-white font-mono text-sm h-11"
-                />
+              {/* HTML5 Live Camera Container */}
+              <div className="relative overflow-hidden rounded-xl border border-slate-700 bg-black min-h-[250px]">
+                <div id={scannerDivId} className="w-full h-full" />
+
+                {cameraError && (
+                  <div className="p-4 text-center text-xs text-amber-300 space-y-2 bg-slate-900/90">
+                    <AlertTriangle className="w-6 h-6 text-amber-400 mx-auto" />
+                    <div>{cameraError}</div>
+                  </div>
+                )}
               </div>
 
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleScanQrSubmit}
-                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium"
-                >
-                  Accept Token
-                </Button>
-                <Button
-                  onClick={() => setShowQrScannerModal(false)}
-                  variant="outline"
-                  className="border-slate-600 text-slate-300"
-                >
-                  Cancel
-                </Button>
+              {/* Manual Token Debug Fallback */}
+              <div className="border-t border-slate-700 pt-3 space-y-2">
+                <Label className="text-[11px] text-slate-400 font-medium">Admin / Manual Token Fallback</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={manualQrInput}
+                    onChange={(e) => setManualQrInput(e.target.value)}
+                    placeholder="Enter or paste token..."
+                    className="bg-slate-900 border-slate-600 text-white font-mono text-xs h-9 flex-1"
+                  />
+                  <Button
+                    onClick={handleManualQrSubmit}
+                    size="sm"
+                    className="bg-amber-600 hover:bg-amber-700 text-white text-xs"
+                  >
+                    Set
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

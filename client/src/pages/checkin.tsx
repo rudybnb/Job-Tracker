@@ -57,7 +57,28 @@ export default function CheckIn() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const tokenRef = useRef<string | null>(null);
 
+  // Auto-capture QR token on mount from URL query params or sessionStorage
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    let token = params.get("t") || params.get("qrToken") || params.get("token");
+
+    if (!token) {
+      token = sessionStorage.getItem("pendingQrToken");
+      if (token) {
+        sessionStorage.removeItem("pendingQrToken");
+      }
+    }
+
+    if (token && token.trim().length > 0) {
+      const cleanToken = token.trim();
+      tokenRef.current = cleanToken;
+      void checkCurrentSession(cleanToken).then((active) => {
+        if (!active) {
+          void submitCheckIn(cleanToken);
+        }
+      });
+    }
+
     return () => {
       if (scannerRef.current) {
         void scannerRef.current.stop().catch(() => undefined);
@@ -242,10 +263,8 @@ export default function CheckIn() {
           scannerRef.current = null;
           if (token) {
             tokenRef.current = token;
-            // Check whether this worker already has an active session for the site first.
             void checkCurrentSession(token).then((active) => {
               if (!active) {
-                // No active session found: proceed to the normal check-in action.
                 void submitCheckIn(token);
               }
             });
@@ -274,14 +293,14 @@ export default function CheckIn() {
         <CardHeader>
           <CardTitle>Site Check In / Out</CardTitle>
           <CardDescription>
-            Scan the site QR, then we verify your phone GPS before accepting your check-in or check-out.
+            Scan the site QR poster, then we verify your phone GPS before accepting your check-in or check-out.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {flow.kind === "idle" && (
             <div style={{ textAlign: "center" }}>
               <Button onClick={() => void beginScan()} size="lg">
-                Scan Site QR
+                Scan Site QR Code
               </Button>
             </div>
           )}
@@ -374,7 +393,7 @@ export default function CheckIn() {
 function extractToken(decodedText: string): string | null {
   try {
     const url = new URL(decodedText);
-    const token = url.searchParams.get("t");
+    const token = url.searchParams.get("t") || url.searchParams.get("qrToken") || url.searchParams.get("token");
     if (token && token.trim().length > 0) return token.trim();
   } catch {
     // Not a URL: treat the raw decoded value as the token.

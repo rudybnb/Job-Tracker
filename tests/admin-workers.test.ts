@@ -6,6 +6,19 @@ import { hashPassword, verifyPassword } from "../server/password-security.ts";
 import { parseDmsOrDecimal } from "../client/src/lib/geo-utils.ts";
 import { calculateDistanceMetres } from "../client/src/lib/location.ts";
 
+function extractTokenFromUrlOrText(input: string): string {
+  if (!input) return "";
+  const trimmed = input.trim();
+  try {
+    const url = new URL(trimmed);
+    const token = url.searchParams.get("t") || url.searchParams.get("qrToken") || url.searchParams.get("token");
+    if (token) return token.trim();
+  } catch {
+    // Not a URL
+  }
+  return trimmed;
+}
+
 describe("Worker Management - Phone Normalisation", () => {
   it("normalises UK local mobile numbers (07xxx -> +447xxx)", () => {
     assert.equal(normalizePhoneE164("07123456789"), "+447123456789");
@@ -122,11 +135,9 @@ describe("Worker First-Login Password Change Logic", () => {
     const newPrivate = "MyPrivatePassword2026!";
     const hash = await hashPassword(newPrivate);
 
-    // Old temporary password fails
     const oldCheck = await verifyPassword(oldTemp, hash);
     assert.equal(oldCheck, false);
 
-    // New password succeeds
     const newCheck = await verifyPassword(newPrivate, hash);
     assert.equal(newCheck, true);
   });
@@ -189,6 +200,26 @@ describe("Site QR & GPS Admin Coordinates and DMS Parsing", () => {
   it("returns null for invalid coordinate inputs", () => {
     assert.equal(parseDmsOrDecimal("invalid_coords"), null);
     assert.equal(parseDmsOrDecimal(""), null);
+  });
+});
+
+describe("Site QR Poster URL & Token Parsing", () => {
+  it("extracts qrToken from HTTPS checkin URL with ?t= parameter", () => {
+    const url = "https://job-tracker-6evs.onrender.com/checkin?t=tok_tester_123456";
+    const token = extractTokenFromUrlOrText(url);
+    assert.equal(token, "tok_tester_123456");
+  });
+
+  it("extracts qrToken from HTTPS checkin URL with ?qrToken= parameter", () => {
+    const url = "https://job-tracker-6evs.onrender.com/login?qrToken=tok_tester_789";
+    const token = extractTokenFromUrlOrText(url);
+    assert.equal(token, "tok_tester_789");
+  });
+
+  it("returns literal raw string if scanned text is a direct token", () => {
+    const directToken = "tok_raw_direct_999";
+    const token = extractTokenFromUrlOrText(directToken);
+    assert.equal(token, "tok_raw_direct_999");
   });
 });
 
