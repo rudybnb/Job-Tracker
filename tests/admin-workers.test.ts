@@ -2,6 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { normalizePhoneE164 } from "../server/worker-service.ts";
 import { createWorkerRouter } from "../server/worker-routes.ts";
+import { requireAdmin } from "../server/integration-review-route.ts";
+import express from "express";
 
 describe("Worker Management - Phone Normalisation", () => {
   it("normalises UK local mobile numbers (07xxx -> +447xxx)", () => {
@@ -24,6 +26,68 @@ describe("Worker Management - Phone Normalisation", () => {
   it("returns empty string if empty", () => {
     assert.equal(normalizePhoneE164(""), "");
     assert.equal(normalizePhoneE164("   "), "");
+  });
+});
+
+describe("Admin Authentication Guard (requireAdmin)", () => {
+  it("allows access for admin session with lowercase role 'admin'", () => {
+    let nextCalled = false;
+    const req = { session: { role: "admin", username: "admin" } } as any;
+    const res = { status: () => res, json: () => res } as any;
+    requireAdmin(req, res, () => {
+      nextCalled = true;
+    });
+    assert.equal(nextCalled, true);
+  });
+
+  it("allows access for admin session with uppercase role 'ADMIN' and userId", () => {
+    let nextCalled = false;
+    const req = { session: { role: "ADMIN", userId: "env-admin", adminName: "System Admin" } } as any;
+    const res = { status: () => res, json: () => res } as any;
+    requireAdmin(req, res, () => {
+      nextCalled = true;
+    });
+    assert.equal(nextCalled, true);
+  });
+
+  it("rejects non-admin role with 401 Unauthorized", () => {
+    let statusCode = 0;
+    let jsonBody: any = null;
+    const req = { session: { role: "contractor", username: "john" } } as any;
+    const res = {
+      status: (code: number) => {
+        statusCode = code;
+        return res;
+      },
+      json: (body: any) => {
+        jsonBody = body;
+        return res;
+      },
+    } as any;
+
+    requireAdmin(req, res, () => {});
+    assert.equal(statusCode, 401);
+    assert.equal(jsonBody?.error, "Unauthorized");
+  });
+
+  it("rejects unauthenticated request (missing session) with 401 Unauthorized", () => {
+    let statusCode = 0;
+    let jsonBody: any = null;
+    const req = {} as any;
+    const res = {
+      status: (code: number) => {
+        statusCode = code;
+        return res;
+      },
+      json: (body: any) => {
+        jsonBody = body;
+        return res;
+      },
+    } as any;
+
+    requireAdmin(req, res, () => {});
+    assert.equal(statusCode, 401);
+    assert.equal(jsonBody?.error, "Unauthorized");
   });
 });
 
@@ -72,11 +136,11 @@ describe("Worker API Handlers & Site Assignment", () => {
   it("builds clean worker response object with newly assigned site fields", () => {
     const worker = {
       id: "w-uuid-1234",
-      firstName: "Ahmed",
-      lastName: "Gouda",
-      fullName: "Ahmed Gouda",
-      phone: "+447999888777",
-      email: "ahmed@example.com",
+      firstName: "Mohamed",
+      lastName: "Shawky",
+      fullName: "Mohamed Shawky",
+      phone: "+447405619186",
+      email: null,
       workerType: "DIRECT_SELF_EMPLOYED",
       isActive: true,
       contractorId: null,
@@ -88,7 +152,7 @@ describe("Worker API Handlers & Site Assignment", () => {
       assignedJobLocation: "165 Powis Street, Woolwich Arsenal, SE18 6JW",
     };
 
-    assert.equal(worker.fullName, "Ahmed Gouda");
+    assert.equal(worker.fullName, "Mohamed Shawky");
     assert.equal(worker.assignedJobId, "job-uuid-powis-165");
     assert.equal(worker.assignedJobTitle, "165 Powis Street");
     assert.equal(worker.isActive, true);

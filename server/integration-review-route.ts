@@ -12,7 +12,14 @@ const MAX_NOTE_LENGTH = 2000;
 export interface ReviewRouteSession {
   readonly userId?: unknown;
   readonly username?: string;
+  readonly adminName?: string;
   readonly role?: string;
+  readonly userRole?: string;
+  readonly user?: {
+    readonly id?: unknown;
+    readonly username?: string;
+    readonly role?: string;
+  };
 }
 
 interface AdminSessionRequest extends Request {
@@ -29,12 +36,18 @@ export function requireAdmin(
   next: NextFunction,
 ): void {
   const session = request.session;
-  if (
-    session === undefined ||
-    session.role !== "admin" ||
-    typeof session.username !== "string" ||
-    session.username.trim().length === 0
-  ) {
+  if (!session) {
+    response.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const rawRole = (session.role || session.userRole || session.user?.role || "").toString().trim().toLowerCase();
+  const rawUsername = (session.username || session.adminName || session.user?.username || session.userId || session.user?.id || "").toString().trim();
+
+  const isAdminRole = rawRole === "admin" || rawRole === "superadmin" || rawRole === "administrator";
+  const hasIdentity = rawUsername.length > 0;
+
+  if (!isAdminRole || !hasIdentity) {
     response.status(401).json({ error: "Unauthorized" });
     return;
   }
