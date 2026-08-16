@@ -37,6 +37,7 @@ export const CHECKIN_ATTEMPT_ROUTE = "/api/checkin/attempt";
 export const SITE_CHECKIN_ADMIN_PREFIX = "/api/admin/site-checkin";
 export const CHECKOUT_ROUTE = "/api/checkin/checkout";
 export const CURRENT_SESSION_ROUTE = "/api/checkin/current-session";
+export const SITE_CONFIG_WORKER_ROUTE = "/api/checkin/site-config";
 
 const GPS_ACCURACY_MAX = 10_000; // reject absurd accuracy values in metres
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -369,6 +370,35 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
       } catch (error) {
         console.error("Error processing site check-out:", error);
         return response.status(500).json({ error: "Internal server error" });
+      }
+    },
+  );
+
+  router.get(
+    SITE_CONFIG_WORKER_ROUTE,
+    requireCheckInSession,
+    async (request: Request, response: Response) => {
+      try {
+        const configs = await options.store.listConfigs();
+        if (configs.length === 0) {
+          return response.status(404).json({ error: "No site check-in policy configured" });
+        }
+
+        const target = configs[0];
+        return response.status(200).json({
+          config: {
+            jobId: target.jobId,
+            siteName: target.siteName,
+            siteLatitude: target.siteLatitude,
+            siteLongitude: target.siteLongitude,
+            allowedRadiusMetres: target.allowedRadiusMetres,
+            qrEnabled: target.qrEnabled,
+            gpsEnabled: target.gpsEnabled,
+          },
+        });
+      } catch (error: any) {
+        console.error("Error fetching worker site config:", error);
+        return response.status(500).json({ error: "Failed to load site config" });
       }
     },
   );

@@ -143,26 +143,21 @@ export default function Login() {
 
     void (async () => {
       try {
-        const [configsRes, jobsRes] = await Promise.all([
-          apiFetch("/api/admin/site-checkin/configs"),
+        const [configRes, jobsRes] = await Promise.all([
+          apiFetch("/api/checkin/site-config"),
           apiFetch("/api/jobs"),
         ]);
 
-        let configs: SiteConfig[] = [];
+        let targetConfig: SiteConfig | null = null;
         let jobs: Job[] = [];
 
-        if (configsRes.ok) {
-          const cfgData = await configsRes.json();
-          configs = Array.isArray(cfgData?.configs) ? cfgData.configs : Array.isArray(cfgData) ? cfgData : [];
+        if (configRes.ok) {
+          const cfgData = await configRes.json();
+          targetConfig = cfgData?.config ?? null;
         }
         if (jobsRes.ok) {
           const jobData = await jobsRes.json();
           if (Array.isArray(jobData)) jobs = jobData;
-        }
-
-        let targetConfig: SiteConfig | null = null;
-        if (configs.length > 0) {
-          targetConfig = configs[0];
         }
 
         setMatchedConfig(targetConfig);

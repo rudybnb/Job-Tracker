@@ -2,93 +2,26 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import ContextualTooltip from "@/components/contextual-tooltip";
 import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
-import { InspectionIssues } from "@/components/inspection-issues";
 import { apiFetch } from "@/lib/api";
-import { getCurrentLocation } from "@/lib/location";
+import { getCurrentLocation, calculateDistanceMetres } from "@/lib/location";
+import { QrCode, Camera, MapPin, CheckCircle, AlertTriangle, Clock, LogOut } from "lucide-react";
 import "./hallmark-sweep.css";
 
-
-
-
-// Active Assignment Component
-function ActiveAssignmentContent({ nearestJobSite }: { nearestJobSite?: any }) {
-  // Get contractor name from localStorage
-  const loggedInContractor = localStorage.getItem('contractorName') || 'James Wilson';
-  const contractorFirstName = loggedInContractor.split(' ')[0];
-  
-  const { data: assignments = [], isLoading } = useQuery({
-    queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
-  });
-
-  // Fetch uploaded jobs with detailed CSV task data
-  const { data: uploadedJobs = [] } = useQuery<any[]>({
-    queryKey: ["/api/uploaded-jobs"],
-  });
-
-  if (isLoading) {
-    return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-        <div className="text-slate-400 text-sm">Loading assignments...</div>
-      </div>
-    );
-  }
-
-  if ((assignments as any[]).length === 0) {
-    return (
-      <div className="text-center py-8">
-        <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-          <i className="fas fa-briefcase text-slate-500 text-3xl"></i>
-        </div>
-        <h3 className="text-lg font-semibold mb-2">No Active Assignment</h3>
-        <div className="text-slate-400 text-sm">
-          You don't have any active assignments at the moment. Check with your supervisor for new work.
-        </div>
-      </div>
-    );
-  }
-
-  // FIXED: Display ALL assignments, not just the first one
-  const validAssignments = assignments as any[];
-
-  return (
-    <div className="space-y-3">
-      {validAssignments.map((assignment: any, index: number) => (
-        <div key={assignment.id} className="bg-slate-700 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <i className="fas fa-map-marker-alt text-yellow-400"></i>
-              <div>
-                <div className="text-white font-medium text-lg">{assignment.workLocation}</div>
-                <div className="text-slate-400 text-sm">{assignment.hbxlJob}</div>
-              </div>
-            </div>
-            <Badge className="bg-yellow-500 text-black text-xs px-2 py-1">
-              active
-            </Badge>
-          </div>
-          {assignment.buildPhases && assignment.buildPhases.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {assignment.buildPhases.map((phase: string, idx: number) => (
-                <span 
-                  key={idx}
-                  className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded"
-                >
-                  {phase}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
+interface SiteCheckinConfig {
+  id: string;
+  jobId: string;
+  siteName: string | null;
+  siteLatitude: string;
+  siteLongitude: string;
+  allowedRadiusMetres: number;
+  qrEnabled: boolean;
+  gpsEnabled: boolean;
+  qrToken?: string;
 }
-
-
 
 interface GPSPosition {
   latitude: number;
@@ -99,962 +32,385 @@ interface GPSPosition {
 export default function GPSDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  // Debug localStorage contents at dashboard load
-  const userRole = localStorage.getItem('userRole');
-  const adminName = localStorage.getItem('adminName');
-  const contractorName = localStorage.getItem('contractorName');
-  
-  console.log('🚨 GPS DASHBOARD ACCESS ATTEMPT:', {
-    userRole,
-    adminName, 
-    contractorName,
-    isAdmin: userRole === 'admin',
-    shouldRedirect: userRole === 'admin'
-  });
-  
-  // CRITICAL: If admin user reached GPS dashboard, redirect to admin
-  if (userRole === 'admin') {
-    console.log('🚫 ADMIN USER BLOCKED FROM GPS DASHBOARD - Redirecting to /admin');
-    window.location.href = '/admin';
-    return <div>Redirecting admin to dashboard...</div>;
+
+  const userRole = localStorage.getItem("userRole");
+  const contractorName = localStorage.getItem("contractorName");
+
+  // Block Admin users from worker GPS dashboard
+  if (userRole === "admin") {
+    window.location.href = "/admin";
+    return <div>Redirecting admin...</div>;
   }
-  
-  // Get contractor name from localStorage - enforce authentication
+
   if (!contractorName) {
-    console.log('❌ No contractor name found - redirecting to login');
-    window.location.href = '/login';
+    window.location.href = "/login";
     return null;
   }
-  const contractorFirstName = contractorName.split(' ')[0]; // Extract first name for API calls
-  
-  // Generate initials from contractor name
+
+  const contractorFirstName = contractorName.split(" ")[0];
+
   const getContractorInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   };
-  
-  // Initialize workflow help for GPS tracking
+
   const workflowHelp = useWorkflowHelp(WORKFLOW_CONFIGS.gpsTracking);
-  
-  const [currentTime, setCurrentTime] = useState(() => {
-    return localStorage.getItem('gps_timer_current') || "00:00:00";
-  });
-  const [isTracking, setIsTracking] = useState(() => {
-    return localStorage.getItem('gps_timer_active') === 'true';
-  });
-  const [startTime, setStartTime] = useState<Date | null>(() => {
-    const saved = localStorage.getItem('gps_timer_start');
-    return saved ? new Date(saved) : null;
-  });
-  const [gpsPosition, setGpsPosition] = useState<GPSPosition | null>(null);
-  const [gpsStatus, setGpsStatus] = useState<"Good" | "Poor" | "Unavailable" | string>("Unavailable");
-  const [showDropdown, setShowDropdown] = useState(false);
+
+  const [currentTime, setCurrentTime] = useState(() => localStorage.getItem("gps_timer_current") || "00:00:00");
+  const [isTracking, setIsTracking] = useState(false);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [userLocation, setUserLocation] = useState<GPSPosition | null>(null);
+  const [gpsStatus, setGpsStatus] = useState<string>("Requesting Location...");
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [scannedQrToken, setScannedQrToken] = useState<string>("");
 
-  // Check for existing active session on load
-  const { data: activeSession } = useQuery({
+  // Auto-capture QR token on mount from URL search params or sessionStorage
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    let token = params.get("t") || params.get("qrToken") || params.get("token");
+    if (!token) {
+      token = sessionStorage.getItem("pendingQrToken");
+      if (token) sessionStorage.removeItem("pendingQrToken");
+    }
+    if (token && token.trim().length > 0) {
+      setScannedQrToken(token.trim());
+      toast({ title: "Site QR Code Verified", description: "QR poster token captured successfully." });
+    }
+  }, []);
+
+  // Check DB for actual active work session on load
+  const { data: activeSession, isLoading: sessionLoading } = useQuery({
     queryKey: [`/api/work-sessions/${contractorFirstName}/active`],
     queryFn: async () => {
-      const response = await apiFetch(`/api/work-sessions/${contractorFirstName}/active`);
-      if (response.status === 404) return null; // No active session
-      if (!response.ok) throw new Error('Failed to fetch active session');
+      const response = await apiFetch(`/api/work-sessions/${encodeURIComponent(contractorFirstName)}/active`);
+      if (response.status === 404) return null;
+      if (!response.ok) return null;
       return response.json();
     },
     retry: false,
   });
 
-  // Mutations for work sessions
-  const startSessionMutation = useMutation({
-    mutationFn: async (sessionData: any) => {
-      const response = await apiFetch('/api/work-sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sessionData)
-      });
-      if (!response.ok) throw new Error('Failed to start session');
-      return response.json();
-    },
-    onSuccess: (session) => {
-      setActiveSessionId(session.id);
-      queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorFirstName}/active`] });
-      console.log('✅ Work session started in database:', session.id);
-    }
-  });
-
-  const endSessionMutation = useMutation({
-    mutationFn: async ({ sessionId, sessionData }: { sessionId: string, sessionData: any }) => {
-      const response = await apiFetch(`/api/work-sessions/${sessionId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sessionData)
-      });
-      if (!response.ok) throw new Error('Failed to end session');
-      return response.json();
-    },
-    onSuccess: (session) => {
+  // Only activate timer if DB confirms a real active session!
+  useEffect(() => {
+    if (activeSession && activeSession.id && activeSession.status === "active") {
+      setIsTracking(true);
+      setActiveSessionId(activeSession.id);
+      if (activeSession.startTime) {
+        setStartTime(new Date(activeSession.startTime));
+      }
+    } else if (activeSession === null) {
+      setIsTracking(false);
       setActiveSessionId(null);
-      queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorFirstName}/active`] });
-      console.log('✅ Work session ended in database:', session.totalHours);
+      localStorage.removeItem("gps_timer_active");
+      localStorage.removeItem("gps_timer_start");
     }
-  });
+  }, [activeSession]);
 
-  // Get current assignment data for GPS coordinates
-  const { data: assignments = [] } = useQuery({
-    queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
-  });
-  
-  // Type guard for assignments
-  const typedAssignments = assignments as any[];
-
-  // Send GPS location updates to server for live tracking
-  const sendLocationUpdate = async (latitude: number, longitude: number) => {
-    try {
-      await apiFetch('/api/update-location', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contractorName: contractorName,
-          latitude,
-          longitude
-        })
-      });
-      console.log(`📍 Location sent to live monitor: ${latitude}, ${longitude}`);
-    } catch (error) {
-      console.error('❌ Failed to send location update:', error);
-    }
-  };
-
-  // Get Saturday overtime setting from admin settings
-  const { data: saturdayOvertimeSetting } = useQuery({
-    queryKey: ["/api/admin-settings/saturday_overtime"],
+  // Fetch site check-in policy for worker (/api/checkin/site-config)
+  const { data: currentSiteConfig } = useQuery<SiteCheckinConfig | null>({
+    queryKey: ["/api/checkin/site-config"],
     queryFn: async () => {
-      const response = await apiFetch("/api/admin-settings/saturday_overtime");
-      if (response.status === 404) return null; // Setting doesn't exist
-      if (!response.ok) throw new Error('Failed to fetch Saturday overtime setting');
-      return response.json();
+      const res = await apiFetch("/api/checkin/site-config");
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.config ?? null;
     },
-    retry: false,
   });
 
-  // Get Sunday overtime setting from admin settings
-  const { data: sundayOvertimeSetting } = useQuery({
-    queryKey: ["/api/admin-settings/sunday_overtime"],
-    queryFn: async () => {
-      const response = await apiFetch("/api/admin-settings/sunday_overtime");
-      if (response.status === 404) return null; // Setting doesn't exist
-      if (!response.ok) throw new Error('Failed to fetch Sunday overtime setting');
-      return response.json();
-    },
-    retry: false,
+  const { data: jobs = [] } = useQuery<any[]>({
+    queryKey: ["/api/jobs"],
   });
 
+  const currentJob = jobs.find((j) => j.id === currentSiteConfig?.jobId);
+  const siteNameDisplay = currentSiteConfig?.siteName || currentJob?.title || currentJob?.location || "Tester Site — 15 Gilbert Road";
 
-
-
-
-  // State for location validation
-  const [userLocation, setUserLocation] = useState<GPSPosition | null>(null);
-  const [workSiteLocation, setWorkSiteLocation] = useState<GPSPosition | null>(null);
-  const [nearestJob, setNearestJob] = useState<any>(null);
-  const [locationValidation, setLocationValidation] = useState<{
-    isWithinRange: boolean;
-    distance: number;
-    isValidTime: boolean;
-    canSignIn: boolean;
-    errorMessage?: string;
-  }>({
-    isWithinRange: false,
-    distance: 0,
-    isValidTime: false,
-    canSignIn: false
-  });
-
-  // Calculate distance between two GPS coordinates (Haversine formula)
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  // Check if current time is within working hours (7:45am - 5pm) or weekend overtime is allowed
-  const isWithinWorkingHours = (allowClockOut = false): boolean => {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTime = hours + minutes / 60;
-    const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
-    
-    const startTime = 7 + 45/60; // 7:45 AM
-    const endTime = 17; // 5:00 PM
-    
-    // Check if weekend overtime is enabled
-    const isSaturday = dayOfWeek === 6;
-    const isSunday = dayOfWeek === 0;
-    const saturdayOvertimeEnabled = saturdayOvertimeSetting?.settingValue === 'true';
-    const sundayOvertimeEnabled = sundayOvertimeSetting?.settingValue === 'true';
-    
-    // If already tracking and trying to clock out, allow it even after hours
-    if (allowClockOut && isTracking) {
-      return currentTime >= startTime; // Only need to be after start time
-    }
-    
-    // Regular working hours (Monday-Friday)
-    const isRegularWorkingHours = currentTime >= startTime && currentTime <= endTime;
-    
-    // If it's Saturday and Saturday overtime is enabled, allow work
-    if (isSaturday && saturdayOvertimeEnabled) {
-      return isRegularWorkingHours; // Same time restrictions but on Saturday
-    }
-    
-    // If it's Sunday and Sunday overtime is enabled, allow work
-    if (isSunday && sundayOvertimeEnabled) {
-      return isRegularWorkingHours; // Same time restrictions but on Sunday
-    }
-    
-    // Weekend work not allowed if overtime not enabled
-    if (isSaturday || isSunday) {
-      return false;
-    }
-    
-    return isRegularWorkingHours;
-  };
-
-  // Get user's current location
+  // Request worker GPS location
   useEffect(() => {
     let cancelled = false;
     getCurrentLocation()
-      .then((position) => {
+      .then((pos) => {
         if (cancelled) return;
-        const newLocation = {
-          latitude: position.latitude,
-          longitude: position.longitude,
-          accuracy: position.accuracy ?? 0,
-        };
-        setUserLocation(newLocation);
-
-        // Send location to live monitor if user is clocked in
-        if (isTracking && contractorName) {
-          sendLocationUpdate(newLocation.latitude, newLocation.longitude);
-        }
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.log("Geolocation error:", error);
-        setGpsStatus("Unavailable");
-        const errorMessage = error?.message || "Unable to access your location.";
-        toast({
-          title: "GPS Error - DA17 5DB",
-          description: `${errorMessage} For DA17 5DB area, ensure GPS is enabled and location services are allowed.`,
-          variant: "destructive",
+        setUserLocation({
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+          accuracy: pos.accuracy ?? 0,
         });
+        setGpsStatus("Ready");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setGpsStatus("Unavailable");
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Find the nearest job site based on user's current location
-  useEffect(() => {
-    if (typedAssignments && typedAssignments.length > 0 && userLocation) {
-      let nearestAssignment = null;
-      let shortestDistance = Infinity;
-      
-      // Check all assignments to find which one the user is closest to
-      for (const assignment of typedAssignments) {
-        if (assignment.latitude && assignment.longitude) {
-          const distance = calculateDistance(
-            userLocation.latitude,
-            userLocation.longitude,
-            parseFloat(assignment.latitude),
-            parseFloat(assignment.longitude)
-          );
-          
-          if (distance < shortestDistance) {
-            shortestDistance = distance;
-            nearestAssignment = assignment;
-          }
-        }
-      }
-      
-      if (nearestAssignment) {
-        setWorkSiteLocation({
-          latitude: parseFloat(nearestAssignment.latitude),
-          longitude: parseFloat(nearestAssignment.longitude),
-          accuracy: 5
-        });
-        setNearestJob(nearestAssignment);
-        setGpsStatus("Good");
-        console.log(`🎯 Nearest job site: ${nearestAssignment.location} (${shortestDistance.toFixed(2)}km away)`);
-      } else {
-        setWorkSiteLocation(null);
-        setNearestJob(null);
-        setGpsStatus("⚠️ Work site GPS coordinates missing - Contact admin to add location data for DA17 5DB");
-      }
-    } else {
-      setWorkSiteLocation(null);
-      setNearestJob(null);
-      setGpsStatus(typedAssignments?.length > 0 ? "Waiting for GPS location" : "No assignments");
+  // Calculate distance to current site_checkin_config location
+  let distanceMetres: number | null = null;
+  let isWithinRadius = false;
+  const allowedRadius = currentSiteConfig?.allowedRadiusMetres ?? 100;
+
+  if (userLocation && currentSiteConfig) {
+    const siteLat = parseFloat(currentSiteConfig.siteLatitude);
+    const siteLng = parseFloat(currentSiteConfig.siteLongitude);
+    if (!Number.isNaN(siteLat) && !Number.isNaN(siteLng)) {
+      distanceMetres = Math.round(calculateDistanceMetres(userLocation.latitude, userLocation.longitude, siteLat, siteLng));
+      isWithinRadius = distanceMetres <= allowedRadius;
     }
-  }, [typedAssignments, userLocation]);
+  }
 
-  // Validate location and time whenever user location or work site changes
-  useEffect(() => {
-    console.log('🔍 GPS Validation Check:');
-    console.log('- User location:', userLocation);
-    console.log('- Work site location:', workSiteLocation);
-    console.log('- Assignments:', typedAssignments?.length || 0);
-    
-    if (userLocation && workSiteLocation) {
-      const distance = calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        workSiteLocation.latitude,
-        workSiteLocation.longitude
-      );
-      
-      const isWithinRange = distance <= 3.5; // 3.5km radius
-      const isValidTime = isWithinWorkingHours(isTracking); // Allow clock out after hours
-      const canSignIn = isWithinRange && isValidTime;
-      
-      console.log(`- Distance: ${distance.toFixed(2)}km`);
-      console.log(`- Within range (≤1km): ${isWithinRange}`);
-      console.log(`- Valid time: ${isValidTime}`);
-      console.log(`- Can sign in: ${canSignIn}`);
-      
-      let errorMessage = '';
-      if (!isValidTime) {
-        errorMessage = isTracking 
-          ? 'Cannot clock out before 7:45 AM' 
-          : 'Outside working hours (7:45 AM - 5:00 PM)';
-      } else if (!isWithinRange) {
-        errorMessage = `Too far from work site (${distance.toFixed(2)}km away)`;
-      }
-      
-      setLocationValidation({
-        isWithinRange,
-        distance,
-        isValidTime,
-        canSignIn,
-        errorMessage
-      });
-    } else {
-      console.log('❌ Missing location data');
-      console.log('- User location missing:', !userLocation);
-      console.log('- Work site location missing:', !workSiteLocation);
-      
-      // No GPS location available - restrict access
-      setLocationValidation({
-        isWithinRange: false,
-        distance: 0,
-        isValidTime: isWithinWorkingHours(),
-        canSignIn: false,
-        errorMessage: userLocation ? 'Work site location data missing' : 'GPS location required - please enable location services'
-      });
-    }
-  }, [userLocation, workSiteLocation]);
+  const qrRequired = currentSiteConfig ? currentSiteConfig.qrEnabled : true;
+  const qrValid = !qrRequired || scannedQrToken.length > 0;
+  const canClockIn = isWithinRadius && qrValid && !isTracking;
 
-  // Continuous GPS tracking for live monitor - update location every 30 seconds when clocked in
-  useEffect(() => {
-    let locationInterval: NodeJS.Timeout;
-    
-    if (isTracking && contractorName && userLocation) {
-      console.log('📍 Starting continuous GPS tracking for live monitor');
-      
-      locationInterval = setInterval(() => {
-        getCurrentLocation()
-          .then((position) => {
-            const currentLocation = {
-              latitude: position.latitude,
-              longitude: position.longitude,
-              accuracy: position.accuracy ?? 0,
-            };
-            setUserLocation(currentLocation);
-            sendLocationUpdate(currentLocation.latitude, currentLocation.longitude);
-          })
-          .catch((error) => {
-            console.log('❌ GPS update failed:', error);
-          });
-      }, 30000); // Update every 30 seconds
-    }
-
-    return () => {
-      if (locationInterval) {
-        clearInterval(locationInterval);
-        console.log('📍 Stopped continuous GPS tracking');
-      }
-    };
-  }, [isTracking, contractorName, userLocation]);
-
-  // Timer effect - maintains timer across page navigation + automatic logout at 5 PM
+  // Timer loop
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
     if (isTracking && startTime) {
       const updateTimer = () => {
         const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-        
-        // Automatic logout at 5:00 PM sharp
-        if (currentHour >= 17) {
-          console.log('🕐 Automatic logout at 5:00 PM');
-          
-          // End work session automatically
-          if (activeSessionId) {
-            endSessionMutation.mutate({
-              sessionId: activeSessionId,
-              sessionData: {
-                endTime: now.toISOString(),
-                gpsLatitude: userLocation?.latitude || 0,
-                gpsLongitude: userLocation?.longitude || 0,
-                status: 'completed'
-              }
-            });
-          }
-          
-          // Reset timer state
-          setIsTracking(false);
-          setStartTime(null);
-          setCurrentTime("00:00:00");
-          localStorage.removeItem('gps_timer_active');
-          localStorage.removeItem('gps_timer_start');
-          localStorage.removeItem('gps_timer_current');
-          
-          toast({
-            title: "Work Day Ended",
-            description: "Automatically logged out at 5:00 PM - work day complete",
-            variant: "default"
-          });
-          
-          return; // Stop the timer
-        }
-        
         const diff = now.getTime() - startTime.getTime();
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        
-        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+        const timeString = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
         setCurrentTime(timeString);
-        // Always persist current time to localStorage when timer is running
-        localStorage.setItem('gps_timer_current', timeString);
-        localStorage.setItem('gps_timer_active', 'true');
-        localStorage.setItem('gps_timer_start', startTime.toISOString());
       };
-      
-      updateTimer(); // Update immediately when starting
+
+      updateTimer();
       interval = setInterval(updateTimer, 1000);
-    } else if (!isTracking) {
-      // Only reset to "00:00:00" when explicitly stopped, not when component unmounts
+    } else {
       setCurrentTime("00:00:00");
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
-      // DON'T clear localStorage on component cleanup - timer should persist
     };
-  }, [isTracking, startTime, endSessionMutation, contractorName, userLocation, activeSessionId, toast]);
+  }, [isTracking, startTime]);
 
-  // Initialize timer from localStorage on component mount
-  useEffect(() => {
-    const savedActive = localStorage.getItem('gps_timer_active');
-    const savedStart = localStorage.getItem('gps_timer_start');
-    const savedCurrent = localStorage.getItem('gps_timer_current');
-    
-    if (savedActive === 'true' && savedStart) {
-      const startDate = new Date(savedStart);
-      const now = new Date();
-      
-      // Check if saved start time is valid (not more than 24 hours old)
-      if (now.getTime() - startDate.getTime() < 24 * 60 * 60 * 1000) {
+  const handleStartClockIn = async () => {
+    if (!canClockIn) {
+      if (!qrValid) {
+        toast({ title: "QR Code Required", description: "Please scan the printed Site QR poster before clocking in.", variant: "destructive" });
+        return;
+      }
+      if (!isWithinRadius) {
+        toast({ title: "Outside Site Radius", description: `You are ${distanceMetres}m from site (allowed: ${allowedRadius}m).`, variant: "destructive" });
+        return;
+      }
+    }
+
+    try {
+      const resp = await apiFetch("/api/checkin/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qrToken: scannedQrToken || currentSiteConfig?.qrToken || "tok_tester_default",
+          latitude: userLocation?.latitude?.toString(),
+          longitude: userLocation?.longitude?.toString(),
+          gpsAccuracy: userLocation?.accuracy ?? 10,
+        }),
+      });
+
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data.accepted) {
         setIsTracking(true);
-        setStartTime(startDate);
-        
-        // Calculate current time based on elapsed time
-        const diff = now.getTime() - startDate.getTime();
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        setCurrentTime(timeString);
+        setActiveSessionId(data.workSessionId ?? "active");
+        setStartTime(new Date());
+        queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorFirstName}/active`] });
+        toast({ title: "Clocked In", description: `Verified QR + GPS clock-in at ${siteNameDisplay}` });
       } else {
-        // Clear old timer data if more than 24 hours old
-        localStorage.removeItem('gps_timer_active');
-        localStorage.removeItem('gps_timer_start');
-        localStorage.removeItem('gps_timer_current');
+        toast({ title: "Clock-in Failed", description: data.error || data.rejectionReason || "Unable to clock in", variant: "destructive" });
       }
-    } else if (savedCurrent) {
-      setCurrentTime(savedCurrent);
-    }
-  }, []); // Only run on initial mount
-
-  const handleStartWork = () => {
-    console.log('🔴 handleStartWork called');
-    console.log('📍 Location validation:', locationValidation);
-    console.log('📍 User location:', userLocation);
-    console.log('📍 Work site location:', workSiteLocation);
-    console.log('📍 Nearest job:', nearestJob);
-    
-    // Check location and time validation before allowing sign in
-    if (!locationValidation.canSignIn) {
-      console.log('❌ Cannot sign in:', locationValidation.errorMessage);
-      toast({
-        title: "Cannot Sign In",
-        description: locationValidation.errorMessage,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!isTracking) {
-      const newStartTime = new Date();
-      setIsTracking(true);
-      setStartTime(newStartTime);
-      
-      // Create work session in database
-      const sessionData = {
-        contractorName: contractorName,
-        jobSiteLocation: nearestJob?.location || 'Unknown Location',
-        startTime: newStartTime.toISOString(),
-        status: 'active',
-        startLatitude: userLocation?.latitude?.toString(),
-        startLongitude: userLocation?.longitude?.toString()
-      };
-
-      startSessionMutation.mutate(sessionData);
-      
-      // Send initial GPS location to live monitor
-      if (userLocation && contractorName) {
-        sendLocationUpdate(userLocation.latitude, userLocation.longitude);
-        console.log('📍 Initial GPS location sent to live monitor at clock-in');
-      }
-      
-      // Persist to localStorage for UI consistency
-      localStorage.setItem('gps_timer_active', 'true');
-      localStorage.setItem('gps_timer_start', newStartTime.toISOString());
-      
-      toast({
-        title: "Work Started",
-        description: "GPS verified - tracking time started",
-      });
-    } else {
-      // Stop work - save session to database
-      const endTime = new Date();
-      const diff = endTime.getTime() - (startTime?.getTime() || Date.now());
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      const totalHours = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      
-      if (activeSessionId) {
-        const sessionUpdate = {
-          endTime: endTime.toISOString(),
-          totalHours: totalHours,
-          status: 'completed',
-          endLatitude: userLocation?.latitude?.toString(),
-          endLongitude: userLocation?.longitude?.toString()
-        };
-        
-        endSessionMutation.mutate({ sessionId: activeSessionId, sessionData: sessionUpdate });
-      }
-      
-      // Reset UI state
-      setIsTracking(false);
-      setStartTime(null);
-      setCurrentTime("00:00:00");
-      localStorage.removeItem('gps_timer_active');
-      localStorage.removeItem('gps_timer_start');
-      localStorage.removeItem('gps_timer_current');
-      toast({
-        title: "Work Ended", 
-        description: "Time tracking stopped",
-      });
+    } catch {
+      toast({ title: "Error", description: "Could not reach check-in service", variant: "destructive" });
     }
   };
 
-  const handleMenuAction = (action: string) => {
-    setContractorDropdownOpen(false);
-    toast({
-      title: action,
-      description: `Opening ${action} interface...`,
-    });
-  };
+  const handleClockOut = async () => {
+    try {
+      const resp = await apiFetch("/api/checkin/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qrToken: scannedQrToken || currentSiteConfig?.qrToken || "tok_tester_default",
+          latitude: userLocation?.latitude?.toString(),
+          longitude: userLocation?.longitude?.toString(),
+        }),
+      });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Good': return 'bg-yellow-500 text-black';
-      case 'Poor': return 'bg-orange-500 text-white';
-      default: return 'bg-red-500 text-white';
+      if (resp.ok) {
+        setIsTracking(false);
+        setActiveSessionId(null);
+        setStartTime(null);
+        localStorage.removeItem("gps_timer_active");
+        queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorFirstName}/active`] });
+        toast({ title: "Clocked Out", description: `Session completed for ${contractorName}` });
+      } else {
+        toast({ title: "Clock-out Failed", description: "Unable to end session", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Could not reach check-out service", variant: "destructive" });
     }
   };
 
   return (
     <div className="hallmark-sweep min-h-screen bg-slate-900 text-white">
-
       {/* Header */}
-      <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
+      <div className="bg-slate-800 px-4 py-3 flex items-center justify-between border-b border-slate-700">
         <div className="flex items-center space-x-3">
-          <div className="hallmark-logo-mark">
-            <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
+          <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+            <QrCode className="w-5 h-5 text-amber-400" />
           </div>
           <div>
-            <div className="text-sm font-medium">Sculpt Projects</div>
-            <div className="text-xs text-slate-400">GPS time tracking</div>
+            <div className="text-sm font-bold text-white">Sculpt Projects</div>
+            <div className="text-xs text-amber-400 font-medium">Field Worker Dashboard</div>
           </div>
         </div>
+
         <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span className="text-sm text-green-500">Online</span>
-          <i className="fas fa-sun text-yellow-400 ml-2"></i>
-          <div className="relative">
-            <button 
-              onClick={() => setContractorDropdownOpen(!contractorDropdownOpen)}
-              className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4 hover:bg-yellow-700 transition-colors"
-            >
-              <span className="text-white font-bold text-sm">{getContractorInitials(contractorName)}</span>
-            </button>
-            
-            {contractorDropdownOpen && (
-              <div className="absolute right-0 top-10 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50">
-                {/* Contractor Info Header - NEVER show this to admin users */}
-                <div className="px-4 py-3 border-b border-slate-600">
-                  <div className="text-yellow-400 font-semibold">{contractorName}</div>
-                  <div className="text-xs text-slate-500">Role: {userRole || 'Unknown'}</div>
-                  {userRole === 'admin' && (
-                    <div className="text-red-400 text-xs">⚠️ ADMIN ACCESS ERROR</div>
-                  )}
-                </div>
-                
-                {/* Simple Contractor Menu Items */}
-                <div className="py-2">
-                  <button 
-                    onClick={() => window.location.href = '/task-progress'}
-                    className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-tasks mr-3 text-slate-400"></i>
-                    My Tasks
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleMenuAction("Report Issue")}
-                    className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-slate-700 flex items-center"
-                  >
-                    <i className="fas fa-exclamation-triangle mr-3 text-yellow-400"></i>
-                    Report Issue
-                  </button>
-                  
-                  <div className="border-t border-slate-600 mt-2 pt-2">
-                    <button 
-                      onClick={() => {
-                        localStorage.removeItem('userRole');
-                        localStorage.removeItem('isLoggedIn');
-                        window.location.href = '/login';
-                      }}
-                      className="w-full px-4 py-2 text-left text-red-400 hover:bg-slate-700 flex items-center"
-                    >
-                      <i className="fas fa-sign-out-alt mr-3 text-red-400"></i>
-                      Logout
-                    </button>
+          <button
+            onClick={() => setContractorDropdownOpen(!contractorDropdownOpen)}
+            className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center hover:bg-amber-700 transition-colors"
+          >
+            <span className="text-white font-bold text-xs">{getContractorInitials(contractorName)}</span>
+          </button>
+
+          {contractorDropdownOpen && (
+            <div className="absolute right-4 top-14 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 p-2 text-xs">
+              <div className="px-3 py-2 border-b border-slate-700">
+                <div className="font-semibold text-white">{contractorName}</div>
+                <div className="text-[10px] text-slate-400">Worker ID: {contractorFirstName}</div>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.clear();
+                  sessionStorage.clear();
+                  window.location.href = "/login";
+                }}
+                className="w-full text-left px-3 py-2 text-red-400 hover:bg-slate-700 rounded-lg flex items-center gap-2 mt-1"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 max-w-xl mx-auto space-y-4">
+        {/* GPS & Site Status Card */}
+        <Card className="bg-slate-800/90 border-slate-700 shadow-xl backdrop-blur">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-amber-400" />
+                <div>
+                  <div className="font-bold text-white text-base">{siteNameDisplay}</div>
+                  <div className="text-xs text-slate-400">
+                    Site Coords: {currentSiteConfig ? `${currentSiteConfig.siteLatitude}, ${currentSiteConfig.siteLongitude}` : "Loading..."}
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-
-
-      <div className="p-4 space-y-4">
-        {/* GPS Status Card */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <i className="fas fa-signal text-white mr-2"></i>
-              <h3 className="text-lg font-semibold text-yellow-400">GPS Status</h3>
-              <ContextualTooltip
-                id="gps-status-indicator"
-                title="GPS Status Monitor"
-                content="Shows GPS connection quality and work site proximity. GPS must be 'Good' and within 1km of assigned work site to start tracking. Location automatically updates every few seconds."
-                type="info"
-                placement="right"
-              >
-                <div className="text-blue-400 cursor-help">
-                  <i className="fas fa-info-circle text-sm"></i>
-                </div>
-              </ContextualTooltip>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Badge className={getStatusColor(gpsStatus)}>{gpsStatus}</Badge>
-              <i className="fas fa-sync-alt text-slate-400"></i>
-            </div>
-          </div>
-
-          {/* Location Validation Status */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-400 text-sm">Work Site Access</span>
-              <Badge 
-                className={locationValidation.canSignIn ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}
-              >
-                {locationValidation.canSignIn ? 'Allowed' : 'Restricted'}
+              <Badge className={isWithinRadius ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" : "bg-red-500/20 text-red-300 border-red-500/30"}>
+                {isWithinRadius ? "Site Access Allowed" : "Access Restricted"}
               </Badge>
             </div>
-            
-            {/* Distance from work site */}
-            {userLocation && workSiteLocation && (
-              <div className="text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Distance from site:</span>
-                  <span className={locationValidation.isWithinRange ? 'text-green-400' : 'text-red-400'}>
-                    {locationValidation.distance.toFixed(2)}km
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Working hours (7:45-17:00):</span>
-                  <span className={locationValidation.isValidTime ? 'text-green-400' : 'text-red-400'}>
-                    {locationValidation.isValidTime ? 'Active' : 'Outside hours'}
-                  </span>
-                </div>
+
+            {/* Live GPS Proximity Details */}
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Your GPS Location:</span>
+                <span className="font-mono text-slate-200">
+                  {userLocation ? `${userLocation.latitude.toFixed(5)}, ${userLocation.longitude.toFixed(5)} (±${userLocation.accuracy}m)` : "Capturing GPS..."}
+                </span>
               </div>
-            )}
-            
-            {/* Error message if can't sign in */}
-            {!locationValidation.canSignIn && locationValidation.errorMessage && (
-              <div className="mt-2 p-2 bg-red-900 border border-red-600 rounded text-red-200 text-sm">
-                <i className="fas fa-exclamation-triangle mr-2"></i>
-                {locationValidation.errorMessage}
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Distance from site:</span>
+                <span className={`font-semibold ${isWithinRadius ? "text-emerald-400" : "text-red-400"}`}>
+                  {distanceMetres !== null ? `${distanceMetres} metres` : "Calculating..."}
+                </span>
               </div>
-            )}
-          </div>
-          
-          {userLocation && (
-            <>
-              <div className="flex items-center mb-3">
-                <i className="fas fa-map-marker-alt text-slate-400 mr-2"></i>
-                <span className="text-white">Your Location: {userLocation.latitude.toFixed(6)}, {userLocation.longitude.toFixed(6)}</span>
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Allowed site geofence:</span>
+                <span className="font-semibold text-slate-200">{allowedRadius} metres</span>
               </div>
-              
-              {workSiteLocation && (
-                <div className="flex items-center mb-3">
-                  <i className="fas fa-building text-slate-400 mr-2"></i>
-                  <span className="text-yellow-400">Work Site: {workSiteLocation.latitude.toFixed(6)}, {workSiteLocation.longitude.toFixed(6)}</span>
-                </div>
-              )}
-              
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <div className="text-slate-400">Your Position:</div>
-                  <div className="text-white font-mono text-xs">{userLocation.latitude.toFixed(4)}, {userLocation.longitude.toFixed(4)}</div>
-                </div>
-                <div>
-                  <div className="text-slate-400">Accuracy:</div>
-                  <div className="text-white">±{userLocation.accuracy}m</div>
-                </div>
+
+              <div className="flex justify-between items-center pt-2 border-t border-slate-700/80">
+                <span className="text-slate-400">Site QR Poster Status:</span>
+                <span className={`font-semibold ${scannedQrToken ? "text-emerald-400" : "text-amber-400"}`}>
+                  {scannedQrToken ? `Verified (${scannedQrToken.substring(0, 12)}...)` : "Not Scanned"}
+                </span>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => (window.location.href = "/checkin")}
+              className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium h-10 border border-slate-600"
+            >
+              <Camera className="w-4 h-4 mr-2 text-amber-400" /> Open Full QR Camera Scanner
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* GPS Time Tracker Card */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center mb-4">
-            <i className="fas fa-clock text-yellow-400 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-400">GPS Time Tracker</h3>
-          </div>
-          
-          <div className="flex items-center mb-4">
-            <i className="fas fa-map-marker-alt text-slate-400 mr-2"></i>
-            <span className="text-slate-400">
-              {workSiteLocation && typedAssignments && typedAssignments.length > 0
-                ? (() => {
-                    // Find which assignment matches the current work site location
-                    const currentJob = typedAssignments.find((a: any) => 
-                      a.latitude && a.longitude &&
-                      Math.abs(parseFloat(a.latitude) - workSiteLocation.latitude) < 0.001 &&
-                      Math.abs(parseFloat(a.longitude) - workSiteLocation.longitude) < 0.001
-                    );
-                    return currentJob ? `Work Site: ${currentJob.location}` : 'Work Site: Unknown';
-                  })()
-                : 'No assignment location'
-              }
-            </span>
-          </div>
-          
-          <div className="text-center mb-6">
-            <div className="text-4xl font-mono text-blue-400 mb-4">{currentTime}</div>
-            
-            <div className="mb-4 text-center">
-              <div className="text-xl text-green-400 font-semibold">GPS Timer Active</div>
-              <div className="text-slate-400 text-xs">
-                Location verified - Time tracking in progress
+        <Card className="bg-slate-800/90 border-slate-700 shadow-xl backdrop-blur">
+          <CardContent className="p-6 text-center space-y-4">
+            <div className="text-xs uppercase tracking-widest text-slate-400 font-semibold flex items-center justify-center gap-2">
+              <Clock className="w-4 h-4 text-amber-400" /> GPS Work Session Timer
+            </div>
+
+            <div className="text-5xl font-mono font-bold text-amber-400 tracking-wider py-2">{currentTime}</div>
+
+            {/* ONLY SHOW GPS TIMER ACTIVE WHEN ACTUAL DB SESSION IS RUNNING */}
+            {isTracking ? (
+              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-medium">
+                ✅ GPS Timer Active — Work session in progress on site
               </div>
-            </div>
-            
-            <ContextualTooltip
-              id="start-stop-work-button"
-              title="GPS Work Tracking"
-              content={isTracking 
-                ? "Click to stop work and save time session. GPS location will be recorded for verification." 
-                : "Click to start GPS-verified time tracking. System validates you're within 1km of work site and during valid hours (7:45 AM - 5:00 PM)."
-              }
-              type={isTracking ? "warning" : "success"}
-              placement="top"
-            >
-              <Button 
-                onClick={handleStartWork}
-                disabled={!locationValidation.canSignIn && !isTracking}
-                className={`w-full py-3 text-white font-medium rounded-lg flex items-center justify-center ${
-                  (!locationValidation.canSignIn && !isTracking)
-                    ? 'bg-red-600 cursor-not-allowed opacity-75'
-                    : isTracking 
-                      ? 'bg-red-600 hover:bg-red-700' 
-                      : 'bg-green-600 hover:bg-green-700'
-                }`}
+            ) : (
+              <div className="p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-400 text-xs">
+                Time tracking inactive. Scan site QR & verify GPS to clock in.
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <Button
+                type="button"
+                disabled={!canClockIn}
+                onClick={() => void handleStartClockIn()}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-medium h-12 text-sm shadow-lg"
               >
-                <i className={`fas ${isTracking ? 'fa-stop' : !locationValidation.canSignIn ? 'fa-lock' : 'fa-play'} mr-2`}></i>
-                {isTracking 
-                  ? 'Stop Work' 
-                  : !locationValidation.canSignIn 
-                    ? 'GPS Check Required'
-                    : 'Start Work (GPS Verified)'
-                }
+                Clock In
               </Button>
-            </ContextualTooltip>
-          </div>
-          
-          <div className="text-center text-slate-400 text-sm mb-2">
-            {!userLocation 
-              ? 'GPS location required - please enable location services'
-              : locationValidation.canSignIn 
-                ? (isTracking ? 'Ready to stop GPS-verified time tracking' : 'Ready to start GPS-verified time tracking')
-                : isTracking 
-                  ? 'Must be within 1km of work site to clock out'
-                  : 'Must be within 1km of work site during 7:45 AM - 5:00 PM'
-            }
-          </div>
-          {locationValidation.canSignIn && (
-            <div className="text-center text-green-400 text-xs">
-              ✓ Location verified - Ready to work
+              <Button
+                type="button"
+                disabled={!isTracking}
+                onClick={() => void handleClockOut()}
+                variant="outline"
+                className="border-slate-600 text-slate-200 hover:bg-slate-700 h-12 text-sm"
+              >
+                Clock Out
+              </Button>
             </div>
-          )}
-        </div>
 
-        {/* Active Assignment Card */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center mb-4">
-            <i className="fas fa-briefcase text-yellow-400 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-400">Active Assignment</h3>
-          </div>
-          
-          <ActiveAssignmentContent nearestJobSite={nearestJob} />
-        </div>
+            {!isWithinRadius && distanceMetres !== null && (
+              <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-xl">
+                ⚠️ Clock In blocked: You are {distanceMetres}m from site (allowed: {allowedRadius}m).
+              </div>
+            )}
 
-
-
-        {/* Task Inspection Results - Feedback from Admin */}
-        <InspectionIssues contractorName={contractorName} />
-
-        {/* Overdue Projects Card */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center mb-4">
-            <i className="fas fa-calendar-times text-yellow-400 mr-2"></i>
-            <h3 className="text-lg font-semibold text-yellow-400">Overdue Projects</h3>
-          </div>
-          
-          <div className="text-center py-8">
-            <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-              <i className="fas fa-calendar-check text-green-600 text-3xl"></i>
-            </div>
-            <div className="text-slate-400 text-sm">
-              No overdue projects
-            </div>
-          </div>
-        </div>
+            {qrRequired && !scannedQrToken && (
+              <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                📷 Scan the printed Site QR poster before clocking in.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
-        {/* Show foreman tab only for Dalwayne */}
-        {contractorName && (contractorName.toLowerCase().includes('dalwayne') || contractorName.toLowerCase().includes('diedericks')) ? (
-          <div className="grid grid-cols-4 text-center">
-            <button 
-              onClick={() => window.location.href = '/'}
-              className="py-3 px-4 text-yellow-400"
-              data-testid="nav-dashboard"
-            >
-              <i className="fas fa-home block mb-1"></i>
-              <span className="text-xs">Dashboard</span>
-            </button>
-            <button 
-              onClick={() => window.location.href = '/jobs'}
-              className="py-3 px-4 text-slate-400 hover:text-white"
-              data-testid="nav-jobs"
-            >
-              <i className="fas fa-briefcase block mb-1"></i>
-              <span className="text-xs">Jobs</span>
-            </button>
-            <button 
-              onClick={() => window.location.href = '/foreman'}
-              className="py-3 px-4 text-slate-400 hover:text-white"
-              data-testid="nav-foreman"
-            >
-              <i className="fas fa-users block mb-1"></i>
-              <span className="text-xs">Jobs Assigned</span>
-            </button>
-            <button 
-              onClick={() => window.location.href = '/more'}
-              className="py-3 px-4 text-slate-400 hover:text-white"
-              data-testid="nav-more"
-            >
-              <i className="fas fa-ellipsis-h block mb-1"></i>
-              <span className="text-xs">More</span>
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 text-center">
-            <button 
-              onClick={() => window.location.href = '/'}
-              className="py-3 px-4 text-yellow-400"
-              data-testid="nav-dashboard"
-            >
-              <i className="fas fa-home block mb-1"></i>
-              <span className="text-xs">Dashboard</span>
-            </button>
-            <button 
-              onClick={() => window.location.href = '/jobs'}
-              className="py-3 px-4 text-slate-400 hover:text-white"
-              data-testid="nav-jobs"
-            >
-              <i className="fas fa-briefcase block mb-1"></i>
-              <span className="text-xs">Jobs</span>
-            </button>
-            <button 
-              onClick={() => window.location.href = '/more'}
-              className="py-3 px-4 text-slate-400 hover:text-white"
-              data-testid="nav-more"
-            >
-              <i className="fas fa-ellipsis-h block mb-1"></i>
-              <span className="text-xs">More</span>
-            </button>
-          </div>
-        )}
-      </div>
-      
-      {/* Add bottom padding to account for fixed navigation */}
-      <div className="h-20"></div>
-      
-      {/* Overlay to close dropdown when clicking outside */}
-      {showDropdown && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setShowDropdown(false)}
-        />
-      )}
     </div>
   );
 }

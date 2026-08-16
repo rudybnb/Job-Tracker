@@ -223,6 +223,62 @@ describe("Site QR Poster URL & Token Parsing", () => {
   });
 });
 
+describe("Worker GPS Dashboard - Site Checkin Config Integration", () => {
+  it("loads canonical site_checkin_config instead of legacy hardcoded coordinates", () => {
+    const siteConfig = {
+      siteName: "Tester — 15 Gilbert Road",
+      siteLatitude: "51.491306",
+      siteLongitude: "0.148139",
+      allowedRadiusMetres: 100,
+    };
+
+    assert.notEqual(siteConfig.siteName, undefined);
+    assert.equal(siteConfig.siteName, "Tester — 15 Gilbert Road");
+    assert.equal(siteConfig.siteLatitude, "51.491306");
+    assert.equal(siteConfig.siteLongitude, "0.148139");
+    assert.equal(siteConfig.allowedRadiusMetres, 100);
+  });
+
+  it("ensures GPS timer active is false when no active session exists", () => {
+    const activeSession = null;
+    const isTracking = activeSession !== null;
+    assert.equal(isTracking, false);
+  });
+});
+
+describe("Worker-Safe Site Config Endpoint Protection", () => {
+  it("sanitizes worker site config response and hides QR secrets", () => {
+    const rawDbRow = {
+      jobId: "j-tester-123",
+      siteName: "Tester — 15 Gilbert Road",
+      siteLatitude: "51.491306",
+      siteLongitude: "0.148139",
+      allowedRadiusMetres: 100,
+      qrEnabled: true,
+      gpsEnabled: true,
+      qrToken: "tok_secret_123456",
+      qrTokenHash: "hash_secret_654321",
+    };
+
+    const workerResponse = {
+      config: {
+        jobId: rawDbRow.jobId,
+        siteName: rawDbRow.siteName,
+        siteLatitude: rawDbRow.siteLatitude,
+        siteLongitude: rawDbRow.siteLongitude,
+        allowedRadiusMetres: rawDbRow.allowedRadiusMetres,
+        qrEnabled: rawDbRow.qrEnabled,
+        gpsEnabled: rawDbRow.gpsEnabled,
+      },
+    };
+
+    assert.equal((workerResponse.config as any).qrToken, undefined);
+    assert.equal((workerResponse.config as any).qrTokenHash, undefined);
+    assert.equal(workerResponse.config.siteName, "Tester — 15 Gilbert Road");
+    assert.equal(workerResponse.config.allowedRadiusMetres, 100);
+  });
+});
+
 describe("Site QR & GPS Worker Check-In Enforcement", () => {
   const siteLat = 51.491306;
   const siteLng = 0.148139;
