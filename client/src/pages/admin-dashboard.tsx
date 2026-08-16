@@ -255,6 +255,7 @@ export default function AdminDashboard() {
       items: [
         { label: "Jobs", description: "Assignments and job allocation", route: "/job-assignments", tone: "gold" },
         { label: "Live Monitor", description: "Active workers and site clocking", route: "/live-clock-monitor", tone: "green" },
+        { label: "Site QR + GPS", description: "Geofencing, radius and QR generation", route: "/admin-site-checkin", tone: "green" },
         { label: "Admin", description: "Admin dashboard", route: "/admin", tone: "standard" },
         { label: "Upload Jobs", description: "Import job data", route: "/upload", tone: "blue" },
         {

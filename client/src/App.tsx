@@ -161,6 +161,11 @@ function Router() {
             <AdminSiteCheckin />
           </ProtectedRoute>
         )} />
+        <Route path="/admin/site-checkin" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminSiteCheckin />
+          </ProtectedRoute>
+        )} />
 
         <Route path="/admin/workers" component={() => (
           <ProtectedRoute requiredRole="admin">

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { normalizePhoneE164 } from "../server/worker-service.ts";
 import { requireAdmin } from "../server/integration-review-route.ts";
 import { hashPassword, verifyPassword } from "../server/password-security.ts";
+import { parseDmsOrDecimal } from "../client/src/lib/geo-utils.ts";
 
 describe("Worker Management - Phone Normalisation", () => {
   it("normalises UK local mobile numbers (07xxx -> +447xxx)", () => {
@@ -153,7 +154,6 @@ describe("Worker First-Login Password Change Logic", () => {
       },
     } as any;
 
-    // Check-in session guard enforcement check
     if (req.session?.mustChangePassword === true) {
       res.status(403).json({
         error: "Password change required before accessing check-in functionality",
@@ -163,5 +163,30 @@ describe("Worker First-Login Password Change Logic", () => {
 
     assert.equal(statusCode, 403);
     assert.equal(jsonBody?.code, "PASSWORD_CHANGE_REQUIRED");
+  });
+});
+
+describe("Site QR & GPS Admin Coordinates and DMS Parsing", () => {
+  it("parses decimal latitude and longitude strings correctly", () => {
+    assert.equal(parseDmsOrDecimal("51.491306"), 51.491306);
+    assert.equal(parseDmsOrDecimal("0.148139"), 0.148139);
+    assert.equal(parseDmsOrDecimal("-0.127758"), -0.127758);
+  });
+
+  it("converts DMS format 51°29'28.7\"N to decimal coordinates", () => {
+    const parsed = parseDmsOrDecimal("51°29'28.7\"N");
+    assert.ok(parsed !== null);
+    assert.equal(parsed?.toFixed(4), "51.4913");
+  });
+
+  it("converts DMS format with West/South direction to negative decimal coordinates", () => {
+    const parsedWest = parseDmsOrDecimal("0°08'53.3\"W");
+    assert.ok(parsedWest !== null);
+    assert.equal(parsedWest?.toFixed(4), "-0.1481");
+  });
+
+  it("returns null for invalid coordinate inputs", () => {
+    assert.equal(parseDmsOrDecimal("invalid_coords"), null);
+    assert.equal(parseDmsOrDecimal(""), null);
   });
 });
