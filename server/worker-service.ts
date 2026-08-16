@@ -30,6 +30,13 @@ export function normalizePhoneE164(phone: string): string {
   return trimmed;
 }
 
+export interface NewSiteData {
+  readonly title: string;
+  readonly address?: string | null;
+  readonly townArea?: string | null;
+  readonly postcode?: string | null;
+}
+
 export interface CreateWorkerInput {
   readonly firstName: string;
   readonly lastName: string;
@@ -38,6 +45,7 @@ export interface CreateWorkerInput {
   readonly workerType?: "DIRECT_SELF_EMPLOYED" | "AGENCY";
   readonly isActive?: boolean;
   readonly jobId?: string | null;
+  readonly newSiteData?: NewSiteData | null;
 }
 
 export interface UpdateWorkerInput {
@@ -48,6 +56,7 @@ export interface UpdateWorkerInput {
   readonly workerType?: "DIRECT_SELF_EMPLOYED" | "AGENCY";
   readonly isActive?: boolean;
   readonly jobId?: string | null;
+  readonly newSiteData?: NewSiteData | null;
 }
 
 export interface WorkerWithAssignment {
@@ -69,6 +78,43 @@ export interface WorkerWithAssignment {
 }
 
 export class WorkerService {
+  /**
+   * Create a new Site/Job record using the existing canonical `jobs` table.
+   * Compatible with site QR/GPS configurations (references jobs.id).
+   */
+  async createSiteJob(siteData: NewSiteData): Promise<{ id: string; title: string; location: string }> {
+    const title = (siteData.title || "").trim();
+    if (!title) {
+      throw new Error("Site / Job name is required");
+    }
+
+    const address = (siteData.address || "").trim();
+    const townArea = (siteData.townArea || "").trim();
+    const postcode = (siteData.postcode || "").trim();
+
+    const locationParts = [address, townArea, postcode].filter(Boolean);
+    const location = locationParts.length > 0 ? locationParts.join(", ") : title;
+    const dueDate = new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0];
+
+    const [createdJob] = await db
+      .insert(jobs)
+      .values({
+        title,
+        address: address || title,
+        location,
+        postcode: postcode || null,
+        dueDate,
+        status: "assigned",
+      })
+      .returning();
+
+    return {
+      id: createdJob.id,
+      title: createdJob.title,
+      location: createdJob.location,
+    };
+  }
+
   /**
    * List all workers with their active site/job assignments.
    */
@@ -173,6 +219,14 @@ export class WorkerService {
       throw err;
     }
 
+    let targetJobId = input.jobId ?? null;
+
+    // Handle inline new site creation
+    if ((targetJobId === "NEW_SITE" || !targetJobId) && input.newSiteData && input.newSiteData.title) {
+      const newJob = await this.createSiteJob(input.newSiteData);
+      targetJobId = newJob.id;
+    }
+
     const [newWorker] = await db
       .insert(workers)
       .values({
@@ -185,9 +239,9 @@ export class WorkerService {
       })
       .returning();
 
-    // Optionally assign to job site if jobId provided
-    if (input.jobId) {
-      await this.assignWorkerToJob(newWorker.id, `${firstName} ${lastName}`, normalizedPhone, input.jobId);
+    // Optionally assign to job site if targetJobId provided
+    if (targetJobId && targetJobId !== "NEW_SITE") {
+      await this.assignWorkerToJob(newWorker.id, `${firstName} ${lastName}`, normalizedPhone, targetJobId);
     }
 
     const created = await this.getWorkerById(newWorker.id);
@@ -252,16 +306,22 @@ export class WorkerService {
       updates.isActive = input.isActive;
     }
 
+    let targetJobId = input.jobId;
+    if (targetJobId === "NEW_SITE" && input.newSiteData && input.newSiteData.title) {
+      const newJob = await this.createSiteJob(input.newSiteData);
+      targetJobId = newJob.id;
+    }
+
     await db.update(workers).set(updates).where(eq(workers.id, id));
 
     const updatedWorker = await this.getWorkerById(id);
 
     // Handle job site assignment update if provided
-    if (input.jobId !== undefined && updatedWorker) {
-      if (input.jobId) {
-        await this.assignWorkerToJob(id, updatedWorker.fullName, updatedWorker.phone ?? "", input.jobId);
-      } else {
-        // Unassign from current job assignment if null
+    if (targetJobId !== undefined && updatedWorker) {
+      if (targetJobId && targetJobId !== "NEW_SITE") {
+        await this.assignWorkerToJob(id, updatedWorker.fullName, updatedWorker.phone ?? "", targetJobId);
+      } else if (!targetJobId) {
+        // Unassign from current job assignment if null/empty
         await this.unassignWorkerFromJobs(updatedWorker.fullName, updatedWorker.phone);
       }
     }

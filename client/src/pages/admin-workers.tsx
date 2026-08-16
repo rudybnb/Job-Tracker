@@ -46,13 +46,20 @@ export default function AdminWorkers() {
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
 
-  // Form state
+  // Worker Form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState<string>("");
+
+  // New Site Form state (when selectedJobId === "NEW_SITE")
+  const [siteTitle, setSiteTitle] = useState("");
+  const [siteAddress, setSiteAddress] = useState("");
+  const [siteTownArea, setSiteTownArea] = useState("");
+  const [sitePostcode, setSitePostcode] = useState("");
+
   const [formError, setFormError] = useState<string | null>(null);
 
   const adminName = localStorage.getItem("adminName") || "Admin";
@@ -82,6 +89,7 @@ export default function AdminWorkers() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/workers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       closeModal();
     },
     onError: (err: any) => {
@@ -101,6 +109,7 @@ export default function AdminWorkers() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/workers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       closeModal();
     },
     onError: (err: any) => {
@@ -120,6 +129,10 @@ export default function AdminWorkers() {
     setEmail("");
     setIsActive(true);
     setSelectedJobId("");
+    setSiteTitle("");
+    setSiteAddress("");
+    setSiteTownArea("");
+    setSitePostcode("");
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -132,6 +145,10 @@ export default function AdminWorkers() {
     setEmail(worker.email || "");
     setIsActive(worker.isActive);
     setSelectedJobId(worker.assignedJobId || "");
+    setSiteTitle("");
+    setSiteAddress("");
+    setSiteTownArea("");
+    setSitePostcode("");
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -155,7 +172,12 @@ export default function AdminWorkers() {
       return;
     }
 
-    const payload = {
+    if (selectedJobId === "NEW_SITE" && !siteTitle.trim()) {
+      setFormError("Site / Job Name is required when creating a new site.");
+      return;
+    }
+
+    const payload: any = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       phone: phone.trim(),
@@ -163,6 +185,15 @@ export default function AdminWorkers() {
       isActive,
       jobId: selectedJobId || null,
     };
+
+    if (selectedJobId === "NEW_SITE") {
+      payload.newSiteData = {
+        title: siteTitle.trim(),
+        address: siteAddress.trim() || null,
+        townArea: siteTownArea.trim() || null,
+        postcode: sitePostcode.trim() || null,
+      };
+    }
 
     if (editingWorker) {
       updateMutation.mutate({ id: editingWorker.id, data: payload });
@@ -550,7 +581,9 @@ export default function AdminWorkers() {
               border: "1px solid var(--sp-color-rule-strong, #374151)",
               borderRadius: "0.75rem",
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "520px",
+              maxHeight: "90vh",
+              overflowY: "auto",
               padding: "1.5rem",
               boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.6)",
             }}
@@ -666,6 +699,7 @@ export default function AdminWorkers() {
                 />
               </div>
 
+              {/* Site Selection & Inline New Site Creation */}
               <div>
                 <label style={{ display: "block", fontSize: "0.75rem", color: "var(--sp-color-muted, #9ca3af)", marginBottom: "0.375rem" }}>
                   ASSIGNED SITE / JOB
@@ -679,7 +713,8 @@ export default function AdminWorkers() {
                     background: "#111827",
                     border: "1px solid var(--sp-color-rule, #374151)",
                     borderRadius: "0.375rem",
-                    color: "var(--sp-color-ink, #eeeae1)",
+                    color: selectedJobId === "NEW_SITE" ? "var(--sp-color-accent, #d0b873)" : "var(--sp-color-ink, #eeeae1)",
+                    fontWeight: selectedJobId === "NEW_SITE" ? 600 : 400,
                   }}
                 >
                   <option value="">Unassigned</option>
@@ -688,8 +723,110 @@ export default function AdminWorkers() {
                       {job.title} {job.location ? `(${job.location})` : ""}
                     </option>
                   ))}
+                  <option value="NEW_SITE">+ Add New Site...</option>
                 </select>
               </div>
+
+              {/* Inline New Site Creation Fields */}
+              {selectedJobId === "NEW_SITE" && (
+                <div
+                  style={{
+                    background: "#111827",
+                    border: "1px solid var(--sp-color-accent, #d0b873)",
+                    borderRadius: "0.5rem",
+                    padding: "1rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem",
+                  }}
+                >
+                  <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--sp-color-accent, #d0b873)" }}>
+                    New Site Details
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", color: "var(--sp-color-muted, #9ca3af)", marginBottom: "0.25rem" }}>
+                      SITE / JOB NAME *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 165 Powis Street"
+                      value={siteTitle}
+                      onChange={(e) => setSiteTitle(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        background: "#1f2937",
+                        border: "1px solid var(--sp-color-rule, #374151)",
+                        borderRadius: "0.375rem",
+                        color: "var(--sp-color-ink, #eeeae1)",
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", color: "var(--sp-color-muted, #9ca3af)", marginBottom: "0.25rem" }}>
+                      ADDRESS LINE
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 165 Powis Street"
+                      value={siteAddress}
+                      onChange={(e) => setSiteAddress(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        background: "#1f2937",
+                        border: "1px solid var(--sp-color-rule, #374151)",
+                        borderRadius: "0.375rem",
+                        color: "var(--sp-color-ink, #eeeae1)",
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", color: "var(--sp-color-muted, #9ca3af)", marginBottom: "0.25rem" }}>
+                        TOWN / AREA
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Woolwich Arsenal"
+                        value={siteTownArea}
+                        onChange={(e) => setSiteTownArea(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "0.5rem",
+                          background: "#1f2937",
+                          border: "1px solid var(--sp-color-rule, #374151)",
+                          borderRadius: "0.375rem",
+                          color: "var(--sp-color-ink, #eeeae1)",
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", color: "var(--sp-color-muted, #9ca3af)", marginBottom: "0.25rem" }}>
+                        POSTCODE
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. SE18 6JW"
+                        value={sitePostcode}
+                        onChange={(e) => setSitePostcode(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "0.5rem",
+                          background: "#1f2937",
+                          border: "1px solid var(--sp-color-rule, #374151)",
+                          borderRadius: "0.375rem",
+                          color: "var(--sp-color-ink, #eeeae1)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.5rem" }}>
                 <input

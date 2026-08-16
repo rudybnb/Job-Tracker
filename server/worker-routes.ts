@@ -44,12 +44,26 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
       const isActive = body.isActive !== false;
       const jobId = typeof body.jobId === "string" && body.jobId.trim() ? body.jobId.trim() : null;
 
+      let newSiteData = null;
+      if (body.newSiteData && typeof body.newSiteData === "object") {
+        newSiteData = {
+          title: typeof body.newSiteData.title === "string" ? body.newSiteData.title.trim() : "",
+          address: typeof body.newSiteData.address === "string" ? body.newSiteData.address.trim() : null,
+          townArea: typeof body.newSiteData.townArea === "string" ? body.newSiteData.townArea.trim() : null,
+          postcode: typeof body.newSiteData.postcode === "string" ? body.newSiteData.postcode.trim() : null,
+        };
+      }
+
       if (!firstName || !lastName) {
         return res.status(400).json({ error: "First name and last name are required", code: "INVALID_INPUT" });
       }
 
       if (!phone) {
         return res.status(400).json({ error: "Mobile number is required", code: "INVALID_INPUT" });
+      }
+
+      if (jobId === "NEW_SITE" && (!newSiteData || !newSiteData.title)) {
+        return res.status(400).json({ error: "Site / Job name is required for new site", code: "INVALID_INPUT" });
       }
 
       const created = await workerService.createWorker({
@@ -60,6 +74,7 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
         workerType,
         isActive,
         jobId,
+        newSiteData,
       });
 
       return res.status(201).json(created);
@@ -86,6 +101,19 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
       if (body.workerType === "AGENCY" || body.workerType === "DIRECT_SELF_EMPLOYED") updates.workerType = body.workerType;
       if (typeof body.isActive === "boolean") updates.isActive = body.isActive;
       if (typeof body.jobId === "string" || body.jobId === null) updates.jobId = body.jobId;
+
+      if (body.newSiteData && typeof body.newSiteData === "object") {
+        updates.newSiteData = {
+          title: typeof body.newSiteData.title === "string" ? body.newSiteData.title.trim() : "",
+          address: typeof body.newSiteData.address === "string" ? body.newSiteData.address.trim() : null,
+          townArea: typeof body.newSiteData.townArea === "string" ? body.newSiteData.townArea.trim() : null,
+          postcode: typeof body.newSiteData.postcode === "string" ? body.newSiteData.postcode.trim() : null,
+        };
+      }
+
+      if (updates.jobId === "NEW_SITE" && (!updates.newSiteData || !updates.newSiteData.title)) {
+        return res.status(400).json({ error: "Site / Job name is required for new site", code: "INVALID_INPUT" });
+      }
 
       const updated = await workerService.updateWorker(id, updates);
       return res.status(200).json(updated);

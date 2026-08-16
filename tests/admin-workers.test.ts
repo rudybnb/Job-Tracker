@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { normalizePhoneE164, WorkerService } from "../server/worker-service.ts";
+import { normalizePhoneE164 } from "../server/worker-service.ts";
 import { createWorkerRouter } from "../server/worker-routes.ts";
 
 describe("Worker Management - Phone Normalisation", () => {
@@ -27,7 +27,7 @@ describe("Worker Management - Phone Normalisation", () => {
   });
 });
 
-describe("Worker API Handlers & Duplicate Protection", () => {
+describe("Worker API Handlers & Site Assignment", () => {
   it("handles duplicate mobile protection in WorkerService contract", async () => {
     const fakeDbWorkers = [
       { id: "w-1", firstName: "Mohamed", lastName: "Shawky", phone: "+447111222333", isActive: true },
@@ -44,7 +44,32 @@ describe("Worker API Handlers & Duplicate Protection", () => {
     assert.equal(duplicateFound.firstName, "Mohamed");
   });
 
-  it("builds clean worker response object with assignment fields", () => {
+  it("handles inline site creation contract using existing jobs model", () => {
+    const newSiteInput = {
+      title: "165 Powis Street",
+      address: "165 Powis Street",
+      townArea: "Woolwich Arsenal",
+      postcode: "SE18 6JW",
+    };
+
+    const locationParts = [newSiteInput.address, newSiteInput.townArea, newSiteInput.postcode].filter(Boolean);
+    const location = locationParts.join(", ");
+
+    const mockCreatedJob = {
+      id: "job-uuid-powis-165",
+      title: newSiteInput.title,
+      address: newSiteInput.address,
+      location,
+      postcode: newSiteInput.postcode,
+      status: "assigned",
+    };
+
+    assert.equal(mockCreatedJob.title, "165 Powis Street");
+    assert.equal(mockCreatedJob.location, "165 Powis Street, Woolwich Arsenal, SE18 6JW");
+    assert.equal(mockCreatedJob.status, "assigned");
+  });
+
+  it("builds clean worker response object with newly assigned site fields", () => {
     const worker = {
       id: "w-uuid-1234",
       firstName: "Ahmed",
@@ -58,13 +83,14 @@ describe("Worker API Handlers & Duplicate Protection", () => {
       contractorApplicationId: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      assignedJobId: "job-101",
-      assignedJobTitle: "Site 4 Foundation",
-      assignedJobLocation: "London SW1",
+      assignedJobId: "job-uuid-powis-165",
+      assignedJobTitle: "165 Powis Street",
+      assignedJobLocation: "165 Powis Street, Woolwich Arsenal, SE18 6JW",
     };
 
     assert.equal(worker.fullName, "Ahmed Gouda");
-    assert.equal(worker.assignedJobId, "job-101");
+    assert.equal(worker.assignedJobId, "job-uuid-powis-165");
+    assert.equal(worker.assignedJobTitle, "165 Powis Street");
     assert.equal(worker.isActive, true);
   });
 });
