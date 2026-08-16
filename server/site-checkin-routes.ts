@@ -10,7 +10,7 @@
  * to the append-only audit table.
  */
 
-import express, { type NextFunction, type Request, type Response, type Router } from "express";
+import express, { type NextFunction, type Request, type RequestHandler, type Response, type Router } from "express";
 import QRCode from "qrcode";
 import type { ReviewRouteSession } from "./integration-review-route.ts";
 import { requireAdmin } from "./integration-review-route.ts";
@@ -20,6 +20,7 @@ import {
   hashQrToken,
   parseCoordinates,
   toIsoTimestamp,
+  type CheckInDecision,
   type CheckInSubmission,
   type CheckInIdentity,
 } from "./site-checkin.ts";
@@ -41,17 +42,15 @@ const GPS_ACCURACY_MAX = 10_000; // reject absurd accuracy values in metres
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_FAILURES = 8;
 
-interface CheckInRequest extends Request {
-  session?: ReviewRouteSession & { fullName?: string };
-}
+type CheckInRequest = Request & { session?: ReviewRouteSession & { fullName?: string } };
 
 /** Session guard: a check-in requires an authenticated user (normal app auth). */
 function requireCheckInSession(
-  request: CheckInRequest,
+  request: Request,
   response: Response,
   next: NextFunction,
 ): void {
-  const session = request.session;
+  const session = (request as CheckInRequest).session;
   if (
     session === undefined ||
     typeof session.username !== "string" ||
@@ -110,6 +109,8 @@ function defaultAppBaseUrl(request: Request): string {
   return `http://${host}`;
 }
 
+const requireAdminHandler = requireAdmin as unknown as RequestHandler;
+
 export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Router {
   const router = express.Router();
   const rateLimiter = new FailureRateLimiter();
@@ -118,9 +119,9 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
   router.post(
     CHECKIN_ATTEMPT_ROUTE,
     requireCheckInSession,
-    async (request: CheckInRequest, response: Response) => {
+    async (request: Request, response: Response) => {
       try {
-        const session = request.session;
+        const session = (request as CheckInRequest).session;
         const identity = identityFromSession(session);
         const rateKey = `${session!.username}:${request.ip ?? "unknown"}`;
         const nowMs = Date.now();
@@ -144,7 +145,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         };
 
         const gpsAccuracy = submission.gpsAccuracy;
-        if (gpsAccuracy !== undefined && gpsAccuracy > GPS_ACCURACY_MAX) {
+        if (typeof gpsAccuracy === "number" && gpsAccuracy > GPS_ACCURACY_MAX) {
           return response.status(400).json({
             error: "gpsAccuracy is implausible",
             code: "INVALID_ACCURACY",
@@ -174,13 +175,14 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
           latitude: submission.latitude,
           longitude: submission.longitude,
           gpsAccuracy,
+          contractorId: identity.contractorId ?? null,
         });
 
         const decision: CheckInDecision = {
           qrValid: baseDecision.qrValid,
           gpsValid: baseDecision.gpsValid,
           accepted: baseDecision.accepted && authorised,
-          rejectionReason: null,
+          rejectionReason: authorised ? null : "UNAUTHORISED_WORKER",
           siteName: baseDecision.siteName,
           siteCheckinConfigId: baseDecision.siteCheckinConfigId,
           jobId: baseDecision.jobId,
@@ -188,11 +190,6 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
           permittedRadiusMetres: baseDecision.permittedRadiusMetres,
           submission: baseDecision.submission,
         };
-
-        if (!authorised) {
-          decision.rejectionReason = "UNAUTHORISED_WORKER";
-          decision.accepted = false;
-        }
 
         if (!decision.accepted) {
           if (!rateLimiter.allow(rateKey, nowMs)) {
@@ -236,9 +233,9 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
   router.get(
     CURRENT_SESSION_ROUTE,
     requireCheckInSession,
-    async (request: CheckInRequest, response: Response) => {
+    async (request: Request, response: Response) => {
       try {
-        const identity = identityFromSession(request.session);
+        const identity = identityFromSession((request as CheckInRequest).session);
         const qrToken = typeof request.query.qrToken === "string" ? request.query.qrToken.trim() : "";
         if (qrToken === "") {
           return response.status(400).json({ error: "qrToken is required" });
@@ -278,9 +275,9 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
   router.post(
     CHECKOUT_ROUTE,
     requireCheckInSession,
-    async (request: CheckInRequest, response: Response) => {
+    async (request: Request, response: Response) => {
       try {
-        const session = request.session;
+        const session = (request as CheckInRequest).session;
         const identity = identityFromSession(session);
         const rateKey = `${session!.username}:${request.ip ?? "unknown"}`;
         const nowMs = Date.now();
@@ -304,7 +301,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         };
 
         const gpsAccuracy = submission.gpsAccuracy;
-        if (gpsAccuracy !== undefined && gpsAccuracy > GPS_ACCURACY_MAX) {
+        if (typeof gpsAccuracy === "number" && gpsAccuracy > GPS_ACCURACY_MAX) {
           return response.status(400).json({
             error: "gpsAccuracy is implausible",
             code: "INVALID_ACCURACY",
@@ -322,6 +319,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
           latitude: submission.latitude,
           longitude: submission.longitude,
           gpsAccuracy,
+          contractorId: identity.contractorId ?? null,
         });
 
         const decision: CheckInDecision = {
@@ -342,24 +340,9 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         //   - verify an active work session exists for this worker/contractor/job
         //   - close the session on success
         //   - reject with appropriate reason if no active session / invalid QR / failed GPS
+        const attemptRow = buildAttemptRow(decision, identity, nowIso());
         const { attemptId, workSessionId, closed } = await options.store.applyCheckOutAttempt(
-          {
-            workerId: identity.workerId ?? null,
-            contractorId: identity.contractorId ?? null,
-            jobId: decision.jobId,
-            siteCheckinConfigId: decision.siteCheckinConfigId,
-            identityLabel: identity.label,
-            attemptTime: nowIso(),
-            qrValid: decision.qrValid,
-            gpsValid: decision.gpsValid,
-            accepted: decision.accepted,
-            rejectionReason: decision.rejectionReason,
-            submittedLatitude: decision.submission.latitude,
-            submittedLongitude: decision.submission.longitude,
-            gpsAccuracyMetres: decision.submission.gpsAccuracy,
-            calculatedDistanceMetres: decision.distanceMetres,
-            permittedRadiusMetres: decision.permittedRadiusMetres,
-          },
+          attemptRow,
           identity,
         );
 
@@ -384,15 +367,15 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
 
   // ---- Admin: QR / config management (requireAdmin; never public) ----
 
-  router.get(`${SITE_CHECKIN_ADMIN_PREFIX}/configs`, requireAdmin, async (_req, res) => {
+  router.get(`${SITE_CHECKIN_ADMIN_PREFIX}/configs`, requireAdminHandler, async (_req, res) => {
     const configs = await options.store.listConfigs();
     res.json({ configs });
   });
 
   router.post(
     `${SITE_CHECKIN_ADMIN_PREFIX}/configs`,
-    requireAdmin,
-    async (request: CheckInRequest, response: Response) => {
+    requireAdminHandler,
+    async (request: Request, response: Response) => {
       const body = request.body ?? {};
       const jobId = typeof body.jobId === "string" ? body.jobId.trim() : "";
       const siteName = typeof body.siteName === "string" ? body.siteName.trim() : null;
@@ -420,7 +403,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
       }
 
       const existing = await options.store.findConfigByJobId(jobId);
-      const createdBy = (request.session?.username ?? "admin").trim();
+      const createdBy = ((request as CheckInRequest).session?.username ?? "admin").trim();
 
       let input: UpsertSiteCheckinConfigInput;
       if (keepExistingToken && existing) {
@@ -473,7 +456,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
 
   router.post(
     `${SITE_CHECKIN_ADMIN_PREFIX}/configs/:configId/rotate-token`,
-    requireAdmin,
+    requireAdminHandler,
     async (request, response) => {
       const configId = request.params.configId;
       const existing = (await options.store.listConfigs()).find((c) => c.id === configId);
@@ -486,7 +469,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         qrToken,
         hashQrToken(qrToken),
         null,
-        (request.session?.username ?? "admin").trim(),
+        ((request as CheckInRequest).session?.username ?? "admin").trim(),
       );
       return response.status(200).json({ configId, qrToken });
     },
@@ -494,7 +477,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
 
   router.get(
     `${SITE_CHECKIN_ADMIN_PREFIX}/configs/:configId/qr`,
-    requireAdmin,
+    requireAdminHandler,
     async (request, response) => {
       const configId = request.params.configId;
       const existing = (await options.store.listConfigs()).find((c) => c.id === configId);

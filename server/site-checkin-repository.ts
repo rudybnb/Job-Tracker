@@ -10,6 +10,7 @@
 import type postgres from "postgres";
 import type {
   CheckInAttemptRow,
+  CheckInIdentity,
   SiteCheckinConfig,
   WorkSessionDraft,
 } from "./site-checkin.ts";
@@ -86,9 +87,11 @@ function configFromRow(row: ConfigDbRow): SiteCheckinConfigRecord {
     allowedRadiusMetres: row.allowed_radius_metres,
     qrEnabled: row.qr_enabled,
     gpsEnabled: row.gps_enabled,
+    qrTokenHash: row.qr_token_hash,
     qrToken: row.qr_token,
     qrTokenExpiresAt: row.qr_token_expires_at,
     createdBy: row.created_by,
+    contractorId: null,
   };
 }
 
