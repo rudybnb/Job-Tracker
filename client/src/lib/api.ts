@@ -14,9 +14,15 @@ export function getApiBase(): string {
   return base;
 }
 
-// Wrapper around fetch that prepends the API base when present
+// Wrapper around fetch that prepends the API base when present and enforces session credentials
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const base = getApiBase();
   const url = base ? `${base}${path}` : path;
-  return fetch(url, init);
+  return fetch(url, {
+    credentials: "include",
+    ...init,
+    headers: {
+      ...(init?.headers || {}),
+    },
+  });
 }
