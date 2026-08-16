@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiFetch } from "@/lib/api";
-import "./jobs.css";
 
 interface SiteCheckinConfig {
   readonly id: string;

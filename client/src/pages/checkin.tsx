@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentLocation } from "@/lib/location";
 import { apiFetch } from "@/lib/api";
-import "./jobs.css";
 
 type FlowState =
   | { readonly kind: "idle" }
