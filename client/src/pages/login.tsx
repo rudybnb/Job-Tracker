@@ -17,6 +17,12 @@ export default function Login() {
   const [authContractorName, setAuthContractorName] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
+  // Password change state
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   // GPS state
   const [gpsStatus, setGpsStatus] = useState<"Ready" | "Unavailable" | "Requesting">("Requesting");
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -97,6 +103,7 @@ export default function Login() {
       if (response.ok) {
         const data = await response.json();
         const contractor = data.user;
+        const needsPasswordChange = !!data.mustChangePassword;
         
         // Successful contractor login
         localStorage.setItem('userRole', 'contractor');
@@ -106,35 +113,15 @@ export default function Login() {
         console.log(`✅ Contractor login successful - ${contractor.fullName || contractor.username}`);
         setIsAuthenticated(true);
         setAuthContractorName(contractor.fullName || contractor.username);
+        setMustChangePassword(needsPasswordChange);
 
-        if (latitude && longitude) {
-          try {
-            const proxResp = await apiFetch('/api/check-proximity', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userLatitude: latitude.toString(),
-                userLongitude: longitude.toString(),
-                contractorName: contractor.fullName || contractor.username
-              })
-            });
-            const prox = await proxResp.json();
-            setWithinRange(!!prox.withinRange);
-            setProximityMessage(prox.message || (prox.withinRange ? 'Within range' : 'Too far from job site'));
-            setNearestSite(prox.nearestJobSite ? {
-              location: prox.nearestJobSite.location,
-              distance: Math.round(prox.nearestJobSite.distance || 0),
-              jobTitle: prox.nearestJobSite.jobTitle
-            } : null);
-          } catch (err) {
-            setProximityMessage('Proximity check failed');
-          }
-        } else {
-          setProximityMessage('GPS not ready yet; clock-in will capture when available');
+        if (!needsPasswordChange) {
+          runProximityCheck(contractor.fullName || contractor.username);
         }
+        
         toast({
           title: "Login Successful",
-          description: `Welcome back, ${contractor.firstName}!`,
+          description: needsPasswordChange ? "Temporary password detected. Please set a new password." : `Welcome back, ${contractor.fullName || contractor.username}!`,
         });
         
       } else {
@@ -154,29 +141,98 @@ export default function Login() {
     }
   };
 
+  const runProximityCheck = async (name: string) => {
+    if (latitude && longitude) {
+      try {
+        const proxResp = await apiFetch('/api/check-proximity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userLatitude: latitude.toString(),
+            userLongitude: longitude.toString(),
+            contractorName: name
+          })
+        });
+        const prox = await proxResp.json();
+        setWithinRange(!!prox.withinRange);
+        setProximityMessage(prox.message || (prox.withinRange ? 'Within range' : 'Too far from job site'));
+        setNearestSite(prox.nearestJobSite ? {
+          location: prox.nearestJobSite.location,
+          distance: Math.round(prox.nearestJobSite.distance || 0),
+          jobTitle: prox.nearestJobSite.jobTitle
+        } : null);
+      } catch (err) {
+        setProximityMessage('Proximity check failed');
+      }
+    } else {
+      setProximityMessage('GPS not ready yet; clock-in will capture when available');
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 8) {
+      toast({ title: "Invalid Password", description: "Password must be at least 8 characters long", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Passwords Do Not Match", description: "Please ensure passwords match", variant: "destructive" });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const resp = await apiFetch('/api/simple-worker-change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      });
+
+      if (resp.ok) {
+        toast({ title: "Password Updated", description: "Your new password has been saved securely." });
+        setMustChangePassword(false);
+        setNewPassword("");
+        setConfirmPassword("");
+        if (authContractorName) {
+          runProximityCheck(authContractorName);
+        }
+      } else {
+        const errJson = await resp.json().catch(() => ({}));
+        toast({ title: "Update Failed", description: errJson.error || "Failed to update password", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Network error updating password", variant: "destructive" });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const handleClockIn = async () => {
     if (!authContractorName) {
       toast({ title: "Not authenticated", description: "Login first", variant: "destructive" });
       return;
     }
-    if (gpsStatus !== "Ready" || latitude === null || longitude === null) {
-      toast({ title: "GPS Required", description: "Enable location to clock in", variant: "destructive" });
+    if (mustChangePassword) {
+      toast({ title: "Action Required", description: "Please change your temporary password first", variant: "destructive" });
       return;
     }
     try {
       const startTime = new Date().toISOString();
-      const body = {
+      const payload: Record<string, any> = {
         contractorName: authContractorName,
-        jobSiteLocation: nearestSite?.location || 'Unknown Location',
+        jobSiteLocation: nearestSite?.location || 'Assigned Job Site',
+        jobId: '1',
         startTime,
-        status: 'active',
-        startLatitude: latitude.toString(),
-        startLongitude: longitude.toString()
+        status: 'active'
       };
+      if (latitude && longitude) {
+        payload.startLatitude = latitude.toString();
+        payload.startLongitude = longitude.toString();
+      }
       const resp = await apiFetch('/api/work-sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(payload)
       });
       if (resp.ok) {
         const session = await resp.json();
@@ -245,10 +301,9 @@ export default function Login() {
     sessionStorage.clear();
     setIsAuthenticated(false);
     setAuthContractorName(null);
+    setMustChangePassword(false);
     toast({ title: 'Logged Out', description: 'You have been logged out' });
   };
-
-
 
   return (
     <div className="hallmark-sweep min-h-screen bg-slate-800 flex items-center justify-center p-4">
@@ -277,13 +332,17 @@ export default function Login() {
             </div>
           </div>
           
-          {/* Right side - Login Form */}
+          {/* Right side - Login / Change Password Form */}
           <div className="flex justify-center lg:justify-end">
             <Card className="w-full max-w-md bg-slate-700 border-slate-600 shadow-2xl">
               <CardHeader className="text-center space-y-2 pb-6">
-                <CardTitle className="text-2xl font-bold text-white">Welcome Back</CardTitle>
+                <CardTitle className="text-2xl font-bold text-white">
+                  {mustChangePassword ? "Choose Your New Password" : "Welcome Back"}
+                </CardTitle>
                 <CardDescription className="text-slate-400 text-base">
-                  Sign in to access your dashboard
+                  {mustChangePassword
+                    ? "Please set your new private password to continue"
+                    : "Sign in to access your worker dashboard"}
                 </CardDescription>
               </CardHeader>
               
@@ -341,6 +400,46 @@ export default function Login() {
                       className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-medium h-12 text-base shadow-lg transition-all duration-200"
                     >
                       Sign In
+                    </Button>
+                  </form>
+                ) : mustChangePassword ? (
+                  <form onSubmit={handleChangePassword} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword" className="text-slate-200 font-medium">New Password (min 8 chars)</Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500 h-12"
+                        placeholder="Enter new private password"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword" className="text-slate-200 font-medium">Confirm New Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500 h-12"
+                        placeholder="Re-enter new password"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={isChangingPassword}
+                      className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-medium h-12 text-base shadow-lg"
+                    >
+                      {isChangingPassword ? "Saving..." : "Save Password & Continue"}
+                    </Button>
+
+                    <Button onClick={handleLogout} variant="outline" type="button" className="w-full">
+                      Cancel & Logout
                     </Button>
                   </form>
                 ) : (

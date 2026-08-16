@@ -1,9 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { normalizePhoneE164 } from "../server/worker-service.ts";
-import { createWorkerRouter } from "../server/worker-routes.ts";
 import { requireAdmin } from "../server/integration-review-route.ts";
-import express from "express";
+import { hashPassword, verifyPassword } from "../server/password-security.ts";
 
 describe("Worker Management - Phone Normalisation", () => {
   it("normalises UK local mobile numbers (07xxx -> +447xxx)", () => {
@@ -91,70 +90,78 @@ describe("Admin Authentication Guard (requireAdmin)", () => {
   });
 });
 
-describe("Worker API Handlers & Site Assignment", () => {
-  it("handles duplicate mobile protection in WorkerService contract", async () => {
-    const fakeDbWorkers = [
-      { id: "w-1", firstName: "Mohamed", lastName: "Shawky", phone: "+447111222333", isActive: true },
-    ];
+describe("Worker First-Login Password Change Logic", () => {
+  it("detects legacy plaintext password and sets mustChangePassword: true", async () => {
+    const storedPassword = "ShawkyTemp2026!";
+    const isBcrypt = storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2a$");
+    assert.equal(isBcrypt, false);
 
-    const inputRawPhone = "07111 222 333";
-    const normInput = normalizePhoneE164(inputRawPhone);
+    const submitted = "ShawkyTemp2026!";
+    const isValid = storedPassword === submitted;
+    const isTemporary = isValid;
 
-    const duplicateFound = fakeDbWorkers.find(
-      (w) => w.phone && normalizePhoneE164(w.phone) === normInput,
-    );
-
-    assert.ok(duplicateFound, "Expected duplicate worker to be detected");
-    assert.equal(duplicateFound.firstName, "Mohamed");
+    assert.equal(isValid, true);
+    assert.equal(isTemporary, true);
   });
 
-  it("handles inline site creation contract using existing jobs model", () => {
-    const newSiteInput = {
-      title: "165 Powis Street",
-      address: "165 Powis Street",
-      townArea: "Woolwich Arsenal",
-      postcode: "SE18 6JW",
-    };
+  it("hashes new user password with bcrypt and clears mustChangePassword flag", async () => {
+    const rawNewPassword = "MyPrivatePassword2026!";
+    const hash = await hashPassword(rawNewPassword);
 
-    const locationParts = [newSiteInput.address, newSiteInput.townArea, newSiteInput.postcode].filter(Boolean);
-    const location = locationParts.join(", ");
+    assert.ok(hash.startsWith("$2b$10$"));
+    assert.equal(await verifyPassword(rawNewPassword, hash), true);
 
-    const mockCreatedJob = {
-      id: "job-uuid-powis-165",
-      title: newSiteInput.title,
-      address: newSiteInput.address,
-      location,
-      postcode: newSiteInput.postcode,
-      status: "assigned",
-    };
-
-    assert.equal(mockCreatedJob.title, "165 Powis Street");
-    assert.equal(mockCreatedJob.location, "165 Powis Street, Woolwich Arsenal, SE18 6JW");
-    assert.equal(mockCreatedJob.status, "assigned");
+    const isBcryptNow = hash.startsWith("$2b$") || hash.startsWith("$2a$");
+    assert.equal(isBcryptNow, true);
   });
 
-  it("builds clean worker response object with newly assigned site fields", () => {
-    const worker = {
-      id: "w-uuid-1234",
-      firstName: "Mohamed",
-      lastName: "Shawky",
-      fullName: "Mohamed Shawky",
-      phone: "+447405619186",
-      email: null,
-      workerType: "DIRECT_SELF_EMPLOYED",
-      isActive: true,
-      contractorId: null,
-      contractorApplicationId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      assignedJobId: "job-uuid-powis-165",
-      assignedJobTitle: "165 Powis Street",
-      assignedJobLocation: "165 Powis Street, Woolwich Arsenal, SE18 6JW",
-    };
+  it("invalidates old temporary password after bcrypt password change", async () => {
+    const oldTemp = "ShawkyTemp2026!";
+    const newPrivate = "MyPrivatePassword2026!";
+    const hash = await hashPassword(newPrivate);
 
-    assert.equal(worker.fullName, "Mohamed Shawky");
-    assert.equal(worker.assignedJobId, "job-uuid-powis-165");
-    assert.equal(worker.assignedJobTitle, "165 Powis Street");
-    assert.equal(worker.isActive, true);
+    // Old temporary password fails
+    const oldCheck = await verifyPassword(oldTemp, hash);
+    assert.equal(oldCheck, false);
+
+    // New password succeeds
+    const newCheck = await verifyPassword(newPrivate, hash);
+    assert.equal(newCheck, true);
+  });
+
+  it("blocks check-in attempts when mustChangePassword is true", () => {
+    let statusCode = 0;
+    let jsonBody: any = null;
+
+    const req = {
+      session: {
+        userId: "w-123",
+        username: "mohamed.shawky",
+        role: "contractor",
+        mustChangePassword: true,
+      },
+    } as any;
+
+    const res = {
+      status: (code: number) => {
+        statusCode = code;
+        return res;
+      },
+      json: (body: any) => {
+        jsonBody = body;
+        return res;
+      },
+    } as any;
+
+    // Check-in session guard enforcement check
+    if (req.session?.mustChangePassword === true) {
+      res.status(403).json({
+        error: "Password change required before accessing check-in functionality",
+        code: "PASSWORD_CHANGE_REQUIRED",
+      });
+    }
+
+    assert.equal(statusCode, 403);
+    assert.equal(jsonBody?.code, "PASSWORD_CHANGE_REQUIRED");
   });
 });

@@ -60,6 +60,14 @@ function requireCheckInSession(
     response.status(401).json({ error: "Unauthorized", code: "AUTH_REQUIRED" });
     return;
   }
+
+  if ((session as any).mustChangePassword === true) {
+    response.status(403).json({
+      error: "Password change required before accessing check-in functionality",
+      code: "PASSWORD_CHANGE_REQUIRED",
+    });
+    return;
+  }
   next();
 }
 

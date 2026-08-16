@@ -1,54 +1,90 @@
 import { Express } from "express";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { hashPassword, verifyPassword } from "./password-security.ts";
 
 /**
  * Simple authentication routes
- * These bypass complex database schema issues and provide immediate login functionality
+ * Provides worker and admin login functionality with bcrypt hashing & temporary password change support.
  */
 export function setupSimpleRoutes(app: Express) {
   
+  // Seed temporary tester accounts if not existing
+  (async () => {
+    try {
+      await db.execute(sql`
+        INSERT INTO simple_users (username, password, role, full_name)
+        VALUES 
+          ('mohamed.shawky', 'Mohamed#2026Site', 'contractor', 'Mohamed Shawky'),
+          ('ahmed.gouda', 'Ahmed#2026Site', 'contractor', 'Ahmed Gouda')
+        ON CONFLICT (username) DO NOTHING;
+      `);
+    } catch {
+      // Ignore seed errors if table not ready yet
+    }
+  })();
+
   // Simple contractor login
   app.post("/api/simple-contractor-login", async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { username, password } = req.body ?? {};
       
-      console.log(`🔐 Simple contractor login attempt: ${username}`);
-      
-      if (!username || !password) {
+      const submittedUsername = typeof username === "string" ? username.trim().toLowerCase() : "";
+      const submittedPassword = typeof password === "string" ? password : "";
+
+      if (!submittedUsername || !submittedPassword) {
         return res.status(400).json({ error: "Username and password required" });
       }
 
-      // Check simple_users table
+      // Check simple_users table (case-insensitive username)
       const users = await db.execute(sql`
         SELECT * FROM simple_users 
-        WHERE username = ${username} 
-        AND password = ${password}
+        WHERE LOWER(username) = ${submittedUsername} 
         AND role = 'contractor'
         LIMIT 1;
       `);
 
       if (!Array.isArray(users) || users.length === 0) {
-        console.log(`❌ Login failed for: ${username}`);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
       const user = users[0];
-      console.log(`✅ Login successful for: ${username}`);
+      const storedPassword = String(user.password || "");
+
+      const isBcrypt = storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2a$");
+      let isValidPassword = false;
+      let isTemporaryPassword = false;
+
+      if (isBcrypt) {
+        isValidPassword = await verifyPassword(submittedPassword, storedPassword);
+        isTemporaryPassword = false;
+      } else {
+        // Legacy plaintext temporary password
+        isValidPassword = storedPassword === submittedPassword;
+        isTemporaryPassword = isValidPassword;
+      }
+
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
 
       // Set session
-      req.session.userId = user.id;
-      req.session.username = user.username;
-      req.session.role = user.role;
+      if (req.session) {
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        req.session.role = user.role;
+        (req.session as any).mustChangePassword = isTemporaryPassword;
+      }
 
       res.json({
         success: true,
+        mustChangePassword: isTemporaryPassword,
         user: {
           id: user.id,
           username: user.username,
           fullName: user.full_name || username,
-          role: user.role
-        }
+          role: user.role,
+        },
       });
 
     } catch (error) {
@@ -57,12 +93,51 @@ export function setupSimpleRoutes(app: Express) {
     }
   });
 
+  // Worker self-service password change endpoint
+  app.post("/api/simple-worker-change-password", async (req, res) => {
+    try {
+      const session = req.session;
+      if (!session || !session.userId || session.role !== "contractor") {
+        return res.status(401).json({ error: "Unauthorized", code: "AUTH_REQUIRED" });
+      }
+
+      const { newPassword } = req.body ?? {};
+      const rawNewPassword = typeof newPassword === "string" ? newPassword : "";
+
+      if (!rawNewPassword || rawNewPassword.trim().length === 0) {
+        return res.status(400).json({ error: "Password cannot be empty or whitespace only", code: "INVALID_PASSWORD" });
+      }
+
+      if (rawNewPassword.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters long", code: "INVALID_PASSWORD" });
+      }
+
+      const hashedPassword = await hashPassword(rawNewPassword);
+
+      await db.execute(sql`
+        UPDATE simple_users 
+        SET password = ${hashedPassword}
+        WHERE id = ${session.userId}
+        AND role = 'contractor';
+      `);
+
+      (req.session as any).mustChangePassword = false;
+
+      return res.json({
+        success: true,
+        message: "Password updated successfully",
+      });
+
+    } catch (error) {
+      console.error("❌ Worker password change error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Simple admin login
   app.post("/api/simple-admin-login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      
-      console.log(`🔐 Simple admin login attempt: ${username}`);
       
       if (!username || !password) {
         return res.status(400).json({ error: "Username and password required" });
@@ -70,14 +145,12 @@ export function setupSimpleRoutes(app: Express) {
 
       const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH?.trim();
       if (adminPasswordHash) {
-        const { verifyPassword } = await import("./password-security.ts");
         const configuredUsername = (process.env.ADMIN_USERNAME?.trim() || "admin").toLowerCase();
         const submittedUsername = String(username).trim().toLowerCase();
         const isValidUsername = submittedUsername === configuredUsername;
         const isValidPassword = await verifyPassword(String(password), adminPasswordHash);
 
         if (!isValidUsername || !isValidPassword) {
-          console.log(`❌ Admin login failed for: ${username}`);
           return res.status(401).json({ error: "Invalid credentials" });
         }
 
@@ -89,8 +162,6 @@ export function setupSimpleRoutes(app: Express) {
           role: "admin",
           isStaff: true,
         };
-
-        console.log(`✅ Admin login successful for: ${adminUser.username}`);
 
         if (req.session) {
           req.session.userId = adminUser.id;
@@ -114,8 +185,6 @@ export function setupSimpleRoutes(app: Express) {
         return res.status(authResult.statusCode).json({ error: authResult.error });
       }
 
-      console.log(`✅ Admin login successful for: ${authResult.user.username}`);
-
       // Set session
       if (req.session) {
         req.session.userId = authResult.user.id;
@@ -136,13 +205,14 @@ export function setupSimpleRoutes(app: Express) {
 
   // Check session status
   app.get("/api/simple-session", (req, res) => {
-    if (req.session.userId) {
+    if (req.session?.userId) {
       res.json({
         authenticated: true,
         user: {
           id: req.session.userId,
           username: req.session.username,
-          role: req.session.role
+          role: req.session.role,
+          mustChangePassword: (req.session as any).mustChangePassword || false,
         }
       });
     } else {
@@ -152,7 +222,7 @@ export function setupSimpleRoutes(app: Express) {
 
   // Logout
   app.post("/api/simple-logout", (req, res) => {
-    req.session.destroy((err) => {
+    req.session?.destroy((err) => {
       if (err) {
         return res.status(500).json({ error: "Logout failed" });
       }
@@ -160,5 +230,5 @@ export function setupSimpleRoutes(app: Express) {
     });
   });
 
-  console.log("✅ Simple authentication routes registered");
+  console.log("✅ Simple authentication routes registered with bcrypt support & worker password change");
 }
