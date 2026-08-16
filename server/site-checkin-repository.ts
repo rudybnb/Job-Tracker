@@ -71,7 +71,6 @@ interface ConfigDbRow {
   readonly allowed_radius_metres: number;
   readonly qr_enabled: boolean;
   readonly gps_enabled: boolean;
-  readonly qr_token: string;
   readonly qr_token_hash: string;
   readonly qr_token_expires_at: Date | string | null;
   readonly created_by: string | null;
@@ -88,7 +87,7 @@ function configFromRow(row: ConfigDbRow): SiteCheckinConfigRecord {
     qrEnabled: row.qr_enabled,
     gpsEnabled: row.gps_enabled,
     qrTokenHash: row.qr_token_hash,
-    qrToken: row.qr_token,
+    qrToken: row.qr_token_hash,
     qrTokenExpiresAt: row.qr_token_expires_at,
     createdBy: row.created_by,
     contractorId: null,
@@ -110,7 +109,7 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
   async findConfigByTokenHash(tokenHash: string): Promise<SiteCheckinConfigRecord | null> {
     const rows = await this.sql<ConfigDbRow[]>`
       SELECT id, job_id, site_name, site_latitude, site_longitude,
-             allowed_radius_metres, qr_enabled, gps_enabled, qr_token,
+             allowed_radius_metres, qr_enabled, gps_enabled,
              qr_token_hash, qr_token_expires_at, created_by
         FROM site_checkin_config
        WHERE qr_token_hash = ${tokenHash}
@@ -123,7 +122,7 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
   async findConfigByJobId(jobId: string): Promise<SiteCheckinConfigRecord | null> {
     const rows = await this.sql<ConfigDbRow[]>`
       SELECT id, job_id, site_name, site_latitude, site_longitude,
-             allowed_radius_metres, qr_enabled, gps_enabled, qr_token,
+             allowed_radius_metres, qr_enabled, gps_enabled,
              qr_token_hash, qr_token_expires_at, created_by
         FROM site_checkin_config
        WHERE job_id = ${jobId}
@@ -135,7 +134,7 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
   async listConfigs(): Promise<SiteCheckinConfigRecord[]> {
     const rows = await this.sql<ConfigDbRow[]>`
       SELECT id, job_id, site_name, site_latitude, site_longitude,
-             allowed_radius_metres, qr_enabled, gps_enabled, qr_token,
+             allowed_radius_metres, qr_enabled, gps_enabled,
              qr_token_hash, qr_token_expires_at, created_by
         FROM site_checkin_config
        ORDER BY site_name NULLS LAST, created_at
@@ -147,11 +146,11 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
     const rows = await this.sql<ConfigDbRow[]>`
       INSERT INTO site_checkin_config (
         job_id, site_name, site_latitude, site_longitude, allowed_radius_metres,
-        qr_enabled, gps_enabled, qr_token, qr_token_hash, qr_token_expires_at, created_by
+        qr_enabled, gps_enabled, qr_token_hash, qr_token_expires_at, created_by
       ) VALUES (
         ${input.jobId}, ${input.siteName}, ${input.siteLatitude}, ${input.siteLongitude},
         ${input.allowedRadiusMetres}, ${input.qrEnabled}, ${input.gpsEnabled},
-        ${input.qrToken}, ${input.qrTokenHash}, ${input.qrTokenExpiresAt}, ${input.createdBy}
+        ${input.qrTokenHash}, ${input.qrTokenExpiresAt}, ${input.createdBy}
       )
       ON CONFLICT (job_id) DO UPDATE SET
         site_name = EXCLUDED.site_name,
@@ -160,13 +159,12 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
         allowed_radius_metres = EXCLUDED.allowed_radius_metres,
         qr_enabled = EXCLUDED.qr_enabled,
         gps_enabled = EXCLUDED.gps_enabled,
-        qr_token = EXCLUDED.qr_token,
         qr_token_hash = EXCLUDED.qr_token_hash,
         qr_token_expires_at = EXCLUDED.qr_token_expires_at,
         created_by = EXCLUDED.created_by,
         updated_at = now()
       RETURNING id, job_id, site_name, site_latitude, site_longitude,
-                allowed_radius_metres, qr_enabled, gps_enabled, qr_token,
+                allowed_radius_metres, qr_enabled, gps_enabled,
                 qr_token_hash, qr_token_expires_at, created_by
     `;
     return configFromRow(rows[0]);
@@ -177,130 +175,54 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
     identity: CheckInIdentity,
   ): Promise<{ attemptId: string; workSessionId: string | null; closed: boolean }> {
     return this.sql.begin(async (tx) => {
-      const inserted = await tx<{ id: string }[]>`
+      const dbTx = tx as unknown as postgres.Sql;
+
+      const activeRows = await dbTx<{ id: string }[]>`
+        SELECT id FROM work_sessions
+         WHERE job_id = ${attempt.jobId}
+           AND contractor_name = ${identity.identityLabel}
+           AND status = 'active'
+         ORDER BY start_time DESC
+         LIMIT 1
+      `;
+
+      const targetSessionId = activeRows.length === 1 ? activeRows[0].id : null;
+      let closed = false;
+
+      if (targetSessionId && attempt.accepted) {
+        await dbTx`
+          UPDATE work_sessions
+             SET end_time = ${attempt.attemptTime},
+                 status = 'completed'
+           WHERE id = ${targetSessionId}
+        `;
+        closed = true;
+      }
+
+      const attemptRows = await dbTx<{ id: string }[]>`
         INSERT INTO site_checkin_attempt (
-          worker_id, contractor_id, job_id, site_checkin_config_id, identity_label,
-          attempt_time, qr_valid, submitted_latitude, submitted_longitude,
-          gps_accuracy_metres, calculated_distance_metres, permitted_radius_metres,
-          gps_valid, accepted, rejection_reason
+          worker_id, contractor_id, job_id, site_checkin_config_id,
+          identity_label, attempt_time, qr_valid, submitted_latitude,
+          submitted_longitude, gps_accuracy_metres, calculated_distance_metres,
+          permitted_radius_metres, gps_valid, accepted, rejection_reason
         ) VALUES (
-          ${attempt.workerId ?? null}, ${attempt.contractorId ?? null},
-          ${attempt.jobId ?? null}, ${attempt.siteCheckinConfigId ?? null},
-          ${attempt.identityLabel}, ${attempt.attemptTime}, ${attempt.qrValid},
-          ${attempt.submittedLatitude ?? null}, ${attempt.submittedLongitude ?? null},
-          ${attempt.gpsAccuracyMetres ?? null}, ${attempt.calculatedDistanceMetres ?? null},
-          ${attempt.permittedRadiusMetres ?? null}, ${attempt.gpsValid},
-          ${attempt.accepted}, ${attempt.rejectionReason ?? null}
+          ${attempt.workerId}, ${attempt.contractorId}, ${attempt.jobId},
+          ${attempt.siteCheckinConfigId}, ${identity.identityLabel},
+          ${attempt.attemptTime}, ${attempt.qrValid}, ${attempt.submittedLatitude},
+          ${attempt.submittedLongitude}, ${attempt.gpsAccuracyMetres},
+          ${attempt.calculatedDistanceMetres}, ${attempt.permittedRadiusMetres},
+          ${attempt.gpsValid}, ${attempt.accepted}, ${attempt.rejectionReason}
         )
         RETURNING id
       `;
-      const attemptId = inserted[0].id;
 
-      // Check whether this authenticated identity has an ACTIVE work_session
-      // for the same job from the check-in attempt.
-      const activeSession = await tx<{ id: string; status: string }[]>`
-        SELECT id, status
-        FROM work_sessions
-        WHERE job_id = ${attempt.jobId ?? null}
-          AND contractor_id = ${attempt.contractorId ?? null}
-          AND worker_id = ${attempt.workerId ?? null}
-          AND status = 'active'
-        LIMIT 1
-      `;
-
-      if (activeSession.length === 0) {
-        // No active session → cannot check out; record attempt as rejected
-        await tx`
-          UPDATE site_checkin_attempt
-             SET work_session_id = NULL,
-                 rejection_reason = 'NO_ACTIVE_SESSION'
-           WHERE id = ${attemptId}
-        `;
-        return { attemptId, workSessionId: null, closed: false };
-      }
-
-      // Close the active work session by updating its status and recording
-      // the check-out time (now()). We do NOT insert a new session; we simply
-      // mark the existing one as completed.
-      await tx`
-        UPDATE work_sessions
-           SET status = 'completed',
-               end_time = now()
-         WHERE id = ${activeSession[0].id}
-      `;
-
-      // Disassociate the attempt from the now-closed session
-      await tx`
-        UPDATE site_checkin_attempt
-           SET work_session_id = NULL
-         WHERE id = ${attemptId}
-      `;
-
-      return { attemptId, workSessionId: activeSession[0].id, closed: true };
+      return {
+        attemptId: attemptRows[0].id,
+        workSessionId: targetSessionId,
+        closed,
+      };
     });
   }
-
-  async getAllWorkSessions(): Promise<{
-      id: string;
-      contractorName: string;
-      jobSiteLocation: string | null;
-      startTime: Date | string | null;
-      endTime: Date | string | null;
-      status: string;
-      jobId: string | null;
-      workerId: string | null;
-      contractorId: string | null;
-    }[]> {
-      const sessions = await this.sql<{
-        id: string;
-        contractor_name: string;
-        job_site_location: string | null;
-        start_time: Date | string | null;
-        end_time: Date | string | null;
-        status: string;
-        job_id: string | null;
-        worker_id: string | null;
-        contractor_id: string | null;
-      }[]>`
-        SELECT id, contractor_name, job_site_location, start_time, end_time, status,
-               job_id, worker_id, contractor_id
-        FROM work_sessions
-        ORDER BY start_time DESC
-      `;
-      return sessions.map((s) => ({
-        id: s.id,
-        contractorName: s.contractor_name,
-        jobSiteLocation: s.job_site_location,
-        startTime: s.start_time,
-        endTime: s.end_time,
-        status: s.status,
-        jobId: s.job_id,
-        workerId: s.worker_id,
-        contractorId: s.contractor_id,
-      }));
-    }
-
-    async findActiveSession(
-      jobId: string,
-      identityLabel: string,
-    ): Promise<{ id: string; startTime: Date | string | null; status: string } | null> {
-      const sessions = await this.sql<{
-        id: string;
-        start_time: Date | string | null;
-        status: string;
-      }[]>`
-        SELECT id, start_time, status
-        FROM work_sessions
-        WHERE job_id = ${jobId}
-          AND contractor_name = ${identityLabel}
-          AND status = 'active'
-        ORDER BY start_time DESC
-        LIMIT 1
-      `;
-      return sessions.length === 1
-        ? { id: sessions[0].id, startTime: sessions[0].start_time, status: sessions[0].status }
-        : null;
-    }
 
   async rotateConfigToken(
     configId: string,
@@ -311,8 +233,7 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
   ): Promise<void> {
     await this.sql`
       UPDATE site_checkin_config
-         SET qr_token = ${qrToken},
-             qr_token_hash = ${qrTokenHash},
+         SET qr_token_hash = ${qrTokenHash},
              qr_token_expires_at = ${qrTokenExpiresAt},
              created_by = ${rotatedBy},
              updated_at = now()
@@ -326,75 +247,94 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
     identity: CheckInIdentity,
   ): Promise<{ attemptId: string; workSessionId: string | null; duplicate: boolean }> {
     return this.sql.begin(async (tx) => {
-      const inserted = await tx<{ id: string }[]>`
-        INSERT INTO site_checkin_attempt (
-          worker_id, contractor_id, job_id, site_checkin_config_id, identity_label,
-          attempt_time, qr_valid, submitted_latitude, submitted_longitude,
-          gps_accuracy_metres, calculated_distance_metres, permitted_radius_metres,
-          gps_valid, accepted, rejection_reason
-        ) VALUES (
-          ${attempt.workerId ?? null}, ${attempt.contractorId ?? null},
-          ${attempt.jobId ?? null}, ${attempt.siteCheckinConfigId ?? null},
-          ${attempt.identityLabel}, ${attempt.attemptTime}, ${attempt.qrValid},
-          ${attempt.submittedLatitude ?? null}, ${attempt.submittedLongitude ?? null},
-          ${attempt.gpsAccuracyMetres ?? null}, ${attempt.calculatedDistanceMetres ?? null},
-          ${attempt.permittedRadiusMetres ?? null}, ${attempt.gpsValid},
-          ${attempt.accepted}, ${attempt.rejectionReason ?? null}
-        )
-        RETURNING id
-      `;
-      const attemptId = inserted[0].id;
+      const dbTx = tx as unknown as postgres.Sql;
 
-      if (!workSessionDraft) {
-        return { attemptId, workSessionId: null, duplicate: false };
-      }
+      let createdSessionId: string | null = null;
+      let duplicate = false;
 
-      const jobId = workSessionDraft.jobId;
-
-      // Duplicate session protection: check whether this authenticated identity
-      // already has an ACTIVE work_session for the same job.
-      const existingSession = await tx<{ id: string; status: string }[]>`
-        SELECT id, status
-        FROM work_sessions
-        WHERE job_id = ${jobId}
-          AND contractor_id = ${attempt.contractorId ?? null}
-          AND worker_id = ${attempt.workerId ?? null}
-          AND status = 'active'
-        LIMIT 1
-      `;
-
-      if (existingSession.length > 0) {
-        // Record the attempt in the audit table only, do NOT create another active session.
-        await tx`
-          UPDATE site_checkin_attempt
-             SET work_session_id = NULL
-           WHERE id = ${attemptId}
+      if (attempt.accepted && workSessionDraft) {
+        const existingActive = await dbTx<{ id: string }[]>`
+          SELECT id FROM work_sessions
+           WHERE job_id = ${workSessionDraft.jobId}
+             AND contractor_name = ${identity.identityLabel}
+             AND status = 'active'
+           LIMIT 1
         `;
-        return { attemptId, workSessionId: null, duplicate: true };
+
+        if (existingActive.length > 0) {
+          duplicate = true;
+          createdSessionId = existingActive[0].id;
+        } else {
+          const sessionRows = await dbTx<{ id: string }[]>`
+            INSERT INTO work_sessions (
+              contractor_name, job_site_location, start_time, end_time, status,
+              job_id, worker_id, contractor_id
+            ) VALUES (
+              ${identity.identityLabel}, ${workSessionDraft.jobSiteLocation},
+              ${workSessionDraft.startTime}, ${workSessionDraft.endTime},
+              ${workSessionDraft.status}, ${workSessionDraft.jobId},
+              ${attempt.workerId}, ${attempt.contractorId}
+            )
+            RETURNING id
+          `;
+          createdSessionId = sessionRows[0].id;
+        }
       }
 
-      const session = await tx<{ id: string }[]>`
-        INSERT INTO work_sessions (
-          contractor_name, job_site_location, start_time, status,
-          start_latitude, start_longitude, job_id, worker_id, contractor_id
+      const attemptRows = await dbTx<{ id: string }[]>`
+        INSERT INTO site_checkin_attempt (
+          worker_id, contractor_id, job_id, site_checkin_config_id,
+          identity_label, attempt_time, qr_valid, submitted_latitude,
+          submitted_longitude, gps_accuracy_metres, calculated_distance_metres,
+          permitted_radius_metres, gps_valid, accepted, rejection_reason
         ) VALUES (
-          ${workSessionDraft.contractorName}, ${workSessionDraft.jobSiteLocation},
-          now(), 'active',
-          ${attempt.submittedLatitude ?? null}, ${attempt.submittedLongitude ?? null},
-          ${workSessionDraft.jobId}, ${workSessionDraft.workerId ?? null},
-          ${workSessionDraft.contractorId ?? null}
+          ${attempt.workerId}, ${attempt.contractorId}, ${attempt.jobId},
+          ${attempt.siteCheckinConfigId}, ${identity.identityLabel},
+          ${attempt.attemptTime}, ${attempt.qrValid}, ${attempt.submittedLatitude},
+          ${attempt.submittedLongitude}, ${attempt.gpsAccuracyMetres},
+          ${attempt.calculatedDistanceMetres}, ${attempt.permittedRadiusMetres},
+          ${attempt.gpsValid}, ${attempt.accepted}, ${attempt.rejectionReason}
         )
         RETURNING id
       `;
-      const workSessionId = session[0].id;
 
-      await tx`
-        UPDATE site_checkin_attempt
-           SET work_session_id = ${workSessionId}
-         WHERE id = ${attemptId}
-      `;
-
-      return { attemptId, workSessionId, duplicate: false };
+      return {
+        attemptId: attemptRows[0].id,
+        workSessionId: createdSessionId,
+        duplicate,
+      };
     });
+  }
+
+  async getAllWorkSessions(): Promise<{ id: string; contractorName: string; jobSiteLocation: string | null; startTime: Date | string | null; endTime: Date | string | null; status: string; jobId: string | null; workerId: string | null; contractorId: string | null }[]> {
+    const rows = await this.sql<{ id: string; contractor_name: string; job_site_location: string | null; start_time: Date | string | null; end_time: Date | string | null; status: string; job_id: string | null; worker_id: string | null; contractor_id: string | null }[]>`
+      SELECT id, contractor_name, job_site_location, start_time, end_time, status, job_id, worker_id, contractor_id
+        FROM work_sessions
+       ORDER BY start_time DESC NULLS LAST
+    `;
+    return rows.map((r) => ({
+      id: r.id,
+      contractorName: r.contractor_name,
+      jobSiteLocation: r.job_site_location,
+      startTime: r.start_time,
+      endTime: r.end_time,
+      status: r.status,
+      jobId: r.job_id,
+      workerId: r.worker_id,
+      contractorId: r.contractor_id,
+    }));
+  }
+
+  async findActiveSession(jobId: string, identityLabel: string): Promise<{ id: string; startTime: Date | string | null; status: string } | null> {
+    const rows = await this.sql<{ id: string; start_time: Date | string | null; status: string }[]>`
+      SELECT id, start_time, status
+        FROM work_sessions
+       WHERE job_id = ${jobId}
+         AND contractor_name = ${identityLabel}
+         AND status = 'active'
+       ORDER BY start_time DESC
+       LIMIT 1
+    `;
+    return rows.length === 1 ? { id: rows[0].id, startTime: rows[0].start_time, status: rows[0].status } : null;
   }
 }

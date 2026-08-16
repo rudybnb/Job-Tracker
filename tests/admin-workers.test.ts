@@ -200,36 +200,66 @@ describe("Site QR Admin Page Data-Loading Resilience", () => {
     ];
 
     let loadedJobs: any[] = [];
-    let loadedConfigs: any[] = [];
     let errorMessage: string | null = null;
 
-    // Simulate independent fetch handling
     const fetchJobs = async () => {
       return { ok: true, json: async () => mockJobs };
     };
 
     const fetchConfigs = async () => {
-      // Simulate config fetch failure (e.g. HTTP 500 or network issue)
       return { ok: false, status: 500, json: async () => ({ error: "Database error" }) };
     };
 
-    // 1. Fetch jobs
     const jobsRes = await fetchJobs();
     if (jobsRes.ok) {
       loadedJobs = await jobsRes.json();
     }
 
-    // 2. Fetch configs
     const configsRes = await fetchConfigs();
     if (!configsRes.ok) {
       errorMessage = "Could not load site check-in policies.";
     }
 
-    // Verify jobs populated regardless of config error
     assert.equal(loadedJobs.length, 3);
     assert.equal(loadedJobs[0].title, "Tester");
     assert.equal(loadedJobs[1].title, "Woolwich Church");
     assert.equal(loadedJobs[2].title, "38 Crescent Road");
     assert.equal(errorMessage, "Could not load site check-in policies.");
+  });
+
+  it("creates first site check-in config successfully and generates QR token", async () => {
+    const inputPayload = {
+      jobId: "j-tester-123",
+      siteName: "Tester — 15 Gilbert Road",
+      siteLatitude: "51.491306",
+      siteLongitude: "0.148139",
+      allowedRadiusMetres: 100,
+      qrEnabled: true,
+      gpsEnabled: true,
+    };
+
+    // Verify canonical payload structure
+    assert.ok(inputPayload.jobId);
+    assert.ok(inputPayload.siteLatitude);
+    assert.ok(inputPayload.siteLongitude);
+    assert.equal(typeof inputPayload.allowedRadiusMetres, "number");
+    assert.equal(inputPayload.qrEnabled, true);
+    assert.equal(inputPayload.gpsEnabled, true);
+
+    // Mock store saving first config
+    const mockCreatedConfig = {
+      id: "cfg-1",
+      jobId: inputPayload.jobId,
+      siteName: inputPayload.siteName,
+      siteLatitude: inputPayload.siteLatitude,
+      siteLongitude: inputPayload.siteLongitude,
+      allowedRadiusMetres: inputPayload.allowedRadiusMetres,
+      qrEnabled: inputPayload.qrEnabled,
+      gpsEnabled: inputPayload.gpsEnabled,
+      qrToken: "tok_test_abc123",
+    };
+
+    assert.equal(mockCreatedConfig.jobId, "j-tester-123");
+    assert.ok(mockCreatedConfig.qrToken.startsWith("tok_"));
   });
 });

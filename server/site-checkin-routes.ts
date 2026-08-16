@@ -384,81 +384,88 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
     `${SITE_CHECKIN_ADMIN_PREFIX}/configs`,
     requireAdminHandler,
     async (request: Request, response: Response) => {
-      const body = request.body ?? {};
-      const jobId = typeof body.jobId === "string" ? body.jobId.trim() : "";
-      const siteName = typeof body.siteName === "string" ? body.siteName.trim() : null;
-      const siteLatitude = typeof body.siteLatitude === "string" ? body.siteLatitude.trim() : "";
-      const siteLongitude = typeof body.siteLongitude === "string" ? body.siteLongitude.trim() : "";
-      const radius = toOptionalNumber(body.allowedRadiusMetres);
-      const qrEnabled = body.qrEnabled !== false;
-      const gpsEnabled = body.gpsEnabled !== false;
-      const keepExistingToken = body.keepExistingToken === true;
+      try {
+        const body = request.body ?? {};
+        const jobId = typeof body.jobId === "string" ? body.jobId.trim() : "";
+        const siteName = typeof body.siteName === "string" ? body.siteName.trim() : null;
+        const siteLatitude = typeof body.siteLatitude === "string" ? body.siteLatitude.trim() : "";
+        const siteLongitude = typeof body.siteLongitude === "string" ? body.siteLongitude.trim() : "";
+        const radius = toOptionalNumber(body.allowedRadiusMetres);
+        const qrEnabled = body.qrEnabled !== false;
+        const gpsEnabled = body.gpsEnabled !== false;
+        const keepExistingToken = body.keepExistingToken === true;
 
-      if (!jobId || !siteLatitude || !siteLongitude) {
-        return response
-          .status(400)
-          .json({ error: "jobId, siteLatitude and siteLongitude are required" });
-      }
-      const coords = parseCoordinates(siteLatitude, siteLongitude);
-      if (!coords) {
-        return response.status(400).json({ error: "Invalid site coordinates" });
-      }
-      if (!isValidRadius(radius)) {
-        return response.status(400).json({ error: "allowedRadiusMetres must be a positive number" });
-      }
-      if (!siteName) {
-        return response.status(400).json({ error: "siteName is required" });
-      }
+        if (!jobId || !siteLatitude || !siteLongitude) {
+          return response
+            .status(400)
+            .json({ error: "jobId, siteLatitude and siteLongitude are required" });
+        }
+        const coords = parseCoordinates(siteLatitude, siteLongitude);
+        if (!coords) {
+          return response.status(400).json({ error: "Invalid site coordinates" });
+        }
+        if (!isValidRadius(radius)) {
+          return response.status(400).json({ error: "allowedRadiusMetres must be a positive number" });
+        }
+        if (!siteName) {
+          return response.status(400).json({ error: "siteName is required" });
+        }
 
-      const existing = await options.store.findConfigByJobId(jobId);
-      const createdBy = ((request as CheckInRequest).session?.username ?? "admin").trim();
+        const existing = await options.store.findConfigByJobId(jobId);
+        const createdBy = ((request as CheckInRequest).session?.username ?? "admin").trim();
 
-      let input: UpsertSiteCheckinConfigInput;
-      if (keepExistingToken && existing) {
-        input = {
-          jobId,
-          siteName,
-          siteLatitude,
-          siteLongitude,
-          allowedRadiusMetres: radius,
-          qrEnabled,
-          gpsEnabled,
-          qrToken: existing.qrToken,
-          qrTokenHash: hashQrToken(existing.qrToken),
-          qrTokenExpiresAt: existing.qrTokenExpiresAt ? new Date(existing.qrTokenExpiresAt) : null,
-          createdBy,
-        };
-      } else {
-        const qrToken = generateQrToken();
-        input = {
-          jobId,
-          siteName,
-          siteLatitude,
-          siteLongitude,
-          allowedRadiusMetres: radius,
-          qrEnabled,
-          gpsEnabled,
-          qrToken,
-          qrTokenHash: hashQrToken(qrToken),
-          qrTokenExpiresAt: null,
-          createdBy,
-        };
+        let input: UpsertSiteCheckinConfigInput;
+        if (keepExistingToken && existing) {
+          input = {
+            jobId,
+            siteName,
+            siteLatitude,
+            siteLongitude,
+            allowedRadiusMetres: radius,
+            qrEnabled,
+            gpsEnabled,
+            qrToken: existing.qrToken,
+            qrTokenHash: hashQrToken(existing.qrToken),
+            qrTokenExpiresAt: existing.qrTokenExpiresAt ? new Date(existing.qrTokenExpiresAt) : null,
+            createdBy,
+          };
+        } else {
+          const qrToken = generateQrToken();
+          input = {
+            jobId,
+            siteName,
+            siteLatitude,
+            siteLongitude,
+            allowedRadiusMetres: radius,
+            qrEnabled,
+            gpsEnabled,
+            qrToken,
+            qrTokenHash: hashQrToken(qrToken),
+            qrTokenExpiresAt: null,
+            createdBy,
+          };
+        }
+
+        const saved = await options.store.createOrUpdateConfig(input);
+        return response.status(200).json({
+          config: {
+            id: saved.id,
+            jobId: saved.jobId,
+            siteName: saved.siteName,
+            siteLatitude: saved.siteLatitude,
+            siteLongitude: saved.siteLongitude,
+            allowedRadiusMetres: saved.allowedRadiusMetres,
+            qrEnabled: saved.qrEnabled,
+            gpsEnabled: saved.gpsEnabled,
+            qrToken: saved.qrToken,
+          },
+        });
+      } catch (error: any) {
+        console.error("❌ Error saving site check-in policy:", error);
+        return response.status(500).json({
+          error: error?.message || "Failed to save site check-in policy",
+        });
       }
-
-      const saved = await options.store.createOrUpdateConfig(input);
-      return response.status(200).json({
-        config: {
-          id: saved.id,
-          jobId: saved.jobId,
-          siteName: saved.siteName,
-          siteLatitude: saved.siteLatitude,
-          siteLongitude: saved.siteLongitude,
-          allowedRadiusMetres: saved.allowedRadiusMetres,
-          qrEnabled: saved.qrEnabled,
-          gpsEnabled: saved.gpsEnabled,
-          qrToken: saved.qrToken,
-        },
-      });
     },
   );
 

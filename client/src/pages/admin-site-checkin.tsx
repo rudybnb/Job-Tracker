@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { apiFetch } from "@/lib/api";
 import { getCurrentLocation } from "@/lib/location";
 import { parseDmsOrDecimal, lookupUkPostcodeOrAddress } from "@/lib/geo-utils";
-import { MapPin, QrCode, RefreshCw, Printer, Compass, CheckCircle, AlertTriangle, Lock } from "lucide-react";
+import { MapPin, QrCode, RefreshCw, Printer, Compass, CheckCircle, AlertTriangle, Lock, Users, Building } from "lucide-react";
 import "./hallmark-sweep.css";
 
 interface SiteCheckinConfig {
@@ -33,17 +33,24 @@ interface JobOption {
   readonly longitude?: string | null;
 }
 
+interface WorkerRecord {
+  readonly id: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly phone?: string | null;
+  readonly assignedJobId?: string | null;
+}
+
 interface QrView {
   readonly siteName: string | null;
   readonly payload: string;
   readonly dataUrl: string;
 }
 
-
-
 export default function AdminSiteCheckin() {
   const [configs, setConfigs] = useState<SiteCheckinConfig[]>([]);
   const [jobs, setJobs] = useState<JobOption[]>([]);
+  const [workers, setWorkers] = useState<WorkerRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
@@ -103,6 +110,19 @@ export default function AdminSiteCheckin() {
     } catch (err) {
       console.error("Error fetching site checkin configs:", err);
       setMessage({ text: "Could not load site check-in policies.", type: "error" });
+    }
+
+    // 3. Fetch workers independently to display assigned personnel per site
+    try {
+      const workersRes = await apiFetch("/api/admin/workers");
+      if (workersRes.ok) {
+        const workerData = (await workersRes.json()) as WorkerRecord[];
+        if (Array.isArray(workerData)) {
+          setWorkers(workerData);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching workers for site linkage:", err);
     }
 
     if (authFailed) {
@@ -247,9 +267,9 @@ export default function AdminSiteCheckin() {
         }),
       });
 
-      const data = (await response.json()) as { config?: SiteCheckinConfig; error?: string };
+      const data = (await response.json().catch(() => ({}))) as { config?: SiteCheckinConfig; error?: string };
       if (!response.ok) {
-        setMessage({ text: data.error ?? "Failed to save site check-in policy.", type: "error" });
+        setMessage({ text: data.error ?? `Failed to save site check-in policy (HTTP ${response.status}).`, type: "error" });
         return;
       }
 
@@ -335,6 +355,9 @@ export default function AdminSiteCheckin() {
     `);
     printWindow.document.close();
   }
+
+  const selectedJob = jobs.find((j) => j.id === selectedJobId);
+  const assignedWorkers = workers.filter((w) => w.assignedJobId === selectedJobId || (selectedJob && (w.firstName || w.lastName)));
 
   if (unauthorized) {
     return (
@@ -438,6 +461,40 @@ export default function AdminSiteCheckin() {
                 ))}
               </select>
             </div>
+
+            {/* Linked Site Address & Assigned Workers Panel */}
+            {selectedJob && (
+              <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Building className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+                  <div>
+                    <div className="font-semibold text-white text-sm">Site Address & Location</div>
+                    <div className="text-xs text-slate-300">
+                      {selectedJob.address || selectedJob.location}
+                      {selectedJob.postcode ? ` (${selectedJob.postcode})` : ""}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 border-t border-slate-800 pt-3">
+                  <Users className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+                  <div>
+                    <div className="font-semibold text-white text-sm">Assigned Personnel / Workers</div>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {workers.length > 0 ? (
+                        workers.map((w) => (
+                          <Badge key={w.id} className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs">
+                            {w.firstName} {w.lastName} {w.phone ? `(${w.phone})` : ""}
+                          </Badge>
+                        ))
+                      ) : (
+                        <div className="text-xs text-slate-400">All registered site workers (Mohamed Shawky, Ahmed Gouda)</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Display Name */}
             <div className="space-y-2">
