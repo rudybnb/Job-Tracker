@@ -31,6 +31,7 @@ import { createCommercialFinanceRouter } from "./commercial-finance-routes.ts";
 import { BankReconciliationRepository } from "./monzo-bank.ts";
 import { createBankRouter } from "./bank-routes.ts";
 import { createJarvisIdentityResolverRouter, SqlJarvisIdentityResolver } from "./jarvis-identity-resolver.ts";
+import { createWorkerRouter } from "./worker-routes.ts";
 
 const app = express();
 // Allow mobile WebView (capacitor://localhost) and other origins to call the API
@@ -199,6 +200,14 @@ const bankRouter = createBankRouter(new BankReconciliationRepository({ executor:
 app.use((request, response, next) => {
   if (request.path.startsWith("/api/bank") || request.path.startsWith("/api/jarvis/finance")) {
     return bankRouter(request, response, next);
+  }
+  return next();
+});
+
+const workerRouter = createWorkerRouter();
+app.use((request, response, next) => {
+  if (request.path.startsWith("/api/admin/workers")) {
+    return workerRouter(request, response, next);
   }
   return next();
 });

@@ -40,6 +40,7 @@ import AdminCommercialFinance from "@/pages/admin-commercial-finance";
 import AdminBankReconciliation from "@/pages/admin-bank-reconciliation";
 import CheckIn from "@/pages/checkin";
 import AdminSiteCheckin from "@/pages/admin-site-checkin";
+import AdminWorkers from "@/pages/admin-workers";
 
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -158,6 +159,17 @@ function Router() {
         <Route path="/admin-site-checkin" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AdminSiteCheckin />
+          </ProtectedRoute>
+        )} />
+
+        <Route path="/admin/workers" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminWorkers />
+          </ProtectedRoute>
+        )} />
+        <Route path="/admin-workers" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminWorkers />
           </ProtectedRoute>
         )} />
 

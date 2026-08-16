@@ -283,6 +283,7 @@ export default function AdminDashboard() {
     {
       title: "People and Finance",
       items: [
+        { label: "Workers", description: "Manage site workers and phone numbers", route: "/admin/workers", tone: "gold" },
         { label: "Onboarding", description: "Contractor onboarding flow", route: "/contractor-onboarding", tone: "gold" },
         { label: "Clean Onboarding", description: "Alternate contractor onboarding flow", route: "/contractor-onboarding-clean", tone: "blue" },
         { label: "Capture ID", description: "Contractor ID capture", route: "/contractor-id-capture", tone: "blue" },
