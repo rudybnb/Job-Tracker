@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 import { getCurrentLocation } from "@/lib/location";
 import { apiFetch } from "@/lib/api";
+import "./hallmark-sweep.css";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -250,7 +251,7 @@ export default function Login() {
 
 
   return (
-    <div className="min-h-screen bg-slate-800 flex items-center justify-center p-4">
+    <div className="hallmark-sweep min-h-screen bg-slate-800 flex items-center justify-center p-4">
       {/* Background pattern */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 opacity-90"></div>
       <div className="absolute inset-0" style={{
@@ -265,10 +266,8 @@ export default function Login() {
           <div className="text-left space-y-8">
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
-                <div className="w-16 h-16 bg-gradient-to-br from-amber-600 to-yellow-600 rounded-xl flex items-center justify-center shadow-2xl">
-                  <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  </svg>
+                <div className="hallmark-logo-mark">
+                  <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
                 </div>
                 <div>
                   <h1 className="text-4xl font-bold text-white">Sculpt Projects</h1>

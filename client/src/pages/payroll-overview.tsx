@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from "lucide-react";
 import * as XLSX from 'xlsx';
+import "./hallmark-sweep.css";
 
 interface ContractorEarnings {
   contractorName: string;
@@ -112,7 +113,7 @@ export default function AdminTimeTracking() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="hallmark-sweep min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-white">Loading time tracking data...</div>
       </div>
     );
@@ -120,7 +121,7 @@ export default function AdminTimeTracking() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="hallmark-sweep min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-red-400">Error loading data: {error.message}</div>
       </div>
     );
@@ -274,16 +275,19 @@ export default function AdminTimeTracking() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="hallmark-sweep min-h-screen bg-slate-900">
       <LogoutButton />
       
       {/* Header with Week Selector and Export Button */}
       <div className="bg-slate-800 px-6 py-4 border-b border-slate-600">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-2">
-              Weekly Payroll Report
-            </h1>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="hallmark-logo-mark">
+                <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
+              </span>
+              <h1 className="text-2xl font-bold text-white">Weekly Payroll Report</h1>
+            </div>
             <p className="text-slate-300">
               Week ending {new Date(selectedWeek).toLocaleDateString('en-GB', { 
                 weekday: 'long', 

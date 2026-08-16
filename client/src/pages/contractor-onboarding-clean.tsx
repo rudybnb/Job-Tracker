@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Send, CheckCircle, XCircle, Clock } from "lucide-react";
+import "./hallmark-sweep.css";
 
 function LogoutButton() {
   const handleLogout = () => {
@@ -184,17 +185,17 @@ You've been invited to join our construction team. Please complete your contract
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="hallmark-sweep min-h-screen bg-slate-900 text-white">
       <LogoutButton />
       
       {/* Header matching screenshot */}
       <div className="bg-slate-800 text-white p-4">
         <div className="max-w-4xl mx-auto flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center">
-            <span className="text-black font-bold text-sm">Pro</span>
+          <div className="hallmark-logo-mark">
+            <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
           </div>
           <div>
-            <h1 className="text-lg font-medium">Simple Time Tracking</h1>
+            <h1 className="text-lg font-medium">Sculpt Projects</h1>
           </div>
           <div className="ml-auto flex items-center space-x-2">
             <div className="w-2 h-2 bg-green-400 rounded-full"></div>

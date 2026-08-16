@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, CheckCircle, User, FileText, CreditCard, Users, Wrench, Shield } from "lucide-react";
+import "./hallmark-sweep.css";
 
 export default function ContractorForm() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -765,13 +766,18 @@ export default function ContractorForm() {
 
   try {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="hallmark-sweep min-h-screen bg-black text-white">
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-700 p-4">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-blue-400">Contractor Registration</h1>
-            <p className="text-slate-400">ER Build & Design - Complete your onboarding</p>
+            <div className="flex items-center gap-3">
+              <span className="hallmark-logo-mark">
+                <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
+              </span>
+              <h1 className="text-2xl font-bold text-blue-400">Contractor Registration</h1>
+            </div>
+            <p className="text-slate-400">Sculpt Projects - Complete your onboarding</p>
           </div>
           
           {/* Progress Bar */}
@@ -831,7 +837,7 @@ export default function ContractorForm() {
   } catch (error) {
     console.error('Contractor form error:', error);
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="hallmark-sweep min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-400 mb-4">Application Error</h1>
           <p className="text-slate-400">Sorry, there was an error loading the form. Please try refreshing the page.</p>

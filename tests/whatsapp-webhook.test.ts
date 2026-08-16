@@ -155,6 +155,58 @@ test("parser extracts only WhatsApp status and inbound text events", () => {
   });
 });
 
+test("parser filters events to the configured Meta phone number id when provided", () => {
+  const events = parseWhatsAppWebhookEvents(
+    {
+      object: "whatsapp_business_account",
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "configured-phone-id" },
+                messages: [
+                  {
+                    id: "wamid.inbound-configured",
+                    from: "447912345678",
+                    timestamp: "1786207320",
+                    type: "text",
+                    text: { body: "For configured number" },
+                  },
+                ],
+              },
+            },
+            {
+              value: {
+                metadata: { phone_number_id: "other-phone-id" },
+                messages: [
+                  {
+                    id: "wamid.inbound-other",
+                    from: "447912345678",
+                    timestamp: "1786207320",
+                    type: "text",
+                    text: { body: "For other number" },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { expectedPhoneNumberId: "configured-phone-id" },
+  );
+
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0], {
+    kind: "inbound_text",
+    provider_message_id: "wamid.inbound-configured",
+    from_wa_id: "447912345678",
+    body: "For configured number",
+    occurred_at: "2026-08-08T16:42:00.000Z",
+  });
+});
+
 class RecordingWebhookService implements ContractorMessageService {
   readonly events: WhatsAppWebhookEvent[] = [];
 

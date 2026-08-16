@@ -1,0 +1,294 @@
+/* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 */
+/* Hallmark · macrostructure: Workbench sweep · design-system: approved Sculpt Projects tokens
+ * theme: custom · vibe: "deep slate operations, limestone brass" · paper: #111827 · accent: #d0b873
+ * display: Bricolage Grotesque · body: Geist · axes: dark / geometric-sans / muted-brass
+ * enrichment: none · nav: existing operational chrome · studied: no · context: explicit · v1.1.0
+ */
+@import "../../../tokens.css";
+
+html,
+body {
+  overflow-x: clip;
+}
+
+.hallmark-sweep {
+  min-height: 100dvh;
+  padding-block-end: max(var(--sp-space-xl), env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at 12% 4%, color-mix(in oklch, var(--sp-color-accent) 10%, var(--sp-color-transparent)) 0 18rem, transparent 24rem),
+    linear-gradient(135deg, var(--sp-color-paper) 0%, var(--sp-color-paper-2) 58%, var(--sp-color-paper-3) 100%) !important;
+  color: var(--sp-color-ink) !important;
+  font-family: var(--sp-font-body) !important;
+}
+
+.hallmark-sweep *,
+.hallmark-sweep *::before,
+.hallmark-sweep *::after {
+  box-sizing: border-box;
+}
+
+.hallmark-sweep :is(h1, h2, h3, h4, .text-2xl, .text-3xl, .text-4xl) {
+  color: var(--sp-color-ink) !important;
+  font-family: var(--sp-font-display) !important;
+  font-style: normal !important;
+  letter-spacing: var(--sp-track-tight);
+  line-height: var(--sp-leading-tight);
+  overflow-wrap: anywhere;
+}
+
+.hallmark-sweep :is(.text-yellow-400, .text-yellow-500, .text-yellow-600, .text-amber-400, .text-amber-500, .text-blue-400) {
+  color: var(--sp-color-accent) !important;
+}
+
+.hallmark-sweep :is(.text-white, .text-slate-100, .text-slate-200, .text-slate-300, .text-black) {
+  color: var(--sp-color-ink) !important;
+}
+
+.hallmark-sweep :is(.text-slate-400, .text-slate-500, .text-slate-600, .text-slate-700, .text-slate-800) {
+  color: var(--sp-color-muted) !important;
+}
+
+.hallmark-sweep .text-green-400,
+.hallmark-sweep .text-green-500,
+.hallmark-sweep .text-green-600 {
+  color: var(--sp-color-success-ink) !important;
+}
+
+.hallmark-sweep .text-red-400,
+.hallmark-sweep .text-red-500,
+.hallmark-sweep .text-red-600 {
+  color: var(--sp-color-danger) !important;
+}
+
+.hallmark-sweep :is(.bg-black, .bg-slate-900) {
+  background: var(--sp-color-paper) !important;
+}
+
+.hallmark-sweep :is(.bg-slate-800, .bg-slate-700, .bg-white, .bg-slate-50, .bg-slate-100) {
+  background: var(--sp-color-panel) !important;
+}
+
+.hallmark-sweep :is(.bg-slate-600, .bg-slate-500) {
+  background: var(--sp-color-surface-muted) !important;
+}
+
+.hallmark-sweep :is(.bg-yellow-500, .bg-yellow-600, .bg-amber-500, .bg-amber-600) {
+  background: var(--sp-color-accent) !important;
+  color: var(--sp-color-accent-ink) !important;
+}
+
+.hallmark-sweep :is(.bg-green-500, .bg-green-600) {
+  background: var(--sp-color-success-soft) !important;
+  color: var(--sp-color-success-ink) !important;
+  border-color: var(--sp-color-success-rule) !important;
+}
+
+.hallmark-sweep :is(.bg-red-500, .bg-red-600) {
+  background: var(--sp-color-danger-soft) !important;
+  color: var(--sp-color-danger) !important;
+  border-color: var(--sp-color-danger-rule) !important;
+}
+
+.hallmark-sweep :is(.bg-orange-500, .bg-orange-600, .bg-orange-900\/20, .bg-yellow-900\/20, .bg-yellow-900\/30) {
+  background: var(--sp-color-warn-soft) !important;
+  color: var(--sp-color-warn-ink) !important;
+  border-color: var(--sp-color-warn-rule) !important;
+}
+
+.hallmark-sweep :is(.border, .border-t, .border-b, .border-l, .border-r, .border-slate-200, .border-slate-300, .border-slate-600, .border-slate-700, .border-yellow-500, .border-yellow-600) {
+  border-color: var(--sp-color-rule) !important;
+}
+
+.hallmark-sweep :is(.rounded, .rounded-md, .rounded-lg, .rounded-xl) {
+  border-radius: var(--sp-radius-lg) !important;
+}
+
+.hallmark-sweep :is(.shadow-lg, .shadow-2xl) {
+  box-shadow: var(--sp-shadow-panel) !important;
+}
+
+.hallmark-sweep :is(.max-w-4xl, .max-w-6xl, .max-w-7xl) {
+  width: min(calc(100% - clamp(2rem, 4vw, 5rem)), var(--sp-page-max));
+  max-width: var(--sp-page-max) !important;
+}
+
+.hallmark-sweep :is(.p-4, .p-6, .p-8) {
+  min-width: 0;
+}
+
+.hallmark-sweep :is(input, select, textarea, [role="combobox"]) {
+  min-height: var(--sp-size-control);
+  border: var(--sp-rule-hairline) solid var(--sp-color-rule-strong) !important;
+  border-radius: var(--sp-radius-md) !important;
+  background: var(--sp-color-surface) !important;
+  color: var(--sp-color-ink) !important;
+  font-family: var(--sp-font-body) !important;
+  font-size: max(1rem, 16px) !important;
+}
+
+.hallmark-sweep :is(input, textarea)::placeholder {
+  color: var(--sp-color-muted) !important;
+}
+
+.hallmark-sweep :is(input, select, textarea, button, a, [role="combobox"]):focus-visible {
+  outline: var(--sp-focus-ring) !important;
+  outline-offset: var(--sp-focus-offset) !important;
+}
+
+.hallmark-sweep button,
+.hallmark-sweep a[role="button"] {
+  min-height: var(--sp-size-touch);
+  border-radius: var(--sp-radius-button) !important;
+  font-family: var(--sp-font-body) !important;
+  font-size: var(--sp-text-base);
+  text-decoration: none;
+  transition:
+    background-color var(--sp-dur-short) var(--sp-ease-out),
+    border-color var(--sp-dur-short) var(--sp-ease-out),
+    color var(--sp-dur-short) var(--sp-ease-out),
+    transform var(--sp-dur-micro) var(--sp-ease-out);
+}
+
+.hallmark-sweep button:hover:not(:disabled),
+.hallmark-sweep a[role="button"]:hover {
+  transform: translateY(var(--sp-hover-lift));
+}
+
+.hallmark-sweep button:active:not(:disabled) {
+  transform: translateY(var(--sp-press-shift));
+}
+
+.hallmark-sweep button:disabled {
+  cursor: not-allowed;
+  opacity: var(--sp-opacity-disabled);
+}
+
+.hallmark-logo-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 5.25rem;
+  height: 3.25rem;
+  overflow: hidden;
+  border: 0 !important;
+  border-radius: var(--sp-radius-sm) !important;
+  background: transparent !important;
+}
+
+.hallmark-logo-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) {
+  z-index: var(--sp-z-sticky);
+  border-block-start: var(--sp-rule-hairline) solid var(--sp-color-rule-strong) !important;
+  background: color-mix(in oklch, var(--sp-color-panel) 94%, var(--sp-color-transparent)) !important;
+  padding-block-end: env(safe-area-inset-bottom);
+  backdrop-filter: blur(18px) saturate(125%);
+}
+
+.hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) button,
+.hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) a {
+  min-width: 0;
+  min-height: 4rem;
+  padding-inline: var(--sp-space-xs) !important;
+  color: var(--sp-color-muted) !important;
+  white-space: nowrap;
+}
+
+.hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) .text-yellow-400,
+.hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) button.text-yellow-400,
+.hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) a.text-yellow-400 {
+  color: var(--sp-color-accent) !important;
+}
+
+.hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.72rem !important;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+}
+
+.hallmark-sweep :is(table, .overflow-x-auto) {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .hallmark-sweep {
+    padding-block-end: calc(var(--sp-space-4xl) + env(safe-area-inset-bottom));
+  }
+
+  .hallmark-sweep :is(.max-w-2xl, .max-w-4xl, .max-w-6xl, .max-w-7xl) {
+    width: calc(100% - 1.5rem) !important;
+  }
+
+  .hallmark-sweep :is(.grid-cols-2, .grid-cols-3, .grid-cols-4, .md\:grid-cols-2, .md\:grid-cols-3, .md\:grid-cols-4, .lg\:grid-cols-2, .lg\:grid-cols-4) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .hallmark-sweep :is(.flex, .sm\:flex-row, .lg\:flex-row) {
+    min-width: 0;
+  }
+
+  .hallmark-sweep :is(.space-x-2, .space-x-3, .space-x-4, .space-x-6) > :not([hidden]) ~ :not([hidden]) {
+    margin-left: var(--sp-space-xs) !important;
+  }
+
+  .hallmark-sweep :is(.text-4xl, .text-3xl) {
+    font-size: clamp(2rem, 9vw, 3rem) !important;
+  }
+
+  .hallmark-sweep :is(.text-2xl) {
+    font-size: clamp(1.65rem, 7vw, 2.25rem) !important;
+  }
+
+  .hallmark-logo-mark {
+    width: 4.75rem;
+    height: 2.85rem;
+  }
+
+  .hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) .grid-cols-3,
+  .hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) .grid.grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) .grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .hallmark-sweep :is(.p-4, .p-6, .p-8, .px-4, .px-6) {
+    padding-inline: var(--sp-space-sm) !important;
+  }
+
+  .hallmark-sweep :is(.gap-4, .gap-6, .gap-8) {
+    gap: var(--sp-space-sm) !important;
+  }
+
+  .hallmark-sweep button,
+  .hallmark-sweep a[role="button"] {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 340px) {
+  .hallmark-sweep :is(.fixed.bottom-0, [class*="fixed"][class*="bottom-0"]) span {
+    font-size: 0.66rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hallmark-sweep *,
+  .hallmark-sweep *::before,
+  .hallmark-sweep *::after {
+    animation-duration: var(--sp-dur-reduced) !important;
+    scroll-behavior: auto !important;
+    transition-duration: var(--sp-dur-reduced) !important;
+  }
+}

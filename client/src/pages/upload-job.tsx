@@ -4,6 +4,7 @@ import { FileText, Clock, CheckCircle, XCircle, AlertCircle, Trash2 } from "luci
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import "./hallmark-sweep.css";
 
 interface CsvUpload {
   id: string;
@@ -92,13 +93,18 @@ export default function UploadJob() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="hallmark-sweep min-h-screen bg-slate-900">
       {/* Header */}
       <div className="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-amber-400">Upload Job Files</h1>
+              <div className="flex items-center gap-3">
+                <span className="hallmark-logo-mark">
+                  <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
+                </span>
+                <h1 className="text-2xl font-bold text-amber-400">Upload Job Files</h1>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               <button 
@@ -205,7 +211,7 @@ export default function UploadJob() {
             <span className="text-xs">Jobs</span>
           </button>
           <button 
-            onClick={() => window.location.href = '/admin-task-monitor'}
+            onClick={() => window.location.href = '/admin'}
             className="py-3 px-4 text-slate-400 hover:text-white"
           >
             <i className="fas fa-user-cog block mb-1"></i>

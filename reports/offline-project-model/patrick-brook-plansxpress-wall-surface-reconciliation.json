@@ -1,0 +1,2243 @@
+{
+  "source": {
+    "pxd": "C:/Users/rudyb/Desktop/Patrick Brook.pxd",
+    "dxf": "test-fixtures/patrick-brook/Chat Test.dxf",
+    "wallSchedule": "reports/offline-project-model/patrick-brook-plansxpress-wall-schedule.json",
+    "plansXpressVersion": "5.8"
+  },
+  "areaReconciliation": {
+    "constructionGrossAreaM2": 349.082,
+    "constructionOpeningAreaM2": 45.363,
+    "constructionNetAreaM2": 303.719,
+    "decoratedGrossSurfaceAreaM2": 478.178,
+    "decoratedNetOpeningsDeductedOnceM2": 432.815,
+    "decoratedNetOpeningsDeductedPerDecoratedSideM2": 417.262,
+    "externalConstructionGrossAreaM2": 219.986,
+    "internalConstructionGrossAreaM2": 129.096,
+    "externalDecoratedGrossSurfaceAreaM2": 219.986,
+    "internalDecoratedGrossSurfaceAreaM2": 258.192,
+    "explanation": [
+      "349.082 m2 is the construction wall area: sum of Length_of_main_wall x Height_of_main_wall once per PlansXpress estimating wall record.",
+      "303.719 m2 is the construction net area: 349.082 m2 minus 45.363 m2 of stored AREAOFOPENINGS, deducted once per wall record.",
+      "478.178 m2 is a surface count from the wall-side decoration flags: external wall records contribute one side, internal partition records contribute two sides.",
+      "The difference is therefore caused by wall faces/sides. It is not caused by DXF centreline geometry, because both totals use stored estimator lengths and heights.",
+      "Opening deductions explain the net totals: deducting openings once from decorated surface gross gives 432.815 m2; deducting each opening once per decorated side gives 417.262 m2."
+    ]
+  },
+  "adjacency": {
+    "totalPlansXpressAreaRecords": 27,
+    "areaEntitiesWithPolygons": 27,
+    "usableRoomAreaPolygons": 21,
+    "usableRoomAreasByRoom": [
+      {
+        "room": "Bathroom",
+        "areaHandles": [
+          "4cqLM&Obl0eotJ12eqwsBQ",
+          "TZw17nn9qUa7ev#bqEQQYA"
+        ]
+      },
+      {
+        "room": "Bedroom 2",
+        "areaHandles": [
+          "S7V5yVnF2Uy8wloDG#8DJA",
+          "CEjtoBRF30mHeSMYZepK9Q"
+        ]
+      },
+      {
+        "room": "Bedroom 3",
+        "areaHandles": [
+          "#Mz9Kz3190uxPRU6StMcnA",
+          "VLBENGGrdk2AfXdQeUTwWA"
+        ]
+      },
+      {
+        "room": "Kitchen",
+        "areaHandles": [
+          "shBtOtfEv0KaJCR&u7KUoA",
+          "OJaxyGKeW0usUWNEiQMbAA"
+        ]
+      },
+      {
+        "room": "Laundry",
+        "areaHandles": [
+          "Y7ZvKjK#4kG0sNRE66ibMg",
+          "paNqkQ6MX0Kz2AWZ4Kaeog"
+        ]
+      },
+      {
+        "room": "Lounge",
+        "areaHandles": [
+          "C8n7x#g6GE#BvZ780ljBnQ",
+          "PA2LfTjSg0aUSSt3TSmRcg"
+        ]
+      },
+      {
+        "room": "Main Bedroom",
+        "areaHandles": [
+          "bvAb3LjcOkC1AAO41sisrQ",
+          "yu3XS98LeU#FMx4XdNr9Lg"
+        ]
+      },
+      {
+        "room": "Passage",
+        "areaHandles": [
+          "ui7H5Q9TFEyGxK2WH5s6sw",
+          "meGjFqtyCE6CtwiNc0#bAA",
+          "U5LpQh1bL0iDVS5T4afYrA",
+          "hpBBLsvJ60i1wJPeFfCxMg"
+        ]
+      },
+      {
+        "room": "TV Room",
+        "areaHandles": [
+          "Zsow3Nkj5k#ukKGoBefwpQ",
+          "iQ4tH&&abEu0yAW73NTApQ",
+          "L&U7Qq49pkCPOGR8Qon2Ww"
+        ]
+      }
+    ],
+    "dxfRoomLabels": [
+      {
+        "name": "Main Bedroom",
+        "labelPoint": {
+          "x": 23180.374848,
+          "y": 44027.361672
+        },
+        "polygonPoints": 0
+      },
+      {
+        "name": "Lounge",
+        "labelPoint": {
+          "x": 21833.603705,
+          "y": 48774.84457
+        },
+        "polygonPoints": 0
+      },
+      {
+        "name": "Kitchen",
+        "labelPoint": {
+          "x": 19855.794328,
+          "y": 52521.271948
+        },
+        "polygonPoints": 0
+      },
+      {
+        "name": "Laundry",
+        "labelPoint": {
+          "x": 25009.509147,
+          "y": 52616.358937
+        },
+        "polygonPoints": 0
+      },
+      {
+        "name": "Passage",
+        "labelPoint": {
+          "x": 15373.411459,
+          "y": 46788.525169
+        },
+        "polygonPoints": 0
+      },
+      {
+        "name": "Bedroom 2",
+        "labelPoint": {
+          "x": 14908.911613,
+          "y": 43444.126279
+        },
+        "polygonPoints": 0
+      },
+      {
+        "name": "Bedroom 3",
+        "labelPoint": {
+          "x": 12327.197311,
+          "y": 52498.695751
+        },
+        "polygonPoints": 0
+      },
+      {
+        "name": "Bathroom",
+        "labelPoint": {
+          "x": 15514.893539,
+          "y": 53254.399598
+        },
+        "polygonPoints": 0
+      },
+      {
+        "name": "TV Room",
+        "labelPoint": {
+          "x": 29018.44601,
+          "y": 48490.999023
+        },
+        "polygonPoints": 0
+      }
+    ],
+    "dxfRoomPolygonsDetected": 0,
+    "wallSurfacesReviewRequiredBeforeAreaGeometry": 10,
+    "wallSurfacesResolvedByAreaGeometry": 23,
+    "previouslyReviewRequiredSurfacesResolvedByAreaGeometry": 3,
+    "wallsWithAnyDeterministicWorkAreaSide": 20,
+    "wallsWithDeterministicRoomSide": 16,
+    "wallSurfacesAllocatedToRooms": 23,
+    "wallSurfacesAllocatedToExterior": 10,
+    "wallSurfacesReviewRequired": 7,
+    "rule": "Room-side allocation uses PlansXpress Area polygons first. An Area polygon is usable only when it contains exactly one known DXF room label. A wall side resolves to a room only when all three side-sample points fall inside usable Area polygons for one room. Remaining sides fall back to the stricter same-side, unobstructed label-seed rule. Nearest-label distance is not used. External-wall exterior faces are allocated to Exterior from the PlansXpress external-wall calculator plus ExternalSide field."
+  },
+  "areaGeometry": [
+    {
+      "handle": "fmOesXiMhkqNF8JgBA95Zg",
+      "pxid": "1",
+      "estimateAreaId": "1-Slab",
+      "spreadsheet": "House Slab.xls",
+      "template": "Reinforced Slab",
+      "location": "Slab",
+      "polygon": [
+        {
+          "x": 11549.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 27544.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 27534.7214494375,
+          "y": 41920.0863840765
+        },
+        {
+          "x": 11554.7214494375,
+          "y": 41930.0863840765
+        },
+        {
+          "x": 11549.7214494375,
+          "y": 53920.0863840765
+        }
+      ],
+      "calculatedAreaM2": 191.85,
+      "storedAreaM2": 191.850025,
+      "containedRoomLabels": [
+        "Bathroom",
+        "Bedroom 2",
+        "Bedroom 3",
+        "Kitchen",
+        "Laundry",
+        "Lounge",
+        "Main Bedroom",
+        "Passage"
+      ],
+      "mappedRoom": null,
+      "usableAsRoomGeometry": false
+    },
+    {
+      "handle": "Zsow3Nkj5k#ukKGoBefwpQ",
+      "pxid": "2",
+      "estimateAreaId": "2-Slab",
+      "spreadsheet": "House Slab.xls",
+      "template": "Reinforced Slab",
+      "location": "Slab",
+      "polygon": [
+        {
+          "x": 27896.7214494375,
+          "y": 51894.4033634215
+        },
+        {
+          "x": 31881.7214494375,
+          "y": 51904.4033634215
+        },
+        {
+          "x": 31896.7214494375,
+          "y": 43874.4033634215
+        },
+        {
+          "x": 28031.7214494375,
+          "y": 43874.4033634215
+        },
+        {
+          "x": 28031.7214494375,
+          "y": 51919.4033634215
+        }
+      ],
+      "calculatedAreaM2": 30.955,
+      "storedAreaM2": 30.9554625,
+      "containedRoomLabels": [
+        "TV Room"
+      ],
+      "mappedRoom": "TV Room",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "3pXqJ738tUyJ7XHPnQYYrg",
+      "pxid": "3",
+      "estimateAreaId": "3-Ground Floor",
+      "spreadsheet": "Floor Screed.xls",
+      "template": "Area of Floor Screed",
+      "location": "Ground Floor",
+      "polygon": [
+        {
+          "x": 11549.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 27474.7214494375,
+          "y": 53970.0863840765
+        },
+        {
+          "x": 27629.7214494375,
+          "y": 41890.0863840765
+        },
+        {
+          "x": 11494.7214494375,
+          "y": 41955.0863840765
+        },
+        {
+          "x": 11524.7214494375,
+          "y": 54030.0863840765
+        }
+      ],
+      "calculatedAreaM2": 192.913,
+      "storedAreaM2": 192.9127625,
+      "containedRoomLabels": [
+        "Bathroom",
+        "Bedroom 2",
+        "Bedroom 3",
+        "Kitchen",
+        "Laundry",
+        "Lounge",
+        "Main Bedroom",
+        "Passage"
+      ],
+      "mappedRoom": null,
+      "usableAsRoomGeometry": false
+    },
+    {
+      "handle": "iQ4tH&&abEu0yAW73NTApQ",
+      "pxid": "4",
+      "estimateAreaId": "4-Ground Floor",
+      "spreadsheet": "Floor Screed.xls",
+      "template": "Area of Floor Screed",
+      "location": "Ground Floor",
+      "polygon": [
+        {
+          "x": 27896.7214494375,
+          "y": 51894.4033634215
+        },
+        {
+          "x": 31851.7214494375,
+          "y": 51899.4033634215
+        },
+        {
+          "x": 31826.7214494375,
+          "y": 43919.4033634215
+        },
+        {
+          "x": 27901.7214494375,
+          "y": 43894.4033634215
+        },
+        {
+          "x": 27901.7214494375,
+          "y": 51949.4033634215
+        }
+      ],
+      "calculatedAreaM2": 31.46,
+      "storedAreaM2": 31.4603125,
+      "containedRoomLabels": [
+        "TV Room"
+      ],
+      "mappedRoom": "TV Room",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "bvAb3LjcOkC1AAO41sisrQ",
+      "pxid": "1",
+      "estimateAreaId": "1-Floor",
+      "spreadsheet": "Domestic Carpeting.xls",
+      "template": "Area of Floor",
+      "location": "Floor",
+      "polygon": [
+        {
+          "x": 20656.1508731726,
+          "y": 45776.3363148598
+        },
+        {
+          "x": 27541.1508731726,
+          "y": 47716.3363148598
+        },
+        {
+          "x": 27556.1508731726,
+          "y": 41941.3363148598
+        },
+        {
+          "x": 20646.1508731726,
+          "y": 41926.3363148598
+        },
+        {
+          "x": 20651.1508731726,
+          "y": 45776.3363148598
+        }
+      ],
+      "calculatedAreaM2": 33.206,
+      "storedAreaM2": 33.2062875,
+      "containedRoomLabels": [
+        "Main Bedroom"
+      ],
+      "mappedRoom": "Main Bedroom",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "#Mz9Kz3190uxPRU6StMcnA",
+      "pxid": "2",
+      "estimateAreaId": "2-Floor",
+      "spreadsheet": "Domestic Carpeting.xls",
+      "template": "Area of Floor",
+      "location": "Floor",
+      "polygon": [
+        {
+          "x": 11549.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 14949.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 14949.7214494375,
+          "y": 47935.0863840765
+        },
+        {
+          "x": 11539.7214494375,
+          "y": 47925.0863840765
+        },
+        {
+          "x": 11449.7214494375,
+          "y": 53955.0863840765
+        }
+      ],
+      "calculatedAreaM2": 20.713,
+      "storedAreaM2": 20.7131,
+      "containedRoomLabels": [
+        "Bedroom 3"
+      ],
+      "mappedRoom": "Bedroom 3",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "4cqLM&Obl0eotJ12eqwsBQ",
+      "pxid": "3",
+      "estimateAreaId": "3-Floor",
+      "spreadsheet": "Floor Tiling.xls",
+      "template": "Area of Floor Tiling",
+      "location": "Floor",
+      "polygon": [
+        {
+          "x": 15047.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 17752.7214494375,
+          "y": 53930.0863840765
+        },
+        {
+          "x": 17742.7214494375,
+          "y": 51925.0863840765
+        },
+        {
+          "x": 15042.7214494375,
+          "y": 51925.0863840765
+        },
+        {
+          "x": 15032.7214494375,
+          "y": 53925.0863840765
+        }
+      ],
+      "calculatedAreaM2": 5.427,
+      "storedAreaM2": 5.4267375,
+      "containedRoomLabels": [
+        "Bathroom"
+      ],
+      "mappedRoom": "Bathroom",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "shBtOtfEv0KaJCR&u7KUoA",
+      "pxid": "4",
+      "estimateAreaId": "4-Floor",
+      "spreadsheet": "Porcelain Floor Tiling.xls",
+      "template": "Area of Floor",
+      "location": "Floor",
+      "polygon": [
+        {
+          "x": 17867.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 23457.7214494375,
+          "y": 53930.0863840765
+        },
+        {
+          "x": 23447.7214494375,
+          "y": 51255.0863840765
+        },
+        {
+          "x": 17862.7214494375,
+          "y": 51245.0863840765
+        },
+        {
+          "x": 17872.7214494375,
+          "y": 53925.0863840765
+        }
+      ],
+      "calculatedAreaM2": 14.954,
+      "storedAreaM2": 14.953775,
+      "containedRoomLabels": [
+        "Kitchen"
+      ],
+      "mappedRoom": "Kitchen",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "Y7ZvKjK#4kG0sNRE66ibMg",
+      "pxid": "5",
+      "estimateAreaId": "5-Floor",
+      "spreadsheet": "Porcelain Floor Tiling.xls",
+      "template": "Area of Floor",
+      "location": "Floor",
+      "polygon": [
+        {
+          "x": 23553.4129210534,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 27548.4129210534,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 27543.4129210534,
+          "y": 51250.0863840765
+        },
+        {
+          "x": 23553.4129210534,
+          "y": 51205.0863840765
+        },
+        {
+          "x": 23568.4129210534,
+          "y": 53960.0863840765
+        }
+      ],
+      "calculatedAreaM2": 10.749,
+      "storedAreaM2": 10.7493125,
+      "containedRoomLabels": [
+        "Laundry"
+      ],
+      "mappedRoom": "Laundry",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "ui7H5Q9TFEyGxK2WH5s6sw",
+      "pxid": "6",
+      "estimateAreaId": "6-Bathroom",
+      "spreadsheet": "Vinyl Flooring.xls",
+      "template": "Area of Floor",
+      "location": "Bathroom",
+      "polygon": [
+        {
+          "x": 11549.7214494375,
+          "y": 47825.0863840765
+        },
+        {
+          "x": 15049.7214494375,
+          "y": 47830.0863840765
+        },
+        {
+          "x": 15059.7214494375,
+          "y": 51820.0863840765
+        },
+        {
+          "x": 17749.7214494375,
+          "y": 51780.0863840765
+        },
+        {
+          "x": 17744.7214494375,
+          "y": 45185.0863840765
+        },
+        {
+          "x": 11509.7214494375,
+          "y": 45220.0863840765
+        },
+        {
+          "x": 11509.7214494375,
+          "y": 47825.0863840765
+        }
+      ],
+      "calculatedAreaM2": 27.069,
+      "storedAreaM2": 27.0695,
+      "containedRoomLabels": [
+        "Passage"
+      ],
+      "mappedRoom": "Passage",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "meGjFqtyCE6CtwiNc0#bAA",
+      "pxid": "7",
+      "estimateAreaId": "7-Bathroom",
+      "spreadsheet": "Vinyl Flooring.xls",
+      "template": "Area of Floor",
+      "location": "Bathroom",
+      "polygon": [
+        {
+          "x": 11549.7214494375,
+          "y": 47825.0863840765
+        },
+        {
+          "x": 15039.7214494375,
+          "y": 47830.0863840765
+        },
+        {
+          "x": 15044.7214494375,
+          "y": 51825.0863840765
+        },
+        {
+          "x": 17744.7214494375,
+          "y": 51775.0863840765
+        },
+        {
+          "x": 17734.7214494375,
+          "y": 45160.0863840765
+        },
+        {
+          "x": 11539.7214494375,
+          "y": 45190.0863840765
+        },
+        {
+          "x": 11509.7214494375,
+          "y": 47855.0863840765
+        }
+      ],
+      "calculatedAreaM2": 27.201,
+      "storedAreaM2": 27.2012375,
+      "containedRoomLabels": [
+        "Passage"
+      ],
+      "mappedRoom": "Passage",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "&DclaMJ1mE#idk5&1Hzmag",
+      "pxid": "8",
+      "estimateAreaId": "8-Bathroom",
+      "spreadsheet": "Vinyl Flooring.xls",
+      "template": "Area of Floor",
+      "location": "Bathroom",
+      "polygon": [
+        {
+          "x": 11549.7214494375,
+          "y": 47825.0863840765
+        },
+        {
+          "x": 15069.7214494375,
+          "y": 47745.0863840765
+        },
+        {
+          "x": 15054.7214494375,
+          "y": 45160.0863840765
+        },
+        {
+          "x": 11539.7214494375,
+          "y": 45190.0863840765
+        },
+        {
+          "x": 11549.7214494375,
+          "y": 47870.0863840765
+        },
+        {
+          "x": 12954.7214494375,
+          "y": 47110.0863840765
+        }
+      ],
+      "calculatedAreaM2": 9.213,
+      "storedAreaM2": 9.2132,
+      "containedRoomLabels": [],
+      "mappedRoom": null,
+      "usableAsRoomGeometry": false
+    },
+    {
+      "handle": "U5LpQh1bL0iDVS5T4afYrA",
+      "pxid": "9",
+      "estimateAreaId": "9-Floor",
+      "spreadsheet": "Wood Laminate Flooring.xls",
+      "template": "Mid Range Laminate Flooring",
+      "location": "Floor",
+      "polygon": [
+        {
+          "x": 11549.7214494375,
+          "y": 47825.0863840765
+        },
+        {
+          "x": 15084.7214494375,
+          "y": 47825.0863840765
+        },
+        {
+          "x": 15014.7214494375,
+          "y": 51860.0863840765
+        },
+        {
+          "x": 17789.7214494375,
+          "y": 51815.0863840765
+        },
+        {
+          "x": 17769.7214494375,
+          "y": 45215.0863840765
+        },
+        {
+          "x": 11504.7214494375,
+          "y": 45145.0863840765
+        },
+        {
+          "x": 11524.7214494375,
+          "y": 47785.0863840765
+        }
+      ],
+      "calculatedAreaM2": 27.523,
+      "storedAreaM2": 27.5228875,
+      "containedRoomLabels": [
+        "Passage"
+      ],
+      "mappedRoom": "Passage",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "C8n7x#g6GE#BvZ780ljBnQ",
+      "pxid": "10",
+      "estimateAreaId": "10-Floor",
+      "spreadsheet": "Wood Laminate Flooring.xls",
+      "template": "Mid Range Laminate Flooring",
+      "location": "Floor",
+      "polygon": [
+        {
+          "x": 17867.7699872347,
+          "y": 51144.4033634215
+        },
+        {
+          "x": 27882.7699872347,
+          "y": 51149.4033634215
+        },
+        {
+          "x": 27882.7699872347,
+          "y": 48549.4033634215
+        },
+        {
+          "x": 27547.7699872347,
+          "y": 48554.4033634215
+        },
+        {
+          "x": 27552.7699872347,
+          "y": 47829.4033634215
+        },
+        {
+          "x": 18092.7699872347,
+          "y": 45159.4033634215
+        },
+        {
+          "x": 17862.7699872347,
+          "y": 45164.4033634215
+        },
+        {
+          "x": 17872.7699872347,
+          "y": 51149.4033634215
+        }
+      ],
+      "calculatedAreaM2": 46.214,
+      "storedAreaM2": 46.21385,
+      "containedRoomLabels": [
+        "Lounge"
+      ],
+      "mappedRoom": "Lounge",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "S7V5yVnF2Uy8wloDG#8DJA",
+      "pxid": "11",
+      "estimateAreaId": "11-House",
+      "spreadsheet": "Solid Wood Flooring.xls",
+      "template": "Area of Floor",
+      "location": "House",
+      "polygon": [
+        {
+          "x": 11549.7214494375,
+          "y": 45059.2965967889
+        },
+        {
+          "x": 18089.7214494375,
+          "y": 45064.2965967889
+        },
+        {
+          "x": 20544.7214494375,
+          "y": 45744.2965967889
+        },
+        {
+          "x": 20534.7214494375,
+          "y": 41934.2965967889
+        },
+        {
+          "x": 11544.7214494375,
+          "y": 41919.2965967889
+        },
+        {
+          "x": 11544.7214494375,
+          "y": 45059.2965967889
+        }
+      ],
+      "calculatedAreaM2": 29.037,
+      "storedAreaM2": 29.0367,
+      "containedRoomLabels": [
+        "Bedroom 2"
+      ],
+      "mappedRoom": "Bedroom 2",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "#27pvQfgFEmBJekiv1LDJA",
+      "pxid": "5",
+      "estimateAreaId": "5-Slab",
+      "spreadsheet": "House Slab.xls",
+      "template": "Reinforced Slab",
+      "location": "Slab",
+      "polygon": [
+        {
+          "x": 13273.4356655518,
+          "y": 41583.0863840765
+        },
+        {
+          "x": 13628.4356655518,
+          "y": 41583.0863840765
+        },
+        {
+          "x": 13628.4356655518,
+          "y": 41933.0863840765
+        },
+        {
+          "x": 16223.4356655518,
+          "y": 41923.0863840765
+        },
+        {
+          "x": 16218.4356655518,
+          "y": 41588.0863840765
+        },
+        {
+          "x": 19983.4356655518,
+          "y": 41588.0863840765
+        },
+        {
+          "x": 19983.4356655518,
+          "y": 38428.0863840765
+        },
+        {
+          "x": 13263.4356655518,
+          "y": 38453.0863840765
+        },
+        {
+          "x": 13263.4356655518,
+          "y": 41598.0863840765
+        }
+      ],
+      "calculatedAreaM2": 22.031,
+      "storedAreaM2": 22.0309125,
+      "containedRoomLabels": [],
+      "mappedRoom": null,
+      "usableAsRoomGeometry": false
+    },
+    {
+      "handle": "qqQPBTARYUOUiEk7CqUJIw",
+      "pxid": "6",
+      "estimateAreaId": "6-Ground Floor",
+      "spreadsheet": "Floor Screed.xls",
+      "template": "Area of Floor Screed",
+      "location": "Ground Floor",
+      "polygon": [
+        {
+          "x": 13273.4356655518,
+          "y": 41583.0863840765
+        },
+        {
+          "x": 13618.4356655518,
+          "y": 41583.0863840765
+        },
+        {
+          "x": 13613.4356655518,
+          "y": 41928.0863840765
+        },
+        {
+          "x": 16188.4356655518,
+          "y": 41938.0863840765
+        },
+        {
+          "x": 16178.4356655518,
+          "y": 41583.0863840765
+        },
+        {
+          "x": 19973.4356655518,
+          "y": 41583.0863840765
+        },
+        {
+          "x": 19953.4356655518,
+          "y": 38418.0863840765
+        },
+        {
+          "x": 13263.4356655518,
+          "y": 38428.0863840765
+        },
+        {
+          "x": 13273.4356655518,
+          "y": 41588.0863840765
+        }
+      ],
+      "calculatedAreaM2": 22.055,
+      "storedAreaM2": 22.0549125,
+      "containedRoomLabels": [],
+      "mappedRoom": null,
+      "usableAsRoomGeometry": false
+    },
+    {
+      "handle": "aG&Vk8S6YUiISv0VdzS5dQ",
+      "pxid": "12",
+      "estimateAreaId": "12-Floor",
+      "spreadsheet": "Domestic Carpeting.xls",
+      "template": "Area of Floor",
+      "location": "Floor",
+      "polygon": [
+        {
+          "x": 13628.4356655518,
+          "y": 41925.0863840765
+        },
+        {
+          "x": 13628.4356655518,
+          "y": 41580.0863840765
+        },
+        {
+          "x": 13268.4356655518,
+          "y": 41585.0863840765
+        },
+        {
+          "x": 13273.4356655518,
+          "y": 38430.0863840765
+        },
+        {
+          "x": 19973.4356655518,
+          "y": 38435.0863840765
+        },
+        {
+          "x": 19973.4356655518,
+          "y": 41585.0863840765
+        },
+        {
+          "x": 16228.4356655518,
+          "y": 41605.0863840765
+        },
+        {
+          "x": 16223.4356655518,
+          "y": 41920.0863840765
+        },
+        {
+          "x": 13623.4356655518,
+          "y": 41925.0863840765
+        }
+      ],
+      "calculatedAreaM2": 22.043,
+      "storedAreaM2": 22.042875,
+      "containedRoomLabels": [],
+      "mappedRoom": null,
+      "usableAsRoomGeometry": false
+    },
+    {
+      "handle": "L&U7Qq49pkCPOGR8Qon2Ww",
+      "pxid": "48",
+      "estimateAreaId": "48-Ceiling",
+      "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+      "template": "Insulate, plasterboard, skim and decorate ceiling",
+      "location": "Ceiling",
+      "polygon": [
+        {
+          "x": 27896.7214494375,
+          "y": 51894.4033634215
+        },
+        {
+          "x": 31881.7214494375,
+          "y": 51874.4033634215
+        },
+        {
+          "x": 31876.7214494375,
+          "y": 43909.4033634215
+        },
+        {
+          "x": 27886.7214494375,
+          "y": 43889.4033634215
+        },
+        {
+          "x": 27896.7214494375,
+          "y": 51904.4033634215
+        }
+      ],
+      "calculatedAreaM2": 31.84,
+      "storedAreaM2": 31.8402375,
+      "containedRoomLabels": [
+        "TV Room"
+      ],
+      "mappedRoom": "TV Room",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "paNqkQ6MX0Kz2AWZ4Kaeog",
+      "pxid": "49",
+      "estimateAreaId": "49-Ceiling",
+      "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+      "template": "Insulate, plasterboard, skim and decorate ceiling",
+      "location": "Ceiling",
+      "polygon": [
+        {
+          "x": 23553.4129210534,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 27528.4129210534,
+          "y": 53930.0863840765
+        },
+        {
+          "x": 27508.4129210534,
+          "y": 51235.0863840765
+        },
+        {
+          "x": 23548.4129210534,
+          "y": 51245.0863840765
+        },
+        {
+          "x": 23548.4129210534,
+          "y": 53930.0863840765
+        }
+      ],
+      "calculatedAreaM2": 10.669,
+      "storedAreaM2": 10.6694,
+      "containedRoomLabels": [
+        "Laundry"
+      ],
+      "mappedRoom": "Laundry",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "OJaxyGKeW0usUWNEiQMbAA",
+      "pxid": "50",
+      "estimateAreaId": "50-Ceiling",
+      "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+      "template": "Insulate, plasterboard, skim and decorate ceiling",
+      "location": "Ceiling",
+      "polygon": [
+        {
+          "x": 17867.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 23447.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 23457.7214494375,
+          "y": 51265.0863840765
+        },
+        {
+          "x": 17892.7214494375,
+          "y": 51255.0863840765
+        },
+        {
+          "x": 17892.7214494375,
+          "y": 53885.0863840765
+        }
+      ],
+      "calculatedAreaM2": 14.818,
+      "storedAreaM2": 14.817925,
+      "containedRoomLabels": [
+        "Kitchen"
+      ],
+      "mappedRoom": "Kitchen",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "TZw17nn9qUa7ev#bqEQQYA",
+      "pxid": "51",
+      "estimateAreaId": "51-Ceiling",
+      "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+      "template": "Insulate, plasterboard, skim and decorate ceiling",
+      "location": "Ceiling",
+      "polygon": [
+        {
+          "x": 15047.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 17762.7214494375,
+          "y": 53915.0863840765
+        },
+        {
+          "x": 17747.7214494375,
+          "y": 51925.0863840765
+        },
+        {
+          "x": 15032.7214494375,
+          "y": 51930.0863840765
+        },
+        {
+          "x": 15047.7214494375,
+          "y": 53930.0863840765
+        }
+      ],
+      "calculatedAreaM2": 5.41,
+      "storedAreaM2": 5.4097875,
+      "containedRoomLabels": [
+        "Bathroom"
+      ],
+      "mappedRoom": "Bathroom",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "VLBENGGrdk2AfXdQeUTwWA",
+      "pxid": "52",
+      "estimateAreaId": "52-Ceiling",
+      "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+      "template": "Insulate, plasterboard, skim and decorate ceiling",
+      "location": "Ceiling",
+      "polygon": [
+        {
+          "x": 11549.7214494375,
+          "y": 53925.0863840765
+        },
+        {
+          "x": 14954.7214494375,
+          "y": 53930.0863840765
+        },
+        {
+          "x": 14944.7214494375,
+          "y": 47930.0863840765
+        },
+        {
+          "x": 11544.7214494375,
+          "y": 47930.0863840765
+        },
+        {
+          "x": 11544.7214494375,
+          "y": 53910.0863840765
+        }
+      ],
+      "calculatedAreaM2": 20.421,
+      "storedAreaM2": 20.421425,
+      "containedRoomLabels": [
+        "Bedroom 3"
+      ],
+      "mappedRoom": "Bedroom 3",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "hpBBLsvJ60i1wJPeFfCxMg",
+      "pxid": "53",
+      "estimateAreaId": "53-Ceiling",
+      "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+      "template": "Insulate, plasterboard, skim and decorate ceiling",
+      "location": "Ceiling",
+      "polygon": [
+        {
+          "x": 15047.7214494375,
+          "y": 51825.084863489
+        },
+        {
+          "x": 17767.7214494375,
+          "y": 51840.084863489
+        },
+        {
+          "x": 17742.7214494375,
+          "y": 45160.084863489
+        },
+        {
+          "x": 11542.7214494375,
+          "y": 45145.084863489
+        },
+        {
+          "x": 11492.7214494375,
+          "y": 47845.084863489
+        },
+        {
+          "x": 14992.7214494375,
+          "y": 47805.084863489
+        },
+        {
+          "x": 15012.7214494375,
+          "y": 51860.084863489
+        }
+      ],
+      "calculatedAreaM2": 27.7,
+      "storedAreaM2": 27.7002875,
+      "containedRoomLabels": [
+        "Passage"
+      ],
+      "mappedRoom": "Passage",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "CEjtoBRF30mHeSMYZepK9Q",
+      "pxid": "54",
+      "estimateAreaId": "54-Ceiling",
+      "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+      "template": "Insulate, plasterboard, skim and decorate ceiling",
+      "location": "Ceiling",
+      "polygon": [
+        {
+          "x": 20556.1508731726,
+          "y": 45748.1352566588
+        },
+        {
+          "x": 18156.1508731726,
+          "y": 45113.1352566588
+        },
+        {
+          "x": 11621.1508731726,
+          "y": 45113.1352566588
+        },
+        {
+          "x": 11621.1508731726,
+          "y": 41923.1352566588
+        },
+        {
+          "x": 13571.1508731726,
+          "y": 41958.1352566588
+        },
+        {
+          "x": 13576.1508731726,
+          "y": 41568.1352566588
+        },
+        {
+          "x": 13271.1508731726,
+          "y": 41593.1352566588
+        },
+        {
+          "x": 13351.1508731726,
+          "y": 38408.1352566588
+        },
+        {
+          "x": 19931.1508731726,
+          "y": 38448.1352566588
+        },
+        {
+          "x": 19931.1508731726,
+          "y": 41603.1352566588
+        },
+        {
+          "x": 16166.1508731726,
+          "y": 41568.1352566588
+        },
+        {
+          "x": 16146.1508731726,
+          "y": 41953.1352566588
+        },
+        {
+          "x": 20551.1508731726,
+          "y": 41943.1352566588
+        },
+        {
+          "x": 20536.1508731726,
+          "y": 44483.1352566588
+        }
+      ],
+      "calculatedAreaM2": 50.849,
+      "storedAreaM2": 50.8492,
+      "containedRoomLabels": [
+        "Bedroom 2"
+      ],
+      "mappedRoom": "Bedroom 2",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "PA2LfTjSg0aUSSt3TSmRcg",
+      "pxid": "55",
+      "estimateAreaId": "55-Ceiling",
+      "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+      "template": "Insulate, plasterboard, skim and decorate ceiling",
+      "location": "Ceiling",
+      "polygon": [
+        {
+          "x": 17867.7263039817,
+          "y": 51144.4033634215
+        },
+        {
+          "x": 27547.7263039817,
+          "y": 51144.4033634215
+        },
+        {
+          "x": 27552.7263039817,
+          "y": 50454.4033634215
+        },
+        {
+          "x": 27887.7263039817,
+          "y": 50469.4033634215
+        },
+        {
+          "x": 27907.7263039817,
+          "y": 48749.4033634215
+        },
+        {
+          "x": 27542.7263039817,
+          "y": 48769.4033634215
+        },
+        {
+          "x": 27547.7263039817,
+          "y": 47839.4033634215
+        },
+        {
+          "x": 18102.7263039817,
+          "y": 45164.4033634215
+        },
+        {
+          "x": 17862.7263039817,
+          "y": 45164.4033634215
+        },
+        {
+          "x": 17862.7263039817,
+          "y": 51144.4033634215
+        }
+      ],
+      "calculatedAreaM2": 45.879,
+      "storedAreaM2": 45.878875,
+      "containedRoomLabels": [
+        "Lounge"
+      ],
+      "mappedRoom": "Lounge",
+      "usableAsRoomGeometry": true
+    },
+    {
+      "handle": "yu3XS98LeU#FMx4XdNr9Lg",
+      "pxid": "56",
+      "estimateAreaId": "56-Ceiling",
+      "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+      "template": "Insulate, plasterboard, skim and decorate ceiling",
+      "location": "Ceiling",
+      "polygon": [
+        {
+          "x": 20656.1508731726,
+          "y": 45776.3363148598
+        },
+        {
+          "x": 27546.1508731726,
+          "y": 47721.3363148598
+        },
+        {
+          "x": 27551.1508731726,
+          "y": 41926.3363148598
+        },
+        {
+          "x": 20661.1508731726,
+          "y": 41931.3363148598
+        },
+        {
+          "x": 20651.1508731726,
+          "y": 45801.3363148598
+        }
+      ],
+      "calculatedAreaM2": 33.224,
+      "storedAreaM2": 33.2242,
+      "containedRoomLabels": [
+        "Main Bedroom"
+      ],
+      "mappedRoom": "Main Bedroom",
+      "usableAsRoomGeometry": true
+    }
+  ],
+  "schedule": [
+    {
+      "plansXpressHandle": "Nm9ZV#v6Pkq1ijbHem&#vA",
+      "plansXpressPxid": "1",
+      "estimateWallId": "1-House",
+      "wallType": "Cavity external wall",
+      "startPoint": {
+        "xMm": 11549.721,
+        "yMm": 53925.086
+      },
+      "endPoint": {
+        "xMm": 11549.721,
+        "yMm": 41925.086
+      },
+      "lengthUsedByEstimatorM": 12.684,
+      "heightM": 2.49,
+      "grossConstructionAreaM2": 31.583,
+      "openingDeductionsM2": 4.833,
+      "netConstructionAreaM2": 26.75,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": null,
+        "availableSurfaceAreaM2": 26.75,
+        "confidence": "REVIEW REQUIRED",
+        "reason": "No unique same-side, unobstructed room-label seed was proven; nearest-label allocation is intentionally not used.",
+        "resolutionSource": "Unresolved"
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Exterior",
+        "availableSurfaceAreaM2": 26.75,
+        "confidence": "MATCH",
+        "reason": "External wall calculator plus PlansXpress ExternalSide marks this face as exterior.",
+        "resolutionSource": "ExteriorSide"
+      },
+      "estimatorCalculator": "2 Leaf External Wall.xls",
+      "openingIds": [
+        "PX-WALL-001-OPENING-001",
+        "PX-WALL-001-OPENING-002",
+        "PX-WALL-001-OPENING-003"
+      ],
+      "confidence": "REVIEW REQUIRED",
+      "confidenceReason": "At least one side lacks room polygon containment proof; nearest room labels were not used."
+    },
+    {
+      "plansXpressHandle": "zbpV1bqZXE2FExj&UdUfhw",
+      "plansXpressPxid": "2",
+      "estimateWallId": "2-House",
+      "wallType": "Cavity external wall",
+      "startPoint": {
+        "xMm": 11549.721,
+        "yMm": 41925.086
+      },
+      "endPoint": {
+        "xMm": 27549.721,
+        "yMm": 41925.086
+      },
+      "lengthUsedByEstimatorM": 16.342,
+      "heightM": 2.483,
+      "grossConstructionAreaM2": 40.577,
+      "openingDeductionsM2": 8.34,
+      "netConstructionAreaM2": 32.237,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": null,
+        "availableSurfaceAreaM2": 32.237,
+        "confidence": "REVIEW REQUIRED",
+        "reason": "No unique same-side, unobstructed room-label seed was proven; nearest-label allocation is intentionally not used.",
+        "resolutionSource": "Unresolved"
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Exterior",
+        "availableSurfaceAreaM2": 32.237,
+        "confidence": "MATCH",
+        "reason": "External wall calculator plus PlansXpress ExternalSide marks this face as exterior.",
+        "resolutionSource": "ExteriorSide"
+      },
+      "estimatorCalculator": "2 Leaf External Wall.xls",
+      "openingIds": [
+        "PX-WALL-002-OPENING-001",
+        "PX-WALL-002-OPENING-002",
+        "PX-WALL-002-OPENING-003"
+      ],
+      "confidence": "REVIEW REQUIRED",
+      "confidenceReason": "At least one side lacks room polygon containment proof; nearest room labels were not used."
+    },
+    {
+      "plansXpressHandle": "yjZqqcpR70KBIQxgIdRukw",
+      "plansXpressPxid": "4",
+      "estimateWallId": "4-House",
+      "wallType": "Cavity external wall",
+      "startPoint": {
+        "xMm": 27549.721,
+        "yMm": 53925.086
+      },
+      "endPoint": {
+        "xMm": 11209.721,
+        "yMm": 53925.086
+      },
+      "lengthUsedByEstimatorM": 16.684,
+      "heightM": 2.383,
+      "grossConstructionAreaM2": 39.758,
+      "openingDeductionsM2": 8.46,
+      "netConstructionAreaM2": 31.298,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": null,
+        "availableSurfaceAreaM2": 31.298,
+        "confidence": "REVIEW REQUIRED",
+        "reason": "No unique same-side, unobstructed room-label seed was proven; nearest-label allocation is intentionally not used.",
+        "resolutionSource": "Unresolved"
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Exterior",
+        "availableSurfaceAreaM2": 31.298,
+        "confidence": "MATCH",
+        "reason": "External wall calculator plus PlansXpress ExternalSide marks this face as exterior.",
+        "resolutionSource": "ExteriorSide"
+      },
+      "estimatorCalculator": "2 Leaf External Wall.xls",
+      "openingIds": [
+        "PX-WALL-003-OPENING-001",
+        "PX-WALL-003-OPENING-002",
+        "PX-WALL-003-OPENING-003",
+        "PX-WALL-003-OPENING-004"
+      ],
+      "confidence": "REVIEW REQUIRED",
+      "confidenceReason": "At least one side lacks room polygon containment proof; nearest room labels were not used."
+    },
+    {
+      "plansXpressHandle": "0Xx1BOuQ20G6t53uehbbLg",
+      "plansXpressPxid": "5",
+      "estimateWallId": "5-House",
+      "wallType": "Cavity external wall",
+      "startPoint": {
+        "xMm": 27891.721,
+        "yMm": 43894.403
+      },
+      "endPoint": {
+        "xMm": 31891.721,
+        "yMm": 43894.403
+      },
+      "lengthUsedByEstimatorM": 4.342,
+      "heightM": 2.478,
+      "grossConstructionAreaM2": 10.759,
+      "openingDeductionsM2": 1.44,
+      "netConstructionAreaM2": 9.319,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "TV Room",
+        "availableSurfaceAreaM2": 9.319,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Exterior",
+        "availableSurfaceAreaM2": 9.319,
+        "confidence": "MATCH",
+        "reason": "External wall calculator plus PlansXpress ExternalSide marks this face as exterior.",
+        "resolutionSource": "ExteriorSide"
+      },
+      "estimatorCalculator": "2 Leaf External Wall.xls",
+      "openingIds": [
+        "PX-WALL-004-OPENING-001"
+      ],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "zs3PK7WDwEmmutn0xnqAVw",
+      "plansXpressPxid": "6",
+      "estimateWallId": "6-House",
+      "wallType": "Cavity external wall",
+      "startPoint": {
+        "xMm": 31891.721,
+        "yMm": 43894.403
+      },
+      "endPoint": {
+        "xMm": 31891.721,
+        "yMm": 51894.403
+      },
+      "lengthUsedByEstimatorM": 8.684,
+      "heightM": 2.483,
+      "grossConstructionAreaM2": 21.562,
+      "openingDeductionsM2": 0,
+      "netConstructionAreaM2": 21.562,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "TV Room",
+        "availableSurfaceAreaM2": 21.562,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Exterior",
+        "availableSurfaceAreaM2": 21.562,
+        "confidence": "MATCH",
+        "reason": "External wall calculator plus PlansXpress ExternalSide marks this face as exterior.",
+        "resolutionSource": "ExteriorSide"
+      },
+      "estimatorCalculator": "2 Leaf External Wall.xls",
+      "openingIds": [],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "YjqWhAhjuE6dv&lP78CHRA",
+      "plansXpressPxid": "7",
+      "estimateWallId": "7-House",
+      "wallType": "Cavity external wall",
+      "startPoint": {
+        "xMm": 31891.721,
+        "yMm": 51894.403
+      },
+      "endPoint": {
+        "xMm": 27896.721,
+        "yMm": 51894.403
+      },
+      "lengthUsedByEstimatorM": 4.337,
+      "heightM": 2.478,
+      "grossConstructionAreaM2": 10.747,
+      "openingDeductionsM2": 1.44,
+      "netConstructionAreaM2": 9.307,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "TV Room",
+        "availableSurfaceAreaM2": 9.307,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Exterior",
+        "availableSurfaceAreaM2": 9.307,
+        "confidence": "MATCH",
+        "reason": "External wall calculator plus PlansXpress ExternalSide marks this face as exterior.",
+        "resolutionSource": "ExteriorSide"
+      },
+      "estimatorCalculator": "2 Leaf External Wall.xls",
+      "openingIds": [
+        "PX-WALL-006-OPENING-001"
+      ],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "xWnFk9dNcUacbLPD729AeA",
+      "plansXpressPxid": "1",
+      "estimateWallId": "1-Main Structure",
+      "wallType": "Single leaf internal partition",
+      "startPoint": {
+        "xMm": 11447.721,
+        "yMm": 47925.086
+      },
+      "endPoint": {
+        "xMm": 14947.721,
+        "yMm": 47925.086
+      },
+      "lengthUsedByEstimatorM": 3.5,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 8.4,
+      "openingDeductionsM2": 0.005,
+      "netConstructionAreaM2": 8.395,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Bedroom 3",
+        "availableSurfaceAreaM2": 8.395,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Passage",
+        "availableSurfaceAreaM2": 8.395,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "estimatorCalculator": "Single Leaf Internal Wall.xls",
+      "openingIds": [],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "P1fUNg96qkKhMXK8S0dQQQ",
+      "plansXpressPxid": "2",
+      "estimateWallId": "2-Main Structure",
+      "wallType": "Single leaf internal partition",
+      "startPoint": {
+        "xMm": 14947.721,
+        "yMm": 47925.086
+      },
+      "endPoint": {
+        "xMm": 14947.721,
+        "yMm": 53925.086
+      },
+      "lengthUsedByEstimatorM": 6.1,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 14.64,
+      "openingDeductionsM2": 1.986,
+      "netConstructionAreaM2": 12.654,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Bedroom 3",
+        "availableSurfaceAreaM2": 12.654,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": null,
+        "availableSurfaceAreaM2": 12.654,
+        "confidence": "REVIEW REQUIRED",
+        "reason": "No unique same-side, unobstructed room-label seed was proven; nearest-label allocation is intentionally not used.",
+        "resolutionSource": "Unresolved"
+      },
+      "estimatorCalculator": "Single Leaf Internal Wall.xls",
+      "openingIds": [
+        "PX-WALL-008-OPENING-001"
+      ],
+      "confidence": "REVIEW REQUIRED",
+      "confidenceReason": "At least one side lacks room polygon containment proof; nearest room labels were not used."
+    },
+    {
+      "plansXpressHandle": "ENrWt#xn&0iMkJTwvA5Dzw",
+      "plansXpressPxid": "3",
+      "estimateWallId": "3-Main Structure",
+      "wallType": "Single leaf internal partition",
+      "startPoint": {
+        "xMm": 15047.721,
+        "yMm": 51925.086
+      },
+      "endPoint": {
+        "xMm": 17767.721,
+        "yMm": 51910.086
+      },
+      "lengthUsedByEstimatorM": 2.82,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 6.768,
+      "openingDeductionsM2": 1.989,
+      "netConstructionAreaM2": 4.779,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Bathroom",
+        "availableSurfaceAreaM2": 4.779,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Passage",
+        "availableSurfaceAreaM2": 4.779,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "estimatorCalculator": "Single Leaf Internal Wall.xls",
+      "openingIds": [
+        "PX-WALL-009-OPENING-001"
+      ],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "bON&d4O5dE#OFLbS00yV4w",
+      "plansXpressPxid": "4",
+      "estimateWallId": "4-Main Structure",
+      "wallType": "Single leaf internal partition",
+      "startPoint": {
+        "xMm": 17767.721,
+        "yMm": 51910.086
+      },
+      "endPoint": {
+        "xMm": 17767.721,
+        "yMm": 53930.086
+      },
+      "lengthUsedByEstimatorM": 2.116,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 5.078,
+      "openingDeductionsM2": 0.006,
+      "netConstructionAreaM2": 5.072,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Bathroom",
+        "availableSurfaceAreaM2": 5.072,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Kitchen",
+        "availableSurfaceAreaM2": 5.072,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "estimatorCalculator": "Single Leaf Internal Wall.xls",
+      "openingIds": [],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "LlhXAR#GTECD6Sy#2g635w",
+      "plansXpressPxid": "5",
+      "estimateWallId": "5-Main Structure",
+      "wallType": "Single leaf internal partition",
+      "startPoint": {
+        "xMm": 11549.721,
+        "yMm": 45159.297
+      },
+      "endPoint": {
+        "xMm": 18099.721,
+        "yMm": 45159.297
+      },
+      "lengthUsedByEstimatorM": 6.564,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 15.754,
+      "openingDeductionsM2": 1.621,
+      "netConstructionAreaM2": 14.133,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Passage",
+        "availableSurfaceAreaM2": 14.133,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Bedroom 2",
+        "availableSurfaceAreaM2": 14.133,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "estimatorCalculator": "Single Leaf Internal Wall.xls",
+      "openingIds": [
+        "PX-WALL-011-OPENING-001"
+      ],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "9#yQtR1DQUKdxpOFmfA8gA",
+      "plansXpressPxid": "6",
+      "estimateWallId": "6-Main Structure",
+      "wallType": "Single leaf internal partition",
+      "startPoint": {
+        "xMm": 18099.721,
+        "yMm": 45159.297
+      },
+      "endPoint": {
+        "xMm": 27549.721,
+        "yMm": 47824.297
+      },
+      "lengthUsedByEstimatorM": 9.819,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 23.566,
+      "openingDeductionsM2": 1.986,
+      "netConstructionAreaM2": 21.58,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Lounge",
+        "availableSurfaceAreaM2": 21.58,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": null,
+        "availableSurfaceAreaM2": 21.58,
+        "confidence": "REVIEW REQUIRED",
+        "reason": "No unique same-side, unobstructed room-label seed was proven; nearest-label allocation is intentionally not used.",
+        "resolutionSource": "Unresolved"
+      },
+      "estimatorCalculator": "Single Leaf Internal Wall.xls",
+      "openingIds": [
+        "PX-WALL-012-OPENING-001"
+      ],
+      "confidence": "REVIEW REQUIRED",
+      "confidenceReason": "At least one side lacks room polygon containment proof; nearest room labels were not used."
+    },
+    {
+      "plansXpressHandle": "cS7JXPIApUirz7x2X11M3w",
+      "plansXpressPxid": "7",
+      "estimateWallId": "7-Main Structure",
+      "wallType": "Single leaf internal partition",
+      "startPoint": {
+        "xMm": 17867.77,
+        "yMm": 51809.533
+      },
+      "endPoint": {
+        "xMm": 17867.77,
+        "yMm": 45159.533
+      },
+      "lengthUsedByEstimatorM": 6.651,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 15.962,
+      "openingDeductionsM2": 1.986,
+      "netConstructionAreaM2": 13.976,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Lounge",
+        "availableSurfaceAreaM2": 13.976,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Passage",
+        "availableSurfaceAreaM2": 13.976,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "estimatorCalculator": "Single Leaf Internal Wall.xls",
+      "openingIds": [
+        "PX-WALL-013-OPENING-001"
+      ],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "HPMgJevu3ky5P5HM8zgL1Q",
+      "plansXpressPxid": "8",
+      "estimateWallId": "8-Main Structure",
+      "wallType": "Single leaf internal partition",
+      "startPoint": {
+        "xMm": 20656.151,
+        "yMm": 45776.336
+      },
+      "endPoint": {
+        "xMm": 20656.151,
+        "yMm": 41926.336
+      },
+      "lengthUsedByEstimatorM": 3.85,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 9.24,
+      "openingDeductionsM2": 0.003,
+      "netConstructionAreaM2": 9.237,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Main Bedroom",
+        "availableSurfaceAreaM2": 9.237,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Bedroom 2",
+        "availableSurfaceAreaM2": 9.237,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "estimatorCalculator": "Single Leaf Internal Wall.xls",
+      "openingIds": [],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "7yrirMLK2EGiQpd4Wwe1Xg",
+      "plansXpressPxid": "9",
+      "estimateWallId": "9-Main Structure",
+      "wallType": "Single leaf internal partition",
+      "startPoint": {
+        "xMm": 27549.721,
+        "yMm": 51144.403
+      },
+      "endPoint": {
+        "xMm": 17864.721,
+        "yMm": 51144.403
+      },
+      "lengthUsedByEstimatorM": 9.685,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 23.244,
+      "openingDeductionsM2": 3.976,
+      "netConstructionAreaM2": 19.268,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Lounge",
+        "availableSurfaceAreaM2": 19.268,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": null,
+        "availableSurfaceAreaM2": 19.268,
+        "confidence": "REVIEW REQUIRED",
+        "reason": "No unique same-side, unobstructed room-label seed was proven; nearest-label allocation is intentionally not used.",
+        "resolutionSource": "Unresolved"
+      },
+      "estimatorCalculator": "Single Leaf Internal Wall.xls",
+      "openingIds": [
+        "PX-WALL-015-OPENING-001",
+        "PX-WALL-015-OPENING-002"
+      ],
+      "confidence": "REVIEW REQUIRED",
+      "confidenceReason": "At least one side lacks room polygon containment proof; nearest room labels were not used."
+    },
+    {
+      "plansXpressHandle": "JVspemtVM0KbHNg0kOy66Q",
+      "plansXpressPxid": "10",
+      "estimateWallId": "10-Main Structure",
+      "wallType": "Single leaf internal partition",
+      "startPoint": {
+        "xMm": 23553.413,
+        "yMm": 53925.086
+      },
+      "endPoint": {
+        "xMm": 23553.413,
+        "yMm": 51240.086
+      },
+      "lengthUsedByEstimatorM": 2.685,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 6.444,
+      "openingDeductionsM2": 1.995,
+      "netConstructionAreaM2": 4.449,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Laundry",
+        "availableSurfaceAreaM2": 4.449,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Kitchen",
+        "availableSurfaceAreaM2": 4.449,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": false
+      },
+      "estimatorCalculator": "Single Leaf Internal Wall.xls",
+      "openingIds": [
+        "PX-WALL-016-OPENING-001"
+      ],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "HLTEo9NbqUe&WHtUbkzBKg",
+      "plansXpressPxid": "8",
+      "estimateWallId": "8-House",
+      "wallType": "Cavity external wall",
+      "startPoint": {
+        "xMm": 27891.721,
+        "yMm": 54267.086
+      },
+      "endPoint": {
+        "xMm": 27891.721,
+        "yMm": 41582.086
+      },
+      "lengthUsedByEstimatorM": 12.685,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 30.444,
+      "openingDeductionsM2": 3.78,
+      "netConstructionAreaM2": 26.664,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Exterior",
+        "availableSurfaceAreaM2": 26.664,
+        "confidence": "MATCH",
+        "reason": "External wall calculator plus PlansXpress ExternalSide marks this face as exterior.",
+        "resolutionSource": "ExteriorSide"
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": null,
+        "availableSurfaceAreaM2": 26.664,
+        "confidence": "REVIEW REQUIRED",
+        "reason": "No unique same-side, unobstructed room-label seed was proven; nearest-label allocation is intentionally not used.",
+        "resolutionSource": "Unresolved"
+      },
+      "estimatorCalculator": "2 Leaf External Wall.xls",
+      "openingIds": [
+        "PX-WALL-017-OPENING-001"
+      ],
+      "confidence": "REVIEW REQUIRED",
+      "confidenceReason": "At least one side lacks room polygon containment proof; nearest room labels were not used."
+    },
+    {
+      "plansXpressHandle": "icQ2lhMQ5k#IBQpUQDG9CA",
+      "plansXpressPxid": "9",
+      "estimateWallId": "9-House",
+      "wallType": "Cavity external wall",
+      "startPoint": {
+        "xMm": 13273.436,
+        "yMm": 41583.086
+      },
+      "endPoint": {
+        "xMm": 13273.436,
+        "yMm": 38423.086
+      },
+      "lengthUsedByEstimatorM": 3.502,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 8.405,
+      "openingDeductionsM2": 0.04,
+      "netConstructionAreaM2": 8.365,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Bedroom 2",
+        "availableSurfaceAreaM2": 8.365,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": true
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Exterior",
+        "availableSurfaceAreaM2": 8.365,
+        "confidence": "MATCH",
+        "reason": "External wall calculator plus PlansXpress ExternalSide marks this face as exterior.",
+        "resolutionSource": "ExteriorSide"
+      },
+      "estimatorCalculator": "2 Leaf External Wall.xls",
+      "openingIds": [],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "RAZOn15B70yPR1cO7KfQ0w",
+      "plansXpressPxid": "10",
+      "estimateWallId": "10-House",
+      "wallType": "Cavity external wall",
+      "startPoint": {
+        "xMm": 13273.436,
+        "yMm": 38423.086
+      },
+      "endPoint": {
+        "xMm": 19983.436,
+        "yMm": 38423.086
+      },
+      "lengthUsedByEstimatorM": 7.394,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 17.746,
+      "openingDeductionsM2": 1.44,
+      "netConstructionAreaM2": 16.306,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Bedroom 2",
+        "availableSurfaceAreaM2": 16.306,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": true
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Exterior",
+        "availableSurfaceAreaM2": 16.306,
+        "confidence": "MATCH",
+        "reason": "External wall calculator plus PlansXpress ExternalSide marks this face as exterior.",
+        "resolutionSource": "ExteriorSide"
+      },
+      "estimatorCalculator": "2 Leaf External Wall.xls",
+      "openingIds": [
+        "PX-WALL-019-OPENING-001"
+      ],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    },
+    {
+      "plansXpressHandle": "QITHF7IQbUWbmDaK9kZZAA",
+      "plansXpressPxid": "11",
+      "estimateWallId": "11-House",
+      "wallType": "Cavity external wall",
+      "startPoint": {
+        "xMm": 19983.436,
+        "yMm": 38423.086
+      },
+      "endPoint": {
+        "xMm": 19983.436,
+        "yMm": 41583.086
+      },
+      "lengthUsedByEstimatorM": 3.502,
+      "heightM": 2.4,
+      "grossConstructionAreaM2": 8.405,
+      "openingDeductionsM2": 0.037,
+      "netConstructionAreaM2": 8.368,
+      "sideA": {
+        "sideCode": "0",
+        "sideName": "Side A",
+        "workArea": "Bedroom 2",
+        "availableSurfaceAreaM2": 8.368,
+        "confidence": "MATCH",
+        "reason": "All three wall-side sample points fall inside PlansXpress Area polygons mapped to exactly one known room label.",
+        "resolutionSource": "AreaPolygon",
+        "resolvedPreviouslyReviewRequired": true
+      },
+      "sideB": {
+        "sideCode": "1",
+        "sideName": "Side B",
+        "workArea": "Exterior",
+        "availableSurfaceAreaM2": 8.368,
+        "confidence": "MATCH",
+        "reason": "External wall calculator plus PlansXpress ExternalSide marks this face as exterior.",
+        "resolutionSource": "ExteriorSide"
+      },
+      "estimatorCalculator": "2 Leaf External Wall.xls",
+      "openingIds": [],
+      "confidence": "MATCH",
+      "confidenceReason": "Both wall sides have deterministic work-area allocation."
+    }
+  ],
+  "completeProof": {
+    "plansXpressHandle": "xWnFk9dNcUacbLPD729AeA",
+    "proof": [
+      "PlansXpress Handle: xWnFk9dNcUacbLPD729AeA.",
+      "Geometry: start (11447.721, 47925.086) mm to end (14947.721, 47925.086) mm.",
+      "Estimator join: PXID 1, EstimateData ID 1-Main Structure, calculator Single Leaf Internal Wall.xls.",
+      "Stored estimating length 3.5 m x height 2.4 m = gross construction area 8.4 m2.",
+      "Openings: none; stored opening deduction 0.005 m2.",
+      "Net construction area: 8.4 - 0.005 = 8.395 m2.",
+      "Side A work area: Bedroom 3 (AreaPolygon); Side B work area: Passage (AreaPolygon).",
+      "This wall contributes 8.4 m2 to the 349.082 m2 construction gross total and 8.395 m2 to the 303.719 m2 construction net total.",
+      "Its decorated-surface gross contribution is 16.8 m2 (2 decorated sides), included in the 478.178 m2 decorated gross total.",
+      "Aggregate check: decorated gross total 478.178 m2; decorated net totals 432.815 m2 / 417.262 m2 depending on whether openings are deducted once or per decorated side."
+    ]
+  }
+}

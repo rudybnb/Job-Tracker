@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SystemCleanup } from "@/utils/cleanup";
 import { useToast } from "@/hooks/use-toast";
+import "./hallmark-sweep.css";
 
 function LogoutButton() {
   const handleLogout = () => {
@@ -80,18 +81,18 @@ export default function SystemCleanupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="hallmark-sweep min-h-screen bg-slate-900 text-white">
       <LogoutButton />
       
       {/* Header */}
       <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-            <span className="text-black font-bold text-sm">Pro</span>
+          <div className="hallmark-logo-mark">
+            <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
           </div>
           <div>
-            <div className="text-sm font-medium">Pro</div>
-            <div className="text-xs text-slate-400">Simple Time Tracking</div>
+            <div className="text-sm font-medium">Sculpt Projects</div>
+            <div className="text-xs text-slate-400">System cleanup</div>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -225,7 +226,7 @@ export default function SystemCleanupPage() {
             <span className="text-xs">Jobs</span>
           </button>
           <button 
-            onClick={() => window.location.href = '/admin-task-monitor'}
+            onClick={() => window.location.href = '/admin'}
             className="py-3 px-4 text-slate-400 hover:text-white"
           >
             <i className="fas fa-user-cog block mb-1"></i>

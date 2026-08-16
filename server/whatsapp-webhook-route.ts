@@ -12,6 +12,7 @@ export interface WhatsAppWebhookRouteOptions {
   readonly service: ContractorMessageService;
   readonly verifyToken?: string;
   readonly appSecret?: string;
+  readonly phoneNumberId?: string;
 }
 
 export function createWhatsAppWebhookRouter(options: WhatsAppWebhookRouteOptions): Router {
@@ -49,7 +50,9 @@ export function createWhatsAppWebhookRouter(options: WhatsAppWebhookRouteOptions
         return;
       }
 
-      const events = parseWhatsAppWebhookEvents(payload);
+      const events = parseWhatsAppWebhookEvents(payload, {
+        expectedPhoneNumberId: options.phoneNumberId,
+      });
       await options.service.handleWhatsAppWebhookEvents(events);
       response.status(200).json({ status: "ok", events: events.length });
     },

@@ -967,7 +967,7 @@ You've been invited to join our construction team. Please complete your contract
             <span className="text-xs">Jobs</span>
           </button>
           <button 
-            onClick={() => window.location.href = '/admin-task-monitor'}
+            onClick={() => window.location.href = '/admin'}
             className="py-3 px-4 text-slate-400 hover:text-white"
           >
             <i className="fas fa-user-cog block mb-1"></i>

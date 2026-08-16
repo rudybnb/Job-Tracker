@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import "./live-clock-monitor.css";
 
 function LogoutButton() {
   const handleLogout = () => {
@@ -9,12 +10,12 @@ function LogoutButton() {
   };
 
   return (
-    <div className="fixed top-4 left-4 z-50 bg-slate-800 rounded-lg p-2 border border-slate-600 shadow-lg">
-      <div className="flex items-center space-x-2">
-        <span className="text-yellow-400 text-sm font-medium">Admin</span>
+    <div className="lm-logout">
+      <div className="lm-logout__inner">
+        <span className="lm-logout__role">Admin</span>
         <button
           onClick={handleLogout}
-          className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
+          className="lm-logout__button"
         >
           Logout
         </button>
@@ -64,156 +65,236 @@ export default function LiveClockMonitor() {
     }
   }, [activeSessions]);
 
+  const adminName = localStorage.getItem('adminName') || 'Admin';
+  const adminInitials = adminName.split(' ').map((name) => name[0]).join('').slice(0, 2) || 'AD';
+  const gpsTrackedCount = activeSessions.filter((session: any) => {
+    const location = contractorLocations[session.contractorName];
+    return location && location.latitude && location.longitude;
+  }).length;
+  const missingGpsCount = Math.max(activeSessions.length - gpsTrackedCount, 0);
+
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <LogoutButton />
-      
-      {/* Header with Navigation */}
-      <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-            <i className="fas fa-clock text-white text-sm"></i>
+    <div className="lm-page">
+      <header className="lm-topbar">
+        <div className="lm-brand" aria-label="Sculpt Projects admin dashboard">
+          <div className="lm-brand__mark">
+            <img src="/sculpt-projects-logo.png" alt="" aria-hidden="true" />
           </div>
-          <div>
-            <div className="text-sm font-medium">Live Monitor</div>
-            <div className="text-xs text-slate-400">Real-time contractor tracking</div>
+          <div className="lm-brand__copy">
+            <strong>Sculpt Projects</strong>
+            <small>Operations dashboard</small>
           </div>
         </div>
-        <div className="relative">
-          <button 
+
+        <nav className="lm-desktop-nav" aria-label="Primary admin sections">
+          <button type="button" onClick={() => window.location.href = '/admin'}>Dashboard</button>
+          <button type="button" onClick={() => window.location.href = '/job-assignments'}>Jobs</button>
+          <button type="button" className="is-active" aria-current="page">Live</button>
+          <button type="button" onClick={() => window.location.href = '/admin'}>Admin</button>
+          <button type="button" onClick={() => window.location.href = '/upload'}>Upload</button>
+        </nav>
+
+        <div className="lm-topbar__status">
+          <span className="lm-online"><i aria-hidden="true"></i>Live</span>
+          <button
+            type="button"
+            className="lm-menu-button"
+            aria-expanded={showAvatarDropdown}
             onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
-            className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center hover:bg-yellow-700 transition-colors"
           >
-            <span className="text-white font-bold text-sm">
-              {(localStorage.getItem('adminName') || 'Admin').split(' ').map(n => n[0]).join('').slice(0,2)}
-            </span>
+            Menu
           </button>
-          
+          <button
+            type="button"
+            onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
+            className="lm-avatar"
+            aria-label={`Signed in as ${adminName}`}
+          >
+            {adminInitials}
+          </button>
+          <LogoutButton />
+
           {showAvatarDropdown && (
-            <div className="absolute right-0 mt-2 w-48 bg-slate-800 rounded-lg shadow-lg border border-slate-600 z-50">
-              <div className="py-2">
+            <div className="lm-menu" role="menu">
+              <div className="lm-menu__identity">
+                <strong>{adminName}</strong>
+                <span>Admin access</span>
+              </div>
+              <div className="lm-menu__items">
                 <button 
                   onClick={() => window.location.href = '/admin'}
-                  className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-white"
+                  className="lm-menu-item"
+                  role="menuitem"
                 >
-                  <i className="fas fa-tachometer-alt mr-3 w-4"></i>
-                  Admin Dashboard
+                  <i className="fas fa-tachometer-alt" aria-hidden="true"></i>
+                  <span>Admin Dashboard</span>
                 </button>
                 
                 <button 
                   onClick={() => window.location.href = '/payroll-overview'}
-                  className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-white"
+                  className="lm-menu-item"
+                  role="menuitem"
                 >
-                  <i className="fas fa-clock mr-3 w-4"></i>
-                  Time Tracking
+                  <i className="fas fa-clock" aria-hidden="true"></i>
+                  <span>Time Tracking</span>
                 </button>
                 
                 <button 
                   onClick={() => window.location.href = '/job-assignments'}
-                  className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-white"
+                  className="lm-menu-item"
+                  role="menuitem"
                 >
-                  <i className="fas fa-tasks mr-3 w-4"></i>
-                  Job Assignments
+                  <i className="fas fa-tasks" aria-hidden="true"></i>
+                  <span>Job Assignments</span>
                 </button>
               </div>
             </div>
           )}
         </div>
-      </div>
+      </header>
 
-      {/* Simple Live Monitor Layout */}
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-green-500 text-lg font-semibold">Live Clock Monitoring</h3>
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-green-500 text-sm">Live</span>
+      <main className="lm-shell">
+        <section className="lm-hero" aria-labelledby="live-monitor-title">
+          <div className="lm-hero__copy">
+            <p className="lm-kicker">Live monitor</p>
+            <h1 id="live-monitor-title">Workers onsite, clocked in, and traceable.</h1>
+            <span>Real-time contractor attendance and GPS signal status for active work sessions.</span>
           </div>
-        </div>
-        
-        <div className="space-y-4">
-          <h4 className="text-white text-base font-medium">Active Workers ({activeSessions.length})</h4>
-          
+
+          <div className="lm-metrics" aria-label="Live attendance totals">
+            <div>
+              <strong>{activeSessions.length}</strong>
+              <span>Active workers</span>
+            </div>
+            <div>
+              <strong>{gpsTrackedCount}</strong>
+              <span>GPS tracked</span>
+            </div>
+            <div>
+              <strong>{missingGpsCount}</strong>
+              <span>No GPS signal</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="lm-panel" aria-labelledby="active-workers-title">
+          <div className="lm-panel__head">
+            <div>
+              <p className="lm-kicker">Attendance signal</p>
+              <h2 id="active-workers-title">Active Workers</h2>
+            </div>
+            <div className="lm-live-pill">
+              <i aria-hidden="true"></i>
+              <span>Refreshes every 10 seconds</span>
+            </div>
+          </div>
+
+          <div className="lm-panel__body">
           {activeLoading ? (
-            <div className="text-slate-400">Loading...</div>
-          ) : activeSessions.length > 0 ? (
-            <div className="space-y-4">
+              <div className="lm-empty lm-empty--loading">
+                <div className="lm-spinner" aria-hidden="true"></div>
+                <strong>Loading live sessions...</strong>
+              </div>
+) : activeSessions.length > 0 ? (
+              <div className="lm-worker-grid">
               {activeSessions.map((session: any) => {
                 const location = contractorLocations[session.contractorName];
                 const hasLocation = location && location.latitude && location.longitude;
                 const isCheckedOut = session.status === 'checked_out' || session.displayStatus === 'CHECKED OUT';
+                const startLabel = session.startedAt || (session.startTime ? new Date(session.startTime).toLocaleTimeString('en-GB', { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                }) : 'Unknown');
                 const statusLabel = session.displayStatus || (isCheckedOut ? 'CHECKED OUT' : 'ON SITE');
+                const statusClass = isCheckedOut ? 'lm-status--checked-out' : 'lm-status--active';
                 
                 return (
-                  <div key={session.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${hasLocation ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                        <span className="text-white font-medium">{session.contractorName}</span>
+                    <article key={session.id} className="lm-worker-card">
+                      <div className="lm-worker-card__head">
+                        <div className="lm-worker-identity">
+                          <span className={`lm-signal ${hasLocation ? 'lm-signal--good' : 'lm-signal--warn'}`} aria-hidden="true"></span>
+                          <div>
+                            <h3>{session.contractorName}</h3>
+                            <p>{session.jobSiteLocation || 'Unknown job site'}</p>
+                          </div>
+                        </div>
+                        <span className={`lm-status ${statusClass}`}>{statusLabel}</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${isCheckedOut ? 'bg-slate-500' : 'bg-green-500'}`}></div>
-                        <span className={`text-white text-xs px-2 py-1 rounded ${isCheckedOut ? 'bg-slate-600' : 'bg-green-700'}`}>
-                          {statusLabel}
-                        </span>
+
+                      <div className="lm-spec-grid">
+                        <div>
+                          <span>Start time</span>
+                          <strong>{startLabel}</strong>
+                        </div>
+                        <div>
+                          <span>{isCheckedOut ? 'Check-out time' : 'Duration'}</span>
+                          <strong>{session.checkedOutAt || session.duration || 'Live'}</strong>
+                        </div>
+                        <div>
+                          <span>Clock status</span>
+                          <strong>{session.status || (isCheckedOut ? 'checked_out' : 'clocked_in')}</strong>
+                        </div>
+                        <div>
+                          <span>GPS signal</span>
+                          <strong>{hasLocation ? 'Tracked' : 'No signal'}</strong>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400 text-sm">Start Time</span>
-                        <span className="text-slate-300 text-sm">
-                          {session.startTime ? new Date(session.startTime).toLocaleTimeString('en-GB', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          }) : 'Unknown'}
-                        </span>
-                      </div>
-                      
-                      {isCheckedOut && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400 text-sm">Check-out Time</span>
-                          <span className="text-slate-300 text-sm">
-                            {session.checkedOutAt || 'Unknown'}
+
+                      {hasLocation && (
+                        <div className="lm-gps-note">
+                          <i className="fas fa-location-dot" aria-hidden="true"></i>
+                          <span>
+                            Last GPS: {new Date(location.lastUpdate).toLocaleTimeString('en-GB', { 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              second: '2-digit'
+                            })}
                           </span>
                         </div>
                       )}
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400 text-sm">Location</span>
-                        <span className={`text-xs px-2 py-1 rounded ${hasLocation ? 'bg-green-700 text-white' : 'bg-yellow-700 text-white'}`}>
-                          {hasLocation ? 'GPS Tracked' : 'No GPS Signal'}
-                        </span>
-                      </div>
-                      
-                      {hasLocation && (
-                        <div className="text-xs text-slate-400 mt-2">
-                          Last GPS: {new Date(location.lastUpdate).toLocaleTimeString('en-GB', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            second: '2-digit'
-                          })}
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400 text-sm">Job Site</span>
-                        <span className="text-slate-300 text-sm">
-                          {session.jobSiteLocation || 'Unknown'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    </article>
                 );
               })}
             </div>
           ) : (
-            <div className="text-slate-500 text-center py-8">No workers currently active</div>
+              <div className="lm-empty">
+                <div className="lm-empty__mark">
+                  <i className="fas fa-user-clock" aria-hidden="true"></i>
+                </div>
+                <div>
+                  <h3>No workers currently active</h3>
+                  <p>Clocked-in contractors will appear here automatically when active sessions are reported.</p>
+                </div>
+              </div>
           )}
-          
+          </div>
+        </section>
+      </main>
 
+      <nav className="lm-mobile-nav" aria-label="Primary">
+        <div className="lm-mobile-nav__grid">
+          <button type="button" onClick={() => window.location.href = '/admin'}>
+            <i className="fas fa-home" aria-hidden="true"></i>
+            <span>Dashboard</span>
+          </button>
+          <button type="button" onClick={() => window.location.href = '/job-assignments'}>
+            <i className="fas fa-briefcase" aria-hidden="true"></i>
+            <span>Jobs</span>
+          </button>
+          <button type="button" className="is-active" aria-current="page">
+            <i className="fas fa-clock" aria-hidden="true"></i>
+            <span>Live</span>
+          </button>
+          <button type="button" onClick={() => window.location.href = '/admin'}>
+            <i className="fas fa-user-cog" aria-hidden="true"></i>
+            <span>Admin</span>
+          </button>
+          <button type="button" onClick={() => window.location.href = '/upload'}>
+            <i className="fas fa-upload" aria-hidden="true"></i>
+            <span>Upload</span>
+          </button>
         </div>
-      </div>
+      </nav>
     </div>
   );
 }

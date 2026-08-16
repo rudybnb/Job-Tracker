@@ -11,6 +11,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import "./hallmark-sweep.css";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -131,12 +132,12 @@ export default function AdminSettings() {
   const sundayCurrentlyEnabled = sundayOvertimeSetting?.settingValue === "true";
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-4">
+    <div className="hallmark-sweep min-h-screen bg-slate-900 text-white p-4">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center space-x-2 mb-2">
-          <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-            <span className="text-black font-bold text-sm">⚙️</span>
+          <div className="hallmark-logo-mark">
+            <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
           </div>
           <h1 className="text-2xl font-bold text-yellow-400">Admin Settings</h1>
         </div>

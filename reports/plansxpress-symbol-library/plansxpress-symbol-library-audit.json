@@ -1,0 +1,663 @@
+{
+  "symbolsDir": "C:\\ProgramData\\HBXL\\PlansXpress5\\Symbols",
+  "summary": {
+    "symbolsDirectoryExists": false,
+    "directoryCount": 0,
+    "fileCount": 0,
+    "extensions": {},
+    "humanReadableNamesInFilenames": false,
+    "humanReadableNamesInMetadata": false,
+    "parseableGeometryFiles": 0,
+    "libraryFingerprints": 0,
+    "patrickBrookFingerprintMatches": 0
+  },
+  "structure": [],
+  "files": [],
+  "librarySymbols": [],
+  "patrickBrookFingerprintMatches": [],
+  "patrickBrookUnknownGroups": [
+    {
+      "symbol": "Symbol A",
+      "fingerprintId": "f8cc2dd1cc",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block14327",
+        "Block21282"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "LINE": 114
+        },
+        "lineCount": 114,
+        "circleCount": 0,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [],
+        "arcRadii": [],
+        "aspectRatio": 1.45,
+        "textTokens": []
+      },
+      "occurrenceCount": 2,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Block14327",
+          "layer": "Electrical",
+          "blockName": "Block14327",
+          "point": {
+            "x": 16257.36,
+            "y": 53857.81
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 956.74,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3838.63,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4158.53,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 7124.33,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        },
+        {
+          "source": "DXF_INSERT",
+          "label": "Block21282",
+          "layer": "Electrical",
+          "blockName": "Block21282",
+          "point": {
+            "x": 17935.02,
+            "y": 52531.88
+          },
+          "rotation": 0,
+          "workArea": "Kitchen",
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 1920.8,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 2525.68,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 5607.92,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 6288.72,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        }
+      ],
+      "containedText": [],
+      "suggestedHbxlCandidates": [],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol B",
+      "fingerprintId": "48ab082101",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block14472"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "ARC": 2,
+          "LINE": 4
+        },
+        "lineCount": 4,
+        "circleCount": 0,
+        "arcCount": 2,
+        "polylineCount": 0,
+        "circleRadii": [],
+        "arcRadii": [
+          141.42,
+          141.42
+        ],
+        "aspectRatio": 1.02,
+        "textTokens": []
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Block14472",
+          "layer": "Electrical",
+          "blockName": "Block14472",
+          "point": {
+            "x": 16390.25,
+            "y": 52941.4
+          },
+          "rotation": 0,
+          "workArea": "Bathroom",
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 929.64,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3490.91,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4087.1,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 6236.33,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        }
+      ],
+      "containedText": [],
+      "suggestedHbxlCandidates": [
+        "Light Switch 6A 1G 1 Way",
+        "Pull Cord Switch 6A"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol C",
+      "fingerprintId": "889e00eb32",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block21819"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "LINE": 23,
+          "TEXT": 2
+        },
+        "lineCount": 23,
+        "circleCount": 0,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [],
+        "arcRadii": [],
+        "aspectRatio": 0.72,
+        "textTokens": [
+          "electric",
+          "hob"
+        ]
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "ELECTRIC HOB",
+          "layer": "Electrical",
+          "blockName": "Block21819",
+          "point": {
+            "x": 17963.74,
+            "y": 51843.77
+          },
+          "rotation": 0,
+          "workArea": "Kitchen",
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 2009.7,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 2826.08,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 5674.47,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5680.25,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "explicit drawing label has no safe HBXL measurable item mapping"
+        }
+      ],
+      "containedText": [
+        "ELECTRIC",
+        "HOB"
+      ],
+      "suggestedHbxlCandidates": [
+        "Cooker Connection Plate",
+        "Cooker Control Unit",
+        "Fused Spur 13A"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol D",
+      "fingerprintId": "9d4d7a37c8",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block88816"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "CIRCLE": 2,
+          "LINE": 2
+        },
+        "lineCount": 2,
+        "circleCount": 2,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [
+          50,
+          56.76
+        ],
+        "arcRadii": [],
+        "aspectRatio": 0.5,
+        "textTokens": []
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Block88816",
+          "layer": "Electrical",
+          "blockName": "Block88816",
+          "point": {
+            "x": 23823.65,
+            "y": 46630.44
+          },
+          "rotation": 0,
+          "workArea": "Main Bedroom",
+          "nearbyRooms": [
+            {
+              "room": "Main Bedroom",
+              "distance": 2681.38,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 5517.93,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 6102.25,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 7102.52,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        }
+      ],
+      "containedText": [],
+      "suggestedHbxlCandidates": [
+        "Light Switch 10A 2 Gang 2 Way",
+        "Light Switch 6A 1G 1 Way",
+        "Light Switch 6A 1G 2 Way",
+        "Pull Cord Switch 6A",
+        "WC Ceiling Light Fitting"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol E",
+      "fingerprintId": "9f3c25ecbb",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block14352"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "LINE": 23,
+          "TEXT": 2
+        },
+        "lineCount": 23,
+        "circleCount": 0,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [],
+        "arcRadii": [],
+        "aspectRatio": 0.8,
+        "textTokens": [
+          "electric",
+          "shower"
+        ]
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "ELECTRIC SHOWER",
+          "layer": "Electrical",
+          "blockName": "Block14352",
+          "point": {
+            "x": 15144.59,
+            "y": 52844.78
+          },
+          "rotation": 0,
+          "workArea": "Bathroom",
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 552.19,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 2838.57,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 4722.3,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 6060.58,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "explicit drawing label has no safe HBXL measurable item mapping"
+        }
+      ],
+      "containedText": [
+        "ELECTRIC",
+        "SHOWER"
+      ],
+      "suggestedHbxlCandidates": [
+        "Pull Cord Switch 45A",
+        "Pull Cord Switch 6A"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol F",
+      "fingerprintId": "c040875ca1",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block91259"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "CIRCLE": 2,
+          "LINE": 3
+        },
+        "lineCount": 3,
+        "circleCount": 2,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [
+          50,
+          56.76
+        ],
+        "arcRadii": [],
+        "aspectRatio": 0.31,
+        "textTokens": []
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Block91259",
+          "layer": "Electrical",
+          "blockName": "Block91259",
+          "point": {
+            "x": 16222.67,
+            "y": 51818.61
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 1600.77,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3700.45,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 3954.4,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5101.27,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        }
+      ],
+      "containedText": [],
+      "suggestedHbxlCandidates": [
+        "Light Switch 10A 2 Gang 2 Way",
+        "Light Switch 6A 1G 1 Way",
+        "Light Switch 6A 1G 2 Way",
+        "Pull Cord Switch 6A",
+        "WC Ceiling Light Fitting"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol G",
+      "fingerprintId": "cb61b06005",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block22356"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "LINE": 23,
+          "TEXT": 1
+        },
+        "lineCount": 23,
+        "circleCount": 0,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [],
+        "arcRadii": [],
+        "aspectRatio": 1.39,
+        "textTokens": [
+          "oven"
+        ]
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "OVEN",
+          "layer": "Electrical",
+          "blockName": "Block22356",
+          "point": {
+            "x": 21338.14,
+            "y": 51238.52
+          },
+          "rotation": 0,
+          "workArea": "Kitchen",
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 1960.31,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 3921.4,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 6162.3,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 7441.81,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "explicit drawing label has no safe HBXL measurable item mapping"
+        }
+      ],
+      "containedText": [
+        "OVEN"
+      ],
+      "suggestedHbxlCandidates": [
+        "Cooker Connection Plate",
+        "Cooker Control Unit",
+        "Fused Spur 13A"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol H",
+      "fingerprintId": "f5300526b9",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block87595"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "CIRCLE": 2,
+          "LINE": 2
+        },
+        "lineCount": 2,
+        "circleCount": 2,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [
+          50,
+          56.76
+        ],
+        "arcRadii": [],
+        "aspectRatio": 2.97,
+        "textTokens": []
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Block87595",
+          "layer": "Electrical",
+          "blockName": "Block87595",
+          "point": {
+            "x": 27925.74,
+            "y": 50668.5
+          },
+          "rotation": 0,
+          "workArea": "Tv Room",
+          "nearbyRooms": [
+            {
+              "room": "Tv Room",
+              "distance": 2436.29,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 3506.93,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 8162.31,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 8279.91,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        }
+      ],
+      "containedText": [],
+      "suggestedHbxlCandidates": [
+        "Light Switch 10A 2 Gang 2 Way",
+        "Light Switch 6A 1G 1 Way",
+        "Light Switch 6A 1G 2 Way",
+        "Pull Cord Switch 6A",
+        "WC Ceiling Light Fitting"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    }
+  ],
+  "humanConfirmedFromLibrary": [
+    {
+      "originalPatrickSymbol": "C",
+      "plansXpressName": "EXTRACTOR FAN",
+      "note": "visual confirmation from official PlansXpress library; not forced to HBXL product"
+    },
+    {
+      "originalPatrickSymbol": "J",
+      "plansXpressName": "ELECTRIC HOB",
+      "note": "explicit drawing label / circuit identity; not forced to HBXL product"
+    },
+    {
+      "originalPatrickSymbol": "L",
+      "plansXpressName": "SHOWER CIRCUIT",
+      "note": "explicit drawing label / circuit identity; not forced to HBXL product"
+    },
+    {
+      "originalPatrickSymbol": "M",
+      "plansXpressName": "SHAVER SOCKET",
+      "note": "exact drawing identity; already reconciles with HBXL Shaver Socket when mapped"
+    },
+    {
+      "originalPatrickSymbol": "O",
+      "plansXpressName": "OVEN CIRCUIT",
+      "note": "explicit drawing label / circuit identity; not forced to HBXL product"
+    }
+  ],
+  "practicality": "The importer is practical for DXF-like PlansXpress symbol files, but this machine cannot validate the official library because the supplied folder is not present/readable."
+}

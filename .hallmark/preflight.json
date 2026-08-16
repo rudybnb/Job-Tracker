@@ -1,0 +1,15 @@
+{
+  "date": "2026-08-11",
+  "fontStack": "Tailwind default sans; no project font extension found in tailwind.config.ts",
+  "palette": "shadcn-style HSL CSS variables in client/src/index.css",
+  "motion": "framer-motion installed; dashboard redesign uses CSS-only motion",
+  "spacing": "Tailwind utility scale; Hallmark dashboard tokens use a 4-point scale",
+  "framework": "Vite + React",
+  "preserve": [
+    "existing routes",
+    "existing API calls",
+    "existing data",
+    "existing authentication",
+    "admin dashboard route ownership"
+  ]
+}

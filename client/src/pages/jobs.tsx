@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import "./jobs.css";
 
 interface ContractorAssignment {
   id: string;
@@ -16,203 +17,189 @@ interface ContractorAssignment {
 }
 
 export default function Jobs() {
-  // Get contractor assignments using logged-in contractor name
-  const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
-  const contractorFirstName = contractorName.split(' ')[0];
-  
+  const contractorName = localStorage.getItem("contractorName") || "Dalwayne Diedericks";
+  const contractorFirstName = contractorName.split(" ")[0];
+
   const { data: assignments = [], isLoading } = useQuery<ContractorAssignment[]>({
     queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
     enabled: true,
   });
 
+  const isForeman = contractorName.toLowerCase().includes("dalwayne") || contractorName.toLowerCase().includes("diedericks");
+  const activeAssignments = assignments.filter((assignment) => assignment.status === "assigned").length;
+  const completedAssignments = assignments.filter((assignment) => assignment.status === "completed").length;
+
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case "assigned":
+        return "jobs-status jobs-status--assigned";
+      case "completed":
+        return "jobs-status jobs-status--completed";
+      default:
+        return "jobs-status jobs-status--standard";
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading assignments...</p>
+      <div className="jobs-shell jobs-shell--loading">
+        <div className="jobs-loading-card" role="status" aria-live="polite">
+          <span className="jobs-spinner" />
+          <p>Loading assignments...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      {/* Header */}
-      <div className="bg-slate-800 px-4 py-4">
-        <div className="flex items-center justify-between">
+    <div className="jobs-shell">
+      <header className="jobs-header">
+        <div className="jobs-brand-block">
+          <span className="jobs-brand-mark">
+            <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
+          </span>
           <div>
-            <h1 className="text-xl font-bold text-white mb-1">Direct Job Assignments</h1>
-            <p className="text-slate-400 text-sm">Jobs are assigned to you directly</p>
+            <p>Assigned work</p>
+            <h1>Direct Job Assignments</h1>
+            <span>Jobs are assigned to you directly.</span>
           </div>
         </div>
-      </div>
 
-      <div className="p-3">
-        {assignments.length === 0 ? (
-          /* Empty State */
-          <div className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center">
-            <div className="w-24 h-24 mx-auto mb-6 text-slate-500">
-              <i className="fas fa-briefcase text-6xl"></i>
-            </div>
-            <h3 className="text-xl font-semibold text-white mb-2">No Assignments</h3>
-            <p className="text-slate-400 mb-6">You don't have any job assignments yet.</p>
+        <div className="jobs-metrics" aria-label="Assignment summary">
+          <div>
+            <strong>{assignments.length}</strong>
+            <span>Total jobs</span>
           </div>
+          <div>
+            <strong>{activeAssignments}</strong>
+            <span>Assigned</span>
+          </div>
+          <div>
+            <strong>{completedAssignments}</strong>
+            <span>Completed</span>
+          </div>
+        </div>
+      </header>
+
+      <main className="jobs-workbench">
+        {assignments.length === 0 ? (
+          <section className="jobs-empty" aria-label="No assignments">
+            <div className="jobs-empty__mark" aria-hidden="true">
+              <i className="fas fa-briefcase" />
+            </div>
+            <div>
+              <h2>No Assignments</h2>
+              <p>You don&apos;t have any job assignments yet.</p>
+            </div>
+          </section>
         ) : (
-          /* Compact Assignments List */
-          <div className="space-y-2">
+          <section className="jobs-list" aria-label="Current job assignments">
             {assignments.map((assignment) => (
-              <div key={assignment.id} className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <div className={`w-8 h-8 rounded flex items-center justify-center ${
-                      assignment.status === 'assigned' ? 'bg-yellow-500' : 'bg-blue-600'
-                    }`}>
-                      <i className={`fas fa-briefcase text-sm ${
-                        assignment.status === 'assigned' ? 'text-black' : 'text-white'
-                      }`}></i>
+              <article key={assignment.id} className="jobs-card">
+                <div className="jobs-card__main">
+                  <div className="jobs-card__title-row">
+                    <div className="jobs-card__icon" aria-hidden="true">
+                      <i className="fas fa-briefcase" />
                     </div>
-                    <div>
-                      <h3 className="text-base font-semibold text-yellow-400">{assignment.hbxlJob || 'Untitled Job'}</h3>
-                      <p className="text-slate-400 text-xs">{assignment.workLocation || 'Location not set'}</p>
+                    <div className="jobs-card__title">
+                      <h2>{assignment.hbxlJob || "Untitled Job"}</h2>
+                      <p>{assignment.workLocation || "Location not set"}</p>
                     </div>
                   </div>
-                  <Badge className={`text-xs px-2 py-0.5 ${
-                    assignment.status === 'assigned' 
-                      ? 'bg-yellow-500 text-black' 
-                      : assignment.status === 'completed'
-                      ? 'bg-green-500 text-white'
-                      : 'bg-slate-500 text-white'
-                  }`}>
-                    {assignment.status}
-                  </Badge>
-                </div>
-                
-                <div className="space-y-1 text-xs mb-2">
-                  <div className="flex items-center text-slate-300">
-                    <i className="fas fa-clock text-slate-400 mr-1 w-3"></i>
-                    <span>{assignment.startDate} → {assignment.endDate}</span>
+
+                  <div className="jobs-card__details">
+                    <div className="jobs-detail jobs-detail--dates">
+                      <span>Date window</span>
+                      <strong>{assignment.startDate} to {assignment.endDate}</strong>
+                    </div>
+
+                    {assignment.buildPhases && assignment.buildPhases.length > 0 && (
+                      <div className="jobs-detail jobs-detail--phases">
+                        <span>Build phases</span>
+                        <div className="jobs-phase-list">
+                          {assignment.buildPhases.slice(0, 2).map((phase: string, idx: number) => (
+                            <span key={idx} className="jobs-phase-chip">
+                              {phase}
+                            </span>
+                          ))}
+                          {assignment.buildPhases.length > 2 && (
+                            <span className="jobs-more-chip">+{assignment.buildPhases.length - 2} more</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {assignment.specialInstructions && (
+                      <div className="jobs-note">
+                        <span>Note</span>
+                        <p>{assignment.specialInstructions}</p>
+                      </div>
+                    )}
                   </div>
-                  {assignment.buildPhases && assignment.buildPhases.length > 0 && (
-                    <div className="flex items-start text-slate-300">
-                      <i className="fas fa-tasks text-slate-400 mr-1 w-3 mt-0.5"></i>
-                      <div className="flex flex-wrap gap-1">
-                        {assignment.buildPhases.slice(0, 2).map((phase: string, idx: number) => (
-                          <span 
-                            key={idx}
-                            className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded"
-                          >
-                            {phase}
-                          </span>
-                        ))}
-                        {assignment.buildPhases.length > 2 && (
-                          <span className="text-slate-400 text-xs">
-                            +{assignment.buildPhases.length - 2} more
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {assignment.specialInstructions && (
-                    <div className="flex items-start text-slate-300 mt-1">
-                      <i className="fas fa-sticky-note text-yellow-400 mr-1 w-3 mt-0.5"></i>
-                      <div className="bg-yellow-900/30 border border-yellow-700 rounded px-2 py-1 text-xs">
-                        <span className="text-yellow-400 font-medium">Note: </span>
-                        <span>{assignment.specialInstructions}</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
-                
-                <div className="flex space-x-2">
+
+                <aside className="jobs-card__actions">
+                  <Badge className={getStatusClass(assignment.status)}>{assignment.status}</Badge>
                   <Button
                     size="sm"
-                    className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-3 py-1 h-7 flex-1"
+                    className="jobs-button jobs-button--report"
                     onClick={() => {
                       window.location.href = `/assignment/${assignment.id}`;
                     }}
                   >
-                    <i className="fas fa-comment mr-1"></i>
                     Quick Report
                   </Button>
-                  
                   <Button
                     size="sm"
-                    className="bg-yellow-500 hover:bg-yellow-600 text-black text-xs px-3 py-1 h-7"
-                    onClick={() => window.location.href = '/task-progress'}
+                    className="jobs-button jobs-button--tasks"
+                    onClick={() => window.location.href = "/task-progress"}
                   >
-                    <i className="fas fa-tasks mr-1"></i>
                     Tasks
                   </Button>
-                </div>
-              </div>
+                </aside>
+              </article>
             ))}
-          </div>
+          </section>
         )}
-      </div>
+      </main>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
-        {/* Show foreman tab only for Dalwayne */}
-        {contractorName && (contractorName.toLowerCase().includes('dalwayne') || contractorName.toLowerCase().includes('diedericks')) ? (
-          <div className="grid grid-cols-4 text-center">
-            <button 
-              onClick={() => window.location.href = '/'}
-              className="py-3 px-4 text-slate-400 hover:text-white"
-              data-testid="nav-dashboard"
-            >
-              <i className="fas fa-home block mb-1"></i>
-              <span className="text-xs">Dashboard</span>
+      <nav className="jobs-mobile-nav" aria-label="Jobs navigation">
+        {isForeman ? (
+          <div className="jobs-mobile-nav__grid jobs-mobile-nav__grid--four">
+            <button type="button" onClick={() => window.location.href = "/"} data-testid="nav-dashboard">
+              <i className="fas fa-home" />
+              <span>Dashboard</span>
             </button>
-            <button className="py-3 px-4 text-yellow-400" data-testid="nav-jobs">
-              <i className="fas fa-briefcase block mb-1"></i>
-              <span className="text-xs">Jobs</span>
+            <button type="button" className="is-active" data-testid="nav-jobs">
+              <i className="fas fa-briefcase" />
+              <span>Jobs</span>
             </button>
-            <button 
-              onClick={() => window.location.href = '/foreman'}
-              className="py-3 px-4 text-slate-400 hover:text-white"
-              data-testid="nav-foreman"
-            >
-              <i className="fas fa-users block mb-1"></i>
-              <span className="text-xs">Jobs Assigned</span>
+            <button type="button" onClick={() => window.location.href = "/foreman"} data-testid="nav-foreman">
+              <i className="fas fa-users" />
+              <span>Assigned</span>
             </button>
-            <button 
-              onClick={() => window.location.href = '/more'}
-              className="py-3 px-4 text-slate-400 hover:text-white"
-              data-testid="nav-more"
-            >
-              <i className="fas fa-ellipsis-h block mb-1"></i>
-              <span className="text-xs">More</span>
+            <button type="button" onClick={() => window.location.href = "/more"} data-testid="nav-more">
+              <i className="fas fa-ellipsis-h" />
+              <span>More</span>
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-3 text-center">
-            <button 
-              onClick={() => window.location.href = '/'}
-              className="py-3 px-4 text-slate-400 hover:text-white"
-              data-testid="nav-dashboard"
-            >
-              <i className="fas fa-home block mb-1"></i>
-              <span className="text-xs">Dashboard</span>
+          <div className="jobs-mobile-nav__grid jobs-mobile-nav__grid--three">
+            <button type="button" onClick={() => window.location.href = "/"} data-testid="nav-dashboard">
+              <i className="fas fa-home" />
+              <span>Dashboard</span>
             </button>
-            <button className="py-3 px-4 text-yellow-400" data-testid="nav-jobs">
-              <i className="fas fa-briefcase block mb-1"></i>
-              <span className="text-xs">Jobs</span>
+            <button type="button" className="is-active" data-testid="nav-jobs">
+              <i className="fas fa-briefcase" />
+              <span>Jobs</span>
             </button>
-            <button 
-              onClick={() => window.location.href = '/more'}
-              className="py-3 px-4 text-slate-400 hover:text-white"
-              data-testid="nav-more"
-            >
-              <i className="fas fa-ellipsis-h block mb-1"></i>
-              <span className="text-xs">More</span>
+            <button type="button" onClick={() => window.location.href = "/more"} data-testid="nav-more">
+              <i className="fas fa-ellipsis-h" />
+              <span>More</span>
             </button>
           </div>
         )}
-      </div>
-      
-      {/* Add bottom padding to account for fixed navigation */}
-      <div className="h-20"></div>
+      </nav>
     </div>
   );
 }

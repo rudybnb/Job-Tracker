@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import "./hallmark-sweep.css";
 
 interface Client {
   id: number;
@@ -112,7 +113,7 @@ export default function AdminBudgetTracking() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="hallmark-sweep min-h-screen bg-slate-900 text-white">
       <LogoutButton />
       
       {/* Header */}
@@ -124,8 +125,8 @@ export default function AdminBudgetTracking() {
           >
             <i className="fas fa-arrow-left text-white"></i>
           </button>
-          <div className="w-8 h-8 bg-yellow-600 rounded-lg flex items-center justify-center">
-            <i className="fas fa-chart-line text-black"></i>
+          <div className="hallmark-logo-mark">
+            <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
           </div>
           <div>
             <div className="text-sm font-medium">Budget Tracking</div>

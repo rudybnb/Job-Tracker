@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Copy, User, Phone, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import "./hallmark-sweep.css";
 
 export default function ContractorIdCapture() {
   const [contractorName, setContractorName] = useState("");
@@ -104,10 +105,12 @@ ERdesignandbuild Team`;
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-4">
+    <div className="hallmark-sweep min-h-screen bg-slate-900 text-white p-4">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center mb-6">
-          <User className="h-8 w-8 text-yellow-600 mr-3" />
+          <span className="hallmark-logo-mark mr-3">
+            <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
+          </span>
           <h1 className="text-2xl font-bold">Contractor ID Capture</h1>
         </div>
 

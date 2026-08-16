@@ -18,14 +18,12 @@ const SHARED_SCHEMA_SOURCE = readFileSync(
 );
 
 const RETAINED_TABLES = [
-  "clients",
   "job_phases",
   "sub_phases",
   "contractor_types",
   "phase_assignments",
   "milestones",
   "expenses",
-  "contractor_payments",
   "work_hours",
   "materials_catalog",
   "budget_alerts",
@@ -176,6 +174,12 @@ test("retained financial tables do not conflict with shared/schema.ts tables", (
   assert.deepEqual(new Set(createTableNames()), new Set(RETAINED_TABLES));
 });
 
+test("contractor_payments has transferred to one canonical owner", () => {
+  assert.equal(canonicalSchemaTables().has("contractor_payments"), true);
+  assert.equal(createTableNames().includes("contractor_payments"), false);
+  assert.doesNotMatch(FINANCIAL_CORE_SOURCE, /contractor_payments/i);
+});
+
 test("retained financial tables use CREATE TABLE IF NOT EXISTS", () => {
   const creates = financialTableStatements().filter((s) => /^CREATE\s+TABLE/i.test(s.trim()));
   assert.ok(creates.length >= RETAINED_TABLES.length);
@@ -212,7 +216,7 @@ test("every job_id referencing canonical jobs is varchar/text", () => {
 test("every contractor_id referencing canonical contractors is varchar/text", () => {
   const source = financialTableStatements().join("\n");
   const refs = source.match(/contractor_id\s+(VARCHAR|TEXT)\s+REFERENCES\s+contractors\s*\(\s*id\s*\)/gi) ?? [];
-  assert.ok(refs.length >= 3, `expected contractor_id -> contractors(id) FKs as varchar/text, found ${refs.length}`);
+  assert.ok(refs.length >= 2, `expected contractor_id -> contractors(id) FKs as varchar/text, found ${refs.length}`);
   assert.equal(/contractor_id\s+INTEGER\s+REFERENCES\s+contractors\b/i.test(source), false, "contractor_id must not be INTEGER");
 });
 
@@ -234,7 +238,6 @@ test("internal financial foreign keys remain INTEGER", () => {
   assert.equal(/phase_id\s+INTEGER\s+REFERENCES\s+job_phases\b/i.test(source), true);
   assert.equal(/sub_phase_id\s+INTEGER\s+REFERENCES\s+sub_phases\b/i.test(source), true);
   assert.equal(/assignment_id\s+INTEGER\s+REFERENCES\s+phase_assignments\b/i.test(source), true);
-  assert.equal(/milestone_id\s+INTEGER\s+REFERENCES\s+milestones\b/i.test(source), true);
   assert.equal(/phase_id\s+VARCHAR\s+REFERENCES/i.test(source), false, "internal FKs must stay INTEGER");
   assert.equal(/assignment_id\s+VARCHAR\s+REFERENCES/i.test(source), false);
 });
@@ -242,7 +245,7 @@ test("internal financial foreign keys remain INTEGER", () => {
 test("every REFERENCES column has a matching index", () => {
   const fks = fkColumnsFromCreateStatements();
   const indexes = indexStatements();
-  assert.ok(fks.length >= 16, `expected 16 FK columns, found ${fks.length}`);
+  assert.ok(fks.length >= 13, `expected 13 FK columns, found ${fks.length}`);
   assert.equal(indexes.length, fks.length, "each FK column must have exactly one index");
   for (const fk of fks) {
     const matches = indexes.filter((idx) => idx.table === fk.table && idx.column === fk.column);
@@ -252,7 +255,7 @@ test("every REFERENCES column has a matching index", () => {
 
 test("all indexes use CREATE INDEX IF NOT EXISTS and are not UNIQUE", () => {
   const indexStmts = financialTableStatements().filter((s) => /^CREATE\s+INDEX/i.test(s.trim()));
-  assert.ok(indexStmts.length >= 16);
+  assert.ok(indexStmts.length >= 13);
   for (const stmt of indexStmts) {
     assert.match(stmt, /^CREATE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+\w+/i);
     assert.equal(/UNIQUE/i.test(stmt), false, "indexes must not be UNIQUE");

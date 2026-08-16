@@ -1,9 +1,9 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { lazy } from "react";
+import { lazy, useEffect } from "react";
 import Dashboard from "@/pages/dashboard";
 import GPSDashboard from "@/pages/gps-dashboard";
 import Jobs from "@/pages/jobs";
@@ -20,7 +20,6 @@ import TaskProgress from "@/pages/task-progress";
 import More from "@/pages/more";
 import ForemanDashboard from "@/pages/foreman-dashboard";
 import DirectJobAssignments from "@/pages/direct-job-assignments";
-import AdminTaskMonitor from "@/pages/admin-task-monitor";
 import SystemCleanupPage from "@/pages/system-cleanup";
 import CreateAssignment from "@/pages/create-assignment";
 import TelegramTest from "@/pages/telegram-test";
@@ -35,9 +34,12 @@ import AdminBudgetTracking from "@/pages/admin-budget-tracking";
 import TelegramMessages from "@/pages/telegram-messages";
 import VoiceControl from "@/pages/voice-control";
 import AdminJarvisReviews from "@/pages/admin-jarvis-reviews";
+import AdminLabourVerification from "@/pages/admin-labour-verification";
+import AdminLabourReview from "@/pages/admin-labour-review";
+import AdminCommercialFinance from "@/pages/admin-commercial-finance";
+import AdminBankReconciliation from "@/pages/admin-bank-reconciliation";
 import CheckIn from "@/pages/checkin";
 import AdminSiteCheckin from "@/pages/admin-site-checkin";
-
 
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -71,6 +73,16 @@ function RoleBased() {
   }
 }
 
+function LegacyAdminTaskMonitorRedirect() {
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    navigate("/admin", { replace: true });
+  }, [navigate]);
+
+  return null;
+}
+
 function Router() {
   return (
     <div className="relative">
@@ -100,7 +112,7 @@ function Router() {
         )} />
         <Route path="/admin-task-monitor" component={() => (
           <ProtectedRoute requiredRole="admin">
-            <AdminTaskMonitor />
+            <LegacyAdminTaskMonitorRedirect />
           </ProtectedRoute>
         )} />
         <Route path="/contractor-onboarding" component={() => (
@@ -219,6 +231,29 @@ function Router() {
         <Route path="/admin-jarvis-reviews" component={() => (
           <ProtectedRoute requiredRole="admin">
             <AdminJarvisReviews />
+          </ProtectedRoute>
+        )} />
+
+        <Route path="/admin-labour-verification" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminLabourVerification />
+          </ProtectedRoute>
+        )} />
+        <Route path="/admin-labour-review" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminLabourReview />
+          </ProtectedRoute>
+        )} />
+
+        <Route path="/admin-commercial-finance" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminCommercialFinance />
+          </ProtectedRoute>
+        )} />
+
+        <Route path="/admin-bank-reconciliation" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminBankReconciliation />
           </ProtectedRoute>
         )} />
 

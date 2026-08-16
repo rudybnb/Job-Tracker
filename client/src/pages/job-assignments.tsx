@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import "./job-assignments.css";
 
 function LogoutButton() {
   const handleLogout = () => {
@@ -13,13 +14,13 @@ function LogoutButton() {
   };
 
   return (
-    <div className="fixed top-4 left-4 z-50 bg-slate-800 rounded-lg p-2 border border-slate-600 shadow-lg">
-      <div className="flex items-center space-x-2">
-        <span className="text-yellow-400 text-sm font-medium">Admin</span>
+    <div className="ja-logout">
+      <div className="ja-logout__inner">
+        <span className="ja-logout__role">Admin</span>
         <Button
           onClick={handleLogout}
           size="sm"
-          className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 text-white"
+          className="ja-logout__button"
         >
           Logout
         </Button>
@@ -170,328 +171,302 @@ export default function JobAssignments() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <LogoutButton />
-      
-      {/* Header */}
-      <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-            <span className="text-black font-bold text-sm">Pro</span>
+    <div className="ja-page">
+      <header className="ja-topbar">
+        <div className="ja-brand" aria-label="Sculpt Projects admin dashboard">
+          <div className="ja-brand__mark">
+            <img src="/sculpt-projects-logo.png" alt="" aria-hidden="true" />
           </div>
-          <div>
-            <div className="text-sm font-medium">Pro</div>
-            <div className="text-xs text-slate-400">Simple Time Tracking</div>
+          <div className="ja-brand__copy">
+            <strong>Sculpt Projects</strong>
+            <small>Operations dashboard</small>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span className="text-sm text-green-500">Online</span>
-          <i className="fas fa-sun text-yellow-400 ml-2"></i>
-          <div className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4">
-            <span className="text-white font-bold text-sm">RD</span>
-          </div>
-        </div>
-      </div>
 
-      <div className="p-4 space-y-6">
-        {/* Page Title */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-yellow-400">Job Assignments</h1>
+        <nav className="ja-desktop-nav" aria-label="Primary admin sections">
+          <button type="button" onClick={() => window.location.href = '/'}>Dashboard</button>
+          <button type="button" className="is-active" aria-current="page">Jobs</button>
+          <button type="button" onClick={() => window.location.href = '/admin'}>Admin</button>
+          <button type="button" onClick={() => window.location.href = '/upload'}>Upload</button>
+        </nav>
+
+        <div className="ja-topbar__status">
+          <span className="ja-online"><i aria-hidden="true"></i>Online</span>
+          <span className="ja-ambient" aria-hidden="true"><i className="fas fa-sun"></i></span>
+          <span className="ja-avatar">RD</span>
+          <LogoutButton />
+        </div>
+      </header>
+
+      <main className="ja-shell">
+        <section className="ja-hero" aria-labelledby="job-assignments-title">
+          <div>
+            <p className="ja-kicker">Assignments control</p>
+            <h1 id="job-assignments-title">Job Assignments</h1>
+            <span>Allocate live work, track contractor readiness, and review completed tasks from one operations board.</span>
+          </div>
           <Button 
             onClick={() => window.location.href = '/create-assignment'}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center"
+            className="ja-button ja-button--primary"
           >
-            <i className="fas fa-plus mr-2"></i>
+            <i className="fas fa-plus" aria-hidden="true"></i>
             Create Assignment
           </Button>
-        </div>
+        </section>
 
-        {/* Current Assignments Section */}
-        <div className="bg-slate-800 rounded-lg border border-slate-700">
-          <div className="p-4 border-b border-slate-700">
-            <h2 className="text-xl font-semibold text-yellow-400">Current Assignments</h2>
+        <section className="ja-panel" aria-labelledby="current-assignments-title">
+          <div className="ja-panel__head">
+            <div>
+              <p className="ja-kicker">Current workload</p>
+              <h2 id="current-assignments-title">Current Assignments</h2>
+            </div>
+            <span className="ja-count">{filteredAssignments.length} shown</span>
           </div>
-          
-          <div className="p-4">
-            {/* Search Box */}
-            <div className="mb-6">
+
+          <div className="ja-panel__body">
+            <label className="ja-search" htmlFor="assignment-search">
+              <span>Search assignments</span>
               <input
+                id="assignment-search"
                 type="text"
                 placeholder="Search assignments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                className="ja-search__input"
               />
-            </div>
+            </label>
 
-            {/* Assignment Cards - Show only actual assignments to contractors */}
             {isLoading ? (
-              <div className="text-center py-8">
-                <div className="text-slate-400">Loading assignments...</div>
+              <div className="ja-empty ja-empty--loading">
+                <div className="ja-spinner" aria-hidden="true"></div>
+                <strong>Loading assignments...</strong>
               </div>
             ) : filteredAssignments && filteredAssignments.length > 0 ? (
-              <div className="space-y-4">
+              <div className="ja-list">
                 {filteredAssignments.map((assignment: any, index: number) => (
                   <div 
-                    key={index}
-                    className="bg-slate-700 rounded-lg p-4 border border-slate-600"
+                    key={assignment.id || index}
+                    className="ja-card"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                          <i className="fas fa-briefcase text-white text-lg"></i>
+                    <div className="ja-card__main">
+                      <div className="ja-card__identity">
+                        <div className="ja-card__icon">
+                          <i className="fas fa-briefcase" aria-hidden="true"></i>
                         </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-white">
+                        <div className="ja-card__title">
+                          <h3>
                             {assignment.title || 'Job Assignment'}
                           </h3>
-                          <p className="text-sm text-slate-400">
+                          <p>
                             Assigned to: {assignment.contractorName || 'Unknown'}
                           </p>
-                          <p className="text-sm text-slate-400">
+                          <p>
                             Location: {assignment.workLocation || 'No location specified'}
                           </p>
-                          <p className="text-sm text-slate-400">
+                          <p>
                             Job: {assignment.hbxlJob || 'No job specified'}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right flex items-center space-x-3">
-                        <div className="text-center">
-                          <div className="text-xs text-slate-400">Status</div>
-                          <div className="text-green-400 font-medium text-sm">
+
+                      <div className="ja-card__stats" aria-label="Assignment summary">
+                        <div className="ja-stat">
+                          <span>Status</span>
+                          <strong className="ja-status-text">
                             {assignment.status || 'Assigned'}
-                          </div>
+                          </strong>
                         </div>
-                        <div className="text-center">
-                          <div className="text-xs text-slate-400">Phases</div>
-                          <div className="text-blue-400 font-medium text-sm">
+                        <div className="ja-stat">
+                          <span>Phases</span>
+                          <strong>
                             {assignment.buildPhases?.length || 0}
-                          </div>
+                          </strong>
                         </div>
                         <button
                           onClick={() => handleDeleteAssignment(assignment.id)}
-                          className="p-3 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-colors border border-red-800 hover:border-red-600"
+                          className="ja-icon-button ja-icon-button--danger"
                           title="Delete Assignment"
+                          aria-label="Delete Assignment"
                         >
-                          <i className="fas fa-trash text-lg"></i>
+                          <i className="fas fa-trash" aria-hidden="true"></i>
                         </button>
                       </div>
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-xs text-slate-400">Start Date</div>
-                        <div className="text-white">{assignment.startDate || 'N/A'}</div>
+
+                    <div className="ja-detail-grid">
+                      <div className="ja-detail">
+                        <span>Start Date</span>
+                        <strong>{assignment.startDate || 'N/A'}</strong>
                       </div>
-                      <div>
-                        <div className="text-xs text-slate-400">Due Date</div>
-                        <div className="text-white">{assignment.dueDate || 'N/A'}</div>
+                      <div className="ja-detail">
+                        <span>Due Date</span>
+                        <strong>{assignment.dueDate || 'N/A'}</strong>
                       </div>
-                      <div>
-                        <div className="text-xs text-slate-400">Telegram</div>
-                        <div className="text-white">
+                      <div className="ja-detail">
+                        <span>Telegram</span>
+                        <strong>
                           {assignment.telegramNotified === 'true' ? '✓ Sent' : 'Not sent'}
-                        </div>
+                        </strong>
                       </div>
-                      <div>
-                        <div className="text-xs text-slate-400">Actions</div>
-                        <div className="flex space-x-2">
-                          <button 
-                            onClick={() => toggleInspectionView(assignment.id)}
-                            className="text-yellow-400 hover:text-yellow-300 text-sm underline"
-                          >
-                            {expandedAssignment === assignment.id ? 'Hide' : 'Show'} Task Inspection
-                          </button>
-                        </div>
+                      <div className="ja-detail ja-detail--action">
+                        <span>Actions</span>
+                        <button 
+                          onClick={() => toggleInspectionView(assignment.id)}
+                          className="ja-text-button"
+                        >
+                          {expandedAssignment === assignment.id ? 'Hide' : 'Show'} Task Inspection
+                        </button>
                       </div>
                     </div>
 
-                    {/* Professional Task Inspection Interface */}
                     {expandedAssignment === assignment.id && (
-                      <div className="mt-6 border-t border-slate-600 pt-6">
-                        {/* Inspection Header */}
-                        <div className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6 border border-amber-500/20">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div>
-                              <h3 className="text-lg sm:text-xl font-semibold text-amber-400 flex items-center gap-2">
-                                <i className="fas fa-clipboard-check text-sm sm:text-base"></i>
-                                <span className="hidden sm:inline">Site Inspection Dashboard</span>
-                                <span className="sm:hidden">Inspection</span>
-                              </h3>
-                              <p className="text-slate-300 mt-1 text-sm">Quality assessment and task verification</p>
-                            </div>
-                            <div className="text-left sm:text-right">
-                              <div className="text-sm text-slate-400">Inspector</div>
-                              <div className="text-amber-400 font-medium">
-                                {localStorage.getItem('adminName') || 'Admin'}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                {new Date().toLocaleDateString('en-GB')}
-                              </div>
-                            </div>
+                      <div className="ja-inspection">
+                        <div className="ja-inspection__head">
+                          <div>
+                            <p className="ja-kicker">Quality desk</p>
+                            <h3>
+                              <i className="fas fa-clipboard-check" aria-hidden="true"></i>
+                              Site Inspection Dashboard
+                            </h3>
+                            <span>Quality assessment and task verification</span>
+                          </div>
+                          <div className="ja-inspector">
+                            <span>Inspector</span>
+                            <strong>{localStorage.getItem('adminName') || 'Admin'}</strong>
+                            <small>{new Date().toLocaleDateString('en-GB')}</small>
                           </div>
                         </div>
 
-                        {/* Assignment Summary */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
-                          <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
-                            <div className="text-slate-400 text-xs sm:text-sm">Contractor</div>
-                            <div className="text-white font-medium text-sm sm:text-base">{assignment.contractorName}</div>
+                        <div className="ja-summary-grid">
+                          <div className="ja-detail">
+                            <span>Contractor</span>
+                            <strong>{assignment.contractorName}</strong>
                           </div>
-                          <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
-                            <div className="text-slate-400 text-xs sm:text-sm">Location</div>
-                            <div className="text-white font-medium text-sm sm:text-base">{assignment.workLocation}</div>
+                          <div className="ja-detail">
+                            <span>Location</span>
+                            <strong>{assignment.workLocation}</strong>
                           </div>
-                          <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
-                            <div className="text-slate-400 text-xs sm:text-sm">Job Reference</div>
-                            <div className="text-white font-medium text-sm sm:text-base">{assignment.hbxlJob}</div>
+                          <div className="ja-detail">
+                            <span>Job Reference</span>
+                            <strong>{assignment.hbxlJob}</strong>
                           </div>
                         </div>
 
                         {completedTasks.length > 0 ? (
-                          <div className="space-y-6">
-                            {/* Tasks Summary */}
-                            <div className="bg-green-900/20 border border-green-700/30 rounded-lg p-3 sm:p-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                  <i className="fas fa-check text-white text-sm sm:text-lg"></i>
-                                </div>
-                                <div className="min-w-0">
-                                  <h4 className="text-green-400 font-semibold text-base sm:text-lg">
-                                    {completedTasks.length} Task{completedTasks.length !== 1 ? 's' : ''} Ready
-                                  </h4>
-                                  <p className="text-slate-300 text-xs sm:text-sm">Complete - awaiting quality review</p>
-                                </div>
+                          <div className="ja-inspection__body">
+                            <div className="ja-ready">
+                              <div className="ja-ready__mark">
+                                <i className="fas fa-check" aria-hidden="true"></i>
+                              </div>
+                              <div>
+                                <strong>{completedTasks.length} Task{completedTasks.length !== 1 ? 's' : ''} Ready</strong>
+                                <span>Complete - awaiting quality review</span>
                               </div>
                             </div>
                             
-                            {/* Task Inspection Cards */}
-                            <div className="space-y-3 sm:space-y-4">
+                            <div className="ja-task-list">
                               {completedTasks.map((task: any) => (
-                                <div key={task.taskId} className="bg-slate-800/80 rounded-lg sm:rounded-xl border border-slate-600 overflow-hidden">
-                                  {/* Task Header */}
-                                  <div className="bg-slate-700/50 px-3 sm:px-6 py-3 sm:py-4 border-b border-slate-600">
-                                    <div className="flex items-start sm:items-center justify-between gap-3">
-                                      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-                                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                          <i className="fas fa-tasks text-white text-sm sm:text-base"></i>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                          <h5 className="text-white font-semibold text-sm sm:text-lg leading-tight">{task.taskName}</h5>
-                                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-1">
-                                            <span className="text-slate-400 text-xs sm:text-sm">Phase: {task.phase}</span>
-                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-900/30 border border-green-700/50 rounded-full text-green-400 text-xs font-medium w-fit">
-                                              <i className="fas fa-check-circle"></i>
-                                              Complete
-                                            </span>
-                                          </div>
+                                <div key={task.taskId} className="ja-task-card">
+                                  <div className="ja-task-card__head">
+                                    <div className="ja-task-title">
+                                      <div className="ja-task-icon">
+                                        <i className="fas fa-tasks" aria-hidden="true"></i>
+                                      </div>
+                                      <div>
+                                        <h4>{task.taskName}</h4>
+                                        <div className="ja-task-meta">
+                                          <span>Phase: {task.phase}</span>
+                                          <span className="ja-chip ja-chip--success">
+                                            <i className="fas fa-check-circle" aria-hidden="true"></i>
+                                            Complete
+                                          </span>
                                         </div>
                                       </div>
-                                      <div className="text-right flex-shrink-0">
-                                        <div className="text-lg sm:text-2xl font-bold text-green-400">100%</div>
-                                        <div className="text-xs text-slate-400">Progress</div>
-                                      </div>
+                                    </div>
+                                    <div className="ja-progress">
+                                      <strong>100%</strong>
+                                      <span>Progress</span>
                                     </div>
                                   </div>
 
-                                  {/* Inspection Controls */}
-                                  <div className="p-3 sm:p-6">
-                                    {/* Action Buttons */}
-                                    <div className="mb-4">
-                                      <label className="block text-slate-300 font-medium mb-2 sm:mb-3 text-sm sm:text-base">Quality Assessment</label>
-                                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                  <div className="ja-task-card__body">
+                                    <div className="ja-assessment">
+                                      <label>Quality Assessment</label>
+                                      <div className="ja-assessment__buttons">
                                         <button
                                           onClick={() => setInspectionStatus(prev => ({ ...prev, [task.taskId]: 'approved' }))}
-                                          className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
-                                            inspectionStatus[task.taskId] === 'approved'
-                                              ? 'bg-green-600 text-white shadow-lg shadow-green-600/25 border-2 border-green-500'
-                                              : 'bg-slate-700 text-slate-300 hover:bg-green-700 hover:text-white border-2 border-slate-600'
-                                          }`}
+                                          className={`ja-choice ${inspectionStatus[task.taskId] === 'approved' ? 'is-approved' : ''}`}
                                         >
-                                          <i className="fas fa-check-circle mr-2"></i>
-                                          <span className="hidden sm:inline">Approve Work</span>
-                                          <span className="sm:hidden">Approve</span>
+                                          <i className="fas fa-check-circle" aria-hidden="true"></i>
+                                          Approve Work
                                         </button>
                                         <button
                                           onClick={() => setInspectionStatus(prev => ({ ...prev, [task.taskId]: 'issues' }))}
-                                          className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
-                                            inspectionStatus[task.taskId] === 'issues'
-                                              ? 'bg-red-600 text-white shadow-lg shadow-red-600/25 border-2 border-red-500'
-                                              : 'bg-slate-700 text-slate-300 hover:bg-red-700 hover:text-white border-2 border-slate-600'
-                                          }`}
+                                          className={`ja-choice ${inspectionStatus[task.taskId] === 'issues' ? 'is-issues' : ''}`}
                                         >
-                                          <i className="fas fa-exclamation-triangle mr-2"></i>
-                                          <span className="hidden sm:inline">Requires Attention</span>
-                                          <span className="sm:hidden">Issues</span>
+                                          <i className="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                                          Requires Attention
                                         </button>
-                                        <button className="px-3 sm:px-4 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 border-2 border-blue-500 text-sm sm:text-base">
-                                          <i className="fas fa-camera mr-2"></i>
-                                          <span className="hidden sm:inline">Add Photo</span>
-                                          <span className="sm:hidden">Photo</span>
+                                        <button className="ja-choice ja-choice--photo">
+                                          <i className="fas fa-camera" aria-hidden="true"></i>
+                                          Add Photo
                                         </button>
                                       </div>
                                     </div>
                                     
-                                    {/* Notes Section */}
-                                    <div>
-                                      <label className="block text-slate-300 font-medium mb-2 text-sm sm:text-base">Inspection Notes</label>
+                                    <label className="ja-notes">
+                                      <span>Inspection Notes</span>
                                       <textarea
                                         placeholder="Record quality observations, measurements, compliance notes..."
                                         value={inspectionNotes[task.taskId] || ''}
                                         onChange={(e) => setInspectionNotes(prev => ({ ...prev, [task.taskId]: e.target.value }))}
-                                        className="w-full bg-slate-700/80 border border-slate-500 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-white placeholder-slate-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors text-sm sm:text-base"
                                         rows={2}
                                       />
-                                    </div>
+                                    </label>
                                   </div>
                                 </div>
                               ))}
                             </div>
 
-                            {/* Submit Section */}
-                            <div className="bg-slate-800/60 rounded-lg sm:rounded-xl border border-slate-600 p-3 sm:p-6">
-                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                <div>
-                                  <h4 className="text-white font-semibold text-base sm:text-lg">Complete Inspection</h4>
-                                  <p className="text-slate-400 text-xs sm:text-sm mt-1">
-                                    Review all assessments before submitting final report
-                                  </p>
-                                </div>
-                                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                                  <button
-                                    onClick={() => {
-                                      setExpandedAssignment(null);
-                                      setCompletedTasks([]);
-                                      setInspectionStatus({});
-                                      setInspectionNotes({});
-                                    }}
-                                    className="px-4 sm:px-6 py-2 sm:py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg font-medium transition-colors text-sm sm:text-base order-2 sm:order-1"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    onClick={submitInspection}
-                                    className="px-6 sm:px-8 py-2 sm:py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-medium shadow-lg shadow-green-600/25 transition-all duration-200 text-sm sm:text-base order-1 sm:order-2"
-                                  >
-                                    <i className="fas fa-clipboard-check mr-2"></i>
-                                    <span className="hidden sm:inline">Submit Inspection Report</span>
-                                    <span className="sm:hidden">Submit Inspection</span>
-                                  </button>
-                                </div>
+                            <div className="ja-submit-panel">
+                              <div>
+                                <h4>Complete Inspection</h4>
+                                <p>Review all assessments before submitting final report</p>
+                              </div>
+                              <div className="ja-submit-panel__actions">
+                                <button
+                                  onClick={() => {
+                                    setExpandedAssignment(null);
+                                    setCompletedTasks([]);
+                                    setInspectionStatus({});
+                                    setInspectionNotes({});
+                                  }}
+                                  className="ja-button ja-button--quiet"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={submitInspection}
+                                  className="ja-button ja-button--success"
+                                >
+                                  <i className="fas fa-clipboard-check" aria-hidden="true"></i>
+                                  Submit Inspection Report
+                                </button>
                               </div>
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center py-8 sm:py-12 bg-slate-800/50 rounded-lg sm:rounded-xl border border-slate-600">
-                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                              <i className="fas fa-clipboard-list text-slate-400 text-lg sm:text-xl"></i>
+                          <div className="ja-empty ja-empty--inspection">
+                            <div className="ja-empty__mark">
+                              <i className="fas fa-clipboard-list" aria-hidden="true"></i>
                             </div>
-                            <h4 className="text-white text-base sm:text-lg font-medium mb-2">No Tasks Ready for Inspection</h4>
-                            <p className="text-slate-400 text-xs sm:text-sm max-w-md mx-auto px-4">
-                              Completed tasks will appear here automatically once contractors mark them as 100% finished. 
-                              Check back later or contact the contractor for status updates.
-                            </p>
+                            <div>
+                              <h4>No Tasks Ready for Inspection</h4>
+                              <p>
+                                Completed tasks will appear here automatically once contractors mark them as 100% finished. 
+                                Check back later or contact the contractor for status updates.
+                              </p>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -500,52 +475,48 @@ export default function JobAssignments() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <div className="text-slate-400 text-lg mb-2">
-                  No job assignments found.
+              <div className="ja-empty">
+                <div className="ja-empty__mark">
+                  <i className="fas fa-briefcase" aria-hidden="true"></i>
                 </div>
-                <div className="text-slate-500 text-sm">
+                <div>
+                  <h3>No job assignments found.</h3>
+                  <p>
                   Use "Create Assignment" to assign jobs to contractors.
+                  </p>
                 </div>
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
-        <div className="grid grid-cols-4 text-center">
+      <nav className="ja-mobile-nav" aria-label="Primary">
+        <div className="ja-mobile-nav__grid">
           <button 
             onClick={() => window.location.href = '/'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
           >
-            <i className="fas fa-home block mb-1"></i>
-            <span className="text-xs">Dashboard</span>
+            <i className="fas fa-home" aria-hidden="true"></i>
+            <span>Dashboard</span>
           </button>
-          <button className="py-3 px-4 text-yellow-400">
-            <i className="fas fa-briefcase block mb-1"></i>
-            <span className="text-xs">Jobs</span>
+          <button className="is-active" aria-current="page">
+            <i className="fas fa-briefcase" aria-hidden="true"></i>
+            <span>Jobs</span>
           </button>
           <button 
-            onClick={() => window.location.href = '/admin-task-monitor'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
+            onClick={() => window.location.href = '/admin'}
           >
-            <i className="fas fa-user-cog block mb-1"></i>
-            <span className="text-xs">Admin</span>
+            <i className="fas fa-user-cog" aria-hidden="true"></i>
+            <span>Admin</span>
           </button>
           <button 
             onClick={() => window.location.href = '/upload'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
           >
-            <i className="fas fa-upload block mb-1"></i>
-            <span className="text-xs">Upload</span>
+            <i className="fas fa-upload" aria-hidden="true"></i>
+            <span>Upload</span>
           </button>
         </div>
-      </div>
-      
-      {/* Add bottom padding to account for fixed navigation */}
-      <div className="h-20"></div>
+      </nav>
     </div>
   );
 }

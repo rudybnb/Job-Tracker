@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import ContextualTooltip from "./contextual-tooltip";
 import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
+import * as XLSX from "xlsx";
+import {
+  acceptedJobUploadColumns,
+  parseJobUploadCsv,
+  suggestJobNameFromSource,
+  validateProjectMetadata,
+  type JobUploadParseResult,
+  type ProjectMetadata,
+  type UploadValidationIssue,
+} from "@shared/job-upload-import";
 
 interface CsvUpload {
   id: string;
@@ -17,6 +27,12 @@ interface CsvUpload {
 interface UploadResponse {
   upload: CsvUpload;
   jobsCreated: number;
+  rowsProcessed: number;
+  tasksProcessed: number;
+  skippedRows: number;
+  duplicate: boolean;
+  importFingerprint: string;
+  validation: JobUploadParseResult;
 }
 
 interface CSVPreviewData {
@@ -33,6 +49,16 @@ interface CSVPreviewData {
     projectType: string;
     buildPhases: string[];
   }>;
+  validation: JobUploadParseResult;
+}
+
+class UploadRequestError extends Error {
+  validation?: JobUploadParseResult;
+
+  constructor(message: string, validation?: JobUploadParseResult) {
+    super(message);
+    this.validation = validation;
+  }
 }
 
 export default function UploadCsv() {
@@ -40,16 +66,28 @@ export default function UploadCsv() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<CSVPreviewData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [lastImportSummary, setLastImportSummary] = useState<UploadResponse | null>(null);
+  const [projectMetadata, setProjectMetadata] = useState<ProjectMetadata>({
+    clientName: "",
+    projectSiteName: "",
+    address: "",
+    postcode: "",
+    projectType: "",
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   // Initialize workflow help for CSV upload process
   const workflowHelp = useWorkflowHelp(WORKFLOW_CONFIGS.csvUpload);
 
+  const metadataErrors = validateProjectMetadata(projectMetadata);
+  const canApproveUpload = !!selectedFile && !!csvPreview?.validation.valid && metadataErrors.length === 0;
+
   const uploadMutation = useMutation<UploadResponse, Error, File>({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('csvFile', file);
+      formData.append('projectMetadata', JSON.stringify(projectMetadata));
       
       const response = await fetch('/api/upload-csv', {
         method: 'POST',
@@ -59,7 +97,13 @@ export default function UploadCsv() {
       
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || `Upload failed with status ${response.status}`);
+        try {
+          const errorJson = JSON.parse(errorText);
+          throw new UploadRequestError(errorJson.error || `Upload failed with status ${response.status}`, errorJson.validation);
+        } catch (parseError) {
+          if (parseError instanceof UploadRequestError) throw parseError;
+          throw new UploadRequestError(errorText || `Upload failed with status ${response.status}`);
+        }
       }
       
       return response.json();
@@ -73,13 +117,17 @@ export default function UploadCsv() {
       
       toast({
         title: "File Upload Successful",
-        description: `Created ${data.jobsCreated} job(s) from ${data.upload.filename}`,
+        description: `Created ${data.jobsCreated} job(s), processed ${data.tasksProcessed} task row(s), skipped ${data.skippedRows}.`,
       });
+      setLastImportSummary(data);
       queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/csv-uploads'] });
       
-      // Clear all form data after successful upload
-      handleClearData();
+      setSelectedFile(null);
+      setCsvPreview(null);
+      setShowPreview(false);
+      const fileInput = document.getElementById('csv-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     },
     onError: (error) => {
       toast({
@@ -87,6 +135,24 @@ export default function UploadCsv() {
         description: error.message,
         variant: "destructive",
       });
+      if (error instanceof UploadRequestError && error.validation) {
+        const rows = error.validation.jobPreview.map((job) => [
+          projectMetadata.clientName,
+          projectMetadata.projectSiteName,
+          projectMetadata.address,
+          projectMetadata.postcode,
+          projectMetadata.projectType,
+          job.buildPhases.join(", "),
+        ]);
+        setCsvPreview({
+          headers: ['Client Name', 'Project / Site Name', 'Address', 'Postcode', 'Project Type', 'Build Phases'],
+          rows,
+          rawData: { headers: ['Client Name', 'Project / Site Name', 'Address', 'Postcode', 'Project Type', 'Build Phases'], rows },
+          jobPreview: error.validation.jobPreview,
+          validation: error.validation,
+        });
+        setShowPreview(true);
+      }
     },
   });
 
@@ -129,187 +195,64 @@ export default function UploadCsv() {
 
   const parseCSVPreview = async (file: File): Promise<CSVPreviewData | null> => {
     try {
-      const csvContent = await file.text();
-      const lines = csvContent.split('\n').map(line => line.trim()).filter(line => line);
-      
-      if (lines.length < 4) {
-        throw new Error('CSV must contain Name, Address, Post code, and Project Type headers');
-      }
-
-      // SUPPORT BOTH FORMATS - MANDATORY RULE: NEVER REWRITE WORKING CODE
-      let jobName = "Data Missing from CSV";
-      let jobAddress = "Data Missing from CSV";
-      let jobPostcode = "Data Missing from CSV";
-      let jobType = "Data Missing from CSV";
-      let phases: string[] = [];
-
-      // Enhanced parsing for the new accounting CSV format
-      const enhancedFormatIndex = lines.findIndex(line => 
-        line.includes('Order Date') && line.includes('Build Phase') && (line.includes('Resource Description') || line.includes('Type of Resource'))
-      );
-      
-      if (enhancedFormatIndex !== -1) {
-        // ENHANCED FORMAT PARSING - for accounting integration
-        console.log('🎯 Using ENHANCED CSV parsing for frontend preview');
-        
-        // Extract header information (first 4 lines)
-        for (let i = 0; i < Math.min(lines.length, 5); i++) {
-          const line = lines[i];
-          
-          if (line.startsWith('Name ,') || line.startsWith('Name,') || line.startsWith('name,')) {
-            const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
-            jobName = extracted || "Data Missing from CSV";
-          } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
-            const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
-            jobAddress = extracted || "Data Missing from CSV";
-          } else if (line.startsWith('Post Code ,') || line.startsWith('Post code,')) {
-            const colonIndex = line.indexOf(',');
-            const extracted = line.substring(colonIndex + 1).replace(/,+$/, '').trim().toUpperCase();
-            jobPostcode = extracted || "Data Missing from CSV";
-          } else if (line.startsWith('Project Type,')) {
-            const extracted = line.substring(13).replace(/,+$/, '').trim();
-            jobType = extracted || "Data Missing from CSV";
-          }
-        }
-        
-        // Parse phases from enhanced CSV data - find Build Phase column dynamically
-        const phaseSet = new Set<string>();
-        const headerLine = lines[enhancedFormatIndex];
-        const headers = headerLine.split(',').map(h => h.trim());
-        const buildPhaseColumnIndex = headers.findIndex(h => 
-          h.toLowerCase().includes('build phase') || h.toLowerCase().includes('phase')
-        );
-        
-        console.log('🔍 Phase column detection:', { 
-          headerLine, 
-          headers, 
-          buildPhaseColumnIndex,
-          foundHeader: headers[buildPhaseColumnIndex] 
-        });
-        
-        if (buildPhaseColumnIndex >= 0) {
-          for (let i = enhancedFormatIndex + 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line || line.trim() === '') continue;
-            
-            const parts = line.split(',').map(p => p.trim());
-            if (parts.length <= buildPhaseColumnIndex) continue;
-            
-            const buildPhase = parts[buildPhaseColumnIndex] || '';
-            if (buildPhase && buildPhase.trim() !== '' && buildPhase.toLowerCase() !== 'material' && buildPhase.toLowerCase() !== 'labour') {
-              phaseSet.add(buildPhase);
-              console.log('✅ Found phase:', buildPhase);
-            }
-          }
-        }
-        phases = Array.from(phaseSet);
-        
-      } else {
-        // Check if it's the original format (Name,Xavier jones or name,Flat1)
-        const isOriginalFormat = lines.some(line => 
-          (line.startsWith('Name,') || line.startsWith('name,')) && !line.includes('Address,Postcode')
-        );
-        
-        if (isOriginalFormat) {
-          // LOCKED DOWN PARSING LOGIC - NEVER CHANGE THIS SECTION
-          for (let i = 0; i < Math.min(lines.length, 5); i++) {
-            const line = lines[i];
-            
-            if (line.startsWith('Name,') || line.startsWith('name,')) {
-              // Extract everything after "Name," or "name," and remove trailing commas
-              const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
-              jobName = extracted || "Data Missing from CSV";
-            } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
-              // Extract everything after first comma and remove trailing commas  
-              const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
-              jobAddress = extracted || "Data Missing from CSV";
-            } else if (line.startsWith('Post code,')) {
-              // Extract everything after "Post code," and remove trailing commas
-              const extracted = line.substring(10).replace(/,+$/, '').trim().toUpperCase();
-              jobPostcode = extracted || "Data Missing from CSV";
-            } else if (line.startsWith('Project Type,')) {
-              // Extract everything after "Project Type," and remove trailing commas
-              const extracted = line.substring(13).replace(/,+$/, '').trim();
-              jobType = extracted || "Data Missing from CSV";
-            }
-          }
-
-          // Parse data section for build phases
-          const dataHeaderIndex = lines.findIndex(line => 
-            line.includes('Order Date') && line.includes('Build Phase')
-          );
-          
-          if (dataHeaderIndex >= 0) {
-            const headers = lines[dataHeaderIndex].split(',').map(h => h.trim());
-            const phaseColumnIndex = headers.indexOf('Build Phase');
-            
-            if (phaseColumnIndex >= 0) {
-              for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
-                const values = lines[i].split(',').map(v => v.trim());
-                const phase = values[phaseColumnIndex];
-                if (phase && phase !== '' && !phases.includes(phase)) {
-                  phases.push(phase);
-                }
-              }
-            }
-          }
-        } else {
-          // NEW TABLE FORMAT: Name,Address,Postcode,ProjectType,BuildPhases
-          if (lines.length >= 2) {
-            const firstDataLine = lines[1];
-            const dataParts = firstDataLine.split(',');
-            
-            jobName = dataParts[0]?.trim() || "Data Missing";
-            jobAddress = dataParts[1]?.trim() || "Data Missing";
-            jobPostcode = dataParts[2]?.trim()?.toUpperCase() || "Data Missing";
-            jobType = dataParts[3]?.trim() || "Data Missing";
-            const buildPhasesStr = dataParts[4]?.trim().replace(/"/g, '') || "";
-            
-            phases = buildPhasesStr ? buildPhasesStr.split(',').map(p => p.trim()).filter(p => p) : [];
-          }
-        }
-      }
-
-      console.log('✅ CSV PARSING DEBUG:', {
-        enhancedFormat: enhancedFormatIndex !== -1,
-        rawLines: lines.slice(0, 5),
-        extracted: { jobName, jobAddress, jobPostcode, jobType, phases }
-      });
+      const csvContent = file.name.toLowerCase().endsWith('.xlsx')
+        ? await readExcelAsCsv(file)
+        : await file.text();
+      const validation = parseJobUploadCsv(csvContent);
+      const suggestedJobName = suggestJobNameFromSource(file.name);
+      setProjectMetadata((current) => ({
+        ...current,
+        projectSiteName: validation.jobPreview[0]?.name || suggestedJobName,
+      }));
 
       // Create raw data preview
       const rawData = {
         headers: ['Name', 'Address', 'Postcode', 'Project Type', 'Build Phases'],
-        rows: [[jobName, jobAddress, jobPostcode, jobType, phases.join(', ')]]
+        rows: validation.jobPreview.map((job) => [
+          job.name,
+          job.address,
+          job.postcode,
+          job.projectType,
+          job.buildPhases.join(', '),
+        ])
       };
-
-      const jobPreview = [{
-        name: jobName,
-        address: jobAddress,
-        postcode: jobPostcode,
-        projectType: jobType,
-        buildPhases: phases.length > 0 ? phases : ["No phases specified"]
-      }];
 
       return { 
         headers: rawData.headers, 
         rows: rawData.rows,
         rawData: rawData,
-        jobPreview: jobPreview 
+        jobPreview: validation.jobPreview,
+        validation,
       };
     } catch (error) {
       toast({
-        title: "CSV Parse Error",
-        description: error instanceof Error ? error.message : "Failed to parse CSV file",
+        title: "File Parse Error",
+        description: error instanceof Error ? error.message : "Failed to parse file",
         variant: "destructive",
       });
       return null;
     }
   };
 
+  const readExcelAsCsv = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) throw new Error('Excel workbook does not contain any sheets');
+      const worksheet = workbook.Sheets[sheetName];
+      setProjectMetadata((current) => ({
+        ...current,
+        projectSiteName: suggestJobNameFromSource(sheetName || file.name),
+      }));
+      return XLSX.utils.sheet_to_csv(worksheet);
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (validateFile(file)) {
+        setLastImportSummary(null);
+        setProjectMetadata({ clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" });
         setSelectedFile(file);
         const preview = await parseCSVPreview(file);
         setCsvPreview(preview);
@@ -329,6 +272,8 @@ export default function UploadCsv() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       if (validateFile(file)) {
+        setLastImportSummary(null);
+        setProjectMetadata({ clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" });
         setSelectedFile(file);
         const preview = await parseCSVPreview(file);
         setCsvPreview(preview);
@@ -345,6 +290,8 @@ export default function UploadCsv() {
     setSelectedFile(null);
     setCsvPreview(null);
     setShowPreview(false);
+    setLastImportSummary(null);
+    setProjectMetadata({ clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" });
     // Clear the file input
     const fileInput = document.getElementById('csv-upload') as HTMLInputElement;
     if (fileInput) {
@@ -361,10 +308,48 @@ export default function UploadCsv() {
   };
 
   const handleUpload = () => {
-    if (selectedFile) {
+    if (canApproveUpload && selectedFile) {
       uploadMutation.mutate(selectedFile);
+    } else {
+      toast({
+        title: "Validation Required",
+        description: "Fix the listed upload validation errors before creating jobs.",
+        variant: "destructive",
+      });
     }
   };
+
+  const updateProjectMetadata = (field: keyof ProjectMetadata, value: string) => {
+    setProjectMetadata((current) => ({
+      ...current,
+      [field]: field === "postcode" ? value.toUpperCase() : value,
+    }));
+  };
+
+  const issueForField = (issues: UploadValidationIssue[], field: keyof ProjectMetadata) => {
+    const labelByField: Record<keyof ProjectMetadata, string> = {
+      clientName: "Client Name",
+      projectSiteName: "Project / Site Name",
+      address: "Address",
+      postcode: "Postcode",
+      projectType: "Project Type",
+    };
+    return issues.find((issue) => issue.field === labelByField[field]);
+  };
+
+  const resourcePreview = (() => {
+    if (!csvPreview?.validation.jobs[0]?.phaseTaskData) return [];
+    try {
+      const parsed = JSON.parse(csvPreview.validation.jobs[0].phaseTaskData) as {
+        phases?: Record<string, Array<{ task?: string; description?: string; resourceType?: string; quantity?: number; supplier?: string }>>;
+      };
+      return Object.entries(parsed.phases ?? {})
+        .flatMap(([phase, tasks]) => tasks.map((task) => ({ phase, ...task })))
+        .slice(0, 8);
+    } catch {
+      return [];
+    }
+  })();
 
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
@@ -384,7 +369,10 @@ export default function UploadCsv() {
           </ContextualTooltip>
         </div>
         <p className="text-sm text-slate-400">
-          Upload CSV files to create new jobs. File format: Name, Address, Project Type, Build Phase data.
+          Upload HBXL Smart Schedule CSV/XLSX files. Project address details are entered during approval.
+        </p>
+        <p className="text-xs text-slate-500 mt-2">
+          Accepted columns include: {acceptedJobUploadColumns.slice(0, 10).join(', ')}.
         </p>
       </div>
 
@@ -484,6 +472,18 @@ export default function UploadCsv() {
         </div>
       )}
 
+      {lastImportSummary && (
+        <div className="mt-4 text-sm text-green-200 bg-green-900/20 border border-green-700/30 p-3 rounded-lg">
+          <div className="font-semibold text-green-300">Import complete</div>
+          <div>
+            {lastImportSummary.jobsCreated} job(s) created · {lastImportSummary.tasksProcessed} task row(s) processed · {lastImportSummary.skippedRows} skipped · duplicate retry: {lastImportSummary.duplicate ? 'blocked' : 'clear'}
+          </div>
+          <div className="text-xs text-green-300/80 mt-1">
+            Upload reference: {lastImportSummary.upload.id}
+          </div>
+        </div>
+      )}
+
       {/* Detailed CSV Preview Modal */}
       {showPreview && csvPreview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -494,13 +494,61 @@ export default function UploadCsv() {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <div className={`mb-4 rounded-lg border p-3 ${csvPreview.validation.valid ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                <div className="font-semibold">
+                  {csvPreview.validation.valid ? 'Validation passed' : 'Validation failed - no jobs can be created yet'}
+                </div>
+                <div className="text-sm mt-1">
+                  Format: {csvPreview.validation.format} · Schedule rows: {csvPreview.validation.stats.taskRows} · Phases: {csvPreview.validation.stats.phases} · Malformed rows: {csvPreview.validation.stats.malformedRows}
+                </div>
+                {csvPreview.validation.errors.length > 0 && (
+                  <ul className="mt-3 space-y-1 text-sm list-disc pl-5">
+                    {csvPreview.validation.errors.map((issue, index) => (
+                      <li key={index}>
+                        {issue.line ? `Line ${issue.line}: ` : ''}{issue.field ? `${issue.field} - ` : ''}{issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={`mb-4 rounded-lg border p-4 ${metadataErrors.length === 0 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                <div className="text-slate-800 font-semibold mb-1">Required Project Information</div>
+                <p className="text-slate-600 text-sm mb-4">
+                  HBXL schedule exports do not include these project fields. Confirm or edit them before creating jobs.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {([
+                    ["clientName", "Client Name"],
+                    ["projectSiteName", "Project / Site Name"],
+                    ["address", "Address"],
+                    ["postcode", "Postcode"],
+                    ["projectType", "Project Type"],
+                  ] as Array<[keyof ProjectMetadata, string]>).map(([field, label]) => {
+                    const issue = issueForField(metadataErrors, field);
+                    return (
+                      <label key={field} className="block text-sm font-medium text-slate-700">
+                        {label}
+                        <input
+                          value={projectMetadata[field]}
+                          onChange={(event) => updateProjectMetadata(field, event.target.value)}
+                          className={`mt-1 w-full rounded-md border px-3 py-2 text-slate-900 ${issue ? 'border-red-400 bg-red-50' : 'border-slate-300 bg-white'}`}
+                          placeholder={field === 'projectSiteName' ? 'e.g. Spencer House' : ''}
+                        />
+                        {issue && <span className="mt-1 block text-xs text-red-700">{issue.message}</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Dynamic Job Preview - Show actual CSV data */}
               {csvPreview.jobPreview.length > 0 && (
                 <div className="mb-6">
                   {/* Detected Job Information Header */}
                   <div className="bg-slate-100 rounded-t-lg p-3">
                     <h4 className="text-slate-700 font-semibold">
-                      Detected Job Information ({csvPreview.jobPreview.length} job{csvPreview.jobPreview.length > 1 ? 's' : ''})
+                      Extracted HBXL Schedule Preview
                     </h4>
                   </div>
 
@@ -512,8 +560,17 @@ export default function UploadCsv() {
                           <span className="text-white text-xs">📄</span>
                         </div>
                         <div>
-                          <span className="text-yellow-600 font-medium">Name: </span>
-                          <span className="text-slate-700">{csvPreview.jobPreview[0].name}</span>
+                          <span className="text-yellow-600 font-medium">Client Name: </span>
+                          <span className="text-slate-700">{projectMetadata.clientName || 'Required before approval'}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-green-600 rounded-sm flex items-center justify-center">
+                          <span className="text-white text-xs">📄</span>
+                        </div>
+                        <div>
+                          <span className="text-yellow-600 font-medium">Project / Site: </span>
+                          <span className="text-slate-700">{projectMetadata.projectSiteName || 'Required before approval'}</span>
                         </div>
                       </div>
                       
@@ -523,7 +580,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Postcode: </span>
-                          <span className="text-slate-700">{csvPreview.jobPreview[0].postcode}</span>
+                          <span className="text-slate-700">{projectMetadata.postcode || 'Required before approval'}</span>
                         </div>
                       </div>
                       
@@ -533,7 +590,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Project Type: </span>
-                          <span className="text-slate-700">{csvPreview.jobPreview[0].projectType}</span>
+                          <span className="text-slate-700">{projectMetadata.projectType || 'Required before approval'}</span>
                         </div>
                       </div>
                       
@@ -543,7 +600,7 @@ export default function UploadCsv() {
                         </div>
                         <div>
                           <span className="text-yellow-600 font-medium">Address: </span>
-                          <span className="text-slate-700">{csvPreview.jobPreview[0].address}</span>
+                          <span className="text-slate-700">{projectMetadata.address || 'Required before approval'}</span>
                         </div>
                       </div>
                     </div>
@@ -563,6 +620,21 @@ export default function UploadCsv() {
                       <p className="text-blue-700 text-sm">
                         These real work phases will be available for time tracking once the job is approved and goes live.
                       </p>
+                      {resourcePreview.length > 0 && (
+                        <div className="mt-4 border-t border-blue-200 pt-3">
+                          <div className="text-blue-900 font-semibold text-sm mb-2">Extracted resource/task examples</div>
+                          <div className="space-y-2">
+                            {resourcePreview.map((resource, index) => (
+                              <div key={index} className="rounded-md bg-white/80 border border-blue-100 p-2 text-sm text-slate-700">
+                                <div className="font-medium text-slate-800">{resource.phase}: {resource.task || resource.description}</div>
+                                <div className="text-xs text-slate-500">
+                                  {resource.resourceType || 'Resource'} · Qty {resource.quantity ?? 0} · {resource.supplier || 'Supplier not specified'}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Additional jobs indicator */}
@@ -572,7 +644,7 @@ export default function UploadCsv() {
                           + {csvPreview.jobPreview.length - 1} more job{csvPreview.jobPreview.length > 2 ? 's' : ''} will be created from this CSV
                         </p>
                         <p className="text-blue-600 text-xs mt-1">
-                          All jobs will be saved to the database and persist after system reboot
+                          All extracted schedule data will be saved only after required project information is complete.
                         </p>
                       </div>
                     )}
@@ -592,10 +664,12 @@ export default function UploadCsv() {
               </Button>
               <Button 
                 onClick={() => {
-                  setShowPreview(false);
-                  handleUpload();
+                  if (canApproveUpload) {
+                    setShowPreview(false);
+                    handleUpload();
+                  }
                 }}
-                disabled={uploadMutation.isPending}
+                disabled={uploadMutation.isPending || !canApproveUpload}
                 className="bg-green-600 hover:bg-green-700 text-white flex-1"
               >
                 {uploadMutation.isPending ? (
@@ -606,7 +680,7 @@ export default function UploadCsv() {
                 ) : (
                   <>
                     <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Approve & Create Jobs
+                    {canApproveUpload ? 'Approve & Create Jobs' : 'Complete Required Fields'}
                   </>
                 )}
               </Button>

@@ -1,0 +1,4833 @@
+{
+  "project": "Patrick Brook / Chat Test",
+  "sourceFiles": {
+    "dxf": "test-fixtures/patrick-brook/Chat Test.dxf",
+    "hbxl": "test-fixtures/patrick-brook/Job 51 Patrick Brook Smart Schedule Export.csv"
+  },
+  "scope": "Phase 1C PlansXpress electrical symbol learning review. No dictionary mappings changed.",
+  "summary": {
+    "realElectricalDxfObjects": 67,
+    "confidentlyClassified": 58,
+    "uniqueUnknownSymbolFingerprints": 8,
+    "unknownSymbolOccurrences": 9,
+    "roomAllocationReviewGroups": 23,
+    "roomAllocationReviewOccurrences": 30,
+    "fullyReconciledProjectElectricalItemTypes": 8,
+    "unresolvedHbxlElectricalItemTypes": 10
+  },
+  "unknownSymbolGroups": [
+    {
+      "symbol": "Symbol A",
+      "fingerprintId": "f8cc2dd1cc",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block14327",
+        "Block21282"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "LINE": 114
+        },
+        "lineCount": 114,
+        "circleCount": 0,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [],
+        "arcRadii": [],
+        "aspectRatio": 1.45,
+        "textTokens": []
+      },
+      "occurrenceCount": 2,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Block14327",
+          "layer": "Electrical",
+          "blockName": "Block14327",
+          "point": {
+            "x": 16257.36,
+            "y": 53857.81
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 956.74,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3838.63,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4158.53,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 7124.33,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        },
+        {
+          "source": "DXF_INSERT",
+          "label": "Block21282",
+          "layer": "Electrical",
+          "blockName": "Block21282",
+          "point": {
+            "x": 17935.02,
+            "y": 52531.88
+          },
+          "rotation": 0,
+          "workArea": "Kitchen",
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 1920.8,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 2525.68,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 5607.92,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 6288.72,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        }
+      ],
+      "containedText": [],
+      "suggestedHbxlCandidates": [],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol B",
+      "fingerprintId": "48ab082101",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block14472"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "ARC": 2,
+          "LINE": 4
+        },
+        "lineCount": 4,
+        "circleCount": 0,
+        "arcCount": 2,
+        "polylineCount": 0,
+        "circleRadii": [],
+        "arcRadii": [
+          141.42,
+          141.42
+        ],
+        "aspectRatio": 1.02,
+        "textTokens": []
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Block14472",
+          "layer": "Electrical",
+          "blockName": "Block14472",
+          "point": {
+            "x": 16390.25,
+            "y": 52941.4
+          },
+          "rotation": 0,
+          "workArea": "Bathroom",
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 929.64,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3490.91,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4087.1,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 6236.33,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        }
+      ],
+      "containedText": [],
+      "suggestedHbxlCandidates": [
+        "Light Switch 6A 1G 1 Way",
+        "Pull Cord Switch 6A"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol C",
+      "fingerprintId": "889e00eb32",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block21819"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "LINE": 23,
+          "TEXT": 2
+        },
+        "lineCount": 23,
+        "circleCount": 0,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [],
+        "arcRadii": [],
+        "aspectRatio": 0.72,
+        "textTokens": [
+          "electric",
+          "hob"
+        ]
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "ELECTRIC HOB",
+          "layer": "Electrical",
+          "blockName": "Block21819",
+          "point": {
+            "x": 17963.74,
+            "y": 51843.77
+          },
+          "rotation": 0,
+          "workArea": "Kitchen",
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 2009.7,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 2826.08,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 5674.47,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5680.25,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "explicit drawing label has no safe HBXL measurable item mapping"
+        }
+      ],
+      "containedText": [
+        "ELECTRIC",
+        "HOB"
+      ],
+      "suggestedHbxlCandidates": [
+        "Cooker Connection Plate",
+        "Cooker Control Unit",
+        "Fused Spur 13A"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol D",
+      "fingerprintId": "9d4d7a37c8",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block88816"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "CIRCLE": 2,
+          "LINE": 2
+        },
+        "lineCount": 2,
+        "circleCount": 2,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [
+          50,
+          56.76
+        ],
+        "arcRadii": [],
+        "aspectRatio": 0.5,
+        "textTokens": []
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Block88816",
+          "layer": "Electrical",
+          "blockName": "Block88816",
+          "point": {
+            "x": 23823.65,
+            "y": 46630.44
+          },
+          "rotation": 0,
+          "workArea": "Main Bedroom",
+          "nearbyRooms": [
+            {
+              "room": "Main Bedroom",
+              "distance": 2681.38,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 5517.93,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 6102.25,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 7102.52,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        }
+      ],
+      "containedText": [],
+      "suggestedHbxlCandidates": [
+        "Light Switch 10A 2 Gang 2 Way",
+        "Light Switch 6A 1G 1 Way",
+        "Light Switch 6A 1G 2 Way",
+        "Pull Cord Switch 6A",
+        "WC Ceiling Light Fitting"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol E",
+      "fingerprintId": "9f3c25ecbb",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block14352"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "LINE": 23,
+          "TEXT": 2
+        },
+        "lineCount": 23,
+        "circleCount": 0,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [],
+        "arcRadii": [],
+        "aspectRatio": 0.8,
+        "textTokens": [
+          "electric",
+          "shower"
+        ]
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "ELECTRIC SHOWER",
+          "layer": "Electrical",
+          "blockName": "Block14352",
+          "point": {
+            "x": 15144.59,
+            "y": 52844.78
+          },
+          "rotation": 0,
+          "workArea": "Bathroom",
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 552.19,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 2838.57,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 4722.3,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 6060.58,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "explicit drawing label has no safe HBXL measurable item mapping"
+        }
+      ],
+      "containedText": [
+        "ELECTRIC",
+        "SHOWER"
+      ],
+      "suggestedHbxlCandidates": [
+        "Pull Cord Switch 45A",
+        "Pull Cord Switch 6A"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol F",
+      "fingerprintId": "c040875ca1",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block91259"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "CIRCLE": 2,
+          "LINE": 3
+        },
+        "lineCount": 3,
+        "circleCount": 2,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [
+          50,
+          56.76
+        ],
+        "arcRadii": [],
+        "aspectRatio": 0.31,
+        "textTokens": []
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Block91259",
+          "layer": "Electrical",
+          "blockName": "Block91259",
+          "point": {
+            "x": 16222.67,
+            "y": 51818.61
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 1600.77,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3700.45,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 3954.4,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5101.27,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        }
+      ],
+      "containedText": [],
+      "suggestedHbxlCandidates": [
+        "Light Switch 10A 2 Gang 2 Way",
+        "Light Switch 6A 1G 1 Way",
+        "Light Switch 6A 1G 2 Way",
+        "Pull Cord Switch 6A",
+        "WC Ceiling Light Fitting"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol G",
+      "fingerprintId": "cb61b06005",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block22356"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "LINE": 23,
+          "TEXT": 1
+        },
+        "lineCount": 23,
+        "circleCount": 0,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [],
+        "arcRadii": [],
+        "aspectRatio": 1.39,
+        "textTokens": [
+          "oven"
+        ]
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "OVEN",
+          "layer": "Electrical",
+          "blockName": "Block22356",
+          "point": {
+            "x": 21338.14,
+            "y": 51238.52
+          },
+          "rotation": 0,
+          "workArea": "Kitchen",
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 1960.31,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 3921.4,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 6162.3,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 7441.81,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "explicit drawing label has no safe HBXL measurable item mapping"
+        }
+      ],
+      "containedText": [
+        "OVEN"
+      ],
+      "suggestedHbxlCandidates": [
+        "Cooker Connection Plate",
+        "Cooker Control Unit",
+        "Fused Spur 13A"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    },
+    {
+      "symbol": "Symbol H",
+      "fingerprintId": "f5300526b9",
+      "layers": [
+        "Electrical"
+      ],
+      "blockNames": [
+        "Block87595"
+      ],
+      "geometry": {
+        "typeCounts": {
+          "CIRCLE": 2,
+          "LINE": 2
+        },
+        "lineCount": 2,
+        "circleCount": 2,
+        "arcCount": 0,
+        "polylineCount": 0,
+        "circleRadii": [
+          50,
+          56.76
+        ],
+        "arcRadii": [],
+        "aspectRatio": 2.97,
+        "textTokens": []
+      },
+      "occurrenceCount": 1,
+      "coordinates": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Block87595",
+          "layer": "Electrical",
+          "blockName": "Block87595",
+          "point": {
+            "x": 27925.74,
+            "y": 50668.5
+          },
+          "rotation": 0,
+          "workArea": "Tv Room",
+          "nearbyRooms": [
+            {
+              "room": "Tv Room",
+              "distance": 2436.29,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 3506.93,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 8162.31,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 8279.91,
+              "relation": "nearest-label"
+            }
+          ],
+          "reason": "unknown electrical symbol"
+        }
+      ],
+      "containedText": [],
+      "suggestedHbxlCandidates": [
+        "Light Switch 10A 2 Gang 2 Way",
+        "Light Switch 6A 1G 1 Way",
+        "Light Switch 6A 1G 2 Way",
+        "Pull Cord Switch 6A",
+        "WC Ceiling Light Fitting"
+      ],
+      "mappingNote": "Suggestions are for human PlansXpress symbol learning only. No automatic mapping was applied."
+    }
+  ],
+  "roomAllocationReviewGroups": [
+    {
+      "groupId": "4140781e87",
+      "identifiedItem": "Double Socket 13A with Twin USB",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "a98932bb52",
+      "occurrenceCount": 8,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A with Twin USB",
+          "identifiedItem": "Double Socket 13A with Twin USB",
+          "layer": "Electrical",
+          "blockName": "Block23013",
+          "point": {
+            "x": 23341.46,
+            "y": 52279.15
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Laundry",
+              "distance": 1701.79,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3494.07,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 6824.82,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 7887.1,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Laundry",
+              "distance": 1701.79,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3494.07,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 6824.82,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 7887.1,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23453.41,
+                "y": 52756.09
+              },
+              "end": {
+                "x": 23453.41,
+                "y": 51244.4
+              },
+              "distance": 111.95,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23553.41,
+                "y": 52403.37
+              },
+              "end": {
+                "x": 23453.41,
+                "y": 52303.37
+              },
+              "distance": 114.54,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23553.41,
+                "y": 52756.09
+              },
+              "end": {
+                "x": 23553.41,
+                "y": 51244.4
+              },
+              "distance": 211.95,
+              "orientation": "vertical"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23453.41,
+                "y": 52756.09
+              },
+              "end": {
+                "x": 23453.41,
+                "y": 51244.4
+              },
+              "distance": 111.95,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23553.41,
+                "y": 52756.09
+              },
+              "end": {
+                "x": 23553.41,
+                "y": 51244.4
+              },
+              "distance": 211.95,
+              "orientation": "vertical"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        },
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A with Twin USB",
+          "identifiedItem": "Double Socket 13A with Twin USB",
+          "layer": "Electrical",
+          "blockName": "Block39495",
+          "point": {
+            "x": 22611.12,
+            "y": 42036.23
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Main Bedroom",
+              "distance": 2070.91,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 7829.83,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 8658.45,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 9094.94,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Main Bedroom",
+              "distance": 2070.91,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 7829.83,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 8658.45,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 9094.94,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 20606.15,
+                "y": 42054.09
+              },
+              "end": {
+                "x": 27420.72,
+                "y": 42054.09
+              },
+              "distance": 17.86,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 22325.44,
+                "y": 41925.09
+              },
+              "end": {
+                "x": 25633.44,
+                "y": 41925.09
+              },
+              "distance": 111.14,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 22663.05,
+                "y": 41825.09
+              },
+              "end": {
+                "x": 22563.05,
+                "y": 41925.09
+              },
+              "distance": 121.09,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [],
+          "reason": "wall blocks direct association to nearest room label"
+        },
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A with Twin USB",
+          "identifiedItem": "Double Socket 13A with Twin USB",
+          "layer": "Electrical",
+          "blockName": "Block40152",
+          "point": {
+            "x": 27436.71,
+            "y": 45733.72
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Tv Room",
+              "distance": 3178.76,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 4585.64,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 7298.09,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 10175.52,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Tv Room",
+              "distance": 3178.76,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 4585.64,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 7298.09,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 10175.52,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27420.72,
+                "y": 47735.97
+              },
+              "end": {
+                "x": 27420.72,
+                "y": 42054.09
+              },
+              "distance": 15.99,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27549.72,
+                "y": 47720.4
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 41925.09
+              },
+              "distance": 113.01,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27649.72,
+                "y": 45606.54
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 45706.54
+              },
+              "distance": 116.23,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27549.72,
+                "y": 47720.4
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 41925.09
+              },
+              "distance": 113.01,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27649.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27649.72,
+                "y": 41825.09
+              },
+              "distance": 213.01,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27649.72,
+                "y": 46034.5
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 45934.5
+              },
+              "distance": 230.4,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27649.72,
+                "y": 45889.38
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 45989.38
+              },
+              "distance": 260.69,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27789.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27789.72,
+                "y": 43794.4
+              },
+              "distance": 353.01,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27891.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27891.72,
+                "y": 43894.4
+              },
+              "distance": 455.01,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 28020.72,
+                "y": 51765.4
+              },
+              "end": {
+                "x": 28020.72,
+                "y": 44023.4
+              },
+              "distance": 584.01,
+              "orientation": "vertical"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        },
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A with Twin USB",
+          "identifiedItem": "Double Socket 13A with Twin USB",
+          "layer": "Electrical",
+          "blockName": "Block42419",
+          "point": {
+            "x": 17980.26,
+            "y": 49838.97
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 3272.98,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 4012.59,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 4212.27,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 6247.5,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 3272.98,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 4012.59,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 4212.27,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 6247.5,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17867.77,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 17867.75,
+                "y": 48383.53
+              },
+              "distance": 112.5,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17867.77,
+                "y": 49687.58
+              },
+              "end": {
+                "x": 17767.77,
+                "y": 49587.58
+              },
+              "distance": 188.61,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17767.77,
+                "y": 51810.08
+              },
+              "end": {
+                "x": 17767.77,
+                "y": 48383.53
+              },
+              "distance": 212.49,
+              "orientation": "vertical"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51144.4
+              },
+              "distance": 1305.44,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51244.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51244.4
+              },
+              "distance": 1405.44,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        },
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A with Twin USB",
+          "identifiedItem": "Double Socket 13A with Twin USB",
+          "layer": "Electrical",
+          "blockName": "Block43076",
+          "point": {
+            "x": 12910.08,
+            "y": 48036.67
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Passage",
+              "distance": 2761.5,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4499.93,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 5008.68,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 5831.79,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Passage",
+              "distance": 2761.5,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4499.93,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 5008.68,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 5831.79,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11549.72,
+                "y": 47925.09
+              },
+              "end": {
+                "x": 14947.72,
+                "y": 47925.09
+              },
+              "distance": 111.59,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 12744.68,
+                "y": 47925.09
+              },
+              "end": {
+                "x": 12844.68,
+                "y": 47825.09
+              },
+              "distance": 195.86,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11549.72,
+                "y": 47825.09
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 47825.09
+              },
+              "distance": 211.59,
+              "orientation": "horizontal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11549.72,
+                "y": 47925.09
+              },
+              "end": {
+                "x": 14947.72,
+                "y": 47925.09
+              },
+              "distance": 111.59,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11549.72,
+                "y": 47825.09
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 47825.09
+              },
+              "distance": 211.59,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 13168.94,
+                "y": 47925.09
+              },
+              "end": {
+                "x": 13268.94,
+                "y": 47825.09
+              },
+              "distance": 281.89,
+              "orientation": "diagonal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        },
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A with Twin USB",
+          "identifiedItem": "Double Socket 13A with Twin USB",
+          "layer": "Electrical",
+          "blockName": "Block44390",
+          "point": {
+            "x": 17904.74,
+            "y": 42036.79
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bedroom 2",
+              "distance": 3309.92,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5383.92,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 5638.68,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 10664.47,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Bedroom 2",
+              "distance": 3309.92,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5383.92,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 5638.68,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 10664.47,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11678.72,
+                "y": 42054.09
+              },
+              "end": {
+                "x": 20606.15,
+                "y": 42054.09
+              },
+              "distance": 17.3,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16228.44,
+                "y": 41925.09
+              },
+              "end": {
+                "x": 21125.44,
+                "y": 41925.09
+              },
+              "distance": 111.7,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17783.46,
+                "y": 41825.09
+              },
+              "end": {
+                "x": 17883.46,
+                "y": 41925.09
+              },
+              "distance": 113.71,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11678.72,
+                "y": 42054.09
+              },
+              "end": {
+                "x": 20606.15,
+                "y": 42054.09
+              },
+              "distance": 17.3,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        },
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A with Twin USB",
+          "identifiedItem": "Double Socket 13A with Twin USB",
+          "layer": "Electrical",
+          "blockName": "Block45047",
+          "point": {
+            "x": 20443.12,
+            "y": 44068.6
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Main Bedroom",
+              "distance": 2737.57,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 5569.33,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5753.25,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 8473.06,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Main Bedroom",
+              "distance": 2737.57,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 5569.33,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5753.25,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 8473.06,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 20556.15,
+                "y": 45748.14
+              },
+              "end": {
+                "x": 20556.15,
+                "y": 41926.34
+              },
+              "distance": 113.03,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 20656.15,
+                "y": 43990.67
+              },
+              "end": {
+                "x": 20556.15,
+                "y": 43890.67
+              },
+              "distance": 205.74,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 20656.15,
+                "y": 45776.34
+              },
+              "end": {
+                "x": 20656.15,
+                "y": 41926.34
+              },
+              "distance": 213.03,
+              "orientation": "vertical"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 20556.15,
+                "y": 45748.14
+              },
+              "end": {
+                "x": 20556.15,
+                "y": 41926.34
+              },
+              "distance": 113.03,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 20656.15,
+                "y": 45776.34
+              },
+              "end": {
+                "x": 20656.15,
+                "y": 41926.34
+              },
+              "distance": 213.03,
+              "orientation": "vertical"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        },
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A with Twin USB",
+          "identifiedItem": "Double Socket 13A with Twin USB",
+          "layer": "Electrical",
+          "blockName": "Block45704",
+          "point": {
+            "x": 18977.4,
+            "y": 38534.22
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bedroom 2",
+              "distance": 6376.5,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 6916.62,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 9006.79,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 14014.61,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Bedroom 2",
+              "distance": 6376.5,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 6916.62,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 9006.79,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 14014.61,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 13402.44,
+                "y": 38552.09
+              },
+              "end": {
+                "x": 19854.44,
+                "y": 38552.09
+              },
+              "distance": 17.87,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17446.44,
+                "y": 38423.09
+              },
+              "end": {
+                "x": 19983.44,
+                "y": 38423.09
+              },
+              "distance": 111.13,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 19093.98,
+                "y": 38323.09
+              },
+              "end": {
+                "x": 18993.98,
+                "y": 38423.09
+              },
+              "distance": 112.37,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 13402.44,
+                "y": 41454.09
+              },
+              "end": {
+                "x": 19854.44,
+                "y": 41454.09
+              },
+              "distance": 2919.87,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16228.44,
+                "y": 41583.09
+              },
+              "end": {
+                "x": 19983.44,
+                "y": 41583.09
+              },
+              "distance": 3048.87,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16228.44,
+                "y": 41685.09
+              },
+              "end": {
+                "x": 20083.44,
+                "y": 41685.09
+              },
+              "distance": 3150.87,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11678.72,
+                "y": 42054.09
+              },
+              "end": {
+                "x": 20606.15,
+                "y": 42054.09
+              },
+              "distance": 3519.87,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16228.44,
+                "y": 41825.09
+              },
+              "end": {
+                "x": 16368.44,
+                "y": 41685.09
+              },
+              "distance": 4090.8,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16368.44,
+                "y": 41825.09
+              },
+              "end": {
+                "x": 16228.44,
+                "y": 41685.09
+              },
+              "distance": 4181.48,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16228.44,
+                "y": 41925.09
+              },
+              "end": {
+                "x": 16228.44,
+                "y": 41825.09
+              },
+              "distance": 4287.96,
+              "orientation": "vertical"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "886ad3cc04",
+      "identifiedItem": "Ceiling Rose and Pendant",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "ac5cbc0643",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Ceiling Rose and Pendant",
+          "identifiedItem": "Ceiling Rose and Pendant",
+          "layer": "Electrical",
+          "blockName": "Block38466",
+          "point": {
+            "x": 16290.24,
+            "y": 50486.6
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 2874.35,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 3810.03,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 4105.25,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4444.57,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 2874.35,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 3810.03,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 4105.25,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4444.57,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 15047.72,
+                "y": 50309.09
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 51825.08
+              },
+              "distance": 1242.52,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 14947.72,
+                "y": 50309.09
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 50309.09
+              },
+              "distance": 1255.13,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 14947.72,
+                "y": 50585.9
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 50685.9
+              },
+              "distance": 1258.4,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 15047.72,
+                "y": 51825.08
+              },
+              "end": {
+                "x": 16388.7,
+                "y": 51817.69
+              },
+              "distance": 1331.61,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 15047.72,
+                "y": 51925.09
+              },
+              "end": {
+                "x": 16389.25,
+                "y": 51917.69
+              },
+              "distance": 1431.61,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "148283b96a",
+      "identifiedItem": "Double Light Switch - One Way",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "1d5c47593c",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Light Switch - One Way",
+          "identifiedItem": "Double Light Switch - One Way",
+          "layer": "Electrical",
+          "blockName": "Block92481",
+          "point": {
+            "x": 16385.97,
+            "y": 41925.09
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bedroom 2",
+              "distance": 2118.77,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 4967.73,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 7112.21,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 11149.84,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Bedroom 2",
+              "distance": 2118.77,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 4967.73,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 7112.21,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 11149.84,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16228.44,
+                "y": 41925.09
+              },
+              "end": {
+                "x": 21125.44,
+                "y": 41925.09
+              },
+              "distance": 0,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16440.51,
+                "y": 41825.09
+              },
+              "end": {
+                "x": 16340.51,
+                "y": 41925.09
+              },
+              "distance": 32.14,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16369.24,
+                "y": 41825.09
+              },
+              "end": {
+                "x": 16469.24,
+                "y": 41925.09
+              },
+              "distance": 58.89,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11678.72,
+                "y": 42054.09
+              },
+              "end": {
+                "x": 20606.15,
+                "y": 42054.09
+              },
+              "distance": 129,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "3afa8dcbec",
+      "identifiedItem": "Double Socket 13A",
+      "reason": "ambiguous nearest room label",
+      "fingerprintId": "bf13d881ca",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A",
+          "identifiedItem": "Double Socket 13A",
+          "layer": "Electrical",
+          "blockName": "Block24295",
+          "point": {
+            "x": 22612.94,
+            "y": 53813.07
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Laundry",
+              "distance": 2678.74,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3044.77,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 7120,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 8327.96,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Laundry",
+              "distance": 2678.74,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3044.77,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 7120,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 8327.96,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23503.41,
+                "y": 53796.09
+              },
+              "end": {
+                "x": 17817.72,
+                "y": 53796.09
+              },
+              "distance": 16.98,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23453.41,
+                "y": 53925.09
+              },
+              "end": {
+                "x": 22303.41,
+                "y": 53925.09
+              },
+              "distance": 112.02,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 22629.55,
+                "y": 54025.09
+              },
+              "end": {
+                "x": 22529.55,
+                "y": 53925.09
+              },
+              "distance": 139.65,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23503.41,
+                "y": 53796.09
+              },
+              "end": {
+                "x": 17817.72,
+                "y": 53796.09
+              },
+              "distance": 16.98,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "ambiguous nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "36a4e774b3",
+      "identifiedItem": "Double Socket 13A",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "bf13d881ca",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A",
+          "identifiedItem": "Double Socket 13A",
+          "layer": "Electrical",
+          "blockName": "Block25545",
+          "point": {
+            "x": 19371.98,
+            "y": 53812.59
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 1378.97,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 3897.27,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 5763.04,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 7166.26,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 1378.97,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 3897.27,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 5763.04,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 7166.26,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23503.41,
+                "y": 53796.09
+              },
+              "end": {
+                "x": 17817.72,
+                "y": 53796.09
+              },
+              "distance": 16.5,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 19603.41,
+                "y": 53925.09
+              },
+              "end": {
+                "x": 17867.72,
+                "y": 53925.09
+              },
+              "distance": 112.5,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 19231.18,
+                "y": 54025.09
+              },
+              "end": {
+                "x": 19331.18,
+                "y": 53925.09
+              },
+              "distance": 119.67,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23503.41,
+                "y": 53796.09
+              },
+              "end": {
+                "x": 17817.72,
+                "y": 53796.09
+              },
+              "distance": 16.5,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "cd85c1d07b",
+      "identifiedItem": "Double Socket 13A with Twin USB",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "b9911a050c",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A with Twin USB",
+          "identifiedItem": "Double Socket 13A with Twin USB",
+          "layer": "Electrical",
+          "blockName": "Block41762",
+          "point": {
+            "x": 26111.43,
+            "y": 47537.73
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Tv Room",
+              "distance": 3059.33,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 4573.15,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 5196.8,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 7998.04,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Tv Room",
+              "distance": 3059.33,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 4573.15,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 5196.8,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 7998.04,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 24873.51,
+                "y": 47069.58
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 47824.3
+              },
+              "distance": 114.58,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 24900.66,
+                "y": 46973.33
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 47720.4
+              },
+              "distance": 214.58,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 25932.84,
+                "y": 47368.32
+              },
+              "end": {
+                "x": 26056.23,
+                "y": 47299.22
+              },
+              "distance": 235.07,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27420.72,
+                "y": 51194.4
+              },
+              "end": {
+                "x": 27420.72,
+                "y": 47735.97
+              },
+              "distance": 1324.22,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27549.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 47824.3
+              },
+              "distance": 1466.57,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27649.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27649.72,
+                "y": 41825.09
+              },
+              "distance": 1538.29,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27789.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27789.72,
+                "y": 43794.4
+              },
+              "distance": 1678.29,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27891.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27891.72,
+                "y": 43894.4
+              },
+              "distance": 1780.29,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 28020.72,
+                "y": 51765.4
+              },
+              "end": {
+                "x": 28020.72,
+                "y": 44023.4
+              },
+              "distance": 1909.29,
+              "orientation": "vertical"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "bb7b6c2717",
+      "identifiedItem": "Double Socket 13A with Twin USB",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "4101a51579",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Double Socket 13A with Twin USB",
+          "identifiedItem": "Double Socket 13A with Twin USB",
+          "layer": "Electrical",
+          "blockName": "Block43733",
+          "point": {
+            "x": 14832.79,
+            "y": 52045.88
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 1387.73,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 2546.18,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 5045.46,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5285.07,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 1387.73,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 2546.18,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 5045.46,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5285.07,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 14947.72,
+                "y": 50309.09
+              },
+              "end": {
+                "x": 14947.72,
+                "y": 53925.09
+              },
+              "distance": 114.94,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 14947.72,
+                "y": 51858.7
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 51958.7
+              },
+              "distance": 213.63,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 15047.72,
+                "y": 51925.09
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 53925.09
+              },
+              "distance": 214.94,
+              "orientation": "vertical"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 14947.72,
+                "y": 50309.09
+              },
+              "end": {
+                "x": 14947.72,
+                "y": 53925.09
+              },
+              "distance": 114.94,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 15047.72,
+                "y": 51925.09
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 53925.09
+              },
+              "distance": 214.94,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 14947.72,
+                "y": 52282.96
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 52382.96
+              },
+              "distance": 263.47,
+              "orientation": "diagonal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "7c4a076ed0",
+      "identifiedItem": "Fluorescent Light 1500mm",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "4e3323bf33",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Fluorescent Light 1500mm",
+          "identifiedItem": "Fluorescent Light 1500mm",
+          "layer": "Electrical",
+          "blockName": "Block52124",
+          "point": {
+            "x": 16400.33,
+            "y": 40014.2
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bedroom 2",
+              "distance": 3740.15,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 6851.72,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 7878.74,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 12975.64,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Bedroom 2",
+              "distance": 3740.15,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 6851.72,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 7878.74,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 12975.64,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 13402.44,
+                "y": 41454.09
+              },
+              "end": {
+                "x": 19854.44,
+                "y": 41454.09
+              },
+              "distance": 1439.89,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 13402.44,
+                "y": 38552.09
+              },
+              "end": {
+                "x": 19854.44,
+                "y": 38552.09
+              },
+              "distance": 1462.11,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16228.44,
+                "y": 41583.09
+              },
+              "end": {
+                "x": 19983.44,
+                "y": 41583.09
+              },
+              "distance": 1568.89,
+              "orientation": "horizontal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 13402.44,
+                "y": 41454.09
+              },
+              "end": {
+                "x": 19854.44,
+                "y": 41454.09
+              },
+              "distance": 1439.89,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11678.72,
+                "y": 42054.09
+              },
+              "end": {
+                "x": 20606.15,
+                "y": 42054.09
+              },
+              "distance": 2039.89,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "b89b8f1e3b",
+      "identifiedItem": "Mains Downlight Fire Rated",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "85445fe08d",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Mains Downlight Fire Rated",
+          "identifiedItem": "Mains Downlight Fire Rated",
+          "layer": "Electrical",
+          "blockName": "Block30477",
+          "point": {
+            "x": 18704.3,
+            "y": 50608.31
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 2232.79,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 4144.17,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5068.1,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 6617.24,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 2232.79,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 4144.17,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5068.1,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 6617.24,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51144.4
+              },
+              "distance": 536.09,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 18859.17,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 18759.17,
+                "y": 51244.4
+              },
+              "distance": 558.01,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 18434.9,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 18334.9,
+                "y": 51244.4
+              },
+              "distance": 599.98,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51144.4
+              },
+              "distance": 536.09,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51244.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51244.4
+              },
+              "distance": 636.09,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "077b500c5a",
+      "identifiedItem": "Mains Downlight Fire Rated",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "2adfcbd730",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Mains Downlight Fire Rated",
+          "identifiedItem": "Mains Downlight Fire Rated",
+          "layer": "Electrical",
+          "blockName": "Block30992",
+          "point": {
+            "x": 21255.59,
+            "y": 50598.38
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 2378.43,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 4261.94,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 6325.35,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 6847.12,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 2378.43,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 4261.94,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 6325.35,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 6847.12,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51144.4
+              },
+              "distance": 546.02,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21404.75,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 21304.75,
+                "y": 51244.4
+              },
+              "distance": 566.03,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 20980.49,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 20880.49,
+                "y": 51244.4
+              },
+              "distance": 611.41,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51144.4
+              },
+              "distance": 546.02,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51244.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51244.4
+              },
+              "distance": 646.02,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "f48294df04",
+      "identifiedItem": "Mains Downlight Fire Rated",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "72fabf4763",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Mains Downlight Fire Rated",
+          "identifiedItem": "Mains Downlight Fire Rated",
+          "layer": "Electrical",
+          "blockName": "Block32281",
+          "point": {
+            "x": 26682.87,
+            "y": 50460.9
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Laundry",
+              "distance": 2728.76,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 3055.39,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 7131.21,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 7325.15,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Laundry",
+              "distance": 2728.76,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 3055.39,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 7131.21,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 7325.15,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27549.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 24833.72,
+                "y": 51144.4
+              },
+              "distance": 683.5,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 26495.92,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 26395.92,
+                "y": 51244.4
+              },
+              "distance": 708.61,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 26920.19,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 26820.19,
+                "y": 51244.4
+              },
+              "distance": 723.53,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27549.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 24833.72,
+                "y": 51144.4
+              },
+              "distance": 683.5,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27549.72,
+                "y": 51244.4
+              },
+              "end": {
+                "x": 24833.72,
+                "y": 51244.4
+              },
+              "distance": 783.5,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "cf1fbd1aa9",
+      "identifiedItem": "Mains Downlight Fire Rated",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "6b5bf36597",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Mains Downlight Fire Rated",
+          "identifiedItem": "Mains Downlight Fire Rated",
+          "layer": "Electrical",
+          "blockName": "Block32796",
+          "point": {
+            "x": 26682.87,
+            "y": 48355.17
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Tv Room",
+              "distance": 2339.52,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 4577.98,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 5567.53,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 7997.84,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Tv Room",
+              "distance": 2339.52,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 4577.98,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 5567.53,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 7997.84,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27420.72,
+                "y": 51194.4
+              },
+              "end": {
+                "x": 27420.72,
+                "y": 47735.97
+              },
+              "distance": 737.85,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 24873.51,
+                "y": 47069.58
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 47824.3
+              },
+              "distance": 746.22,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 26749.52,
+                "y": 47598.63
+              },
+              "end": {
+                "x": 26872.91,
+                "y": 47529.53
+              },
+              "distance": 759.47,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27420.72,
+                "y": 51194.4
+              },
+              "end": {
+                "x": 27420.72,
+                "y": 47735.97
+              },
+              "distance": 737.85,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27549.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 47824.3
+              },
+              "distance": 866.85,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27649.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27649.72,
+                "y": 41825.09
+              },
+              "distance": 966.85,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27789.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27789.72,
+                "y": 43794.4
+              },
+              "distance": 1106.85,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 27891.72,
+                "y": 48664.4
+              },
+              "end": {
+                "x": 27891.72,
+                "y": 43894.4
+              },
+              "distance": 1208.85,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 28020.72,
+                "y": 51765.4
+              },
+              "end": {
+                "x": 28020.72,
+                "y": 44023.4
+              },
+              "distance": 1337.85,
+              "orientation": "vertical"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "bfd3fca6e9",
+      "identifiedItem": "Mains Downlight Fire Rated",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "a53daf1071",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Mains Downlight Fire Rated",
+          "identifiedItem": "Mains Downlight Fire Rated",
+          "layer": "Electrical",
+          "blockName": "Block33311",
+          "point": {
+            "x": 24182.31,
+            "y": 47828.73
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Main Bedroom",
+              "distance": 3931.2,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 4858.56,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 4881.27,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 6382.69,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Main Bedroom",
+              "distance": 3931.2,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 4858.56,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 4881.27,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 6382.69,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 24873.51,
+                "y": 47069.58
+              },
+              "end": {
+                "x": 27549.72,
+                "y": 47824.3
+              },
+              "distance": 1026.68,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 24873.51,
+                "y": 47069.58
+              },
+              "end": {
+                "x": 24900.66,
+                "y": 46973.33
+              },
+              "distance": 1026.68,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 18099.72,
+                "y": 45159.3
+              },
+              "end": {
+                "x": 23941.85,
+                "y": 46806.84
+              },
+              "distance": 1049.8,
+              "orientation": "horizontal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23891.16,
+                "y": 46792.54
+              },
+              "end": {
+                "x": 23956.15,
+                "y": 46756.15
+              },
+              "distance": 1076.32,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 20656.15,
+                "y": 45776.34
+              },
+              "end": {
+                "x": 23969,
+                "y": 46710.59
+              },
+              "distance": 1138.31,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "6f2945da29",
+      "identifiedItem": "Mains Downlight Fire Rated",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "9b01bbbe10",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Mains Downlight Fire Rated",
+          "identifiedItem": "Mains Downlight Fire Rated",
+          "layer": "Electrical",
+          "blockName": "Block33826",
+          "point": {
+            "x": 20997.39,
+            "y": 46881.15
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Main Bedroom",
+              "distance": 3592.98,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5624.74,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 5754.49,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 6991.62,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Main Bedroom",
+              "distance": 3592.98,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5624.74,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 5754.49,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 6991.62,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 18099.72,
+                "y": 45159.3
+              },
+              "end": {
+                "x": 23941.85,
+                "y": 46806.84
+              },
+              "distance": 870.72,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21032.8,
+                "y": 45986.46
+              },
+              "end": {
+                "x": 21156.19,
+                "y": 45917.35
+              },
+              "distance": 895.4,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21441.14,
+                "y": 46101.61
+              },
+              "end": {
+                "x": 21564.52,
+                "y": 46032.51
+              },
+              "distance": 896.99,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 18099.72,
+                "y": 45159.3
+              },
+              "end": {
+                "x": 23941.85,
+                "y": 46806.84
+              },
+              "distance": 870.72,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 20656.15,
+                "y": 45776.34
+              },
+              "end": {
+                "x": 23969,
+                "y": 46710.59
+              },
+              "distance": 970.72,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "f896ab8786",
+      "identifiedItem": "Mains Downlight Fire Rated",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "6e8c86d8ec",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Mains Downlight Fire Rated",
+          "identifiedItem": "Mains Downlight Fire Rated",
+          "layer": "Electrical",
+          "blockName": "Block34341",
+          "point": {
+            "x": 18681.09,
+            "y": 46223.11
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Passage",
+              "distance": 3355.65,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 4685.3,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 5006.49,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 6406.77,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Passage",
+              "distance": 3355.65,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 4685.3,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 5006.49,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 6406.77,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17867.75,
+                "y": 47415.53
+              },
+              "end": {
+                "x": 17867.77,
+                "y": 45159.3
+              },
+              "distance": 813.33,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17867.77,
+                "y": 46293.46
+              },
+              "end": {
+                "x": 17767.77,
+                "y": 46193.46
+              },
+              "distance": 816.35,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 18099.72,
+                "y": 45159.3
+              },
+              "end": {
+                "x": 23941.85,
+                "y": 46806.84
+              },
+              "distance": 866.08,
+              "orientation": "horizontal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17867.75,
+                "y": 47415.53
+              },
+              "end": {
+                "x": 17867.77,
+                "y": 45159.3
+              },
+              "distance": 813.33,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17767.77,
+                "y": 47415.53
+              },
+              "end": {
+                "x": 17767.77,
+                "y": 45159.3
+              },
+              "distance": 913.32,
+              "orientation": "vertical"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "232604a8c4",
+      "identifiedItem": "Mains Downlight Fire Rated",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "88c9170ba6",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Mains Downlight Fire Rated",
+          "identifiedItem": "Mains Downlight Fire Rated",
+          "layer": "Electrical",
+          "blockName": "Block35371",
+          "point": {
+            "x": 21833.6,
+            "y": 48774.84
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 4236.44,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 4934.81,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 4984.34,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 6758.66,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Kitchen",
+              "distance": 4236.44,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 4934.81,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Laundry",
+              "distance": 4984.34,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 6758.66,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51144.4
+              },
+              "distance": 2369.56,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21829.02,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 21729.02,
+                "y": 51244.4
+              },
+              "distance": 2369.56,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 21965.72,
+                "y": 51244.4
+              },
+              "distance": 2373.24,
+              "orientation": "vertical"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51144.4
+              },
+              "distance": 2369.56,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 21965.72,
+                "y": 51244.4
+              },
+              "end": {
+                "x": 17867.73,
+                "y": 51244.4
+              },
+              "distance": 2469.56,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "f5bcf0fb42",
+      "identifiedItem": "Mains Downlight Standard",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "fb26bdf3f5",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Mains Downlight Standard",
+          "identifiedItem": "Mains Downlight Standard",
+          "layer": "Electrical",
+          "blockName": "Block28419",
+          "point": {
+            "x": 22788.23,
+            "y": 51925.09
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Laundry",
+              "distance": 2326.35,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 2992.43,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 7113.96,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 7393.82,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Laundry",
+              "distance": 2326.35,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 2992.43,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 7113.96,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 7393.82,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23453.41,
+                "y": 52756.09
+              },
+              "end": {
+                "x": 23453.41,
+                "y": 51244.4
+              },
+              "distance": 665.18,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23553.41,
+                "y": 51979.11
+              },
+              "end": {
+                "x": 23453.41,
+                "y": 51879.11
+              },
+              "distance": 666.77,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23453.41,
+                "y": 51244.4
+              },
+              "end": {
+                "x": 22933.72,
+                "y": 51244.4
+              },
+              "distance": 696.06,
+              "orientation": "horizontal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23453.41,
+                "y": 52756.09
+              },
+              "end": {
+                "x": 23453.41,
+                "y": 51244.4
+              },
+              "distance": 665.18,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23553.41,
+                "y": 52756.09
+              },
+              "end": {
+                "x": 23553.41,
+                "y": 51244.4
+              },
+              "distance": 765.18,
+              "orientation": "vertical"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "d03786fb4a",
+      "identifiedItem": "Pull Light Switch",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "28aebe05cf",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Pull Light Switch",
+          "identifiedItem": "Pull Light Switch",
+          "layer": "Electrical",
+          "blockName": "Block14465",
+          "point": {
+            "x": 16421.44,
+            "y": 52096.94
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 1470.22,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3460.47,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4113.91,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5410.88,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Bathroom",
+              "distance": 1470.22,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3460.47,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4113.91,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Passage",
+              "distance": 5410.88,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 15047.72,
+                "y": 51925.09
+              },
+              "end": {
+                "x": 16389.25,
+                "y": 51917.69
+              },
+              "distance": 182.11,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16389.25,
+                "y": 51917.69
+              },
+              "end": {
+                "x": 16388.7,
+                "y": 51817.69
+              },
+              "distance": 182.11,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 15047.72,
+                "y": 51825.08
+              },
+              "end": {
+                "x": 16388.7,
+                "y": 51817.69
+              },
+              "distance": 281.16,
+              "orientation": "horizontal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "0f74a93d7e",
+      "identifiedItem": "Single Light Switch",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "42e596ca0c",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Single Light Switch",
+          "identifiedItem": "Single Light Switch",
+          "layer": "Electrical",
+          "blockName": "Block85152",
+          "point": {
+            "x": 14914.95,
+            "y": 49055.94
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Passage",
+              "distance": 2313.3,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 4241.1,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4306.86,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 5611.82,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Passage",
+              "distance": 2313.3,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 4241.1,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 4306.86,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 5611.82,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 14947.72,
+                "y": 47925.09
+              },
+              "end": {
+                "x": 14947.72,
+                "y": 49341.09
+              },
+              "distance": 32.77,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 15047.72,
+                "y": 47825.09
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 49341.09
+              },
+              "distance": 132.77,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 14947.72,
+                "y": 48888.85
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 48988.85
+              },
+              "distance": 141.32,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 14947.72,
+                "y": 47925.09
+              },
+              "end": {
+                "x": 14947.72,
+                "y": 49341.09
+              },
+              "distance": 32.77,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 15047.72,
+                "y": 47825.09
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 49341.09
+              },
+              "distance": 132.77,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 14947.72,
+                "y": 48464.58
+              },
+              "end": {
+                "x": 15047.72,
+                "y": 48564.58
+              },
+              "distance": 508.98,
+              "orientation": "diagonal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "f2fa6b49b9",
+      "identifiedItem": "Single Light Switch",
+      "reason": "ambiguous nearest room label",
+      "fingerprintId": "42e596ca0c",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Single Light Switch",
+          "identifiedItem": "Single Light Switch",
+          "layer": "Electrical",
+          "blockName": "Block90037",
+          "point": {
+            "x": 11582.39,
+            "y": 45704.88
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Passage",
+              "distance": 3942.86,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 4022.03,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 6834.52,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 8512.33,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Passage",
+              "distance": 3942.86,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 4022.03,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 3",
+              "distance": 6834.52,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 8512.33,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11549.72,
+                "y": 46010.09
+              },
+              "end": {
+                "x": 11549.72,
+                "y": 45159.3
+              },
+              "distance": 32.67,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11449.72,
+                "y": 45673.69
+              },
+              "end": {
+                "x": 11549.72,
+                "y": 45773.69
+              },
+              "distance": 71.75,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11678.72,
+                "y": 47875.09
+              },
+              "end": {
+                "x": 11678.72,
+                "y": 45109.3
+              },
+              "distance": 96.33,
+              "orientation": "vertical"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11678.72,
+                "y": 47875.09
+              },
+              "end": {
+                "x": 11678.72,
+                "y": 45109.3
+              },
+              "distance": 96.33,
+              "orientation": "vertical"
+            }
+          ],
+          "reason": "ambiguous nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "0bfc8b492b",
+      "identifiedItem": "Single Light Switch - One Way",
+      "reason": "ambiguous nearest room label",
+      "fingerprintId": "2361df6ef6",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Single Light Switch - One Way",
+          "identifiedItem": "Single Light Switch - One Way",
+          "layer": "Electrical",
+          "blockName": "Block82097",
+          "point": {
+            "x": 16709.42,
+            "y": 45021.98
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Passage",
+              "distance": 2214.86,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 2394.05,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 6546.94,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 8132.59,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Passage",
+              "distance": 2214.86,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 2394.05,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 6546.94,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 8132.59,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11549.72,
+                "y": 45059.3
+              },
+              "end": {
+                "x": 16879.72,
+                "y": 45059.3
+              },
+              "distance": 37.31,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11549.72,
+                "y": 45159.3
+              },
+              "end": {
+                "x": 16879.72,
+                "y": 45159.3
+              },
+              "distance": 137.31,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 16783.26,
+                "y": 45159.3
+              },
+              "end": {
+                "x": 16879.72,
+                "y": 45062.83
+              },
+              "distance": 149.31,
+              "orientation": "diagonal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11549.72,
+                "y": 45059.3
+              },
+              "end": {
+                "x": 16879.72,
+                "y": 45059.3
+              },
+              "distance": 37.31,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 11549.72,
+                "y": 45159.3
+              },
+              "end": {
+                "x": 16879.72,
+                "y": 45159.3
+              },
+              "distance": 137.31,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "ambiguous nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "a0b334a99b",
+      "identifiedItem": "Single Light Switch - One Way",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "d7b56b63e4",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Single Light Switch - One Way",
+          "identifiedItem": "Single Light Switch - One Way",
+          "layer": "Electrical",
+          "blockName": "Block83931",
+          "point": {
+            "x": 17865,
+            "y": 48433.45
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Passage",
+              "distance": 2985.6,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 4546.81,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 5363.25,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 5799.3,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Passage",
+              "distance": 2985.6,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 4546.81,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bathroom",
+              "distance": 5363.25,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Bedroom 2",
+              "distance": 5799.3,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17867.77,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 17867.75,
+                "y": 48383.53
+              },
+              "distance": 2.75,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17867.77,
+                "y": 48414.78
+              },
+              "end": {
+                "x": 17836.52,
+                "y": 48383.53
+              },
+              "distance": 18.88,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17867.75,
+                "y": 48383.53
+              },
+              "end": {
+                "x": 17767.8,
+                "y": 48383.53
+              },
+              "distance": 49.92,
+              "orientation": "horizontal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 17867.75,
+                "y": 48383.53
+              },
+              "end": {
+                "x": 17767.8,
+                "y": 48383.53
+              },
+              "distance": 49.92,
+              "orientation": "horizontal"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    },
+    {
+      "groupId": "034197c6d2",
+      "identifiedItem": "Single Light Switch - Two Way",
+      "reason": "wall blocks direct association to nearest room label",
+      "fingerprintId": "0cbc45f2c3",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "source": "DXF_INSERT",
+          "label": "Single Light Switch - Two Way",
+          "identifiedItem": "Single Light Switch - Two Way",
+          "layer": "Electrical",
+          "blockName": "Block26096",
+          "point": {
+            "x": 22937.42,
+            "y": 51194.54
+          },
+          "rotation": 0,
+          "workArea": null,
+          "nearbyRooms": [
+            {
+              "room": "Laundry",
+              "distance": 2512.99,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3355.09,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 6654.92,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 7171.3,
+              "relation": "nearest-label"
+            }
+          ],
+          "adjacentRooms": [
+            {
+              "room": "Laundry",
+              "distance": 2512.99,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Kitchen",
+              "distance": 3355.09,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Tv Room",
+              "distance": 6654.92,
+              "relation": "nearest-label"
+            },
+            {
+              "room": "Main Bedroom",
+              "distance": 7171.3,
+              "relation": "nearest-label"
+            }
+          ],
+          "nearestWalls": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 22933.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 22933.72,
+                "y": 51244.4
+              },
+              "distance": 3.7,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23453.41,
+                "y": 51244.4
+              },
+              "end": {
+                "x": 22933.72,
+                "y": 51244.4
+              },
+              "distance": 49.86,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23865.72,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 22933.72,
+                "y": 51144.4
+              },
+              "distance": 50.14,
+              "orientation": "horizontal"
+            }
+          ],
+          "crossingWallsToNearestRoom": [
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23453.41,
+                "y": 51244.4
+              },
+              "end": {
+                "x": 22933.72,
+                "y": 51244.4
+              },
+              "distance": 49.86,
+              "orientation": "horizontal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23101.81,
+                "y": 51144.4
+              },
+              "end": {
+                "x": 23001.81,
+                "y": 51244.4
+              },
+              "distance": 81.44,
+              "orientation": "diagonal"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23453.41,
+                "y": 52756.09
+              },
+              "end": {
+                "x": 23453.41,
+                "y": 51244.4
+              },
+              "distance": 518.4,
+              "orientation": "vertical"
+            },
+            {
+              "layer": "Walls",
+              "start": {
+                "x": 23553.41,
+                "y": 52756.09
+              },
+              "end": {
+                "x": 23553.41,
+                "y": 51244.4
+              },
+              "distance": 618.01,
+              "orientation": "vertical"
+            }
+          ],
+          "reason": "wall blocks direct association to nearest room label"
+        }
+      ]
+    }
+  ],
+  "unresolvedHbxlItems": [
+    "Bathroom Extractor Fan",
+    "Cooker Connection Plate",
+    "Cooker Control Unit",
+    "Fused Spur 13A",
+    "Light Switch 10A 2 Gang 2 Way",
+    "Light Switch 6A 1G 1 Way",
+    "Light Switch 6A 1G 2 Way",
+    "Pull Cord Switch 45A",
+    "Pull Cord Switch 6A",
+    "WC Ceiling Light Fitting"
+  ]
+}

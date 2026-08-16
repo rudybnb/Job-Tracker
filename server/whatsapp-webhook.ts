@@ -21,6 +21,10 @@ export interface WhatsAppWebhookInboundTextEvent {
 
 export type WhatsAppWebhookEvent = WhatsAppWebhookStatusEvent | WhatsAppWebhookInboundTextEvent;
 
+export interface WhatsAppWebhookParseOptions {
+  readonly expectedPhoneNumberId?: string;
+}
+
 export type WebhookVerificationResult =
   | { readonly ok: true; readonly challenge: string }
   | { readonly ok: false };
@@ -61,7 +65,10 @@ export function verifyWhatsAppWebhookSignature(input: {
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
 
-export function parseWhatsAppWebhookEvents(payload: unknown): readonly WhatsAppWebhookEvent[] {
+export function parseWhatsAppWebhookEvents(
+  payload: unknown,
+  options: WhatsAppWebhookParseOptions = {},
+): readonly WhatsAppWebhookEvent[] {
   if (payload === null || typeof payload !== "object" || Array.isArray(payload)) return [];
   const object = (payload as { object?: unknown }).object;
   if (object !== "whatsapp_business_account") return [];
@@ -79,11 +86,23 @@ export function parseWhatsAppWebhookEvents(payload: unknown): readonly WhatsAppW
         ? (change as { value?: unknown }).value
         : undefined;
       if (value === null || typeof value !== "object" || Array.isArray(value)) continue;
+      if (!matchesExpectedPhoneNumberId(value as Record<string, unknown>, options.expectedPhoneNumberId)) continue;
       collectStatusEvents(value as Record<string, unknown>, events);
       collectInboundTextEvents(value as Record<string, unknown>, events);
     }
   }
   return events;
+}
+
+function matchesExpectedPhoneNumberId(
+  value: Record<string, unknown>,
+  expectedPhoneNumberId: string | undefined,
+): boolean {
+  const expected = expectedPhoneNumberId?.trim();
+  if (expected === undefined || expected.length === 0) return true;
+  const metadata = value.metadata;
+  if (metadata === null || typeof metadata !== "object" || Array.isArray(metadata)) return false;
+  return text((metadata as Record<string, unknown>).phone_number_id) === expected;
 }
 
 function collectStatusEvents(value: Record<string, unknown>, events: WhatsAppWebhookEvent[]): void {

@@ -99,6 +99,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         id: jobs.id,
         title: jobs.title,
+        clientName: jobs.clientName,
         description: jobs.description,
         location: jobs.location,
         status: jobs.status,
@@ -113,6 +114,16 @@ export class DatabaseStorage implements IStorage {
         telegramNotified: jobs.telegramNotified,
         latitude: jobs.latitude,
         longitude: jobs.longitude,
+        externalCode: jobs.externalCode,
+        projectType: jobs.projectType,
+        address: jobs.address,
+        postcode: jobs.postcode,
+        quotedAmount: jobs.quotedAmount,
+        financialSummary: jobs.financialSummary,
+        externalJobKey: jobs.externalJobKey,
+        externalSource: jobs.externalSource,
+        externalManifestPath: jobs.externalManifestPath,
+        budgetLedger: jobs.budgetLedger,
         contractor: contractors
       })
       .from(jobs)
@@ -129,6 +140,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         id: jobs.id,
         title: jobs.title,
+        clientName: jobs.clientName,
         description: jobs.description,
         location: jobs.location,
         status: jobs.status,
@@ -143,6 +155,16 @@ export class DatabaseStorage implements IStorage {
         telegramNotified: jobs.telegramNotified,
         latitude: jobs.latitude,
         longitude: jobs.longitude,
+        externalCode: jobs.externalCode,
+        projectType: jobs.projectType,
+        address: jobs.address,
+        postcode: jobs.postcode,
+        quotedAmount: jobs.quotedAmount,
+        financialSummary: jobs.financialSummary,
+        externalJobKey: jobs.externalJobKey,
+        externalSource: jobs.externalSource,
+        externalManifestPath: jobs.externalManifestPath,
+        budgetLedger: jobs.budgetLedger,
         contractor: contractors
       })
       .from(jobs)

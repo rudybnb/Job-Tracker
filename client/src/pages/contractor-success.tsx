@@ -1,14 +1,20 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Clock, Mail, Phone } from "lucide-react";
+import "./hallmark-sweep.css";
 
 export default function ContractorSuccess() {
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="hallmark-sweep min-h-screen bg-black text-white">
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-700 p-4">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold text-green-400">Application Submitted Successfully!</h1>
-          <p className="text-slate-400 mt-1">ER Build & Design - Contractor Registration</p>
+          <div className="flex items-center gap-3">
+            <span className="hallmark-logo-mark">
+              <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
+            </span>
+            <h1 className="text-2xl font-bold text-green-400">Application Submitted Successfully!</h1>
+          </div>
+          <p className="text-slate-400 mt-1">Sculpt Projects - Contractor Registration</p>
         </div>
       </div>
 

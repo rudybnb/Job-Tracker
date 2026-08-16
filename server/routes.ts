@@ -16,10 +16,6 @@ interface SessionRequest extends Express.Request {
 
 const storage = new DatabaseStorage();
 import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema, insertAdminSettingSchema, insertJobAssignmentSchema, JobWithContractor, WorkSession } from "@shared/schema";
-import { sql } from "drizzle-orm";
-import { db } from "./db";
-import { workSessions } from "@shared/schema";
-
 import { TelegramService } from "./telegram";
 import VoiceAgent from "./voice-agent";
 import multer from "multer";
@@ -27,6 +23,11 @@ import type { Request as ExpressRequest } from "express";
 import * as fs from "fs";
 import * as path from "path";
 import * as XLSX from "xlsx";
+import { createHash } from "node:crypto";
+import { eq, like, sql } from "drizzle-orm";
+import { db } from "./db";
+import { csvUploads, jobs as jobsTable, workSessions } from "@shared/schema";
+import { normalizeUploadCsvContent, parseJobUploadCsv, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
 
 interface MulterRequest extends ExpressRequest {
   file?: Express.Multer.File;
@@ -35,6 +36,25 @@ import { parse } from "csv-parse";
 import { parseEnhancedCSV } from "./enhanced-csv-parser";
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+function parseProjectMetadata(rawMetadata: unknown) {
+  if (typeof rawMetadata !== "string") {
+    return { clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" };
+  }
+
+  try {
+    const parsed = JSON.parse(rawMetadata) as Record<string, unknown>;
+    return {
+      clientName: typeof parsed.clientName === "string" ? parsed.clientName : "",
+      projectSiteName: typeof parsed.projectSiteName === "string" ? parsed.projectSiteName : "",
+      address: typeof parsed.address === "string" ? parsed.address : "",
+      postcode: typeof parsed.postcode === "string" ? parsed.postcode : "",
+      projectType: typeof parsed.projectType === "string" ? parsed.projectType : "",
+    };
+  } catch {
+    return { clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" };
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Stats endpoint
@@ -206,12 +226,6 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const csvUpload = await storage.createCsvUpload({
-        filename: req.file.originalname,
-        status: "processing",
-        jobsCount: "0"
-      });
-
       let csvContent: string;
       
       // Handle both Excel and CSV files
@@ -230,350 +244,77 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
         csvContent = req.file.buffer.toString();
         console.log('📄 Processing CSV file:', req.file.originalname);
       }
-      
-      console.log('🔍 Raw Content:', csvContent.substring(0, 500) + '...');
-      
-      try {
-        // Manual parsing for your specific CSV format
-        const lines = csvContent.split('\n').map(line => line.trim()).filter(line => line);
-        console.log('🔍 CSV Lines:', lines.slice(0, 10));
-        
-        let jobsCreated = 0; // Initialize counter
-        
-        // Extract header information (first 4 lines)
-        let jobName = "Data Missing from CSV";
-        let jobAddress = "Data Missing from CSV";
-        let jobPostcode = "Data Missing from CSV";
-        let jobType = "Data Missing from CSV";
-        let phases: string[] = [];
 
-        // LOCKED DOWN PARSING LOGIC - DO NOT CHANGE THIS EVER
-        for (let i = 0; i < Math.min(lines.length, 5); i++) {
-          const line = lines[i];
-          console.log(`🔍 Parsing line ${i}: "${line}"`);
-          
-          if (line.startsWith('Name ,') || line.startsWith('Name,') || line.startsWith('name,')) {
-            // Extract everything after "Name," or "name," and remove trailing commas
-            const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
-            jobName = extracted || "Data Missing from CSV";
-            console.log(`📝 Extracted job name: "${jobName}"`);
-          } else if (line.startsWith('Address,') || line.startsWith('Address ,')) {
-            // Extract everything after first comma and remove trailing commas
-            const extracted = line.substring(line.indexOf(',') + 1).replace(/,+$/, '').trim();
-            jobAddress = extracted || "Data Missing from CSV";
-            console.log(`📍 Extracted job address: "${jobAddress}"`);
-          } else if (line.startsWith('Post Code ,') || line.startsWith('Post code,')) {
-            // Extract everything after "Post code," and remove trailing commas - handle space in "Post Code "
-            const colonIndex = line.indexOf(',');
-            const extracted = line.substring(colonIndex + 1).replace(/,+$/, '').trim().toUpperCase();
-            jobPostcode = extracted || "Data Missing from CSV";
-            console.log(`📮 Extracted job postcode: "${jobPostcode}"`);
-          } else if (line.startsWith('Project Type,')) {
-            // Extract everything after "Project Type," and remove trailing commas
-            const extracted = line.substring(13).replace(/,+$/, '').trim();
-            jobType = extracted || "Data Missing from CSV";
-            console.log(`🏗️ Extracted job type: "${jobType}"`);
-          }
-        }
-        
-        console.log('🎯 Final extracted data:', { jobName, jobAddress, jobPostcode, jobType });
+      const normalizedContent = normalizeUploadCsvContent(csvContent);
+      const fingerprint = createHash("sha256").update(normalizedContent).digest("hex");
+      const validation = parseJobUploadCsv(normalizedContent);
+      const projectMetadata = parseProjectMetadata(req.body.projectMetadata);
+      const metadataErrors = validateProjectMetadata(projectMetadata);
 
-        // Parse data section - supports both formats
-        // Check if this is the new enhanced format with Order Date, Build Phase, etc.
-        const enhancedFormatIndex = lines.findIndex(line => 
-          line.includes('Order Date') && line.includes('Build Phase') && (line.includes('Resource Description') || line.includes('Type of Resource'))
-        );
-        
-        if (enhancedFormatIndex !== -1) {
-          // ENHANCED FORMAT PARSING - for accounting integration
-          const resources: any[] = [];
-          let totalLabourCost = 0;
-          let totalMaterialCost = 0;
-          const phaseTaskData: { [key: string]: any[] } = {};
-          const weeklyBreakdown: { [key: string]: { labour: number; material: number; total: number } } = {};
-          let phases: string[] = [];
-          
-          console.log('🎯 Using ENHANCED CSV parsing for accounting format');
-          console.log('🔍 Enhanced format index:', enhancedFormatIndex);
-          console.log('🔍 Lines to process:', lines.length - enhancedFormatIndex - 1);
-          
-          for (let i = enhancedFormatIndex + 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line || line.trim() === '') continue;
-            
-            console.log(`🔍 Processing line ${i}: "${line}"`);
-            const parts = line.split(',').map(p => p.trim());
-            console.log(`🔍 Parts (${parts.length}):`, parts);
-            if (parts.length < 6) {
-              console.log(`❌ Skipping line ${i} - only ${parts.length} columns (need at least 6)`);
-              continue; // Need at least 6 columns: Order Date, Required Date, Build Phase, Resource Type, Description, Quantity
-            }
-            
-            const resource: any = {
-              orderDate: parts[0] || '',
-              requiredDate: parts[1] || '',
-              buildPhase: parts[2] || 'General',
-              resourceType: parts[3] || '', // Labour or Material
-              description: parts[4] || '', // Description in column 5 for 6-column format
-              quantity: parseInt(parts[5]) || 0, // Quantity in column 6 for 6-column format
-              supplier: parts[6] || 'Not specified' // Supplier might be in column 7 if available
-            };
-            
-            // Process ALL resources with valid descriptions (HBXL format often doesn't include prices)
-            if (resource.description && resource.description.trim() !== '') {
-              // Extract price using regex - MANDATORY RULE: authentic data only
-              const priceMatch = resource.description.match(/£(\d+\.?\d*)/);
-              const unitMatch = resource.description.match(/£\d+\.?\d*\/(\w+)/);
-              
-              // Set pricing info if available
-              if (priceMatch && resource.quantity > 0) {
-                resource.unitPrice = parseFloat(priceMatch[1]);
-                resource.unit = unitMatch ? unitMatch[1] : 'Each';
-                resource.totalCost = resource.unitPrice * resource.quantity;
-                
-                // Track costs by type for accounting
-                if (resource.resourceType.toLowerCase() === 'labour') {
-                  totalLabourCost += resource.totalCost;
-                } else if (resource.resourceType.toLowerCase() === 'material') {
-                  totalMaterialCost += resource.totalCost;
-                }
-                
-                // Weekly cash flow breakdown
-                if (resource.orderDate) {
-                  if (!weeklyBreakdown[resource.orderDate]) {
-                    weeklyBreakdown[resource.orderDate] = { labour: 0, material: 0, total: 0 };
-                  }
-                  const costType = resource.resourceType.toLowerCase();
-                  if (costType === 'labour') {
-                    weeklyBreakdown[resource.orderDate].labour += resource.totalCost;
-                    weeklyBreakdown[resource.orderDate].total += resource.totalCost;
-                  } else if (costType === 'material') {
-                    weeklyBreakdown[resource.orderDate].material += resource.totalCost;
-                    weeklyBreakdown[resource.orderDate].total += resource.totalCost;
-                  }
-                }
-              } else {
-                // No price data - normal for HBXL format
-                resource.unitPrice = 0;
-                resource.unit = resource.resourceType.toLowerCase() === 'labour' ? 'Hours' : 'Each';
-                resource.totalCost = 0;
-              }
-              
-              // Build phase task structure - MANDATORY RULE: use only authentic CSV data
-              let phaseName = resource.buildPhase && resource.buildPhase.trim() !== '' && 
-                              resource.buildPhase.toLowerCase() !== 'material' && 
-                              resource.buildPhase.toLowerCase() !== 'labour' ? 
-                              resource.buildPhase : 'General Works';
-              
-              if (!phaseTaskData[phaseName]) {
-                phaseTaskData[phaseName] = [];
-              }
-              
-              // Create meaningful task descriptions from actual CSV data
-              let taskName = resource.description.replace(/£.*/, '').trim();
-              let taskDescription;
-              
-              if (resource.unitPrice > 0) {
-                // Has pricing information
-                taskDescription = `${taskName} (${resource.quantity} ${resource.unit}) - ${resource.supplier} - £${resource.totalCost.toFixed(2)}`;
-              } else {
-                // No pricing (typical HBXL format)
-                taskDescription = `${taskName} (${resource.quantity} ${resource.unit}) - ${resource.supplier}`;
-              }
-              
-              phaseTaskData[phaseName].push({
-                task: taskName,
-                description: taskDescription,
-                quantity: resource.quantity,
-                unitPrice: resource.unitPrice,
-                totalCost: resource.totalCost,
-                supplier: resource.supplier,
-                orderDate: resource.orderDate,
-                resourceType: resource.resourceType,
-                unit: resource.unit,
-                costBreakdown: resource.unitPrice > 0 ? `${resource.quantity} × £${resource.unitPrice} = £${resource.totalCost.toFixed(2)}` : 'Price not specified in CSV'
-              });
-              
-              // Add phase to phases array if not already present
-              if (!phases.includes(phaseName)) {
-                phases.push(phaseName);
-              }
-            }
-            
-            resources.push(resource);
-          }
-          
-          // Remove duplicate phases
-          phases = phases.filter((p, i, arr) => arr.indexOf(p) === i);
-          
-          console.log('🎯 Enhanced parsing results:', {
-            phases: phases,
-            resourceCount: resources.length,
-            totalLabourCost,
-            totalMaterialCost,
-            grandTotal: totalLabourCost + totalMaterialCost,
-            weeklyBreakdown,
-            detectedPhases: Object.keys(phaseTaskData)
-          });
-          
-          // Debug: Show detailed phase task data
-          console.log('🔍 BUILD PHASES AND SUB-TASKS EXTRACTED:');
-          Object.keys(phaseTaskData).forEach(phase => {
-            console.log(`📋 Phase: ${phase} (${phaseTaskData[phase].length} tasks)`);
-            phaseTaskData[phase].forEach((task, index) => {
-              console.log(`  ├─ ${index + 1}. ${task.task} (${task.resourceType})`);
-              console.log(`  │   Quantity: ${task.quantity} ${task.unit}`);
-              console.log(`  │   Cost: £${task.totalCost?.toFixed(2) || '0.00'}`);
-              console.log(`  │   Supplier: ${task.supplier}`);
-            });
-          });
-          
-          // Store enhanced data for accounting integration
-          const enhancedJobData = JSON.stringify({
-            phases: phaseTaskData,
-            financials: {
-              totalLabour: totalLabourCost,
-              totalMaterial: totalMaterialCost,
-              grandTotal: totalLabourCost + totalMaterialCost,
-              weeklyBreakdown
-            },
-            resources: resources.filter(r => r.unitPrice) // Only resources with valid pricing
-          });
-          
-          await storage.createJob({
-            title: jobName,
-            description: jobType,
-            location: `${jobAddress}, ${jobPostcode}`,
-            status: "pending",
-            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            notes: `Project Type: ${jobType}`,
-            phases: phases.join(', ') || "Data Missing from CSV",
-            uploadId: csvUpload.id,
-            phaseTaskData: enhancedJobData
-          });
-          
-          jobsCreated++;
-          
-        } else {
-          // ORIGINAL FORMAT PARSING - maintain existing functionality
-          // Look for "Build Phase" line which indicates start of data section
-          let dataHeaderIndex = lines.findIndex(line => 
-            line.includes('Build Phase') && (line.includes('Order Quantity') || line.split(',').length >= 3)
-          );
-          
-          // Fallback: look for any line with "Build Phase" or similar phase indicators
-          if (dataHeaderIndex === -1) {
-            dataHeaderIndex = lines.findIndex(line => 
-              line.includes('Build Phase') || line.includes('Phase') || 
-              line.includes('Order') || line.includes('Date')
-            );
-          }
-          
-          let phaseTaskData: Record<string, Array<{description: string, quantity: number, task: string}>> = {};
-          
-          if (dataHeaderIndex >= 0) {
-            // NEW IMPROVED PARSING: Handle the cleaner CSV structure
-            // Column structure: [Empty, Phase/Task Description, Empty, Quantity]
-            console.log('🎯 Using IMPROVED CSV parsing for cleaner format');
-            
-            let currentPhase = "";
-            
-            // Process lines after the "Build Phase" header
-            for (let i = dataHeaderIndex + 1; i < lines.length; i++) {
-              const line = lines[i];
-              if (!line || line.trim() === '') continue;
-              
-              const columns = line.split(',').map(col => col.trim());
-              
-              // Skip lines with less than 3 columns
-              if (columns.length < 3) continue;
-              
-              const col1 = columns[0] || ''; // Usually empty for tasks
-              const col2 = columns[1] || ''; // Phase name or task description 
-              const col3 = columns[2] || ''; // Task description (if col2 is phase)
-              const col4 = columns[3] || '0'; // Quantity
-              
-              // Check if this is a phase line (col2 has phase name, col3 is empty)
-              if (col2 && !col3 && col1 === '') {
-                currentPhase = col2;
-                if (!phases.includes(currentPhase)) {
-                  phases.push(currentPhase);
-                }
-                if (!phaseTaskData[currentPhase]) {
-                  phaseTaskData[currentPhase] = [];
-                }
-              } 
-              // Check if this is a task line (col3 has task description)
-              else if (col3 && currentPhase) {
-                const taskDescription = col3.replace(/"/g, '').trim(); // Clean quotes
-                const quantity = parseInt(col4) || 0;
-                
-                if (taskDescription && taskDescription !== '') {
-                  phaseTaskData[currentPhase].push({
-                    description: taskDescription,
-                    quantity: quantity,
-                    task: `Install ${taskDescription.toLowerCase()}`
-                  });
-                }
-              }
-            }
-            
-            console.log('🎯 IMPROVED parsing results:', {
-              phases: phases,
-              phaseTaskDataKeys: Object.keys(phaseTaskData),
-              totalTasks: Object.values(phaseTaskData).reduce((sum, tasks) => sum + tasks.length, 0)
-            });
-          }
-          
-          console.log('🎯 Extracted Phase Task Data:', Object.keys(phaseTaskData).map(phase => 
-            `${phase}: ${phaseTaskData[phase].length} tasks`
-          ));
-
-          console.log('🎯 CSV Data Extracted:', { jobName, jobAddress, jobPostcode, jobType, phases });
-
-          const jobs = [{
-            title: jobName,
-            description: jobType,
-            location: `${jobAddress}, ${jobPostcode}`,
-            status: "pending" as const,
-            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            notes: `Project Type: ${jobType}`,
-            phases: phases.join(', ') || "Data Missing from CSV",
-            uploadId: csvUpload.id,
-            phaseTaskData: JSON.stringify(phaseTaskData)
-          }];
-
-          const createdJobs = await storage.createJobsFromCsv(jobs, csvUpload.id);
-          jobsCreated = createdJobs.length;
-            
-          await storage.updateCsvUpload(csvUpload.id, {
-            status: "processed",
-            jobsCount: createdJobs.length.toString()
-          });
-        }
-
-        // Final response with job creation results
-        const finalUpload = await storage.getCsvUploads().then(uploads => uploads.find(u => u.id === csvUpload.id));
-        
-        // Update the CSV upload status to processed
-        await storage.updateCsvUpload(csvUpload.id, {
-          status: "processed",
-          jobsCount: jobsCreated.toString()
-        });
-        
-        res.json({
-          upload: {
-            ...finalUpload,
-            status: "processed",
-            jobsCount: jobsCreated.toString()
+      if (!validation.valid || metadataErrors.length > 0) {
+        return res.status(400).json({
+          error: "Upload validation failed. No jobs were created.",
+          validation: {
+            ...validation,
+            errors: [...validation.errors, ...metadataErrors],
           },
-          jobsCreated: jobsCreated
         });
-      } catch (error) {
-        console.error("Error processing CSV jobs:", error);
-        await storage.updateCsvUpload(csvUpload.id, { status: "failed" });
-        res.status(500).json({ error: "Failed to process CSV jobs" });
       }
+
+      const importResult = await db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${fingerprint}))`);
+
+        const existing = await tx
+          .select({ id: jobsTable.id, title: jobsTable.title, uploadId: jobsTable.uploadId })
+          .from(jobsTable)
+          .where(like(jobsTable.notes, `%Import Fingerprint: ${fingerprint}%`))
+          .limit(1);
+
+        if (existing.length > 0) {
+          return { duplicate: true as const, existing: existing[0] };
+        }
+
+        const [csvUpload] = await tx
+          .insert(csvUploads)
+          .values({
+            filename: req.file!.originalname,
+            status: "processing",
+            jobsCount: "0",
+          })
+          .returning();
+
+        const insertJobs = toInsertJobs(validation.jobs, csvUpload.id, fingerprint, projectMetadata);
+        const createdJobs = await tx.insert(jobsTable).values(insertJobs).returning();
+
+        const [finalUpload] = await tx
+          .update(csvUploads)
+          .set({ status: "processed", jobsCount: createdJobs.length.toString() })
+          .where(eq(csvUploads.id, csvUpload.id))
+          .returning();
+
+        return { duplicate: false as const, upload: finalUpload, createdJobs };
+      });
+
+      if (importResult.duplicate) {
+        return res.status(409).json({
+          error: "Duplicate import blocked. No jobs were created.",
+          duplicate: true,
+          existing: importResult.existing,
+          validation,
+          fingerprint,
+        });
+      }
+
+      res.json({
+        upload: importResult.upload,
+        jobsCreated: importResult.createdJobs.length,
+        rowsProcessed: validation.stats.taskRows,
+        tasksProcessed: validation.stats.taskRows,
+        skippedRows: 0,
+        duplicate: false,
+        importFingerprint: fingerprint,
+        validation,
+      });
     } catch (error) {
       console.error("Error uploading CSV:", error);
       res.status(500).json({ error: "Failed to upload CSV file" });
@@ -3092,20 +2833,20 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
 
   // Real-time clock monitoring endpoints for admin dashboard
   
-  // Get active work sessions (currently clocked in contractors)
+  // Get active work sessions (currently clocked in contractors) + site-checkin sessions
   app.get("/api/admin/active-sessions", async (req, res) => {
     try {
       console.log("📊 Fetching active work sessions for admin monitoring");
       
       // Fetch labour sessions (existing system)
       const labourSessions = await storage.getActiveWorkSessions();
-
+      
       // Fetch site-checkin sessions (QR check-in/out system)
       const siteCheckinSessions = await db
         .select()
         .from(workSessions)
         .orderBy(sql`start_time DESC`);
-
+      
       // Combine all sessions
       const allSessions = [...labourSessions, ...siteCheckinSessions];
       
@@ -3142,7 +2883,7 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
         const sessionStatus = session.status === 'completed' ? 'checked_out' : 'clocked_in';
         const displayStatus = session.status === 'completed' ? 'CHECKED OUT' : 'ON SITE';
         const isActive = session.status !== 'completed';
-
+        
         // Detect current location by finding nearest assigned job site (DYNAMIC SYSTEM)
         let detectedLocation = session.jobSiteLocation; // Default to stored location
         
@@ -3171,7 +2912,7 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
           hour: '2-digit',
           minute: '2-digit'
         }) : null;
-
+        
         return {
           ...session,
           jobSiteLocation: detectedLocation,

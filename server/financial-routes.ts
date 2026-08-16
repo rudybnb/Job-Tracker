@@ -2,6 +2,17 @@ import { Express, Request, Response } from "express";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 
+const PAYMENT_STATUSES = new Set(["PENDING", "SCHEDULED", "PAID", "FAILED", "CANCELLED", "REVERSED"]);
+
+function legacyPaymentStatus(value: unknown): string {
+  const normalized = String(value ?? "PAID").toUpperCase();
+  return normalized === "COMPLETED" ? "PAID" : normalized;
+}
+
+function isSerializationFailure(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "40001";
+}
+
 /**
  * Financial Tracking API Routes
  * Provides comprehensive endpoints for budget management, expense tracking, and financial reporting
@@ -672,7 +683,27 @@ export function setupFinancialRoutes(app: Express) {
       const { contractorId } = req.params;
       
       const payments = await db.execute(sql`
-        SELECT cp.*, j.job_name, c.name as contractor_name
+        SELECT
+          cp.id,
+          cp.job_id,
+          cp.contractor_id,
+          cp.contractor_valuation_id,
+          cp.reverses_payment_id,
+          cp.payment_amount,
+          cp.currency_code,
+          cp.payment_date,
+          cp.payment_status,
+          cp.payment_reference,
+          cp.payment_method,
+          cp.notes,
+          cp.source_metadata,
+          cp.created_at,
+          cp.updated_at,
+          cp.payment_amount AS amount,
+          cp.payment_status AS status,
+          cp.payment_reference AS reference_number,
+          j.title AS job_name,
+          c.name AS contractor_name
         FROM contractor_payments cp
         LEFT JOIN jobs j ON cp.job_id = j.id
         LEFT JOIN contractors c ON cp.contractor_id = c.id
@@ -693,37 +724,81 @@ export function setupFinancialRoutes(app: Express) {
    */
   app.post("/api/financial/payments", async (req: Request, res: Response) => {
     try {
-      const {
-        contractor_id,
-        job_id,
-        phase_id,
-        amount,
-        payment_date,
-        payment_method,
-        reference_number,
-        notes
-      } = req.body;
-      
-      if (!contractor_id || !job_id || !amount) {
+      const body = req.body ?? {};
+      const contractorId = body.contractor_id;
+      const jobId = body.job_id;
+      const valuationId = body.contractor_valuation_id ?? null;
+      const reversesPaymentId = body.reverses_payment_id ?? null;
+      const paymentAmount = body.payment_amount ?? body.amount;
+      const paymentReference = body.payment_reference ?? body.reference_number ?? null;
+      const paymentStatus = legacyPaymentStatus(body.payment_status ?? body.status);
+      const sourceMetadata = body.source_metadata ?? null;
+
+      if (body.payment_amount !== undefined && body.amount !== undefined && String(body.payment_amount) !== String(body.amount)) {
+        return res.status(400).json({ error: "payment_amount and amount aliases conflict" });
+      }
+      if (body.payment_reference !== undefined && body.reference_number !== undefined && body.payment_reference !== body.reference_number) {
+        return res.status(400).json({ error: "payment_reference and reference_number aliases conflict" });
+      }
+      if (body.payment_status !== undefined && body.status !== undefined && legacyPaymentStatus(body.payment_status) !== legacyPaymentStatus(body.status)) {
+        return res.status(400).json({ error: "payment_status and status aliases conflict" });
+      }
+      if (!contractorId || !jobId || paymentAmount === undefined || paymentAmount === null) {
         return res.status(400).json({ 
-          error: "contractor_id, job_id, and amount are required" 
+          error: "contractor_id, job_id, and payment_amount are required"
         });
       }
-      
-      const result = await db.execute(sql`
-        INSERT INTO contractor_payments (
-          contractor_id, job_id, phase_id, amount, payment_date,
-          payment_method, reference_number, notes, status
-        )
-        VALUES (
-          ${contractor_id}, ${job_id}, ${phase_id || null}, ${amount}, 
-          ${payment_date || sql`CURRENT_DATE`},
-          ${payment_method || null}, ${reference_number || null}, ${notes || null}, 'completed'
-        )
-        RETURNING *
-      `);
-      
-      res.status(201).json(result[0]);
+      if (!PAYMENT_STATUSES.has(paymentStatus)) {
+        return res.status(400).json({ error: "invalid payment_status" });
+      }
+      if (!valuationId && (!sourceMetadata?.source || !sourceMetadata?.reason)) {
+        return res.status(400).json({ error: "unlinked payments require source_metadata.source and source_metadata.reason" });
+      }
+
+      let result;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          result = await db.transaction(async (tx) => tx.execute(sql`
+            INSERT INTO contractor_payments (
+              contractor_id,
+              job_id,
+              contractor_valuation_id,
+              reverses_payment_id,
+              payment_amount,
+              currency_code,
+              payment_date,
+              payment_method,
+              payment_reference,
+              notes,
+              source_metadata,
+              payment_status
+            ) VALUES (
+              ${contractorId},
+              ${jobId},
+              ${valuationId},
+              ${reversesPaymentId},
+              ${paymentAmount},
+              ${body.currency_code ?? "GBP"},
+              ${body.payment_date ?? sql`CURRENT_DATE`},
+              ${body.payment_method ?? null},
+              ${paymentReference},
+              ${body.notes ?? null},
+              ${sourceMetadata},
+              ${paymentStatus}
+            )
+            RETURNING
+              *,
+              payment_amount AS amount,
+              payment_status AS status,
+              payment_reference AS reference_number
+          `), { isolationLevel: "serializable" });
+          break;
+        } catch (error) {
+          if (!isSerializationFailure(error) || attempt === 2) throw error;
+        }
+      }
+
+      res.status(201).json(result?.[0]);
     } catch (error) {
       console.error("Error recording payment:", error);
       res.status(500).json({ error: "Failed to record payment" });

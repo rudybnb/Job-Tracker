@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, parse, isAfter, isBefore } from 'date-fns';
 import { CalendarIcon, ClockIcon, MapPinIcon, UserIcon, AlertTriangleIcon } from 'lucide-react';
+import "./hallmark-sweep.css";
 
 interface JobAssignment {
   id: string;
@@ -93,14 +94,14 @@ export default function ForemanDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="hallmark-sweep min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-white text-lg">Loading foreman dashboard...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="hallmark-sweep min-h-screen bg-slate-900 text-white">
       {/* Header */}
       <div className="bg-slate-800 border-b border-slate-700 px-4 py-6">
         <div className="flex items-center justify-between">

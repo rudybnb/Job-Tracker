@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { apiFetch, getApiBase } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import "./hallmark-sweep.css";
 
 interface WorkSession {
   id: string;
@@ -268,7 +269,7 @@ export default function More() {
 
   // Guard clause - don't render if no contractor data
   if (!contractorName) {
-    return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+    return <div className="hallmark-sweep min-h-screen bg-slate-900 text-white flex items-center justify-center">
       <div className="text-center">
         <div className="text-yellow-400 mb-2">Redirecting to login...</div>
         <div className="animate-spin w-6 h-6 border-2 border-yellow-400 border-t-transparent rounded-full mx-auto"></div>
@@ -277,16 +278,16 @@ export default function More() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="hallmark-sweep min-h-screen bg-slate-900 text-white">
       {/* Header */}
       <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-            <span className="text-black font-bold text-sm">Pro</span>
+          <div className="hallmark-logo-mark">
+            <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
           </div>
           <div>
-            <div className="text-sm font-medium">Pro</div>
-            <div className="text-xs text-slate-400">Simple Time Tracking</div>
+            <div className="text-sm font-medium">Sculpt Projects</div>
+            <div className="text-xs text-slate-400">Earnings dashboard</div>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -322,6 +323,14 @@ export default function More() {
                   >
                     <i className="fas fa-exclamation-triangle mr-3 text-yellow-400"></i>
                     Report Issue
+                  </button>
+
+                  <button
+                    onClick={() => { window.location.href = '/checkin'; }}
+                    className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 flex items-center"
+                  >
+                    <i className="fas fa-qrcode mr-3 text-yellow-400"></i>
+                    Check In (QR)
                   </button>
                   
                   <div className="border-t border-slate-600 mt-2 pt-2">

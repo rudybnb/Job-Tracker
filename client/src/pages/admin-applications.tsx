@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle, XCircle, Clock, User, Mail, Phone, MapPin, Building, Calendar, FileText, Settings, PoundSterling } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ContractorApplication } from "@shared/schema";
+import "./hallmark-sweep.css";
 
 interface ApplicationCardProps {
   application: ContractorApplication;
@@ -358,7 +359,7 @@ export default function AdminApplications() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-800 text-white p-6">
+      <div className="hallmark-sweep min-h-screen bg-slate-800 text-white p-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
@@ -372,10 +373,15 @@ export default function AdminApplications() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-800 text-white">
+    <div className="hallmark-sweep min-h-screen bg-slate-800 text-white">
       <div className="bg-slate-700 text-white p-4 border-b border-slate-600">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-2xl font-bold">Contractor Applications</h1>
+          <div className="flex items-center gap-3">
+            <span className="hallmark-logo-mark">
+              <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
+            </span>
+            <h1 className="text-2xl font-bold">Contractor Applications</h1>
+          </div>
           <p className="text-sm opacity-75">Review and manage contractor applications</p>
           <div className="mt-2">
             <span className="text-xs text-slate-400">Contractor Form Link: </span>

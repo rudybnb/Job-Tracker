@@ -1,4 +1,4 @@
-import { ArrowLeft, Home } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -18,11 +18,6 @@ export default function AppTopBar() {
     }
   };
 
-  const goHome = () => {
-    // Role-agnostic: '/' routes to RoleBased which picks admin/contractor
-    navigate("/");
-  };
-
   return (
     <div className="app-topbar">
       <button
@@ -32,14 +27,6 @@ export default function AppTopBar() {
         className="app-topbar-btn"
       >
         <ArrowLeft className="w-5 h-5" />
-      </button>
-      <button
-        aria-label="Home"
-        title="Home"
-        onClick={goHome}
-        className="app-topbar-btn"
-      >
-        <Home className="w-5 h-5" />
       </button>
     </div>
   );

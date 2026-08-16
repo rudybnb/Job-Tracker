@@ -8,6 +8,7 @@ import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
 import { InspectionIssues } from "@/components/inspection-issues";
 import { apiFetch } from "@/lib/api";
 import { getCurrentLocation } from "@/lib/location";
+import "./hallmark-sweep.css";
 
 
 
@@ -692,17 +693,17 @@ export default function GPSDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="hallmark-sweep min-h-screen bg-slate-900 text-white">
 
       {/* Header */}
       <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-            <span className="text-black font-bold text-sm">Pro</span>
+          <div className="hallmark-logo-mark">
+            <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
           </div>
           <div>
-            <div className="text-sm font-medium">Pro</div>
-            <div className="text-xs text-slate-400">Simple Time Tracking</div>
+            <div className="text-sm font-medium">Sculpt Projects</div>
+            <div className="text-xs text-slate-400">GPS time tracking</div>
           </div>
         </div>
         <div className="flex items-center space-x-2">

@@ -1,0 +1,464 @@
+{
+  "source": {
+    "pxd": "C:/Users/rudyb/Desktop/Patrick Brook.pxd",
+    "smartSchedule": "test-fixtures/patrick-brook/Job 51 Patrick Brook Smart Schedule Export.csv",
+    "container": "gzip XML",
+    "plansXpressVersion": "5.8",
+    "decompressedBytes": 7762121
+  },
+  "estimateDataCounts": {
+    "walls": 20,
+    "doors": 11,
+    "windows": 10,
+    "objects": 76,
+    "areas": 27,
+    "treatments": 0,
+    "rooms": 0
+  },
+  "decoratedWallAggregate": {
+    "records": [
+      {
+        "id": "1-House",
+        "location": "House",
+        "spreadsheet": "2 Leaf External Wall.xls",
+        "lengthM": 12.684,
+        "heightM": 2.49,
+        "openingAreaM2": 4.833,
+        "decoratedSides": 1,
+        "grossAreaM2": 31.583,
+        "netAreaOpeningsDeductedOnceM2": 26.75,
+        "netAreaOpeningsDeductedPerSideM2": 26.75,
+        "openingsList": "(Window,1.2,1.2,2.1)(Window,1.2,1.2,2.1)(Door,0.93,2.1,2.1)"
+      },
+      {
+        "id": "2-House",
+        "location": "House",
+        "spreadsheet": "2 Leaf External Wall.xls",
+        "lengthM": 16.342,
+        "heightM": 2.483,
+        "openingAreaM2": 8.34,
+        "decoratedSides": 1,
+        "grossAreaM2": 40.577,
+        "netAreaOpeningsDeductedOnceM2": 32.237,
+        "netAreaOpeningsDeductedPerSideM2": 32.237,
+        "openingsList": "(Window,1.2,1.2,2.1)(Window,1.2,1.2,2.1)(StructuralOpening,2.6,2.1,2.1)"
+      },
+      {
+        "id": "4-House",
+        "location": "House",
+        "spreadsheet": "2 Leaf External Wall.xls",
+        "lengthM": 16.684,
+        "heightM": 2.383,
+        "openingAreaM2": 8.46,
+        "decoratedSides": 1,
+        "grossAreaM2": 39.758,
+        "netAreaOpeningsDeductedOnceM2": 31.298,
+        "netAreaOpeningsDeductedPerSideM2": 31.298,
+        "openingsList": "(Window,0.6,1.05,2.1)(Window,0.6,1.2,2.1)(Window,1.2,1.2,2.1)(Door,2.7,2.1,2.1)"
+      },
+      {
+        "id": "5-House",
+        "location": "House",
+        "spreadsheet": "2 Leaf External Wall.xls",
+        "lengthM": 4.342,
+        "heightM": 2.478,
+        "openingAreaM2": 1.44,
+        "decoratedSides": 1,
+        "grossAreaM2": 10.759,
+        "netAreaOpeningsDeductedOnceM2": 9.319,
+        "netAreaOpeningsDeductedPerSideM2": 9.319,
+        "openingsList": "(Window,1.2,1.2,2.1)"
+      },
+      {
+        "id": "6-House",
+        "location": "House",
+        "spreadsheet": "2 Leaf External Wall.xls",
+        "lengthM": 8.684,
+        "heightM": 2.483,
+        "openingAreaM2": 0,
+        "decoratedSides": 1,
+        "grossAreaM2": 21.562,
+        "netAreaOpeningsDeductedOnceM2": 21.562,
+        "netAreaOpeningsDeductedPerSideM2": 21.562,
+        "openingsList": ""
+      },
+      {
+        "id": "7-House",
+        "location": "House",
+        "spreadsheet": "2 Leaf External Wall.xls",
+        "lengthM": 4.337,
+        "heightM": 2.478,
+        "openingAreaM2": 1.44,
+        "decoratedSides": 1,
+        "grossAreaM2": 10.747,
+        "netAreaOpeningsDeductedOnceM2": 9.307,
+        "netAreaOpeningsDeductedPerSideM2": 9.307,
+        "openingsList": "(Window,1.2,1.2,2.1)"
+      },
+      {
+        "id": "1-Main Structure",
+        "location": "Main Structure",
+        "spreadsheet": "Single Leaf Internal Wall.xls",
+        "lengthM": 3.5,
+        "heightM": 2.4,
+        "openingAreaM2": 0.005,
+        "decoratedSides": 2,
+        "grossAreaM2": 16.8,
+        "netAreaOpeningsDeductedOnceM2": 16.795,
+        "netAreaOpeningsDeductedPerSideM2": 16.79,
+        "openingsList": ""
+      },
+      {
+        "id": "2-Main Structure",
+        "location": "Main Structure",
+        "spreadsheet": "Single Leaf Internal Wall.xls",
+        "lengthM": 6.1,
+        "heightM": 2.4,
+        "openingAreaM2": 1.986,
+        "decoratedSides": 2,
+        "grossAreaM2": 29.28,
+        "netAreaOpeningsDeductedOnceM2": 27.294,
+        "netAreaOpeningsDeductedPerSideM2": 25.308,
+        "openingsList": "(Door,0.968,2.05,2.05)"
+      },
+      {
+        "id": "3-Main Structure",
+        "location": "Main Structure",
+        "spreadsheet": "Single Leaf Internal Wall.xls",
+        "lengthM": 2.82,
+        "heightM": 2.4,
+        "openingAreaM2": 1.989,
+        "decoratedSides": 2,
+        "grossAreaM2": 13.536,
+        "netAreaOpeningsDeductedOnceM2": 11.547,
+        "netAreaOpeningsDeductedPerSideM2": 9.558,
+        "openingsList": "(Door,0.968,2.05,2.05)"
+      },
+      {
+        "id": "4-Main Structure",
+        "location": "Main Structure",
+        "spreadsheet": "Single Leaf Internal Wall.xls",
+        "lengthM": 2.116,
+        "heightM": 2.4,
+        "openingAreaM2": 0.006,
+        "decoratedSides": 2,
+        "grossAreaM2": 10.157,
+        "netAreaOpeningsDeductedOnceM2": 10.151,
+        "netAreaOpeningsDeductedPerSideM2": 10.145,
+        "openingsList": ""
+      },
+      {
+        "id": "5-Main Structure",
+        "location": "Main Structure",
+        "spreadsheet": "Single Leaf Internal Wall.xls",
+        "lengthM": 6.564,
+        "heightM": 2.4,
+        "openingAreaM2": 1.621,
+        "decoratedSides": 2,
+        "grossAreaM2": 31.507,
+        "netAreaOpeningsDeductedOnceM2": 29.886,
+        "netAreaOpeningsDeductedPerSideM2": 28.265,
+        "openingsList": "(Door,0.79,2.05,2.05)"
+      },
+      {
+        "id": "6-Main Structure",
+        "location": "Main Structure",
+        "spreadsheet": "Single Leaf Internal Wall.xls",
+        "lengthM": 9.819,
+        "heightM": 2.4,
+        "openingAreaM2": 1.986,
+        "decoratedSides": 2,
+        "grossAreaM2": 47.131,
+        "netAreaOpeningsDeductedOnceM2": 45.145,
+        "netAreaOpeningsDeductedPerSideM2": 43.159,
+        "openingsList": "(Door,0.968,2.05,2.05)"
+      },
+      {
+        "id": "7-Main Structure",
+        "location": "Main Structure",
+        "spreadsheet": "Single Leaf Internal Wall.xls",
+        "lengthM": 6.651,
+        "heightM": 2.4,
+        "openingAreaM2": 1.986,
+        "decoratedSides": 2,
+        "grossAreaM2": 31.925,
+        "netAreaOpeningsDeductedOnceM2": 29.939,
+        "netAreaOpeningsDeductedPerSideM2": 27.953,
+        "openingsList": "(Door,0.968,2.05,2.05)"
+      },
+      {
+        "id": "8-Main Structure",
+        "location": "Main Structure",
+        "spreadsheet": "Single Leaf Internal Wall.xls",
+        "lengthM": 3.85,
+        "heightM": 2.4,
+        "openingAreaM2": 0.003,
+        "decoratedSides": 2,
+        "grossAreaM2": 18.48,
+        "netAreaOpeningsDeductedOnceM2": 18.477,
+        "netAreaOpeningsDeductedPerSideM2": 18.474,
+        "openingsList": ""
+      },
+      {
+        "id": "9-Main Structure",
+        "location": "Main Structure",
+        "spreadsheet": "Single Leaf Internal Wall.xls",
+        "lengthM": 9.685,
+        "heightM": 2.4,
+        "openingAreaM2": 3.976,
+        "decoratedSides": 2,
+        "grossAreaM2": 46.488,
+        "netAreaOpeningsDeductedOnceM2": 42.512,
+        "netAreaOpeningsDeductedPerSideM2": 38.536,
+        "openingsList": "(Door,0.968,2.05,2.05)(Door,0.968,2.05,2.05)"
+      },
+      {
+        "id": "10-Main Structure",
+        "location": "Main Structure",
+        "spreadsheet": "Single Leaf Internal Wall.xls",
+        "lengthM": 2.685,
+        "heightM": 2.4,
+        "openingAreaM2": 1.995,
+        "decoratedSides": 2,
+        "grossAreaM2": 12.888,
+        "netAreaOpeningsDeductedOnceM2": 10.893,
+        "netAreaOpeningsDeductedPerSideM2": 8.898,
+        "openingsList": "(Door,0.968,2.05,2.05)"
+      },
+      {
+        "id": "8-House",
+        "location": "House",
+        "spreadsheet": "2 Leaf External Wall.xls",
+        "lengthM": 12.685,
+        "heightM": 2.4,
+        "openingAreaM2": 3.78,
+        "decoratedSides": 1,
+        "grossAreaM2": 30.444,
+        "netAreaOpeningsDeductedOnceM2": 26.664,
+        "netAreaOpeningsDeductedPerSideM2": 26.664,
+        "openingsList": "(Door,1.8,2.1,2.1)"
+      },
+      {
+        "id": "9-House",
+        "location": "House",
+        "spreadsheet": "2 Leaf External Wall.xls",
+        "lengthM": 3.502,
+        "heightM": 2.4,
+        "openingAreaM2": 0.04,
+        "decoratedSides": 1,
+        "grossAreaM2": 8.405,
+        "netAreaOpeningsDeductedOnceM2": 8.365,
+        "netAreaOpeningsDeductedPerSideM2": 8.365,
+        "openingsList": ""
+      },
+      {
+        "id": "10-House",
+        "location": "House",
+        "spreadsheet": "2 Leaf External Wall.xls",
+        "lengthM": 7.394,
+        "heightM": 2.4,
+        "openingAreaM2": 1.44,
+        "decoratedSides": 1,
+        "grossAreaM2": 17.746,
+        "netAreaOpeningsDeductedOnceM2": 16.306,
+        "netAreaOpeningsDeductedPerSideM2": 16.306,
+        "openingsList": "(Window,1.2,1.2,2.1)"
+      },
+      {
+        "id": "11-House",
+        "location": "House",
+        "spreadsheet": "2 Leaf External Wall.xls",
+        "lengthM": 3.502,
+        "heightM": 2.4,
+        "openingAreaM2": 0.037,
+        "decoratedSides": 1,
+        "grossAreaM2": 8.405,
+        "netAreaOpeningsDeductedOnceM2": 8.368,
+        "netAreaOpeningsDeductedPerSideM2": 8.368,
+        "openingsList": ""
+      }
+    ],
+    "uniqueLocations": [
+      "House",
+      "Main Structure"
+    ],
+    "grossAreaM2": 478.178,
+    "netAreaOpeningsDeductedOnceM2": 432.815,
+    "netAreaOpeningsDeductedPerSideM2": 417.262
+  },
+  "decoratedCeilingAggregate": {
+    "records": [
+      {
+        "id": "48-Ceiling",
+        "location": "Ceiling",
+        "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+        "areaM2": 31.84,
+        "perimeterM": 23.965
+      },
+      {
+        "id": "49-Ceiling",
+        "location": "Ceiling",
+        "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+        "areaM2": 10.669,
+        "perimeterM": 13.322
+      },
+      {
+        "id": "50-Ceiling",
+        "location": "Ceiling",
+        "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+        "areaM2": 14.818,
+        "perimeterM": 16.482
+      },
+      {
+        "id": "51-Ceiling",
+        "location": "Ceiling",
+        "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+        "areaM2": 5.41,
+        "perimeterM": 9.425
+      },
+      {
+        "id": "52-Ceiling",
+        "location": "Ceiling",
+        "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+        "areaM2": 20.421,
+        "perimeterM": 18.801
+      },
+      {
+        "id": "53-Ceiling",
+        "location": "Ceiling",
+        "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+        "areaM2": 27.7,
+        "perimeterM": 25.905
+      },
+      {
+        "id": "54-Ceiling",
+        "location": "Ceiling",
+        "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+        "areaM2": 50.849,
+        "perimeterM": 40.136
+      },
+      {
+        "id": "55-Ceiling",
+        "location": "Ceiling",
+        "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+        "areaM2": 45.879,
+        "perimeterM": 29.763
+      },
+      {
+        "id": "56-Ceiling",
+        "location": "Ceiling",
+        "spreadsheet": "PlansXpress Internal Renovation - Ceilings.xls",
+        "areaM2": 33.224,
+        "perimeterM": 23.74
+      }
+    ],
+    "totalAreaM2": 240.81
+  },
+  "smartScheduleComparison": {
+    "internalDecorationRows": [
+      {
+        "sourceRow": 159,
+        "typeOfResource": "Labour",
+        "resourceType": "Sundry Labour",
+        "productCode": "",
+        "description": "Not Required (Unit)",
+        "quantity": 0,
+        "unit": "Unit"
+      },
+      {
+        "sourceRow": 160,
+        "typeOfResource": "Labour",
+        "resourceType": "Decorator",
+        "productCode": "",
+        "description": "Decorator (Hours)",
+        "quantity": 181,
+        "unit": "Hours"
+      },
+      {
+        "sourceRow": 161,
+        "typeOfResource": "Material",
+        "resourceType": "Decoration",
+        "productCode": "HB00528",
+        "description": "Dado Paper 5m Roll (Allowance £5 Each) (Each)",
+        "quantity": 0,
+        "unit": "Each"
+      },
+      {
+        "sourceRow": 162,
+        "typeOfResource": "Material",
+        "resourceType": "Decoration",
+        "productCode": "HB00118",
+        "description": "Quick Drying Floor Varnish Clear Gloss 2.5 Litre (Each)",
+        "quantity": 0,
+        "unit": "Each"
+      },
+      {
+        "sourceRow": 163,
+        "typeOfResource": "Material",
+        "resourceType": "Decoration",
+        "productCode": "HB00114",
+        "description": "Trade Emulsion Paint Brilliant White 5 Litre (Each)",
+        "quantity": 9,
+        "unit": "Each"
+      },
+      {
+        "sourceRow": 164,
+        "typeOfResource": "Material",
+        "resourceType": "Decoration",
+        "productCode": "HB00115",
+        "description": "Trade Emulsion Paint Magnolia 5 Litre (Each)",
+        "quantity": 16,
+        "unit": "Each"
+      },
+      {
+        "sourceRow": 165,
+        "typeOfResource": "Material",
+        "resourceType": "Decoration",
+        "productCode": "HB00116",
+        "description": "Trade Gloss Paint Brilliant White 5 Litre (Each)",
+        "quantity": 2,
+        "unit": "Each"
+      },
+      {
+        "sourceRow": 166,
+        "typeOfResource": "Material",
+        "resourceType": "Decoration",
+        "productCode": "HB00113",
+        "description": "Undercoat White 5 Litre (Each)",
+        "quantity": 4,
+        "unit": "Each"
+      },
+      {
+        "sourceRow": 167,
+        "typeOfResource": "Material",
+        "resourceType": "Decoration",
+        "productCode": "HB00527",
+        "description": "Wallpaper 5.3m² Roll (Allowance £10 Each) (Each)",
+        "quantity": 0,
+        "unit": "Each"
+      },
+      {
+        "sourceRow": 168,
+        "typeOfResource": "Material",
+        "resourceType": "Decoration",
+        "productCode": "HB00529",
+        "description": "Wallpaper Paste (16 Roll) (Each)",
+        "quantity": 0,
+        "unit": "Each"
+      },
+      {
+        "sourceRow": 169,
+        "typeOfResource": "Material",
+        "resourceType": "Sundry Material",
+        "productCode": "",
+        "description": "Not Required (Unit)",
+        "quantity": 0,
+        "unit": "Unit"
+      }
+    ],
+    "internalDecorationRowsWithPositiveQuantity": 5,
+    "wallDecorationQuantityRows": 0,
+    "directWallDecorationQuantityFound": false
+  },
+  "conclusion": "PlansXpress project XML stores aggregate decorated wall and decorated ceiling geometry, but wall locations are broad project zones rather than room IDs. The Smart Schedule contains decoration labour/material resources, not a direct Wall Decoration m2 quantity row. Room-level Wall Decoration remains REVIEW REQUIRED."
+}

@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { JobWithContractor } from "@shared/schema";
+import "./admin-jarvis-reviews.css";
 
 type ReviewStatus = "pending" | "approved" | "rejected" | "sent_back";
 type ReviewDecision = "approved" | "rejected" | "sent_back";
@@ -180,51 +181,70 @@ function formatTimestamp(value: string | undefined): string {
 function statusBadge(status: ReviewStatus) {
   switch (status) {
     case "approved":
-      return <Badge className="bg-green-600 text-white">Approved</Badge>;
+      return <Badge className="jr-badge jr-badge--good">Approved</Badge>;
     case "rejected":
-      return <Badge className="bg-red-600 text-white">Rejected</Badge>;
+      return <Badge className="jr-badge jr-badge--bad">Rejected</Badge>;
     case "sent_back":
-      return <Badge className="bg-blue-600 text-white">Sent Back</Badge>;
+      return <Badge className="jr-badge jr-badge--info">Sent Back</Badge>;
     default:
-      return <Badge className="bg-yellow-600 text-black">Pending</Badge>;
+      return <Badge className="jr-badge jr-badge--warn">Pending</Badge>;
   }
 }
 
 function readinessBadge(status: ApplicationStatus) {
   switch (status) {
     case "ready":
-      return <Badge className="bg-green-600 text-white">Ready</Badge>;
+      return <Badge className="jr-badge jr-badge--good">Ready</Badge>;
     case "pending_mapping":
-      return <Badge className="bg-yellow-600 text-black">Pending Mapping</Badge>;
+      return <Badge className="jr-badge jr-badge--warn">Pending Mapping</Badge>;
     default:
-      return <Badge className="bg-slate-600 text-white">{status.replace(/_/g, " ")}</Badge>;
+      return <Badge className="jr-badge jr-badge--muted">{status.replace(/_/g, " ")}</Badge>;
   }
 }
 
 function jobStatusBadge(status: string) {
   const classes =
     status === "completed"
-      ? "bg-green-600 text-white"
+      ? "jr-badge jr-badge--good"
       : status === "assigned"
-        ? "bg-blue-600 text-white"
-        : "bg-yellow-600 text-black";
+        ? "jr-badge jr-badge--info"
+        : "jr-badge jr-badge--warn";
   return <Badge className={classes}>{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>;
 }
 
 function whatsappStatusBadge(message: ContractorMessageHistoryItem) {
   if (message.status === "failed" || message.delivery_status === "failed") {
-    return <Badge className="bg-red-600 text-white">Failed</Badge>;
+    return <Badge className="jr-badge jr-badge--bad">Failed</Badge>;
   }
   if (message.delivery_status === "read") {
-    return <Badge className="bg-green-600 text-white">Read</Badge>;
+    return <Badge className="jr-badge jr-badge--good">Read</Badge>;
   }
   if (message.delivery_status === "delivered") {
-    return <Badge className="bg-blue-600 text-white">Delivered</Badge>;
+    return <Badge className="jr-badge jr-badge--info">Delivered</Badge>;
   }
   if (message.delivery_status === "sent" || message.status === "sent") {
-    return <Badge className="bg-yellow-600 text-black">Sent</Badge>;
+    return <Badge className="jr-badge jr-badge--warn">Sent</Badge>;
   }
-  return <Badge className="bg-slate-600 text-white">Queued</Badge>;
+  return <Badge className="jr-badge jr-badge--muted">Queued</Badge>;
+}
+
+function LogoutButton() {
+  const handleLogout = () => {
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('isLoggedIn');
+    window.location.href = '/login';
+  };
+
+  return (
+    <div className="jr-logout">
+      <div className="jr-logout__inner">
+        <span className="jr-logout__role">Admin</span>
+        <button type="button" onClick={handleLogout} className="jr-logout__button">
+          Logout
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function shouldPollMessages(messages: ContractorMessageHistoryItem[]): boolean {
@@ -242,6 +262,7 @@ function extractErrorMessage(raw: string): string {
 
 export default function AdminJarvisReviews() {
   const { toast } = useToast();
+  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const [filter, setFilter] = useState<ReviewStatus | "all">("all");
   const [selected, setSelected] = useState<{ changeOrderId: string; revision: number } | null>(null);
   const [pendingDecision, setPendingDecision] = useState<ReviewDecision | null>(null);
@@ -335,6 +356,8 @@ export default function AdminJarvisReviews() {
   const filtered = filter === "all"
     ? changes
     : changes.filter((change) => change.review_status === filter);
+  const adminName = localStorage.getItem("adminName") || "Admin";
+  const adminInitials = adminName.split(" ").map((name) => name[0]).join("").slice(0, 2) || "AD";
 
   const decisionMutation = useMutation({
     mutationFn: async ({
@@ -549,49 +572,115 @@ export default function AdminJarvisReviews() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-800">
-      <div className="bg-slate-900 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white">Jarvis Shadow Reviews</h1>
-          <p className="text-sm text-slate-400">
-            Review inbox for incoming approved change orders. Decisions are recorded only — no operational data is changed.
-          </p>
+    <div className="jr-page">
+      <header className="jr-topbar">
+        <div className="jr-brand" aria-label="Sculpt Projects">
+          <span className="jr-brand__mark">
+            <img src="/sculpt-projects-logo.png" alt="" aria-hidden="true" />
+          </span>
+          <div>
+            <strong>Sculpt Projects</strong>
+            <small>Jarvis review desk</small>
+          </div>
         </div>
-        <Button
-          variant="outline"
-          className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600"
-          onClick={() => (window.location.href = "/admin-dashboard")}
-        >
-          Back to Admin
-        </Button>
-      </div>
 
-      <div className="p-4 space-y-4">
-        <div className="flex flex-wrap gap-2">
+        <nav className="jr-quicknav" aria-label="Primary admin sections">
+          <button type="button" onClick={() => (window.location.href = "/admin")}>Dashboard</button>
+          <button type="button" onClick={() => (window.location.href = "/job-assignments")}>Jobs</button>
+          <button type="button" onClick={() => (window.location.href = "/live-clock-monitor")}>Live</button>
+          <button type="button" onClick={() => (window.location.href = "/admin-inspections")}>Inspect</button>
+          <button type="button" onClick={() => (window.location.href = "/admin")}>Admin</button>
+        </nav>
+
+        <div className="jr-topbar__right">
+          <div className="jr-online"><span aria-hidden="true" />Online</div>
+          <button
+            type="button"
+            className="jr-menu-button"
+            aria-expanded={showAvatarDropdown}
+            onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
+          >
+            Menu
+          </button>
+          <button
+            type="button"
+            className="jr-avatar"
+            aria-label={`Signed in as ${adminName}`}
+            onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
+          >
+            {adminInitials}
+          </button>
+          <LogoutButton />
+
+          {showAvatarDropdown && (
+            <div className="jr-menu" role="menu">
+              <div className="jr-menu__identity">
+                <strong>{adminName}</strong>
+                <span>Admin access</span>
+              </div>
+              <div className="jr-menu__items">
+                <button type="button" onClick={() => (window.location.href = "/admin")} className="jr-menu-item" role="menuitem">
+                  <span>Admin Dashboard</span>
+                </button>
+                <button type="button" onClick={() => (window.location.href = "/job-assignments")} className="jr-menu-item" role="menuitem">
+                  <span>Job Assignments</span>
+                </button>
+                <button type="button" onClick={() => (window.location.href = "/admin")} className="jr-menu-item" role="menuitem">
+                  <span>Admin</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <nav className="jr-mobile-nav" aria-label="Primary">
+        <button type="button" onClick={() => (window.location.href = "/admin")}>Dashboard</button>
+        <button type="button" onClick={() => (window.location.href = "/job-assignments")}>Jobs</button>
+        <button type="button" onClick={() => (window.location.href = "/live-clock-monitor")}>Live</button>
+        <button type="button" onClick={() => (window.location.href = "/admin-inspections")}>Inspect</button>
+        <button type="button" onClick={() => (window.location.href = "/admin")}>Admin</button>
+      </nav>
+
+      <main className="jr-main">
+        <section className="jr-hero">
+          <div>
+            <p className="jr-eyebrow">Human approval queue</p>
+            <h1>Jarvis Shadow Reviews</h1>
+            <p>
+            Review inbox for incoming approved change orders. Decisions are recorded only — no operational data is changed.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            className="jr-button jr-button--quiet"
+            onClick={() => (window.location.href = "/admin-dashboard")}
+          >
+            Back to Admin
+          </Button>
+        </section>
+
+        <div className="jr-filters" aria-label="Review status filters">
           {FILTERS.map((option) => (
             <button
               key={option.value}
               onClick={() => setFilter(option.value)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                filter === option.value
-                  ? "bg-yellow-600 text-black"
-                  : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-              }`}
+              className={filter === option.value ? "jr-filter jr-filter--active" : "jr-filter"}
             >
               {option.label}
             </button>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-slate-900 rounded-lg border border-slate-700 p-4 space-y-3">
-            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
+        <div className="jr-workbench">
+          <div className="jr-panel jr-panel--inbox">
+            <h2 className="jr-section-title">
               Inbox ({filtered.length})
             </h2>
             {isLoading ? (
-              <div className="text-slate-400 text-sm">Loading review inbox...</div>
+              <div className="jr-empty">Loading review inbox...</div>
             ) : filtered.length === 0 ? (
-              <div className="text-slate-400 text-sm">No changes in this view.</div>
+              <div className="jr-empty">No changes in this view.</div>
             ) : (
               filtered.map((change) => {
                 const isSelected =
@@ -603,19 +692,15 @@ export default function AdminJarvisReviews() {
                     onClick={() =>
                       setSelected({ changeOrderId: change.change_order_id, revision: change.revision })
                     }
-                    className={`w-full text-left rounded-lg border p-3 transition-colors ${
-                      isSelected
-                        ? "border-yellow-600 bg-slate-800"
-                        : "border-slate-700 bg-slate-800 hover:border-slate-500"
-                    }`}
+                    className={isSelected ? "jr-inbox-card jr-inbox-card--selected" : "jr-inbox-card"}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-medium text-white truncate">{change.title}</div>
+                    <div className="jr-card-heading">
+                      <div className="jr-card-title">{change.title}</div>
                       {statusBadge(change.review_status)}
                     </div>
-                    <div className="mt-1 text-xs text-slate-400 space-y-0.5">
+                    <div className="jr-card-meta">
                       <div>
-                        CO: <span className="text-slate-300">{change.change_order_id}</span> · Rev{" "}
+                        CO: <span>{change.change_order_id}</span> · Rev{" "}
                         {change.revision}
                       </div>
                       <div>Project: {change.project_integration_id}</div>
@@ -634,75 +719,75 @@ export default function AdminJarvisReviews() {
             )}
           </div>
 
-          <div className="bg-slate-900 rounded-lg border border-slate-700 p-4">
+          <div className="jr-panel jr-panel--detail">
             {selected === null ? (
-              <div className="text-slate-400 text-sm">
+              <div className="jr-empty">
                 Select a change to review its full supplied information.
               </div>
             ) : detailLoading ? (
-              <div className="text-slate-400 text-sm">Loading change detail...</div>
+              <div className="jr-empty">Loading change detail...</div>
             ) : detail === undefined ? (
-              <div className="text-slate-400 text-sm">Change detail could not be loaded.</div>
+              <div className="jr-empty">Change detail could not be loaded.</div>
             ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-lg font-semibold text-white">{detail.title}</h2>
+              <div className="jr-detail-stack">
+                <div className="jr-detail-head">
+                  <h2>{detail.title}</h2>
                   {statusBadge(detail.review_status)}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <div className="text-slate-400">Change Order ID</div>
-                    <div className="text-slate-200">{detail.change_order_id}</div>
+                <div className="jr-facts">
+                  <div className="jr-fact">
+                    <div>Change Order ID</div>
+                    <strong>{detail.change_order_id}</strong>
                   </div>
-                  <div>
-                    <div className="text-slate-400">Revision</div>
-                    <div className="text-slate-200">{detail.revision}</div>
+                  <div className="jr-fact">
+                    <div>Revision</div>
+                    <strong>{detail.revision}</strong>
                   </div>
-                  <div>
-                    <div className="text-slate-400">Project (Integration ID)</div>
-                    <div className="text-slate-200">{detail.project_integration_id}</div>
+                  <div className="jr-fact">
+                    <div>Project (Integration ID)</div>
+                    <strong>{detail.project_integration_id}</strong>
                   </div>
-                  <div>
-                    <div className="text-slate-400">Amount</div>
-                    <div className="text-slate-200">
+                  <div className="jr-fact">
+                    <div>Amount</div>
+                    <strong>
                       {detail.currency} {formatMinorAmount(detail.approved_amount_minor)}
-                    </div>
+                    </strong>
                   </div>
-                  <div>
-                    <div className="text-slate-400">Approved By (Actor ID)</div>
-                    <div className="text-slate-200">{detail.approved_by_actor_id}</div>
+                  <div className="jr-fact">
+                    <div>Approved By (Actor ID)</div>
+                    <strong>{detail.approved_by_actor_id}</strong>
                   </div>
-                  <div>
-                    <div className="text-slate-400">Approved At</div>
-                    <div className="text-slate-200">{formatTimestamp(detail.approved_at)}</div>
+                  <div className="jr-fact">
+                    <div>Approved At</div>
+                    <strong>{formatTimestamp(detail.approved_at)}</strong>
                   </div>
-                  <div>
-                    <div className="text-slate-400">Occurred At</div>
-                    <div className="text-slate-200">{formatTimestamp(detail.occurred_at)}</div>
+                  <div className="jr-fact">
+                    <div>Occurred At</div>
+                    <strong>{formatTimestamp(detail.occurred_at)}</strong>
                   </div>
-                  <div>
-                    <div className="text-slate-400">Received At</div>
-                    <div className="text-slate-200">{formatTimestamp(detail.received_at)}</div>
+                  <div className="jr-fact">
+                    <div>Received At</div>
+                    <strong>{formatTimestamp(detail.received_at)}</strong>
                   </div>
                 </div>
 
-                <div>
-                  <div className="text-slate-400 text-sm">Scope</div>
-                  <div className="text-slate-200 text-sm whitespace-pre-wrap">{detail.scope}</div>
+                <div className="jr-section-block">
+                  <div className="jr-label">Scope</div>
+                  <div className="jr-copy">{detail.scope}</div>
                 </div>
 
-                <div>
-                  <div className="text-slate-400 text-sm mb-1">Tasks</div>
-                  <div className="rounded-lg border border-slate-700 divide-y divide-slate-700">
+                <div className="jr-section-block">
+                  <div className="jr-label">Tasks</div>
+                  <div className="jr-list">
                     {detail.tasks.map((task) => (
-                      <div key={task.task_id} className="p-3 space-y-1">
-                        <div className="text-sm font-medium text-white">{task.title}</div>
-                        <div className="text-xs text-slate-400">
+                      <div key={task.task_id} className="jr-list-item">
+                        <div className="jr-list-title">{task.title}</div>
+                        <div className="jr-card-meta">
                           {task.quantity} × {task.unit} · {detail.currency}{" "}
                           {formatMinorAmount(task.approved_amount_minor)}
                         </div>
-                        <div className="text-xs text-slate-400 whitespace-pre-wrap">
+                        <div className="jr-card-meta jr-prewrap">
                           {task.instructions}
                         </div>
                       </div>
@@ -710,40 +795,40 @@ export default function AdminJarvisReviews() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-slate-700 p-3 space-y-2">
-                  <div className="text-slate-400 text-sm font-medium">Application Readiness</div>
+                <div className="jr-subpanel">
+                  <div className="jr-label">Application Readiness</div>
                   {readiness === undefined ? (
-                    <div className="text-xs text-slate-500">
+                    <div className="jr-muted">
                       Readiness is not available for this change.
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <div className="text-slate-400 text-xs">Project (Integration ID)</div>
-                          <div className="text-slate-200">{readiness.project_integration_id}</div>
+                    <div className="jr-substack">
+                      <div className="jr-facts jr-facts--compact">
+                        <div className="jr-fact">
+                          <div>Project (Integration ID)</div>
+                          <strong>{readiness.project_integration_id}</strong>
                         </div>
-                        <div>
-                          <div className="text-slate-400 text-xs">Status</div>
-                          <div className="pt-1">{readinessBadge(readiness.status)}</div>
+                        <div className="jr-fact">
+                          <div>Status</div>
+                          <span>{readinessBadge(readiness.status)}</span>
                         </div>
                       </div>
 
                       {readiness.mapping ? (
-                        <div className="space-y-2">
-                          <div className="text-slate-400 text-xs">Mapped Job Tracker Job</div>
-                          <div className="text-slate-200 text-sm">
+                        <div className="jr-substack">
+                          <div className="jr-label">Mapped Job Tracker Job</div>
+                          <div className="jr-copy">
                             {mappedJob
                               ? `${mappedJob.title} — ${mappedJob.location}`
                               : `#${readiness.mapping.job_id}`}
                           </div>
-                          <div className="text-xs text-slate-500">
+                          <div className="jr-muted">
                             ID: {readiness.mapping.job_id} · Mapped by {readiness.mapping.mapped_by}
                           </div>
                           {readiness.status === "ready" ? (
-                            <div className="pt-1">
+                            <div>
                               <Button
-                                className="bg-yellow-600 text-black hover:bg-yellow-700"
+                                className="jr-button jr-button--primary"
                                 disabled={applyMutation.isPending}
                                 onClick={() => setApplyConfirmOpen(true)}
                               >
@@ -753,9 +838,9 @@ export default function AdminJarvisReviews() {
                           ) : null}
                         </div>
                       ) : readiness.status === "pending_mapping" ? (
-                        <div className="pt-1">
+                        <div>
                           <Button
-                            className="bg-yellow-600 text-black hover:bg-yellow-700"
+                            className="jr-button jr-button--primary"
                             onClick={() => setPickerOpen(true)}
                           >
                             Map Project
@@ -766,17 +851,17 @@ export default function AdminJarvisReviews() {
                   )}
                 </div>
 
-                <div className="rounded-lg border border-slate-700 p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="jr-subpanel">
+                  <div className="jr-inline-head">
                     <div>
-                      <div className="text-slate-400 text-sm font-medium">WhatsApp Communication</div>
-                      <div className="text-xs text-slate-500">
+                      <div className="jr-label">WhatsApp Communication</div>
+                      <div className="jr-muted">
                         Human-confirmed contractor instructions only. No automatic sends.
                       </div>
                     </div>
                     {appliedApplication && appliedJobId ? (
                       <Button
-                        className="bg-green-600 hover:bg-green-700 text-white"
+                        className="jr-button jr-button--success"
                         onClick={() => setContactOpen(true)}
                       >
                         Contact Contractor
@@ -785,53 +870,53 @@ export default function AdminJarvisReviews() {
                   </div>
 
                   {!appliedApplication ? (
-                    <div className="text-xs text-slate-500">
+                    <div className="jr-muted">
                       WhatsApp contact is available after the change has been applied.
                     </div>
                   ) : (messageHistory?.messages ?? []).length === 0 ? (
-                    <div className="text-xs text-slate-500">No WhatsApp instructions for this application yet.</div>
+                    <div className="jr-muted">No WhatsApp instructions for this application yet.</div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="jr-substack">
                       {(messageHistory?.messages ?? []).map((message) => (
-                        <div key={message.id} className="rounded-lg border border-slate-700 bg-slate-900/60 p-3 space-y-2">
-                          <div className="flex items-center justify-between gap-2">
+                        <div key={message.id} className="jr-message-card">
+                          <div className="jr-inline-head">
                             <div>
-                              <div className="text-sm font-medium text-white">
+                              <div className="jr-list-title">
                                 {message.contractor_name ?? message.contractor_id}
                               </div>
-                              <div className="text-xs text-slate-400">{message.phone_e164}</div>
+                              <div className="jr-card-meta">{message.phone_e164}</div>
                             </div>
                             {whatsappStatusBadge(message)}
                           </div>
 
-                          <div className="text-xs text-slate-400">
+                          <div className="jr-card-meta">
                             Sent: {formatTimestamp(message.sent_at)}
                             {message.provider_message_id ? ` · Provider: ${message.provider_message_id}` : ""}
                           </div>
                           {message.delivered_at ? (
-                            <div className="text-xs text-slate-400">Delivered: {formatTimestamp(message.delivered_at)}</div>
+                            <div className="jr-card-meta">Delivered: {formatTimestamp(message.delivered_at)}</div>
                           ) : null}
                           {message.read_at ? (
-                            <div className="text-xs text-slate-400">Read: {formatTimestamp(message.read_at)}</div>
+                            <div className="jr-card-meta">Read: {formatTimestamp(message.read_at)}</div>
                           ) : null}
-                          <div className="text-xs text-slate-400">
+                          <div className="jr-card-meta">
                             {message.acknowledged_at ? "Acknowledged: Contractor replied." : "Awaiting Reply"}
                           </div>
                           {message.error_code ? (
-                            <div className="text-xs text-red-300">Failure detail: {message.error_code}</div>
+                            <div className="jr-danger-text">Failure detail: {message.error_code}</div>
                           ) : null}
-                          <div className="rounded border border-slate-700 bg-slate-950/50 p-2 text-xs text-slate-200 whitespace-pre-wrap">
+                          <div className="jr-message-body">
                             {message.body}
                           </div>
                           {message.replies.length > 0 ? (
-                            <div className="space-y-2">
-                              <div className="text-xs font-medium text-slate-400">Contractor replies</div>
+                            <div className="jr-substack">
+                              <div className="jr-label">Contractor replies</div>
                               {message.replies.map((reply) => (
-                                <div key={reply.id} className="rounded border border-slate-700 bg-slate-800 p-2">
-                                  <div className="text-xs text-slate-400">
+                                <div key={reply.id} className="jr-reply-card">
+                                  <div className="jr-card-meta">
                                     {reply.phone_e164} · {formatTimestamp(reply.created_at)}
                                   </div>
-                                  <div className="text-sm text-slate-200 whitespace-pre-wrap">{reply.body}</div>
+                                  <div className="jr-copy">{reply.body}</div>
                                 </div>
                               ))}
                             </div>
@@ -843,29 +928,29 @@ export default function AdminJarvisReviews() {
                 </div>
 
                 {detail.reviewed_by ? (
-                  <div className="text-xs text-slate-400">
+                  <div className="jr-muted">
                     Reviewed by {detail.reviewed_by} on {formatTimestamp(detail.reviewed_at)}
                     {detail.note ? (
-                      <div className="mt-1 text-slate-300 whitespace-pre-wrap">Note: {detail.note}</div>
+                      <div className="jr-copy jr-copy--inline">Note: {detail.note}</div>
                     ) : null}
                   </div>
                 ) : null}
 
-                <div className="flex flex-wrap gap-2 pt-2">
+                <div className="jr-actions">
                   <Button
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="jr-button jr-button--success"
                     onClick={() => openDecision("approved")}
                   >
                     Approve
                   </Button>
                   <Button
-                    className="bg-red-600 hover:bg-red-700 text-white"
+                    className="jr-button jr-button--danger"
                     onClick={() => openDecision("rejected")}
                   >
                     Reject
                   </Button>
                   <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="jr-button jr-button--info"
                     onClick={() => openDecision("sent_back")}
                   >
                     Send Back
@@ -876,43 +961,43 @@ export default function AdminJarvisReviews() {
           </div>
         </div>
 
-        <div className="bg-slate-900 rounded-lg border border-slate-700 p-4 space-y-3">
-          <div className="flex items-center justify-between gap-2">
+        <div className="jr-panel">
+          <div className="jr-inline-head">
             <div>
-              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
+              <h2 className="jr-section-title">
                 Unmatched WhatsApp Inbound
               </h2>
-              <p className="text-xs text-slate-500">Display-only messages that need human review.</p>
+              <p className="jr-muted">Display-only messages that need human review.</p>
             </div>
-            <Badge className="bg-red-600 text-white">Needs Review</Badge>
+            <Badge className="jr-badge jr-badge--bad">Needs Review</Badge>
           </div>
           {(unmatchedInbound?.messages ?? []).length === 0 ? (
-            <div className="text-sm text-slate-500">No unmatched inbound WhatsApp messages.</div>
+            <div className="jr-empty">No unmatched inbound WhatsApp messages.</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="jr-card-grid">
               {(unmatchedInbound?.messages ?? []).map((message) => (
-                <div key={message.id} className="rounded-lg border border-slate-700 bg-slate-800 p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium text-white">{message.phone_e164}</div>
-                    <Badge className="bg-red-600 text-white">Needs Review</Badge>
+                <div key={message.id} className="jr-message-card">
+                  <div className="jr-inline-head">
+                    <div className="jr-list-title">{message.phone_e164}</div>
+                    <Badge className="jr-badge jr-badge--bad">Needs Review</Badge>
                   </div>
-                  <div className="text-xs text-slate-400">Received: {formatTimestamp(message.created_at)}</div>
-                  <div className="text-xs text-slate-400">Reason: {message.unmatched_reason}</div>
-                  <div className="text-sm text-slate-200 whitespace-pre-wrap">{message.body}</div>
+                  <div className="jr-card-meta">Received: {formatTimestamp(message.created_at)}</div>
+                  <div className="jr-card-meta">Reason: {message.unmatched_reason}</div>
+                  <div className="jr-copy">{message.body}</div>
                 </div>
               ))}
             </div>
           )}
         </div>
-      </div>
+      </main>
 
       <AlertDialog open={pendingDecision !== null} onOpenChange={(open) => !open && setPendingDecision(null)}>
-        <AlertDialogContent className="bg-slate-800 border-slate-600">
+        <AlertDialogContent className="jr-dialog">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">
+            <AlertDialogTitle className="jr-dialog-title">
               Confirm {pendingDecision === "approved" ? "Approval" : pendingDecision === "rejected" ? "Rejection" : "Send Back"}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-300">
+            <AlertDialogDescription className="jr-dialog-description">
               This records your decision against change order {selected?.changeOrderId} (revision{" "}
               {selected?.revision}). It does NOT create or modify any operational Job Tracker data.
             </AlertDialogDescription>
@@ -921,18 +1006,18 @@ export default function AdminJarvisReviews() {
             value={note}
             onChange={(event) => setNote(event.target.value)}
             placeholder="Optional note for this decision"
-            className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-400"
+            className="jr-field"
             maxLength={2000}
           />
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600"
+              className="jr-button jr-button--quiet"
               onClick={() => setNote("")}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-yellow-600 text-black hover:bg-yellow-700"
+              className="jr-button jr-button--primary"
               disabled={decisionMutation.isPending}
               onClick={confirmDecision}
             >
@@ -943,35 +1028,35 @@ export default function AdminJarvisReviews() {
       </AlertDialog>
 
       <Dialog open={pickerOpen} onOpenChange={(open) => !open && setPickerOpen(false)}>
-        <DialogContent className="bg-slate-800 border-slate-600 text-white">
+        <DialogContent className="jr-dialog">
           <DialogHeader>
-            <DialogTitle className="text-white">Map Project to an Existing Job</DialogTitle>
-            <DialogDescription className="text-slate-300">
+            <DialogTitle className="jr-dialog-title">Map Project to an Existing Job</DialogTitle>
+            <DialogDescription className="jr-dialog-description">
               Manually select ONE existing Job Tracker job for project{" "}
-              <span className="text-slate-100">{readiness?.project_integration_id}</span>. Jobs are
+              <span className="jr-strong">{readiness?.project_integration_id}</span>. Jobs are
               never auto-matched or auto-created.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
+          <div className="jr-substack">
             <Input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search by title, location or contractor..."
-              className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-400"
+              className="jr-field"
             />
 
             {jobSearchLoading ? (
-              <div className="text-sm text-slate-400">Searching jobs...</div>
+              <div className="jr-empty">Searching jobs...</div>
             ) : jobSearchResults.length === 0 ? (
-              <div className="py-8 text-center text-sm text-slate-400 border border-dashed border-slate-600 rounded-lg">
+              <div className="jr-empty jr-empty--dashed">
                 No matching jobs found.
-                <div className="mt-1 text-xs text-slate-500">
+                <div className="jr-muted">
                   No new job will be created. Adjust the search or cancel.
                 </div>
               </div>
             ) : (
-              <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-700 divide-y divide-slate-700">
+              <div className="jr-choice-list">
                 {jobSearchResults.map((job) => {
                   const isSelected = selectedJob?.id === job.id;
                   return (
@@ -979,19 +1064,15 @@ export default function AdminJarvisReviews() {
                       key={job.id}
                       type="button"
                       onClick={() => setSelectedJob(job)}
-                      className={`w-full text-left p-3 border-l-4 transition-colors ${
-                        isSelected
-                          ? "bg-slate-700 border-yellow-600"
-                          : "border-transparent hover:bg-slate-700/60"
-                      }`}
+                      className={isSelected ? "jr-choice jr-choice--selected" : "jr-choice"}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="font-medium text-white truncate">{job.title}</div>
+                      <div className="jr-card-heading">
+                        <div className="jr-card-title">{job.title}</div>
                         {jobStatusBadge(job.status)}
                       </div>
-                      <div className="mt-1 text-xs text-slate-400 space-y-0.5">
+                      <div className="jr-card-meta">
                         <div>
-                          ID: <span className="text-slate-300">{job.id}</span>
+                          ID: <span>{job.id}</span>
                         </div>
                         <div>{job.location}</div>
                         <div>
@@ -1008,7 +1089,7 @@ export default function AdminJarvisReviews() {
           <DialogFooter>
             <Button
               variant="outline"
-              className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600"
+              className="jr-button jr-button--quiet"
               onClick={() => {
                 setPickerOpen(false);
                 setSelectedJob(null);
@@ -1019,7 +1100,7 @@ export default function AdminJarvisReviews() {
               Cancel
             </Button>
             <Button
-              className="bg-yellow-600 text-black hover:bg-yellow-700"
+              className="jr-button jr-button--primary"
               disabled={selectedJob === null}
               onClick={() => setConfirmOpen(true)}
             >
@@ -1030,24 +1111,24 @@ export default function AdminJarvisReviews() {
       </Dialog>
 
       <AlertDialog open={confirmOpen} onOpenChange={(open) => !open && setConfirmOpen(false)}>
-        <AlertDialogContent className="bg-slate-800 border-slate-600">
+        <AlertDialogContent className="jr-dialog">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Confirm Project Mapping</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-300">
+            <AlertDialogTitle className="jr-dialog-title">Confirm Project Mapping</AlertDialogTitle>
+            <AlertDialogDescription className="jr-dialog-description">
               Map project{" "}
-              <span className="text-slate-100 font-medium">{readiness?.project_integration_id}</span>{" "}
+              <span className="jr-strong">{readiness?.project_integration_id}</span>{" "}
               to Job Tracker job{" "}
-              <span className="text-slate-100 font-medium">{selectedJob?.id}</span> —{" "}
+              <span className="jr-strong">{selectedJob?.id}</span> —{" "}
               {selectedJob?.title} ({selectedJob?.location})? This only records the human mapping.
               No operational job/task data is changed and no application is created yet.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600">
+            <AlertDialogCancel className="jr-button jr-button--quiet">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-yellow-600 text-black hover:bg-yellow-700"
+              className="jr-button jr-button--primary"
               disabled={mappingMutation.isPending}
               onClick={confirmMapping}
             >
@@ -1061,55 +1142,55 @@ export default function AdminJarvisReviews() {
         open={applyConfirmOpen}
         onOpenChange={(open) => !open && setApplyConfirmOpen(false)}
       >
-        <AlertDialogContent className="bg-slate-800 border-slate-600 max-h-[85vh] overflow-y-auto">
+        <AlertDialogContent className="jr-dialog jr-dialog--scroll">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Final Confirmation: Apply to Job</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-300">
+            <AlertDialogTitle className="jr-dialog-title">Final Confirmation: Apply to Job</AlertDialogTitle>
+            <AlertDialogDescription className="jr-dialog-description">
               This will append the approved scope and tasks to the mapped Job Tracker job. Existing
               job information will not be replaced.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className="space-y-4 text-sm">
-            <div className="rounded-lg border border-slate-700 p-3 space-y-1">
-              <div className="text-slate-400 text-xs font-medium">Mapped Job Tracker Job</div>
-              <div className="text-slate-100">
+          <div className="jr-substack">
+            <div className="jr-subpanel">
+              <div className="jr-label">Mapped Job Tracker Job</div>
+              <div className="jr-copy">
                 {mappedJob ? mappedJob.title : `Job ${readiness?.mapping?.job_id}`}
               </div>
-              <div className="text-slate-300">
+              <div className="jr-card-meta">
                 ID: {readiness?.mapping?.job_id} · Location: {mappedJob?.location ?? "—"}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className="text-slate-400 text-xs">Change Order ID</div>
-                <div className="text-slate-200">{readiness?.change_order_id}</div>
+            <div className="jr-facts">
+              <div className="jr-fact">
+                <div>Change Order ID</div>
+                <strong>{readiness?.change_order_id}</strong>
               </div>
-              <div>
-                <div className="text-slate-400 text-xs">Revision</div>
-                <div className="text-slate-200">{readiness?.revision}</div>
+              <div className="jr-fact">
+                <div>Revision</div>
+                <strong>{readiness?.revision}</strong>
               </div>
             </div>
 
-            <div>
-              <div className="text-slate-400 text-xs">Scope</div>
-              <div className="text-slate-200 whitespace-pre-wrap">
+            <div className="jr-section-block">
+              <div className="jr-label">Scope</div>
+              <div className="jr-copy">
                 {detail?.scope ?? readiness?.title}
               </div>
             </div>
 
             {detail && detail.tasks.length > 0 ? (
-              <div>
-                <div className="text-slate-400 text-xs mb-1">Tasks</div>
-                <div className="rounded-lg border border-slate-700 divide-y divide-slate-700">
+              <div className="jr-section-block">
+                <div className="jr-label">Tasks</div>
+                <div className="jr-list">
                   {detail.tasks.map((task) => (
-                    <div key={task.task_id} className="p-2 space-y-0.5">
-                      <div className="font-medium text-white">{task.title}</div>
-                      <div className="text-xs text-slate-400">
+                    <div key={task.task_id} className="jr-list-item">
+                      <div className="jr-list-title">{task.title}</div>
+                      <div className="jr-card-meta">
                         {task.quantity} × {task.unit}
                       </div>
-                      <div className="text-xs text-slate-400 whitespace-pre-wrap">
+                      <div className="jr-card-meta jr-prewrap">
                         {task.instructions}
                       </div>
                     </div>
@@ -1118,22 +1199,22 @@ export default function AdminJarvisReviews() {
               </div>
             ) : null}
 
-            <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
-              <div className="text-slate-300">
+            <div className="jr-subpanel jr-subpanel--accent">
+              <div className="jr-copy">
                 {readiness?.currency} {formatMinorAmount(readiness?.approved_amount_minor ?? 0)}
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="jr-muted">
                 Reference only — not written to Job Tracker operational or financial data.
               </div>
             </div>
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600">
+            <AlertDialogCancel className="jr-button jr-button--quiet">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-yellow-600 text-black hover:bg-yellow-700"
+              className="jr-button jr-button--primary"
               disabled={applyMutation.isPending}
               onClick={confirmApply}
             >
@@ -1153,25 +1234,25 @@ export default function AdminJarvisReviews() {
           }
         }}
       >
-        <DialogContent className="bg-slate-800 border-slate-600 text-white max-h-[85vh] overflow-y-auto">
+        <DialogContent className="jr-dialog jr-dialog--scroll">
           <DialogHeader>
-            <DialogTitle className="text-white">Contact Contractor</DialogTitle>
-            <DialogDescription className="text-slate-300">
+            <DialogTitle className="jr-dialog-title">Contact Contractor</DialogTitle>
+            <DialogDescription className="jr-dialog-description">
               Manually select a contractor, preview the exact WhatsApp instruction, then confirm before sending.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <div className="text-sm font-medium text-slate-300 mb-2">Select Contractor</div>
+          <div className="jr-substack">
+            <div className="jr-section-block">
+              <div className="jr-label">Select Contractor</div>
               {contractorCandidatesLoading ? (
-                <div className="text-sm text-slate-400">Loading contractors...</div>
+                <div className="jr-empty">Loading contractors...</div>
               ) : (contractorCandidates?.contractors ?? []).length === 0 ? (
-                <div className="text-sm text-slate-400 border border-dashed border-slate-600 rounded-lg p-4">
+                <div className="jr-empty jr-empty--dashed">
                   No contractor candidates with an approved phone were found for this job.
                 </div>
               ) : (
-                <div className="max-h-56 overflow-y-auto rounded-lg border border-slate-700 divide-y divide-slate-700">
+                <div className="jr-choice-list jr-choice-list--short">
                   {(contractorCandidates?.contractors ?? []).map((contractor) => {
                     const isSelected = selectedContractor?.contractor_id === contractor.contractor_id;
                     return (
@@ -1182,21 +1263,17 @@ export default function AdminJarvisReviews() {
                           setSelectedContractor(contractor);
                           setMessagePreview(null);
                         }}
-                        className={`w-full text-left p-3 border-l-4 transition-colors ${
-                          isSelected
-                            ? "bg-slate-700 border-green-600"
-                            : "border-transparent hover:bg-slate-700/60"
-                        }`}
+                        className={isSelected ? "jr-choice jr-choice--success" : "jr-choice"}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="font-medium text-white">{contractor.name}</div>
+                        <div className="jr-card-heading">
+                          <div className="jr-card-title">{contractor.name}</div>
                           {contractor.assigned_job_id ? (
-                            <Badge className="bg-blue-600 text-white">Assigned Job</Badge>
+                            <Badge className="jr-badge jr-badge--info">Assigned Job</Badge>
                           ) : null}
                         </div>
-                        <div className="text-xs text-slate-400">{contractor.phone}</div>
+                        <div className="jr-card-meta">{contractor.phone}</div>
                         {contractor.assigned_job_title ? (
-                          <div className="text-xs text-slate-500">{contractor.assigned_job_title}</div>
+                          <div className="jr-muted">{contractor.assigned_job_title}</div>
                         ) : null}
                       </button>
                     );
@@ -1206,24 +1283,24 @@ export default function AdminJarvisReviews() {
             </div>
 
             {messagePreview ? (
-              <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3 space-y-3">
+              <div className="jr-subpanel jr-subpanel--accent">
                 <div>
-                  <div className="text-sm font-medium text-slate-300">Preview</div>
-                  <div className="text-xs text-slate-500">No WhatsApp message has been sent yet.</div>
+                  <div className="jr-label">Preview</div>
+                  <div className="jr-muted">No WhatsApp message has been sent yet.</div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <div className="text-slate-400 text-xs">Contractor</div>
-                    <div className="text-slate-100">{messagePreview.contractor_name}</div>
+                <div className="jr-facts jr-facts--compact">
+                  <div className="jr-fact">
+                    <div>Contractor</div>
+                    <strong>{messagePreview.contractor_name}</strong>
                   </div>
-                  <div>
-                    <div className="text-slate-400 text-xs">Destination Phone</div>
-                    <div className="text-slate-100">{messagePreview.phone_e164}</div>
+                  <div className="jr-fact">
+                    <div>Destination Phone</div>
+                    <strong>{messagePreview.phone_e164}</strong>
                   </div>
                 </div>
-                <div>
-                  <div className="text-slate-400 text-xs mb-1">Exact Message Body</div>
-                  <div className="rounded border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200 whitespace-pre-wrap">
+                <div className="jr-section-block">
+                  <div className="jr-label">Exact Message Body</div>
+                  <div className="jr-message-body jr-message-body--large">
                     {messagePreview.body}
                   </div>
                 </div>
@@ -1234,20 +1311,20 @@ export default function AdminJarvisReviews() {
           <DialogFooter>
             <Button
               variant="outline"
-              className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600"
+              className="jr-button jr-button--quiet"
               onClick={resetContactDialog}
             >
               Cancel
             </Button>
             <Button
-              className="bg-yellow-600 text-black hover:bg-yellow-700"
+              className="jr-button jr-button--primary"
               disabled={selectedContractor === null || previewMutation.isPending}
               onClick={() => previewMutation.mutate()}
             >
               {previewMutation.isPending ? "Previewing..." : "Preview"}
             </Button>
             <Button
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="jr-button jr-button--success"
               disabled={messagePreview === null}
               onClick={() => setSendConfirmOpen(true)}
             >
@@ -1261,24 +1338,24 @@ export default function AdminJarvisReviews() {
         open={sendConfirmOpen}
         onOpenChange={(open) => !open && setSendConfirmOpen(false)}
       >
-        <AlertDialogContent className="bg-slate-800 border-slate-600 max-h-[85vh] overflow-y-auto">
+        <AlertDialogContent className="jr-dialog jr-dialog--scroll">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Final Confirmation: Send WhatsApp</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-300">
+            <AlertDialogTitle className="jr-dialog-title">Final Confirmation: Send WhatsApp</AlertDialogTitle>
+            <AlertDialogDescription className="jr-dialog-description">
               This WhatsApp instruction will now be sent to the selected contractor.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           {messagePreview ? (
-            <div className="space-y-3 text-sm">
-              <div className="rounded-lg border border-slate-700 p-3">
-                <div className="text-slate-400 text-xs">Contractor</div>
-                <div className="text-slate-100">{messagePreview.contractor_name}</div>
-                <div className="text-slate-300">{messagePreview.phone_e164}</div>
+            <div className="jr-substack">
+              <div className="jr-subpanel">
+                <div className="jr-label">Contractor</div>
+                <div className="jr-copy">{messagePreview.contractor_name}</div>
+                <div className="jr-card-meta">{messagePreview.phone_e164}</div>
               </div>
-              <div>
-                <div className="text-slate-400 text-xs mb-1">Full Message Body</div>
-                <div className="rounded border border-slate-700 bg-slate-950/50 p-3 text-slate-200 whitespace-pre-wrap">
+              <div className="jr-section-block">
+                <div className="jr-label">Full Message Body</div>
+                <div className="jr-message-body jr-message-body--large">
                   {messagePreview.body}
                 </div>
               </div>
@@ -1286,11 +1363,11 @@ export default function AdminJarvisReviews() {
           ) : null}
 
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600">
+            <AlertDialogCancel className="jr-button jr-button--quiet">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="jr-button jr-button--success"
               disabled={sendMessageMutation.isPending || messagePreview === null}
               onClick={() => sendMessageMutation.mutate()}
             >

@@ -47,7 +47,91 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1786377600000,
+      "when": 1786291200311,
+      "tag": "0006_operational_jobs_client_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786291200312,
+      "tag": "0007_phase2a_source_import_work_area",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786291200313,
+      "tag": "0008_phase2b_drawing_structure",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786291200314,
+      "tag": "0009_phase2c_hbxl_resource_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786291200315,
+      "tag": "0010_phase2d_measurable_work_provenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786291200316,
+      "tag": "0011_phase2e1_contract_packages_tender_rates",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786291200317,
+      "tag": "0012_phase2e2a_progress_claims_inspections",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786291200318,
+      "tag": "0013_phase2e2b_approved_work_valuation",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786291200319,
+      "tag": "0014_phase2l_contractor_actual_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1786291200320,
+      "tag": "0015_phase2m_procurement_requirements_supplier_quotes",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1786291200321,
+      "tag": "0016_phase2n_purchase_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786291200322,
+      "tag": "0017_phase2o_goods_receipts_supplier_invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786291200323,
       "tag": "0018_client_contact_methods",
       "breakpoints": true
     },

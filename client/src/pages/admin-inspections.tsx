@@ -1,11 +1,28 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { CalendarDays, MapPin, User, AlertTriangle, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import "./admin-inspections.css";
+
+function LogoutButton() {
+  const handleLogout = () => {
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('isLoggedIn');
+    window.location.href = '/login';
+  };
+
+  return (
+    <div className="ai-logout">
+      <div className="ai-logout__inner">
+        <span className="ai-logout__role">Admin</span>
+        <button type="button" onClick={handleLogout} className="ai-logout__button">
+          Logout
+        </button>
+      </div>
+    </div>
+  );
+}
 
 interface PendingInspection {
   id: string;
@@ -20,6 +37,7 @@ interface PendingInspection {
 
 export default function AdminInspections() {
   const { toast } = useToast();
+  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
 
   const { data: pendingInspections = [], isLoading } = useQuery<PendingInspection[]>({
     queryKey: ["/api/pending-inspections"],
@@ -49,116 +67,280 @@ export default function AdminInspections() {
     },
   });
 
-  const getBadgeColor = (notificationType: string) => {
-    return notificationType === "50_percent_ready" ? "bg-yellow-500" : "bg-green-500";
+  const getStatusClass = (notificationType: string) => {
+    return notificationType === "50_percent_ready" ? "ai-status ai-status--warn" : "ai-status ai-status--good";
   };
+
+  const getNotificationLabel = (notificationType: string) => notificationType.replace('_', ' ').toUpperCase();
 
   const getIcon = (notificationType: string) => {
     return notificationType === "50_percent_ready" ? (
-      <AlertTriangle className="h-4 w-4" />
+      <AlertTriangle className="ai-inspection-icon" aria-hidden="true" />
     ) : (
-      <CheckCircle className="h-4 w-4" />
+      <CheckCircle className="ai-inspection-icon" aria-hidden="true" />
     );
   };
 
+  const adminName = localStorage.getItem('adminName') || 'Admin';
+  const adminInitials = adminName.split(' ').map((name) => name[0]).join('').slice(0, 2) || 'AD';
+  const fiftyPercentCount = pendingInspections.filter((inspection) => inspection.notificationType === "50_percent_ready").length;
+  const finalInspectionCount = Math.max(pendingInspections.length - fiftyPercentCount, 0);
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-800 p-4">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-bold text-amber-400 mb-6">Admin Inspections</h1>
-          <div className="text-slate-300">Loading pending inspections...</div>
-        </div>
+      <div className="ai-page">
+        <InspectionTopbar
+          adminInitials={adminInitials}
+          adminName={adminName}
+          showAvatarDropdown={showAvatarDropdown}
+          setShowAvatarDropdown={setShowAvatarDropdown}
+        />
+        <main className="ai-shell">
+          <section className="ai-hero" aria-labelledby="admin-inspections-title">
+            <div>
+              <p className="ai-kicker">Inspections</p>
+              <h1 id="admin-inspections-title">Site milestones waiting for review.</h1>
+              <span>Monitor job progress and complete required inspections at 50% and 100% milestones.</span>
+            </div>
+          </section>
+          <div className="ai-empty ai-empty--loading">
+            <div className="ai-spinner" aria-hidden="true"></div>
+            <strong>Loading pending inspections...</strong>
+          </div>
+        </main>
+        <InspectionMobileNav />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-800 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-amber-400 mb-2">Admin Inspections</h1>
-          <p className="text-slate-300">
-            Monitor job progress and complete required site inspections at 50% and 100% milestones
-          </p>
-        </div>
+    <div className="ai-page">
+      <InspectionTopbar
+        adminInitials={adminInitials}
+        adminName={adminName}
+        showAvatarDropdown={showAvatarDropdown}
+        setShowAvatarDropdown={setShowAvatarDropdown}
+      />
 
-        {pendingInspections.length === 0 ? (
-          <Card className="bg-slate-700 border-slate-600">
-            <CardContent className="p-8 text-center">
-              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-200 mb-2">
-                No Pending Inspections
-              </h3>
-              <p className="text-slate-400">
-                All current jobs are either below 50% completion or have completed their required inspections.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {pendingInspections.map((inspection) => (
-              <Card key={inspection.id} className="bg-slate-700 border-slate-600">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      {getIcon(inspection.notificationType)}
+      <main className="ai-shell">
+        <section className="ai-hero" aria-labelledby="admin-inspections-title">
+          <div className="ai-hero__copy">
+            <p className="ai-kicker">Inspections</p>
+            <h1 id="admin-inspections-title">Site milestones waiting for review.</h1>
+            <span>Monitor job progress and complete required inspections at 50% and 100% milestones.</span>
+          </div>
+
+          <div className="ai-metrics" aria-label="Inspection totals">
+            <div>
+              <strong>{pendingInspections.length}</strong>
+              <span>Pending</span>
+            </div>
+            <div>
+              <strong>{fiftyPercentCount}</strong>
+              <span>50% checks</span>
+            </div>
+            <div>
+              <strong>{finalInspectionCount}</strong>
+              <span>Final reviews</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="ai-panel" aria-labelledby="pending-inspections-title">
+          <div className="ai-panel__head">
+            <div>
+              <p className="ai-kicker">Pending queue</p>
+              <h2 id="pending-inspections-title">Admin Inspections</h2>
+            </div>
+            <span className="ai-count">{pendingInspections.length} open</span>
+          </div>
+
+          <div className="ai-panel__body">
+            {pendingInspections.length === 0 ? (
+              <div className="ai-empty">
+                <div className="ai-empty__mark">
+                  <CheckCircle aria-hidden="true" />
+                </div>
+                <div>
+                  <h3>No Pending Inspections</h3>
+                  <p>All current jobs are either below 50% completion or have completed their required inspections.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="ai-inspection-list">
+                {pendingInspections.map((inspection) => (
+                  <article key={inspection.id} className="ai-inspection-card">
+                    <div className="ai-inspection-card__head">
+                      <div className="ai-inspection-title">
+                        <div className="ai-inspection-mark">
+                          {getIcon(inspection.notificationType)}
+                        </div>
+                        <div>
+                          <h3>{inspection.inspectionType}</h3>
+                          <p>Job: {inspection.jobTitle}</p>
+                        </div>
+                      </div>
+                      <span className={getStatusClass(inspection.notificationType)}>
+                        {getNotificationLabel(inspection.notificationType)}
+                      </span>
+                    </div>
+
+                    <div className="ai-detail-grid">
                       <div>
-                        <CardTitle className="text-slate-200 text-lg">
-                          {inspection.inspectionType}
-                        </CardTitle>
-                        <CardDescription className="text-slate-400">
-                          Job: {inspection.jobTitle}
-                        </CardDescription>
+                        <User aria-hidden="true" />
+                        <span>Contractor</span>
+                        <strong>{inspection.contractorName}</strong>
+                      </div>
+                      <div>
+                        <MapPin aria-hidden="true" />
+                        <span>Location</span>
+                        <strong>{inspection.jobLocation}</strong>
+                      </div>
+                      <div>
+                        <CalendarDays aria-hidden="true" />
+                        <span>Triggered</span>
+                        <strong>{new Date(inspection.createdAt).toLocaleDateString()}</strong>
                       </div>
                     </div>
-                    <Badge 
-                      className={`${getBadgeColor(inspection.notificationType)} text-white`}
-                    >
-                      {inspection.notificationType.replace('_', ' ').toUpperCase()}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <User className="h-4 w-4 text-amber-400" />
-                      <span>Contractor: {inspection.contractorName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <MapPin className="h-4 w-4 text-amber-400" />
-                      <span>Location: {inspection.jobLocation}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <CalendarDays className="h-4 w-4 text-amber-400" />
-                      <span>Triggered: {new Date(inspection.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-3 pt-3">
-                    <Button
-                      onClick={() => completeInspectionMutation.mutate(inspection.id)}
-                      disabled={completeInspectionMutation.isPending}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      {completeInspectionMutation.isPending ? "Completing..." : "Mark Inspection Complete"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
 
-        <div className="mt-8 p-4 bg-slate-700 rounded-lg border border-slate-600">
-          <h3 className="text-lg font-semibold text-amber-400 mb-2">How It Works</h3>
-          <ul className="text-slate-300 space-y-1 text-sm">
-            <li>• <strong>50% Inspection:</strong> Triggered automatically when job reaches 50% completion</li>
-            <li>• <strong>100% Inspection:</strong> Triggered when job is marked as fully complete</li>
-            <li>• Click "Mark Inspection Complete" to confirm the inspection has been done</li>
-            <li>• Use other admin tools for detailed site reports and quality assessments</li>
+                    <div className="ai-actions">
+                      <button
+                        onClick={() => completeInspectionMutation.mutate(inspection.id)}
+                        disabled={completeInspectionMutation.isPending}
+                        className="ai-button ai-button--success"
+                      >
+                        {completeInspectionMutation.isPending ? "Completing..." : "Mark Inspection Complete"}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="ai-guide" aria-labelledby="inspection-guide-title">
+          <div>
+            <p className="ai-kicker">Workflow</p>
+            <h2 id="inspection-guide-title">How It Works</h2>
+          </div>
+          <ul>
+            <li><strong>50% Inspection:</strong> Triggered automatically when job reaches 50% completion</li>
+            <li><strong>100% Inspection:</strong> Triggered when job is marked as fully complete</li>
+            <li>Click "Mark Inspection Complete" to confirm the inspection has been done</li>
+            <li>Use other admin tools for detailed site reports and quality assessments</li>
           </ul>
+        </section>
+      </main>
+
+      <InspectionMobileNav />
+    </div>
+  );
+}
+
+function InspectionTopbar({
+  adminInitials,
+  adminName,
+  showAvatarDropdown,
+  setShowAvatarDropdown,
+}: {
+  adminInitials: string;
+  adminName: string;
+  showAvatarDropdown: boolean;
+  setShowAvatarDropdown: (show: boolean) => void;
+}) {
+  return (
+    <header className="ai-topbar">
+      <div className="ai-brand" aria-label="Sculpt Projects admin dashboard">
+        <div className="ai-brand__mark">
+          <img src="/sculpt-projects-logo.png" alt="" aria-hidden="true" />
+        </div>
+        <div className="ai-brand__copy">
+          <strong>Sculpt Projects</strong>
+          <small>Operations dashboard</small>
         </div>
       </div>
-    </div>
+
+      <nav className="ai-desktop-nav" aria-label="Primary admin sections">
+        <button type="button" onClick={() => window.location.href = '/admin'}>Dashboard</button>
+        <button type="button" onClick={() => window.location.href = '/job-assignments'}>Jobs</button>
+        <button type="button" onClick={() => window.location.href = '/live-clock-monitor'}>Live</button>
+        <button type="button" className="is-active" aria-current="page">Inspect</button>
+        <button type="button" onClick={() => window.location.href = '/admin'}>Admin</button>
+      </nav>
+
+      <div className="ai-topbar__status">
+        <span className="ai-online"><i aria-hidden="true"></i>Online</span>
+        <button
+          type="button"
+          className="ai-menu-button"
+          aria-expanded={showAvatarDropdown}
+          onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
+        >
+          Menu
+        </button>
+        <button
+          type="button"
+          className="ai-avatar"
+          aria-label={`Signed in as ${adminName}`}
+          onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
+        >
+          {adminInitials}
+        </button>
+        <LogoutButton />
+
+        {showAvatarDropdown && (
+          <div className="ai-menu" role="menu">
+            <div className="ai-menu__identity">
+              <strong>{adminName}</strong>
+              <span>Admin access</span>
+            </div>
+            <div className="ai-menu__items">
+              <button type="button" onClick={() => window.location.href = '/admin'} className="ai-menu-item" role="menuitem">
+                <i className="fas fa-tachometer-alt" aria-hidden="true"></i>
+                <span>Admin Dashboard</span>
+              </button>
+              <button type="button" onClick={() => window.location.href = '/payroll-overview'} className="ai-menu-item" role="menuitem">
+                <i className="fas fa-clock" aria-hidden="true"></i>
+                <span>Time Tracking</span>
+              </button>
+              <button type="button" onClick={() => window.location.href = '/job-assignments'} className="ai-menu-item" role="menuitem">
+                <i className="fas fa-tasks" aria-hidden="true"></i>
+                <span>Job Assignments</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}
+
+function InspectionMobileNav() {
+  return (
+    <nav className="ai-mobile-nav" aria-label="Primary">
+      <div className="ai-mobile-nav__grid">
+        <button type="button" onClick={() => window.location.href = '/admin'}>
+          <i className="fas fa-home" aria-hidden="true"></i>
+          <span>Dashboard</span>
+        </button>
+        <button type="button" onClick={() => window.location.href = '/job-assignments'}>
+          <i className="fas fa-briefcase" aria-hidden="true"></i>
+          <span>Jobs</span>
+        </button>
+        <button type="button" onClick={() => window.location.href = '/live-clock-monitor'}>
+          <i className="fas fa-clock" aria-hidden="true"></i>
+          <span>Live</span>
+        </button>
+        <button type="button" className="is-active" aria-current="page">
+          <i className="fas fa-clipboard-check" aria-hidden="true"></i>
+          <span>Inspect</span>
+        </button>
+        <button type="button" onClick={() => window.location.href = '/admin'}>
+          <i className="fas fa-user-cog" aria-hidden="true"></i>
+          <span>Admin</span>
+        </button>
+      </div>
+    </nav>
   );
 }

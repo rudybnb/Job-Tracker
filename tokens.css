@@ -1,0 +1,100 @@
+/* Hallmark tokens · Sculpt Projects admin dashboard · custom deep-slate / geometric-sans / brighter-brass */
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap");
+
+:root {
+  --sp-color-paper: #111827;
+  --sp-color-paper-2: #172032;
+  --sp-color-paper-3: #0f1624;
+  --sp-color-panel: #1f2937;
+  --sp-color-surface: #263244;
+  --sp-color-surface-muted: #2e3a4b;
+  --sp-color-ink: #eeeae1;
+  --sp-color-ink-2: #d8d4cb;
+  --sp-color-muted: #aaa7a0;
+  --sp-color-rule: #3f4a5a;
+  --sp-color-rule-strong: #566274;
+  --sp-color-accent: #d0b873;
+  --sp-color-accent-ink: #111827;
+  --sp-color-accent-soft: #3a3323;
+  --sp-color-accent-rule: #746238;
+  --sp-color-focus: #e2ca85;
+  --sp-color-success: oklch(75% 0.11 150);
+  --sp-color-success-ink: oklch(86% 0.10 150);
+  --sp-color-success-soft: oklch(24% 0.035 150);
+  --sp-color-success-rule: oklch(43% 0.05 150);
+  --sp-color-warn-soft: #372f21;
+  --sp-color-warn-ink: #d7ba79;
+  --sp-color-warn-rule: #746238;
+  --sp-color-danger: oklch(72% 0.15 28);
+  --sp-color-danger-soft: oklch(23% 0.05 28);
+  --sp-color-danger-rule: oklch(43% 0.08 28);
+  --sp-color-info: oklch(74% 0.09 235);
+  --sp-color-purple: oklch(77% 0.10 310);
+  --sp-color-scrim: rgb(8 13 22 / 0.54);
+  --sp-color-transparent: rgb(17 24 39 / 0);
+  --sp-color-shadow: rgb(7 11 18 / 0.38);
+
+  --sp-font-display: "Bricolage Grotesque", "Geist", ui-sans-serif, sans-serif;
+  --sp-font-body: "Geist", "IBM Plex Sans", ui-sans-serif, sans-serif;
+  --sp-font-outlier: "JetBrains Mono", ui-monospace, monospace;
+
+  --sp-space-3xs: 0.125rem;
+  --sp-space-2xs: 0.25rem;
+  --sp-space-xs: 0.5rem;
+  --sp-space-sm: 0.75rem;
+  --sp-space-md: 1rem;
+  --sp-space-lg: 1.5rem;
+  --sp-space-xl: 2.5rem;
+  --sp-space-2xl: 4rem;
+  --sp-space-3xl: 6rem;
+  --sp-space-4xl: 8rem;
+
+  --sp-text-xs: 0.75rem;
+  --sp-text-sm: 0.875rem;
+  --sp-text-base: 1rem;
+  --sp-text-md: 1.125rem;
+  --sp-text-lg: 1.375rem;
+  --sp-text-xl: 1.75rem;
+  --sp-text-2xl: 2.25rem;
+  --sp-text-display: clamp(3rem, 6vw + 0.5rem, 5.25rem);
+  --sp-text-display-sm: clamp(2.45rem, 12vw, 4.1rem);
+  --sp-leading-display: 0.96;
+  --sp-leading-tight: 1.12;
+  --sp-leading-normal: 1.55;
+  --sp-track-tight: -0.035em;
+  --sp-track-wide: 0.12em;
+
+  --sp-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --sp-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --sp-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --sp-dur-micro: 120ms;
+  --sp-dur-short: 220ms;
+  --sp-dur-long: 420ms;
+  --sp-dur-reduced: 150ms;
+
+  --sp-rule-hairline: 1px;
+  --sp-radius-sm: 0.5rem;
+  --sp-radius-md: 0.75rem;
+  --sp-radius-lg: 1rem;
+  --sp-radius-xl: 1.5rem;
+  --sp-radius-button: 999px;
+  --sp-radius-pill: 999px;
+  --sp-radius-round: 999px;
+  --sp-size-control: 2.75rem;
+  --sp-size-touch: 2.75rem;
+  --sp-page-max: 92rem;
+  --sp-shadow-panel: 0 2rem 5rem -3rem var(--sp-color-shadow);
+  --sp-focus-ring: 2px solid var(--sp-color-focus);
+  --sp-focus-offset: 3px;
+  --sp-hover-lift: -1px;
+  --sp-press-shift: 1px;
+  --sp-menu-enter-y: -0.625rem;
+  --sp-opacity-disabled: 0.55;
+  --sp-z-base: 1;
+  --sp-z-raised: 10;
+  --sp-z-dropdown: 100;
+  --sp-z-sticky: 200;
+  --sp-z-modal: 400;
+  --sp-z-toast: 500;
+  --sp-z-tooltip: 600;
+}

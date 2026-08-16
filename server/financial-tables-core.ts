@@ -2,17 +2,6 @@ export type SqlExecutor = (query: string) => Promise<unknown>;
 
 export function financialTableStatements(): ReadonlyArray<string> {
   return [
-    `CREATE TABLE IF NOT EXISTS clients (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  email VARCHAR(255),
-  phone VARCHAR(50),
-  address TEXT,
-  total_spent DECIMAL(12,2) DEFAULT 0,
-  active_jobs INTEGER DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);`,
     `CREATE TABLE IF NOT EXISTS job_phases (
   id SERIAL PRIMARY KEY,
   job_id VARCHAR REFERENCES jobs(id) ON DELETE CASCADE,
@@ -102,24 +91,6 @@ export function financialTableStatements(): ReadonlyArray<string> {
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );`,
-    `CREATE TABLE IF NOT EXISTS contractor_payments (
-  id SERIAL PRIMARY KEY,
-  contractor_id VARCHAR REFERENCES contractors(id) ON DELETE CASCADE,
-  assignment_id INTEGER REFERENCES phase_assignments(id) ON DELETE CASCADE,
-  milestone_id INTEGER REFERENCES milestones(id) ON DELETE SET NULL,
-  payment_amount DECIMAL(12,2) NOT NULL,
-  payment_method VARCHAR(50),
-  payment_reference VARCHAR(100),
-  period_start_date DATE,
-  period_end_date DATE,
-  hours_worked DECIMAL(10,2),
-  days_worked DECIMAL(10,2),
-  payment_status VARCHAR(50) DEFAULT 'pending',
-  payment_date DATE,
-  notes TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);`,
     `CREATE TABLE IF NOT EXISTS work_hours (
   id SERIAL PRIMARY KEY,
   contractor_id VARCHAR REFERENCES contractors(id) ON DELETE CASCADE,
@@ -169,9 +140,6 @@ export function financialTableStatements(): ReadonlyArray<string> {
     `CREATE INDEX IF NOT EXISTS idx_milestones_assignment_id ON milestones(assignment_id);`,
     `CREATE INDEX IF NOT EXISTS idx_expenses_phase_id ON expenses(phase_id);`,
     `CREATE INDEX IF NOT EXISTS idx_expenses_sub_phase_id ON expenses(sub_phase_id);`,
-    `CREATE INDEX IF NOT EXISTS idx_contractor_payments_contractor_id ON contractor_payments(contractor_id);`,
-    `CREATE INDEX IF NOT EXISTS idx_contractor_payments_assignment_id ON contractor_payments(assignment_id);`,
-    `CREATE INDEX IF NOT EXISTS idx_contractor_payments_milestone_id ON contractor_payments(milestone_id);`,
     `CREATE INDEX IF NOT EXISTS idx_work_hours_contractor_id ON work_hours(contractor_id);`,
     `CREATE INDEX IF NOT EXISTS idx_work_hours_assignment_id ON work_hours(assignment_id);`,
     `CREATE INDEX IF NOT EXISTS idx_budget_alerts_job_id ON budget_alerts(job_id);`,

@@ -20,9 +20,17 @@ import { SqlContractorMessageService } from "./integration-contractor-message-se
 import { createContractorMessageRouter } from "./integration-contractor-message-route.ts";
 import { createWhatsAppWebhookRouter } from "./whatsapp-webhook-route.ts";
 import { createWhatsAppProvider } from "./whatsapp.ts";
-import { createJarvisIdentityResolverRouter, SqlJarvisIdentityResolver } from "./jarvis-identity-resolver.ts";
+import { PostgresLabourCostExecutor } from "./labour-cost-executor.ts";
+import { SqlLabourCostReviewRepository } from "./labour-cost-review.ts";
+import { SqlLabourSettlementRepository } from "./labour-settlement.ts";
+import { createLabourCostReviewRouter } from "./labour-cost-routes.ts";
 import { createSiteCheckinRouter } from "./site-checkin-routes.ts";
 import { PostgresSiteCheckinStore } from "./site-checkin-repository.ts";
+import { CommercialFinanceRepository } from "./commercial-finance.ts";
+import { createCommercialFinanceRouter } from "./commercial-finance-routes.ts";
+import { BankReconciliationRepository } from "./monzo-bank.ts";
+import { createBankRouter } from "./bank-routes.ts";
+import { createJarvisIdentityResolverRouter, SqlJarvisIdentityResolver } from "./jarvis-identity-resolver.ts";
 
 const app = express();
 // Allow mobile WebView (capacitor://localhost) and other origins to call the API
@@ -62,6 +70,7 @@ app.use(createWhatsAppWebhookRouter({
   service: contractorMessageService,
   verifyToken: process.env.WHATSAPP_VERIFY_TOKEN,
   appSecret: process.env.WHATSAPP_APP_SECRET,
+  phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
 }));
 
 app.use(express.json());
@@ -144,6 +153,24 @@ app.use((request, response, next) => {
   return next();
 });
 
+// Admin-only labour review & settlement preparation. Manual run trigger + read
+// review of RESOLVED/UNRESOLVED labour calculations and the two correction
+// operations (verify time record, create approved rate). Corrections feed the
+// versioned recalculation model; settlement review creates no payments.
+const labourCostExecutor = new PostgresLabourCostExecutor(client);
+const labourCostReviewRouter = createLabourCostReviewRouter({
+  executor: labourCostExecutor,
+  repository: new SqlLabourCostReviewRepository(labourCostExecutor),
+  settlementRepository: new SqlLabourSettlementRepository(labourCostExecutor),
+});
+
+app.use((request, response, next) => {
+  if (request.path.startsWith("/api/labour")) {
+    return labourCostReviewRouter(request, response, next);
+  }
+  return next();
+});
+
 // Phase QR-1 — Site QR + GPS check-in. Worker endpoint requires a normal app
 // session; admin config/QR endpoints are requireAdmin-guarded. The backend
 // always makes the final QR + GPS decision and writes every attempt to the
@@ -155,6 +182,23 @@ const siteCheckinRouter = createSiteCheckinRouter({
 app.use((request, response, next) => {
   if (request.path.startsWith("/api/checkin") || request.path.startsWith("/api/admin/site-checkin")) {
     return siteCheckinRouter(request, response, next);
+  }
+  return next();
+});
+
+
+const commercialFinanceRouter = createCommercialFinanceRouter(new CommercialFinanceRepository(labourCostExecutor));
+app.use((request, response, next) => {
+  if (request.path.startsWith("/api/commercial-finance")) {
+    return commercialFinanceRouter(request, response, next);
+  }
+  return next();
+});
+
+const bankRouter = createBankRouter(new BankReconciliationRepository({ executor: labourCostExecutor }));
+app.use((request, response, next) => {
+  if (request.path.startsWith("/api/bank") || request.path.startsWith("/api/jarvis/finance")) {
+    return bankRouter(request, response, next);
   }
   return next();
 });

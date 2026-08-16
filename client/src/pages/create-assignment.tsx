@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import "./hallmark-sweep.css";
 
 function LogoutButton() {
   const handleLogout = () => {
@@ -33,7 +34,9 @@ interface UploadedJob {
   id: string;
   name: string;
   location: string;
-  phaseData?: any[];
+  phases?: string[];
+  phaseData?: Record<string, any[]>;
+  resources?: any[];
   clientInfo?: {
     name: string;
     address: string;
@@ -51,6 +54,98 @@ interface Contractor {
   primaryTrade: string;
 }
 
+function parseHbxlDate(value: unknown): Date | null {
+  if (typeof value !== "string" || value.trim().length === 0) return null;
+
+  const text = value.trim();
+  const ukMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (ukMatch) {
+    const day = Number(ukMatch[1]);
+    const month = Number(ukMatch[2]);
+    const year = Number(ukMatch[3]);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? date : null;
+  }
+
+  const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? date : null;
+  }
+
+  const date = new Date(text);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function formatAssignmentDate(date: Date): string {
+  return [
+    String(date.getUTCDate()).padStart(2, "0"),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    date.getUTCFullYear(),
+  ].join("/");
+}
+
+function parseStoredPhaseTaskData(value: unknown): { phaseData: Record<string, any[]>; resources: any[] } {
+  if (!value) return { phaseData: {}, resources: [] };
+
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    if (!parsed || typeof parsed !== "object") return { phaseData: {}, resources: [] };
+
+    const container = parsed as { phases?: unknown; resources?: unknown };
+    const phaseData =
+      container.phases && typeof container.phases === "object" && !Array.isArray(container.phases)
+        ? (container.phases as Record<string, any[]>)
+        : (parsed as Record<string, any[]>);
+
+    return {
+      phaseData,
+      resources: Array.isArray(container.resources) ? container.resources : [],
+    };
+  } catch {
+    return { phaseData: {}, resources: [] };
+  }
+}
+
+function calculateSelectedPhaseDateRange(job: UploadedJob | undefined, selectedPhases: string[]) {
+  if (!job || selectedPhases.length === 0) return { startDate: "", endDate: "" };
+
+  const selected = new Set(selectedPhases);
+  const orderDates: Date[] = [];
+  const requiredDates: Date[] = [];
+
+  for (const phase of selectedPhases) {
+    const tasks = Array.isArray(job.phaseData?.[phase]) ? job.phaseData[phase] : [];
+    for (const task of tasks) {
+      const orderDate = parseHbxlDate(task?.orderDate);
+      const requiredDate = parseHbxlDate(task?.requiredDate);
+      if (orderDate) orderDates.push(orderDate);
+      if (requiredDate) requiredDates.push(requiredDate);
+      else if (orderDate) requiredDates.push(orderDate);
+    }
+  }
+
+  for (const resource of job.resources ?? []) {
+    if (!selected.has(resource?.buildPhase)) continue;
+
+    const orderDate = parseHbxlDate(resource?.orderDate);
+    const requiredDate = parseHbxlDate(resource?.requiredDate);
+    if (orderDate) orderDates.push(orderDate);
+    if (requiredDate) requiredDates.push(requiredDate);
+    else if (orderDate) requiredDates.push(orderDate);
+  }
+
+  if (orderDates.length === 0 && requiredDates.length === 0) return { startDate: "", endDate: "" };
+
+  return {
+    startDate: orderDates.length > 0 ? formatAssignmentDate(new Date(Math.min(...orderDates.map((date) => date.getTime())))) : "",
+    endDate: requiredDates.length > 0 ? formatAssignmentDate(new Date(Math.max(...requiredDates.map((date) => date.getTime())))) : "",
+  };
+}
+
 export default function CreateAssignment() {
   const [selectedContractors, setSelectedContractors] = useState<string[]>([]);
   const [contractorName, setContractorName] = useState(""); // This will be auto-filled from selection
@@ -58,12 +153,13 @@ export default function CreateAssignment() {
   const [phone, setPhone] = useState("");
   const [workLocation, setWorkLocation] = useState("");
   const [selectedHbxlJob, setSelectedHbxlJob] = useState("");
-  const [startDate, setStartDate] = useState("06/08/2025");
-  const [endDate, setEndDate] = useState("13/08/2025");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [uploadedJobs, setUploadedJobs] = useState<UploadedJob[]>([]);
   const [selectedPhases, setSelectedPhases] = useState<string[]>([]);
   const [availablePhases, setAvailablePhases] = useState<string[]>([]);
+  const selectedPhaseKey = selectedPhases.join("\n");
   const { toast } = useToast();
 
   // Fetch approved contractors
@@ -97,17 +193,20 @@ export default function CreateAssignment() {
         console.log('✅ Loaded jobs from database:', jobs.length);
         
         // Transform database jobs to match expected format
-        const transformedJobs = jobs.map((job: any) => ({
-          id: job.id,
-          name: job.title,
-          location: job.location,
-          status: job.status,
-          phases: job.phases ? job.phases.split(', ') : [],
-          phaseData: job.phases ? job.phases.split(', ').reduce((acc: any, phase: string) => {
-            acc[phase] = [];
-            return acc;
-          }, {}) : {}
-        }));
+        const transformedJobs = jobs.map((job: any) => {
+          const storedTaskData = parseStoredPhaseTaskData(job.phaseTaskData);
+          const phases = job.phases ? job.phases.split(', ').filter(Boolean) : Object.keys(storedTaskData.phaseData);
+
+          return {
+            id: job.id,
+            name: job.title,
+            location: job.location,
+            status: job.status,
+            phases,
+            phaseData: storedTaskData.phaseData,
+            resources: storedTaskData.resources,
+          };
+        });
         
         setUploadedJobs(transformedJobs);
         console.log('✅ Transformed jobs for dropdown:', transformedJobs.length);
@@ -139,10 +238,14 @@ export default function CreateAssignment() {
         console.log('Phase data type:', typeof selectedJob.phaseData);
         console.log('Phase data content:', selectedJob.phaseData);
         
-        if (selectedJob.phaseData && typeof selectedJob.phaseData === 'object' && selectedJob.phaseData !== null) {
-          const phases = Object.keys(selectedJob.phaseData);
+        if (selectedJob.phases && selectedJob.phases.length > 0) {
+          const phases = selectedJob.phases;
           setAvailablePhases(phases);
           console.log('✓ Extracted phases:', phases);
+        } else if (selectedJob.phaseData && typeof selectedJob.phaseData === 'object' && selectedJob.phaseData !== null) {
+          const phases = Object.keys(selectedJob.phaseData);
+          setAvailablePhases(phases);
+          console.log('✓ Extracted phases from task data:', phases);
         } else {
           console.log('❌ Phase data invalid or missing');
           console.log('Selected job structure:', JSON.stringify(selectedJob, null, 2));
@@ -157,6 +260,14 @@ export default function CreateAssignment() {
       setAvailablePhases([]);
     }
   }, [selectedHbxlJob, uploadedJobs]);
+
+  useEffect(() => {
+    const selectedJob = uploadedJobs.find(job => job.name === selectedHbxlJob);
+    const dateRange = calculateSelectedPhaseDateRange(selectedJob, selectedPhases);
+
+    setStartDate(dateRange.startDate);
+    setEndDate(dateRange.endDate);
+  }, [selectedHbxlJob, selectedPhaseKey]);
 
   const handlePhaseToggle = (phase: string) => {
     setSelectedPhases(prev => 
@@ -308,18 +419,18 @@ export default function CreateAssignment() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="hallmark-sweep min-h-screen bg-slate-900 text-white">
       <LogoutButton />
       
       {/* Header */}
       <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-            <span className="text-black font-bold text-sm">Pro</span>
+          <div className="hallmark-logo-mark">
+            <img src="/sculpt-projects-logo.png" alt="Sculpt Projects" />
           </div>
           <div>
-            <div className="text-sm font-medium">Pro</div>
-            <div className="text-xs text-slate-400">Simple Time Tracking</div>
+            <div className="text-sm font-medium">Sculpt Projects</div>
+            <div className="text-xs text-slate-400">Assignment desk</div>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -708,7 +819,7 @@ export default function CreateAssignment() {
             <span className="text-xs">Jobs</span>
           </button>
           <button 
-            onClick={() => window.location.href = '/admin-task-monitor'}
+            onClick={() => window.location.href = '/admin'}
             className="py-3 px-4 text-slate-400 hover:text-white"
           >
             <i className="fas fa-user-cog block mb-1"></i>

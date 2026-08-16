@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-
-
+import "./admin-dashboard.css";
 
 interface PendingInspection {
   id: string;
@@ -24,28 +23,32 @@ interface GPSPosition {
   accuracy: number;
 }
 
+type MenuTone = "standard" | "gold" | "green" | "blue" | "purple" | "red";
+
+interface MenuItem {
+  label: string;
+  description: string;
+  route?: string;
+  tone?: MenuTone;
+  onSelect?: () => void;
+}
+
+interface MenuGroup {
+  title: string;
+  items: MenuItem[];
+}
+
 function LogoutButton() {
   const handleLogout = () => {
-    // Clear all localStorage data
     localStorage.clear();
-    // Force page reload to ensure clean state
-    window.location.href = '/login';
+    window.location.href = "/login";
     window.location.reload();
   };
 
   return (
-    <div className="fixed top-4 left-4 z-50 bg-slate-800 rounded-lg p-2 border border-slate-600 shadow-lg">
-      <div className="flex items-center space-x-2">
-        <span className="text-yellow-400 text-sm font-medium">Admin</span>
-        <Button
-          onClick={handleLogout}
-          size="sm"
-          className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 text-white"
-        >
-          Logout
-        </Button>
-      </div>
-    </div>
+    <Button onClick={handleLogout} size="sm" className="sculpt-button sculpt-button--danger">
+      Logout
+    </Button>
   );
 }
 
@@ -58,27 +61,20 @@ export default function AdminDashboard() {
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const { toast } = useToast();
 
-  // Fetch pending inspections
   const { data: pendingInspections = [] } = useQuery<PendingInspection[]>({
     queryKey: ["/api/pending-inspections"],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
-
-
-  // Fetch contractor-fixed inspections for admin review
   const { data: contractorFixedInspections = [] } = useQuery<any[]>({
     queryKey: ["/api/contractor-fixed-inspections"],
-    refetchInterval: 30000, // Check for contractor fixes every 30 seconds
+    refetchInterval: 30000,
   });
 
-  // Real-time clock monitoring queries
   const { data: activeSessions = [] } = useQuery<any[]>({
     queryKey: ["/api/admin/active-sessions"],
-    refetchInterval: 10000, // Refresh every 10 seconds for real-time tracking
+    refetchInterval: 10000,
   });
-
-
 
   const { data: todaySessionsData } = useQuery<{
     sessions: any[];
@@ -87,7 +83,7 @@ export default function AdminDashboard() {
     totalContractors: number;
   }>({
     queryKey: ["/api/admin/today-sessions"],
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60000,
   });
 
   const todaySessions = todaySessionsData?.sessions || [];
@@ -114,11 +110,10 @@ export default function AdminDashboard() {
     },
   });
 
-  // Admin approve contractor fix mutation
   const approveContractorFixMutation = useMutation({
     mutationFn: async (inspectionId: string) => {
       const response = await apiRequest("POST", `/api/contractor-fixed-inspections/${inspectionId}/approve`, {
-        adminName: localStorage.getItem('adminName') || 'Admin'
+        adminName: localStorage.getItem("adminName") || "Admin",
       });
       return response.json();
     },
@@ -138,7 +133,6 @@ export default function AdminDashboard() {
     },
   });
 
-  // Send onboarding form mutation
   const sendOnboardingFormMutation = useMutation({
     mutationFn: async (data: { contractorName: string; contractorPhone?: string }) => {
       const response = await apiRequest("POST", "/api/send-onboarding-form", data);
@@ -147,41 +141,39 @@ export default function AdminDashboard() {
     onSuccess: (result) => {
       if (result.success) {
         toast({
-          title: "✅ Onboarding Form Sent",
-          description: `Sent to ${result.contractorId || 'contractor'} via Telegram`,
+          title: "Onboarding Form Sent",
+          description: `Sent to ${result.contractorId || "contractor"} via Telegram`,
           duration: 5000,
         });
       } else {
         toast({
-          title: "⚠️ Form Send Failed",
+          title: "Form Send Failed",
           description: result.error || "Failed to send onboarding form",
           variant: "destructive",
         });
       }
     },
-    onError: (error) => {
+    onError: () => {
       toast({
-        title: "❌ Error",
+        title: "Error",
         description: "Failed to send onboarding form",
         variant: "destructive",
       });
     },
   });
 
-  // Mock GPS data to match screenshot
   useEffect(() => {
     setGpsPosition({
       latitude: 51.491179,
       longitude: 0.147781,
-      accuracy: 14
+      accuracy: 14,
     });
     setGpsStatus("Good");
   }, []);
 
-  // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    
+
     if (isTracking && startTime) {
       interval = setInterval(() => {
         const now = new Date();
@@ -189,17 +181,25 @@ export default function AdminDashboard() {
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        
+
         setCurrentTime(
-          `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+          `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`,
         );
       }, 1000);
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [isTracking, startTime]);
+
+  const adminName = localStorage.getItem("adminName") || "Admin";
+  const adminEmail = localStorage.getItem("adminEmail") || "admin@erbuildanddesign.co.uk";
+  const adminInitials = adminName
+    .split(" ")
+    .map((name) => name[0])
+    .join("")
+    .slice(0, 2);
 
   const handleStartWork = () => {
     if (!isTracking) {
@@ -220,501 +220,411 @@ export default function AdminDashboard() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const navigateTo = (route: string) => {
+    setShowAvatarDropdown(false);
+    window.location.href = route;
+  };
+
+  const announce = (title: string, description: string) => {
+    setShowAvatarDropdown(false);
+    toast({ title, description });
+  };
+
+  const getStatusClass = (status: string) => {
     switch (status) {
-      case 'Good': return 'bg-yellow-500 text-black';
-      case 'Poor': return 'bg-orange-500 text-white';
-      default: return 'bg-red-500 text-white';
+      case "Good":
+        return "sculpt-status sculpt-status--good";
+      case "Poor":
+        return "sculpt-status sculpt-status--warn";
+      default:
+        return "sculpt-status sculpt-status--bad";
     }
   };
 
+  const quickRoutes = [
+    { label: "Jobs", route: "/job-assignments" },
+    { label: "Live Monitor", route: "/live-clock-monitor" },
+    { label: "Inspections", route: "/admin-inspections" },
+    { label: "Jarvis Reviews", route: "/admin-jarvis-reviews" },
+    { label: "Finance", route: "/contract-cashflow" },
+  ];
+
+  const operationsMenuGroups: MenuGroup[] = [
+    {
+      title: "Field Operations",
+      items: [
+        { label: "Jobs", description: "Assignments and job allocation", route: "/job-assignments", tone: "gold" },
+        { label: "Live Monitor", description: "Active workers and site clocking", route: "/live-clock-monitor", tone: "green" },
+        { label: "Admin", description: "Admin dashboard", route: "/admin", tone: "standard" },
+        { label: "Upload Jobs", description: "Import job data", route: "/upload", tone: "blue" },
+        {
+          label: "HBXL Labour",
+          description: "Open labour assignments",
+          tone: "gold",
+          onSelect: () => announce("HBXL Labour Assignments", "Opening labour assignments"),
+        },
+        {
+          label: "Planning",
+          description: "Hybrid planning system",
+          tone: "gold",
+          onSelect: () => announce("Planning System", "Opening hybrid planning system"),
+        },
+      ],
+    },
+    {
+      title: "Inspections and Reviews",
+      items: [
+        { label: "Inspections", description: "Pending site milestones", route: "/admin-inspections", tone: "red" },
+        { label: "Site Inspections", description: "Admin site inspection board", route: "/admin-site-inspections", tone: "red" },
+        { label: "Applications", description: "Review contractor applications", route: "/admin-applications", tone: "green" },
+        { label: "Jarvis Reviews", description: "Shadow review inbox", route: "/admin-jarvis-reviews", tone: "purple" },
+      ],
+    },
+    {
+      title: "People and Finance",
+      items: [
+        { label: "Onboarding", description: "Contractor onboarding flow", route: "/contractor-onboarding", tone: "gold" },
+        { label: "Clean Onboarding", description: "Alternate contractor onboarding flow", route: "/contractor-onboarding-clean", tone: "blue" },
+        { label: "Capture ID", description: "Contractor ID capture", route: "/contractor-id-capture", tone: "blue" },
+        { label: "Payroll", description: "Time tracking and earnings", route: "/payroll-overview", tone: "green" },
+        { label: "Budget Tracking", description: "Project budget overview", route: "/admin-budget-tracking", tone: "blue" },
+        { label: "Contract Cashflow", description: "Financial applications and cashflow", route: "/contract-cashflow", tone: "green" },
+        {
+          label: "Project Cashflow",
+          description: "Project cashflow management",
+          tone: "blue",
+          onSelect: () => announce("Project Cashflow", "Opening project cashflow management"),
+        },
+        {
+          label: "CIS Payroll",
+          description: "Open CIS payroll system",
+          tone: "gold",
+          onSelect: () => announce("CIS Payroll", "Opening CIS payroll system"),
+        },
+      ],
+    },
+    {
+      title: "System",
+      items: [
+        { label: "Settings", description: "Admin settings", route: "/admin-settings", tone: "standard" },
+        { label: "Cleanup", description: "System cleanup tools", route: "/system-cleanup", tone: "red" },
+        {
+          label: "Account Switch",
+          description: "Switch account functionality",
+          tone: "gold",
+          onSelect: () => announce("Account Switching", "Switch account functionality"),
+        },
+        {
+          label: "Export Archive",
+          description: "Open export and archive tools",
+          tone: "standard",
+          onSelect: () => announce("Export & Archive", "Opening export and archive"),
+        },
+        {
+          label: "James Preview",
+          description: "Preview contractor interface",
+          tone: "gold",
+          onSelect: () => announce("Preview Interface", "Opening James's contractor interface"),
+        },
+        {
+          label: "AI Agents",
+          description: "AI agent management",
+          tone: "gold",
+          onSelect: () => announce("AI Agent Management", "Opening AI agent management"),
+        },
+        {
+          label: "Accounting",
+          description: "Accounting export tools",
+          tone: "gold",
+          onSelect: () => announce("Accounting Exports", "Opening accounting exports"),
+        },
+      ],
+    },
+  ];
+
+  const reviewLoad = pendingInspections.length + contractorFixedInspections.length;
+
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <LogoutButton />
-      {/* Header */}
-      <div className="bg-slate-800 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-600 rounded-lg flex items-center justify-center">
-            <span className="text-black font-bold text-sm">Pro</span>
-          </div>
-          <div>
-            <div className="text-sm font-medium">Pro</div>
-            <div className="text-xs text-slate-400">Simple Time Tracking</div>
-          </div>
+    <div className="sculpt-admin min-h-screen">
+      {showAvatarDropdown && (
+        <button
+          type="button"
+          aria-label="Close operations menu"
+          className="sculpt-scrim"
+          onClick={() => setShowAvatarDropdown(false)}
+        />
+      )}
+
+      <header className="sculpt-topbar">
+        <div className="sculpt-brand" aria-label="Sculpt Projects admin dashboard">
+          <span className="sculpt-brand__mark">
+            <img src="/sculpt-projects-logo.png" alt="" aria-hidden="true" />
+          </span>
+          <span>
+            <strong>Sculpt Projects</strong>
+            <small>Operations dashboard</small>
+          </span>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span className="text-sm text-green-500">Online</span>
-          <i className="fas fa-sun text-yellow-600 ml-2"></i>
-          <div className="relative">
-            <button 
-              onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
-              className="w-8 h-8 bg-yellow-600 rounded-full flex items-center justify-center ml-4 hover:bg-yellow-700 transition-colors"
-            >
-              <span className="text-white font-bold text-sm">{(localStorage.getItem('adminName') || 'Admin').split(' ').map(n => n[0]).join('').slice(0,2)}</span>
+
+        <nav className="sculpt-quicknav" aria-label="Primary admin sections">
+          {quickRoutes.map((item) => (
+            <button key={item.label} type="button" onClick={() => navigateTo(item.route)} className="sculpt-navlink">
+              {item.label}
             </button>
-            <i className="fas fa-chevron-down text-slate-400 text-xs ml-1"></i>
-            
-            {/* Avatar Dropdown */}
-            {showAvatarDropdown && (
-              <div className="absolute right-0 mt-2 w-80 bg-slate-800 rounded-lg shadow-xl border border-slate-600 z-50 max-h-96 overflow-y-auto">
-                <div className="p-4 border-b border-slate-600">
-                  <div className="font-medium text-white">{localStorage.getItem('adminName') || 'Admin'}</div>
-                  <div className="text-sm text-slate-400">{localStorage.getItem('adminEmail') || 'admin@erbuildanddesign.co.uk'}</div>
-                  <div className="flex items-center mt-2">
-                    <i className="fas fa-shield-alt text-red-500 mr-2"></i>
-                    <span className="text-red-400 text-sm">Admin Access</span>
-                  </div>
-                </div>
-                
-                <div className="py-2">
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "Account Switching", description: "Switch account functionality" });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-user-friends mr-3 w-4"></i>
-                    Switch Account
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/contractor-onboarding';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-user-plus mr-3 w-4"></i>
-                    Contractor Onboarding
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/contractor-id-capture';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-blue-400"
-                  >
-                    <i className="fas fa-id-card mr-3 w-4"></i>
-                    📱 Capture Contractors ID
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/job-assignments';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-tasks mr-3 w-4"></i>
-                    Assignment Management
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "HBXL Labour Assignments", description: "Opening labour assignments..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-hammer mr-3 w-4"></i>
-                    HBXL Labour Assignments
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/admin-applications';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-green-400 bg-green-900/20"
-                  >
-                    <i className="fas fa-clipboard-list mr-3 w-4"></i>
-                    ✨ Review Applications ✨
-                  </button>
-                  
+          ))}
+        </nav>
 
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/payroll-overview';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-blue-400"
-                  >
-                    <i className="fas fa-clock mr-3 w-4"></i>
-                    💰 Time Tracking & Earnings 💰
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/contractor-onboarding-clean';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-blue-400"
-                  >
-                    <i className="fas fa-user-plus mr-3 w-4"></i>
-                    Contractor Onboarding
-                  </button>
-                  
-
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "Planning System", description: "Opening hybrid planning system..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-project-diagram mr-3 w-4"></i>
-                    Hybrid Planning System
-                  </button>
-                  
-
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "Export & Archive", description: "Opening export and archive..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-download mr-3 w-4"></i>
-                    Export & Archive
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/contractor-id-capture';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-green-400 bg-green-900/20"
-                  >
-                    <i className="fas fa-user-plus mr-3 w-4"></i>
-                    📱 Capture Contractor ID
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "Preview Interface", description: "Opening James's contractor interface..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-eye mr-3 w-4"></i>
-                    Preview James's Interface
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/admin-budget-tracking';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-blue-400 bg-blue-900/20"
-                  >
-                    <i className="fas fa-chart-line mr-3 w-4"></i>
-                    📊 Budget Tracking 📊
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/contract-cashflow';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-green-400 bg-green-900/20"
-                  >
-                    <i className="fas fa-pound-sign mr-3 w-4"></i>
-                    💰 CONTRACT CASHFLOW 💰
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "Project Cashflow", description: "Opening project cashflow management..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-blue-400"
-                  >
-                    <i className="fas fa-chart-line mr-3 w-4"></i>
-                    📊 Project Cashflow
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "AI Agent Management", description: "Opening AI agent management..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-robot mr-3 w-4"></i>
-                    AI Agent Management
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/admin-jarvis-reviews';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-purple-400 bg-purple-900/20"
-                  >
-                    <i className="fas fa-inbox mr-3 w-4"></i>
-                    📥 Jarvis Shadow Reviews 📥
-                  </button>
-                  
-
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/admin-site-inspections';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-red-400 bg-red-900/20"
-                  >
-                    <i className="fas fa-clipboard-check mr-3 w-4"></i>
-                    🔍 Admin Site Inspections 🔍
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "CIS Payroll", description: "Opening CIS payroll system..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-receipt mr-3 w-4"></i>
-                    CIS Payroll
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      toast({ title: "Accounting Exports", description: "Opening accounting exports..." });
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-file-export mr-3 w-4"></i>
-                    Accounting Exports
-                  </button>
-                </div>
-                
-                <div className="border-t border-slate-600 py-2">
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/system-cleanup';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-red-400"
-                  >
-                    <i className="fas fa-broom mr-3 w-4"></i>
-                    System Cleanup
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowAvatarDropdown(false);
-                      window.location.href = '/admin-settings';
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-slate-700 flex items-center text-yellow-400"
-                  >
-                    <i className="fas fa-cogs mr-3 w-4"></i>
-                    Admin Settings
-                  </button>
-                  
-                  <div className="px-4 py-1 text-slate-400 text-sm font-medium">Documents</div>
-                  <div className="px-4 py-1 text-slate-400 text-sm font-medium">Help & Support</div>
-                </div>
-              </div>
-            )}
+        <div className="sculpt-topbar__right">
+          <div className="sculpt-online" aria-label="System online">
+            <span /> Online
           </div>
-        </div>
-      </div>
-
-      {/* Daily Tracking Test Badge */}
-      <div className="bg-yellow-600 px-4 py-2">
-        <div className="flex items-center">
-          <i className="fas fa-exclamation-triangle text-black mr-2"></i>
-          <span className="text-black font-medium text-sm">Daily Tracking Test</span>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-6">
-        {/* GPS Status Card */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <i className="fas fa-signal text-yellow-600"></i>
-              <h3 className="text-lg font-semibold text-yellow-600">GPS Status</h3>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Badge className={getStatusColor(gpsStatus)}>
-                {gpsStatus}
-              </Badge>
-              <i className="fas fa-sync-alt text-slate-400"></i>
-            </div>
+          <Button
+            type="button"
+            className="sculpt-button sculpt-button--menu"
+            aria-expanded={showAvatarDropdown}
+            onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
+          >
+            Menu
+          </Button>
+          <div className="sculpt-avatar" aria-label={`Signed in as ${adminName}`}>
+            {adminInitials}
           </div>
-          
-          <div className="space-y-3">
-            <div className="text-center">
-              <div className="text-lg font-mono text-white">
-                {gpsPosition ? `${gpsPosition.latitude}, ${gpsPosition.longitude}` : 'No GPS data'}
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
+          <LogoutButton />
+        </div>
+
+        {showAvatarDropdown && (
+          <section className="sculpt-mega" aria-label="Operations menu">
+            <div className="sculpt-mega__identity">
               <div>
-                <div className="text-slate-400 text-sm">Latitude:</div>
-                <div className="text-white font-mono">{gpsPosition?.latitude || 'Unknown'}</div>
+                <p>{adminName}</p>
+                <span>{adminEmail}</span>
               </div>
-              <div>
-                <div className="text-slate-400 text-sm">Longitude:</div>
-                <div className="text-white font-mono">{gpsPosition?.longitude || 'Unknown'}</div>
-              </div>
+              <Badge className="sculpt-status sculpt-status--bad">Admin Access</Badge>
             </div>
-            
+            <div className="sculpt-mega__grid">
+              {operationsMenuGroups.map((group) => (
+                <div key={group.title} className="sculpt-mega__group">
+                  <h2>{group.title}</h2>
+                  {group.items.map((item) => (
+                    <button
+                      key={`${group.title}-${item.label}`}
+                      type="button"
+                      className={`sculpt-menu-item sculpt-menu-item--${item.tone || "standard"}`}
+                      onClick={() => (item.route ? navigateTo(item.route) : item.onSelect?.())}
+                    >
+                      <strong>{item.label}</strong>
+                      <span>{item.description}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </header>
+
+      <main className="sculpt-workbench">
+        <section className="sculpt-hero" aria-labelledby="admin-dashboard-title">
+          <div className="sculpt-hero__copy">
+            <p className="sculpt-kicker">ADMIN CONTROL ROOM</p>
+            <h1 id="admin-dashboard-title">Site work, money, reviews. One surface.</h1>
+            <p>
+              Triage inspections, live labour, Jarvis review work, jobs and cashflow without leaving the dashboard.
+            </p>
+          </div>
+
+          <div className="sculpt-hero__metrics" aria-label="Current operational totals">
             <div>
-              <div className="text-slate-400 text-sm">Accuracy:</div>
-              <div className="text-white">±{gpsPosition?.accuracy || 0} meters</div>
+              <span>{activeSessions.length}</span>
+              <p>Active now</p>
+            </div>
+            <div>
+              <span>{reviewLoad}</span>
+              <p>Review queue</p>
+            </div>
+            <div>
+              <span>{todaySessionsData?.totalContractors ?? dailySummary.length}</span>
+              <p>Contractors today</p>
             </div>
           </div>
-        </div>
+        </section>
 
+        <section className="sculpt-command-strip" aria-label="Primary actions">
+          <Button className="sculpt-button sculpt-button--primary" onClick={() => navigateTo("/job-assignments")}>Jobs</Button>
+          <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/live-clock-monitor")}>Live Monitor</Button>
+          <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/admin-inspections")}>Inspections</Button>
+          <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/admin-jarvis-reviews")}>Jarvis Reviews</Button>
+          <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/admin-labour-verification")}>Time Verify</Button>
+          <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/admin-labour-review")}>Labour Review</Button>
+          <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/admin-commercial-finance")}>Commercial Finance</Button>
+          <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/admin-bank-reconciliation")}>Bank Reconciliation</Button>
+          <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/contract-cashflow")}>Cashflow</Button>
+        </section>
 
+        <section className="sculpt-board" aria-label="Live operations board">
+          <article className="sculpt-panel sculpt-panel--gps">
+            <div className="sculpt-panel__head">
+              <div>
+                <p>Device signal</p>
+                <h2>GPS Status</h2>
+              </div>
+              <Badge className={getStatusClass(gpsStatus)}>{gpsStatus}</Badge>
+            </div>
+            <div className="sculpt-coordinate">
+              {gpsPosition ? `${gpsPosition.latitude}, ${gpsPosition.longitude}` : "No GPS data"}
+            </div>
+            <dl className="sculpt-spec-list sculpt-spec-list--two">
+              <div>
+                <dt>Latitude</dt>
+                <dd>{gpsPosition?.latitude || "Unknown"}</dd>
+              </div>
+              <div>
+                <dt>Longitude</dt>
+                <dd>{gpsPosition?.longitude || "Unknown"}</dd>
+              </div>
+              <div>
+                <dt>Accuracy</dt>
+                <dd>±{gpsPosition?.accuracy || 0} meters</dd>
+              </div>
+              <div>
+                <dt>Clock</dt>
+                <dd>{currentTime}</dd>
+              </div>
+            </dl>
+            <Button className="sculpt-button sculpt-button--primary sculpt-button--full" onClick={handleStartWork}>
+              {isTracking ? "Stop Work" : "Start Work"}
+            </Button>
+          </article>
 
+          <article className="sculpt-panel sculpt-panel--monitor">
+            <div className="sculpt-panel__head">
+              <div>
+                <p>Live monitor</p>
+                <h2>Workers on site</h2>
+              </div>
+              <Badge className="sculpt-status sculpt-status--good">{activeSessions.length}</Badge>
+            </div>
+            <dl className="sculpt-spec-list sculpt-spec-list--three">
+              <div>
+                <dt>Today sessions</dt>
+                <dd>{todaySessions.length}</dd>
+              </div>
+              <div>
+                <dt>Total sessions</dt>
+                <dd>{todaySessionsData?.totalSessions ?? todaySessions.length}</dd>
+              </div>
+              <div>
+                <dt>Daily summary</dt>
+                <dd>{dailySummary.length}</dd>
+              </div>
+            </dl>
+            <div className="sculpt-live-list" aria-label="Active workers preview">
+              {activeSessions.length > 0 ? (
+                activeSessions.slice(0, 3).map((session: any, index: number) => (
+                  <div key={session.id || index}>
+                    <strong>{session.contractorName || session.contractor || "Active worker"}</strong>
+                    <span>{session.jobTitle || session.job || "Live session"}</span>
+                  </div>
+                ))
+              ) : (
+                <p>No active workers clocked in.</p>
+              )}
+            </div>
+            <Button className="sculpt-button sculpt-button--quiet sculpt-button--full" onClick={() => navigateTo("/live-clock-monitor")}>
+              Open Live Monitor
+            </Button>
+          </article>
+        </section>
 
+        <section className="sculpt-review-grid" aria-label="Inspection review queues">
+          <article className="sculpt-panel sculpt-panel--wide">
+            <div className="sculpt-panel__head">
+              <div>
+                <p>Contractor fixes</p>
+                <h2>Awaiting review</h2>
+              </div>
+              {contractorFixedInspections.length > 0 && (
+                <Badge className="sculpt-status sculpt-status--warn">{contractorFixedInspections.length}</Badge>
+              )}
+            </div>
 
-
-
-        {/* Contractor Fixes Awaiting Review Card */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center mb-4">
-            <i className="fas fa-tools text-amber-500 mr-2"></i>
-            <h3 className="text-lg font-semibold text-amber-500">Contractor Fixes - Awaiting Review</h3>
-            {contractorFixedInspections.length > 0 && (
-              <Badge className="ml-2 bg-amber-600 text-white">
-                {contractorFixedInspections.length}
-              </Badge>
-            )}
-          </div>
-          
-          {contractorFixedInspections.length > 0 ? (
-            <div className="space-y-3">
-              {contractorFixedInspections.slice(0, 3).map((inspection: any) => (
-                <div key={inspection.id} className="bg-slate-700 rounded-lg p-3 border border-amber-500/30">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge className="text-xs bg-amber-600">
-                          FIXED
-                        </Badge>
-                        <span className="text-slate-400 text-xs">
-                          {new Date(inspection.createdAt).toLocaleDateString()}
-                        </span>
+            {contractorFixedInspections.length > 0 ? (
+              <div className="sculpt-review-list">
+                {contractorFixedInspections.slice(0, 3).map((inspection: any) => (
+                  <article key={inspection.id} className="sculpt-review-row sculpt-review-row--warm">
+                    <div>
+                      <div className="sculpt-row-meta">
+                        <Badge className="sculpt-status sculpt-status--warn">Fixed</Badge>
+                        <span>{new Date(inspection.createdAt).toLocaleDateString()}</span>
                       </div>
-                      <div className="text-white font-medium text-sm mb-1">
-                        {inspection.inspectorName} inspection - Assignment: {inspection.assignmentId.slice(0, 8)}...
-                      </div>
-                      <div className="text-slate-200 text-sm mb-2">
+                      <h3>{inspection.inspectorName} inspection</h3>
+                      <p>Assignment: {inspection.assignmentId.slice(0, 8)}...</p>
+                      <p>
                         <strong>Original Issue:</strong> {inspection.safetyNotes || inspection.materialsIssues || inspection.progressComments}
-                      </div>
-                      {inspection.nextActions && inspection.nextActions.includes('Contractor fixed:') && (
-                        <div className="text-green-300 text-sm mb-2">
-                          <strong>Contractor Notes:</strong> {inspection.nextActions.replace('Contractor fixed: ', '')}
-                        </div>
+                      </p>
+                      {inspection.nextActions && inspection.nextActions.includes("Contractor fixed:") && (
+                        <p className="sculpt-good-note">
+                          <strong>Contractor Notes:</strong> {inspection.nextActions.replace("Contractor fixed: ", "")}
+                        </p>
                       )}
-                      <div className="text-amber-400 text-xs font-medium">
-                        ⚡ Needs Admin Re-Inspection
-                      </div>
                     </div>
                     <Button
                       onClick={() => approveContractorFixMutation.mutate(inspection.id)}
                       disabled={approveContractorFixMutation.isPending}
                       size="sm"
-                      className="bg-green-600 hover:bg-green-700 text-white ml-2"
+                      className="sculpt-button sculpt-button--resolve"
                     >
-                      {approveContractorFixMutation.isPending ? "Approving..." : "Mark Resolved"}
+                      {approveContractorFixMutation.isPending ? "Approving" : "Resolve"}
                     </Button>
-                  </div>
-                </div>
-              ))}
-              
-              {contractorFixedInspections.length > 3 && (
-                <div className="text-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs border-amber-500 text-amber-400 hover:bg-amber-600/10"
-                  >
+                  </article>
+                ))}
+
+                {contractorFixedInspections.length > 3 && (
+                  <Button className="sculpt-button sculpt-button--quiet sculpt-button--full" onClick={() => navigateTo("/admin-site-inspections")}>
                     View All {contractorFixedInspections.length} Fixed Items
                   </Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center space-y-4">
-              <div className="flex justify-center">
-                <div className="w-16 h-16 flex items-center justify-center">
-                  <i className="fas fa-check-circle text-green-400 text-4xl"></i>
-                </div>
+                )}
               </div>
-              <div className="text-slate-400 text-sm">
-                No contractor fixes pending review.
+            ) : (
+              <div className="sculpt-empty-state">
+                <strong>No contractor fixes pending review.</strong>
+                <span>The re-inspection lane is clear.</span>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Site Inspections Required Card */}
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <i className="fas fa-clipboard-check text-yellow-600 mr-2"></i>
-              <h3 className="text-lg font-semibold text-yellow-600">Site Inspections Required</h3>
-            </div>
-            {pendingInspections.length > 0 && (
-              <Badge className="bg-red-600 text-white">
-                {pendingInspections.length}
-              </Badge>
             )}
-          </div>
-          
-          {pendingInspections.length === 0 ? (
-            <div className="text-center space-y-4">
-              <div className="flex justify-center">
-                <div className="w-16 h-16 flex items-center justify-center">
-                  <i className="fas fa-check-circle text-green-400 text-4xl"></i>
-                </div>
+          </article>
+
+          <article className="sculpt-panel sculpt-panel--wide">
+            <div className="sculpt-panel__head">
+              <div>
+                <p>Site inspections</p>
+                <h2>Milestones required</h2>
               </div>
-              <div className="text-slate-400 text-sm">
-                No pending site inspections. All milestones up to date.
-              </div>
+              {pendingInspections.length > 0 && <Badge className="sculpt-status sculpt-status--bad">{pendingInspections.length}</Badge>}
             </div>
-          ) : (
-            <div className="space-y-3">
-              {pendingInspections.slice(0, 3).map((inspection) => (
-                <div key={inspection.id} className="bg-slate-700 rounded-lg p-3 border border-slate-600">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge className={`text-xs ${
-                          inspection.notificationType === '50_percent_ready' 
-                            ? 'bg-yellow-600' 
-                            : 'bg-green-600'
-                        }`}>
-                          {inspection.notificationType === '50_percent_ready' ? '50%' : '100%'}
+
+            {pendingInspections.length === 0 ? (
+              <div className="sculpt-empty-state">
+                <strong>No pending site inspections.</strong>
+                <span>All milestones are up to date.</span>
+              </div>
+            ) : (
+              <div className="sculpt-review-list">
+                {pendingInspections.slice(0, 3).map((inspection) => (
+                  <article key={inspection.id} className="sculpt-review-row">
+                    <div>
+                      <div className="sculpt-row-meta">
+                        <Badge className="sculpt-status sculpt-status--gold">
+                          {inspection.notificationType === "50_percent_ready" ? "50%" : "100%"}
                         </Badge>
-                        <span className="text-slate-200 font-medium text-sm">
-                          {inspection.jobTitle}
-                        </span>
+                        <span>{inspection.inspectionType}</span>
                       </div>
-                      <div className="text-slate-400 text-xs">
-                        {inspection.contractorName} • {inspection.jobLocation}
-                      </div>
+                      <h3>{inspection.jobTitle}</h3>
+                      <p>{inspection.contractorName} · {inspection.jobLocation}</p>
                     </div>
-                    <div className="flex gap-2 ml-3">
+                    <div className="sculpt-row-actions">
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="text-xs px-2 py-1 border-slate-500 text-slate-200 hover:bg-slate-600"
+                        className="sculpt-button sculpt-button--quiet"
                         onClick={() => {
                           toast({
                             title: "Site Inspection",
@@ -726,71 +636,52 @@ export default function AdminDashboard() {
                       </Button>
                       <Button
                         size="sm"
-                        className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700"
+                        className="sculpt-button sculpt-button--resolve"
                         onClick={() => completeInspectionMutation.mutate(inspection.id)}
                         disabled={completeInspectionMutation.isPending}
                       >
-                        ✓
+                        Done
                       </Button>
                     </div>
-                  </div>
-                </div>
-              ))}
-              
-              {pendingInspections.length > 3 && (
-                <Button
-                  variant="outline"
-                  className="w-full text-sm border-slate-500 text-slate-200 hover:bg-slate-600"
-                  onClick={() => window.location.href = '/admin-inspections'}
-                >
-                  View All {pendingInspections.length} Inspections
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+                  </article>
+                ))}
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
-        <div className="grid grid-cols-5 text-center">
-          <button className="py-3 px-4 text-yellow-600">
-            <i className="fas fa-home block mb-1"></i>
-            <span className="text-xs">Dashboard</span>
-          </button>
-          <button 
-            onClick={() => window.location.href = '/job-assignments'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
-          >
-            <i className="fas fa-briefcase block mb-1"></i>
-            <span className="text-xs">Jobs</span>
-          </button>
-          <button 
-            onClick={() => window.location.href = '/live-clock-monitor'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
-          >
-            <i className="fas fa-broadcast-tower block mb-1"></i>
-            <span className="text-xs">Live Monitor</span>
-          </button>
-          <button 
-            onClick={() => window.location.href = '/admin-task-monitor'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
-          >
-            <i className="fas fa-user-cog block mb-1"></i>
-            <span className="text-xs">Admin</span>
-          </button>
-          <button 
-            onClick={() => window.location.href = '/upload'}
-            className="py-3 px-4 text-slate-400 hover:text-white"
-          >
-            <i className="fas fa-upload block mb-1"></i>
-            <span className="text-xs">Upload</span>
-          </button>
-        </div>
-      </div>
-      
-      {/* Add bottom padding to account for fixed navigation */}
-      <div className="h-20"></div>
+                {pendingInspections.length > 3 && (
+                  <Button className="sculpt-button sculpt-button--quiet sculpt-button--full" onClick={() => navigateTo("/admin-inspections")}>
+                    View All {pendingInspections.length} Inspections
+                  </Button>
+                )}
+              </div>
+            )}
+          </article>
+        </section>
+
+        <section className="sculpt-finance" aria-label="Financial information">
+          <div>
+            <p>Financial controls</p>
+            <h2>Cashflow, budgets and payroll stay in reach.</h2>
+          </div>
+          <div className="sculpt-finance__actions">
+            <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/admin-budget-tracking")}>Budget Tracking</Button>
+            <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/contract-cashflow")}>Contract Cashflow</Button>
+            <Button className="sculpt-button sculpt-button--quiet" onClick={() => navigateTo("/payroll-overview")}>Payroll</Button>
+          </div>
+        </section>
+      </main>
+
+      <footer className="sculpt-footer">
+        <span>Sculpt Projects Admin</span>
+        <span>Jobs · Monitor · Inspections · Reviews · Finance</span>
+        <span>{sendOnboardingFormMutation.isPending ? "Onboarding send in progress" : "Operational surface"}</span>
+      </footer>
+
+      <nav className="sculpt-mobile-nav" aria-label="Mobile admin navigation">
+        <button type="button" className="is-active" onClick={() => navigateTo("/admin")}>Home</button>
+        <button type="button" onClick={() => navigateTo("/job-assignments")}>Jobs</button>
+        <button type="button" onClick={() => navigateTo("/live-clock-monitor")}>Live</button>
+        <button type="button" onClick={() => navigateTo("/admin-inspections")}>Inspect</button>
+        <button type="button" onClick={() => navigateTo("/contract-cashflow")}>Money</button>
+      </nav>
     </div>
   );
 }
