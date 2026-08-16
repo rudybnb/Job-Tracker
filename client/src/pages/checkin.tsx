@@ -163,8 +163,11 @@ export default function CheckIn() {
           kind: "result",
           accepted: true,
           siteName: data.siteName ?? "Site",
-          message: `Checked in — ${data.siteName ?? "Site"}`,
+          message: `Checked in — ${data.siteName ?? "Site"}. Redirecting to dashboard...`,
         });
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 1000);
       } else {
         setFlow({
           kind: "result",

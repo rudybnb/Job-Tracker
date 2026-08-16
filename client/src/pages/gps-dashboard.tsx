@@ -411,6 +411,36 @@ export default function GPSDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Worker Mobile Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 p-2 z-40">
+        <div className="max-w-xl mx-auto grid grid-cols-3 gap-1 text-center text-xs">
+          <button
+            type="button"
+            onClick={() => (window.location.href = "/")}
+            className="py-1.5 px-2 text-amber-400 font-semibold flex flex-col items-center gap-1"
+          >
+            <i className="fas fa-home text-base" />
+            <span>Dashboard</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => (window.location.href = "/jobs")}
+            className="py-1.5 px-2 text-slate-400 hover:text-white flex flex-col items-center gap-1"
+          >
+            <i className="fas fa-briefcase text-base" />
+            <span>Jobs</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => (window.location.href = "/more")}
+            className="py-1.5 px-2 text-slate-400 hover:text-white flex flex-col items-center gap-1"
+          >
+            <i className="fas fa-ellipsis-h text-base" />
+            <span>More</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

@@ -402,8 +402,11 @@ export default function Login() {
 
         toast({
           title: "Clock-In Successful!",
-          description: `Verified QR + GPS clock-in for ${authContractorName} on ${matchedConfig?.siteName ?? "Tester Site"}.`,
+          description: `Verified QR + GPS clock-in for ${authContractorName}. Entering worker dashboard...`,
         });
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 600);
       } else {
         const canonicalJobId = matchedConfig?.jobId || matchedJob?.id || "j-tester-123";
         const fallbackResp = await apiFetch("/api/work-sessions", {
@@ -424,7 +427,10 @@ export default function Login() {
           const session = await fallbackResp.json();
           setActiveSessionId(session.id);
           localStorage.setItem("gps_timer_active", "true");
-          toast({ title: "Clocked In", description: `Work session created for ${authContractorName}` });
+          toast({ title: "Clocked In", description: `Work session created for ${authContractorName}. Entering worker dashboard...` });
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 600);
         } else {
           const errData = (await fallbackResp.json().catch(() => ({}))) as { error?: string; details?: string };
           toast({

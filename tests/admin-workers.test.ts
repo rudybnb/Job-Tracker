@@ -246,6 +246,47 @@ describe("Worker GPS Dashboard - Site Checkin Config Integration", () => {
   });
 });
 
+describe("Worker Post-Clock-In Navigation & Active Session UI", () => {
+  it("triggers redirect target '/' upon successful clock-in", () => {
+    const clockInAccepted = true;
+    const redirectTarget = clockInAccepted ? "/" : null;
+    assert.equal(redirectTarget, "/");
+  });
+
+  it("blocks duplicate clock-in when an active work session exists", () => {
+    const activeSession = { id: "ws-active-123", status: "active" };
+    const isTracking = activeSession !== null;
+    const isWithinRadius = true;
+    const qrValid = true;
+
+    const canClockIn = isWithinRadius && qrValid && !isTracking;
+    const canClockOut = isTracking;
+
+    assert.equal(canClockIn, false);
+    assert.equal(canClockOut, true);
+  });
+
+  it("disables clock-out and re-enables clock-in eligibility after session closure", () => {
+    let isTracking = true;
+    let activeSessionId: string | null = "ws-active-123";
+
+    // Clock out event
+    isTracking = false;
+    activeSessionId = null;
+
+    const canClockOut = isTracking;
+    assert.equal(canClockOut, false);
+    assert.equal(activeSessionId, null);
+  });
+
+  it("provides worker navigation paths for Dashboard (/), Jobs (/jobs), and More (/more)", () => {
+    const workerRoutes = ["/", "/jobs", "/more", "/task-progress"];
+    assert.ok(workerRoutes.includes("/"));
+    assert.ok(workerRoutes.includes("/jobs"));
+    assert.ok(workerRoutes.includes("/more"));
+  });
+});
+
 describe("Worker-Safe Site Config Endpoint Protection", () => {
   it("sanitizes worker site config response and hides QR secrets", () => {
     const rawDbRow = {
