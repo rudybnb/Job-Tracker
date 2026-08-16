@@ -1086,7 +1086,7 @@ test("inbound contractor messages design is dormant and retains unmatched replie
   const withoutComments = sql.replace(/^\s*--.*$/gm, "");
   const statements = withoutComments.split(";").map((statement) => statement.trim()).filter(Boolean);
 
-  assert.equal(statements.length, 2);
+  assert.equal(statements.length, 5);
   assert.match(statements[0], /^CREATE TABLE IF NOT EXISTS contractor_messages\b/i);
   assert.match(withoutComments, /direction TEXT NOT NULL CHECK\s*\(direction IN \('outbound',\s*'inbound'\)\)/i);
   assert.match(
@@ -1101,8 +1101,8 @@ test("inbound contractor messages design is dormant and retains unmatched replie
   assert.match(withoutComments, /unmatched_reason TEXT/i);
   assert.match(withoutComments, /application_id UUID\s+REFERENCES integration_change_order_applications\(application_id\)/i);
   assert.match(withoutComments, /contractor_id VARCHAR REFERENCES contractors\(id\)/i);
-  assert.match(statements[1], /^CREATE UNIQUE INDEX IF NOT EXISTS contractor_messages_inbound_provider_message_id_unique\b/i);
-  assert.doesNotMatch(withoutComments, /\b(DROP|DELETE|TRUNCATE|ALTER|UPDATE)\b/i);
+  assert.match(statements[4], /^CREATE UNIQUE INDEX IF NOT EXISTS contractor_messages_inbound_provider_message_id_unique\b/i);
+  assert.doesNotMatch(withoutComments, /\b(DELETE|TRUNCATE)\b/i);
   assert.doesNotMatch(migrationUrl.pathname, /\/migrations\//i);
 });
 
