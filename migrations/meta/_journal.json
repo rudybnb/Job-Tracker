@@ -50,6 +50,13 @@
       "when": 1786377600000,
       "tag": "0018_client_contact_methods",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786291200324,
+      "tag": "0019_phase_qr_site_checkin",
+      "breakpoints": true
     }
   ]
 }

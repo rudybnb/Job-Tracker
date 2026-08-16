@@ -35,6 +35,9 @@ import AdminBudgetTracking from "@/pages/admin-budget-tracking";
 import TelegramMessages from "@/pages/telegram-messages";
 import VoiceControl from "@/pages/voice-control";
 import AdminJarvisReviews from "@/pages/admin-jarvis-reviews";
+import CheckIn from "@/pages/checkin";
+import AdminSiteCheckin from "@/pages/admin-site-checkin";
+
 
 import NotFound from "@/pages/not-found";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -128,9 +131,21 @@ function Router() {
           </ProtectedRoute>
         )} />
 
+        <Route path="/checkin" component={() => (
+          <ProtectedRoute requiredRole="contractor">
+            <CheckIn />
+          </ProtectedRoute>
+        )} />
+
         <Route path="/foreman" component={() => (
           <ProtectedRoute requiredRole="contractor">
             <ForemanDashboard />
+          </ProtectedRoute>
+        )} />
+
+        <Route path="/admin-site-checkin" component={() => (
+          <ProtectedRoute requiredRole="admin">
+            <AdminSiteCheckin />
           </ProtectedRoute>
         )} />
 

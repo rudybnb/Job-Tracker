@@ -21,6 +21,8 @@ import { createContractorMessageRouter } from "./integration-contractor-message-
 import { createWhatsAppWebhookRouter } from "./whatsapp-webhook-route.ts";
 import { createWhatsAppProvider } from "./whatsapp.ts";
 import { createJarvisIdentityResolverRouter, SqlJarvisIdentityResolver } from "./jarvis-identity-resolver.ts";
+import { createSiteCheckinRouter } from "./site-checkin-routes.ts";
+import { PostgresSiteCheckinStore } from "./site-checkin-repository.ts";
 
 const app = express();
 // Allow mobile WebView (capacitor://localhost) and other origins to call the API
@@ -138,6 +140,21 @@ const contractorMessageRouter = createContractorMessageRouter({
 app.use((request, response, next) => {
   if (request.path.startsWith("/api/integrations/messages")) {
     return contractorMessageRouter(request, response, next);
+  }
+  return next();
+});
+
+// Phase QR-1 — Site QR + GPS check-in. Worker endpoint requires a normal app
+// session; admin config/QR endpoints are requireAdmin-guarded. The backend
+// always makes the final QR + GPS decision and writes every attempt to the
+// append-only audit table.
+const siteCheckinRouter = createSiteCheckinRouter({
+  store: new PostgresSiteCheckinStore(client),
+});
+
+app.use((request, response, next) => {
+  if (request.path.startsWith("/api/checkin") || request.path.startsWith("/api/admin/site-checkin")) {
+    return siteCheckinRouter(request, response, next);
   }
   return next();
 });

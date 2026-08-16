@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, pgEnum, boolean, uuid, index, check, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, pgEnum, boolean, uuid, integer, numeric, index, uniqueIndex, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -148,6 +148,11 @@ export const workSessions = pgTable("work_sessions", {
   endLongitude: text("end_longitude"),
   status: sessionStatusEnum("status").default("active"),
   createdAt: timestamp("created_at").defaultNow(),
+  jobId: varchar("job_id").references(() => jobs.id),
+  workerId: varchar("worker_id").references(() => workers.id),
+  contractorId: varchar("contractor_id").references(() => contractors.id),
+  supplierId: varchar("supplier_id").references(() => suppliers.id),
+  payeeId: varchar("payee_id").references(() => payees.id),
 });
 
 // Temporary departure tracking for contractors during work hours
@@ -162,6 +167,62 @@ export const temporaryDepartures = pgTable("temporary_departures", {
   nearestJobSite: text("nearest_job_site"), // Which job site they're away from
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const siteCheckinConfigs = pgTable("site_checkin_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "restrict" }),
+  siteName: text("site_name"),
+  siteLatitude: text("site_latitude").notNull(),
+  siteLongitude: text("site_longitude").notNull(),
+  allowedRadiusMetres: integer("allowed_radius_metres").notNull().default(100),
+  qrEnabled: boolean("qr_enabled").notNull().default(true),
+  gpsEnabled: boolean("gps_enabled").notNull().default(true),
+  qrTokenHash: varchar("qr_token_hash", { length: 64 }).notNull(),
+  qrTokenExpiresAt: timestamp("qr_token_expires_at", { withTimezone: true }),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("site_checkin_config_job_unique").on(table.jobId),
+  uniqueIndex("site_checkin_config_token_hash_unique").on(table.qrTokenHash),
+  check("site_checkin_config_radius_positive", sql`${table.allowedRadiusMetres} > 0`),
+]);
+
+export const siteCheckinAttempts = pgTable("site_checkin_attempt", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerId: varchar("worker_id").references(() => workers.id),
+  contractorId: varchar("contractor_id").references(() => contractors.id),
+  jobId: varchar("job_id").references(() => jobs.id),
+  siteCheckinConfigId: varchar("site_checkin_config_id").references(() => siteCheckinConfigs.id),
+  identityLabel: text("identity_label"),
+  attemptTime: timestamp("attempt_time", { withTimezone: true }).notNull().defaultNow(),
+  qrValid: boolean("qr_valid").notNull(),
+  submittedLatitude: text("submitted_latitude"),
+  submittedLongitude: text("submitted_longitude"),
+  gpsAccuracyMetres: numeric("gps_accuracy_metres", { precision: 14, scale: 2 }),
+  calculatedDistanceMetres: numeric("calculated_distance_metres", { precision: 14, scale: 2 }),
+  permittedRadiusMetres: integer("permitted_radius_metres"),
+  gpsValid: boolean("gps_valid").notNull(),
+  accepted: boolean("accepted").notNull(),
+  rejectionReason: text("rejection_reason"),
+  workSessionId: varchar("work_session_id").references(() => workSessions.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_site_checkin_attempt_job").on(table.jobId),
+  index("idx_site_checkin_attempt_worker").on(table.workerId),
+  index("idx_site_checkin_attempt_time").on(table.attemptTime),
+  check("site_checkin_attempt_reason_check", sql`${table.rejectionReason} IS NULL OR ${table.rejectionReason} IN (
+    'WRONG_QR',
+    'SITE_NOT_FOUND',
+    'SITE_CHECKIN_DISABLED',
+    'GPS_UNAVAILABLE',
+    'INVALID_COORDINATES',
+    'GPS_ACCURACY_UNACCEPTABLE',
+    'GPS_OUTSIDE_RADIUS',
+    'UNAUTHORISED_WORKER',
+    'NO_ACTIVE_SESSION'
+  )`),
+]);
 
 export const insertTemporaryDepartureSchema = createInsertSchema(temporaryDepartures).omit({
   id: true,
@@ -207,6 +268,17 @@ export const contractorReplies = pgTable("contractor_replies", {
 
 export const insertContractorReplySchema = createInsertSchema(contractorReplies).omit({
   id: true,
+});
+
+export const insertSiteCheckinConfigSchema = createInsertSchema(siteCheckinConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSiteCheckinAttemptSchema = createInsertSchema(siteCheckinAttempts).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const insertWorkSessionSchema = createInsertSchema(workSessions).omit({
@@ -561,6 +633,11 @@ export type InsertContractorReply = z.infer<typeof insertContractorReplySchema>;
 export type ContractorReply = typeof contractorReplies.$inferSelect;
 export type InsertWorkSession = z.infer<typeof insertWorkSessionSchema>;
 export type WorkSession = typeof workSessions.$inferSelect;
+export type InsertSiteCheckinConfig = z.infer<typeof insertSiteCheckinConfigSchema>;
+export type SiteCheckinConfig = typeof siteCheckinConfigs.$inferSelect;
+export type InsertSiteCheckinAttempt = z.infer<typeof insertSiteCheckinAttemptSchema>;
+export type SiteCheckinAttempt = typeof siteCheckinAttempts.$inferSelect;
+
 export type JobAssignment = z.infer<typeof jobAssignmentSchema>;
 export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
 export type AdminSetting = typeof adminSettings.$inferSelect;

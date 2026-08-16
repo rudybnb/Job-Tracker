@@ -16,6 +16,10 @@ interface SessionRequest extends Express.Request {
 
 const storage = new DatabaseStorage();
 import { insertJobSchema, insertContractorSchema, jobAssignmentSchema, insertContractorApplicationSchema, insertWorkSessionSchema, insertAdminSettingSchema, insertJobAssignmentSchema, JobWithContractor, WorkSession } from "@shared/schema";
+import { sql } from "drizzle-orm";
+import { db } from "./db";
+import { workSessions } from "@shared/schema";
+
 import { TelegramService } from "./telegram";
 import VoiceAgent from "./voice-agent";
 import multer from "multer";
@@ -3093,12 +3097,22 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
     try {
       console.log("📊 Fetching active work sessions for admin monitoring");
       
-      const activeSessions = await storage.getActiveWorkSessions();
+      // Fetch labour sessions (existing system)
+      const labourSessions = await storage.getActiveWorkSessions();
+
+      // Fetch site-checkin sessions (QR check-in/out system)
+      const siteCheckinSessions = await db
+        .select()
+        .from(workSessions)
+        .orderBy(sql`start_time DESC`);
+
+      // Combine all sessions
+      const allSessions = [...labourSessions, ...siteCheckinSessions];
       
       // Clean up contractor names and filter to latest session per contractor
       const cleanedSessions = new Map();
       
-      activeSessions.forEach(session => {
+      allSessions.forEach(session => {
         // Clean contractor name (trim whitespace, fix known issues)
         let cleanName = session.contractorName.trim();
         if (cleanName === 'Dalwayne Bailey') {
@@ -3123,6 +3137,12 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
         const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
         const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
         
+        // Determine session status: ON SITE (active) or CHECKED OUT (completed)
+        const isSiteCheckinSession = session.status === 'active' || session.status === 'completed';
+        const sessionStatus = session.status === 'completed' ? 'checked_out' : 'clocked_in';
+        const displayStatus = session.status === 'completed' ? 'CHECKED OUT' : 'ON SITE';
+        const isActive = session.status !== 'completed';
+
         // Detect current location by finding nearest assigned job site (DYNAMIC SYSTEM)
         let detectedLocation = session.jobSiteLocation; // Default to stored location
         
@@ -3145,24 +3165,33 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
           console.log(`❌ No GPS coordinates available for ${session.contractorName}`);
         }
         
+        // Calculate check-out time if completed
+        const checkedOutAt = session.endTime ? new Date(session.endTime).toLocaleTimeString('en-GB', {
+          timeZone: 'Europe/London',
+          hour: '2-digit',
+          minute: '2-digit'
+        }) : null;
+
         return {
           ...session,
-          jobSiteLocation: detectedLocation, // Use detected location instead of stored
-          duration: `${durationHours}h ${durationMinutes}m`,
-          durationMs: durationMs,
-          isActive: true,
-          status: 'clocked_in',
+          jobSiteLocation: detectedLocation,
+          duration: isActive ? `${durationHours}h ${durationMinutes}m` : 'Completed',
+          durationMs: isActive ? durationMs : 0,
+          isActive,
+          status: sessionStatus,
+          displayStatus,
           workingHours: durationHours,
           workingMinutes: durationMinutes,
           startedAt: startTime.toLocaleTimeString('en-GB', {
             timeZone: 'Europe/London',
             hour: '2-digit',
             minute: '2-digit'
-          })
+          }),
+          checkedOutAt
         };
       }));
       
-      console.log(`📈 Found ${sessionsWithDuration.length} active sessions`);
+      console.log(`📈 Found ${sessionsWithDuration.length} sessions (active + checked out)`);
       res.json(sessionsWithDuration);
     } catch (error) {
       console.error("Error fetching active sessions:", error);
