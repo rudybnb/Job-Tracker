@@ -62,30 +62,54 @@ export default function AdminSiteCheckin() {
   async function load() {
     setLoading(true);
     setUnauthorized(false);
+    let authFailed = false;
+
+    // 1. Fetch jobs independently to populate dropdown
     try {
-      const [configsRes, jobsRes] = await Promise.all([
-        apiFetch("/api/admin/site-checkin/configs"),
-        apiFetch("/api/jobs"),
-      ]);
-
-      if (configsRes.status === 401 || jobsRes.status === 401) {
-        setUnauthorized(true);
-        return;
-      }
-
-      if (configsRes.ok) {
-        const data = (await configsRes.json()) as { configs: SiteCheckinConfig[] };
-        setConfigs(data.configs || []);
-      }
-      if (jobsRes.ok) {
+      const jobsRes = await apiFetch("/api/jobs");
+      if (jobsRes.status === 401) {
+        authFailed = true;
+      } else if (jobsRes.ok) {
         const jobData = (await jobsRes.json()) as JobOption[];
-        setJobs(jobData || []);
+        if (Array.isArray(jobData)) {
+          setJobs(jobData);
+        }
+      } else {
+        console.warn("Failed to load jobs list:", jobsRes.status);
       }
-    } catch {
-      setMessage({ text: "Failed to connect to site check-in services.", type: "error" });
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching jobs:", err);
     }
+
+    // 2. Fetch site check-in configs independently
+    try {
+      const configsRes = await apiFetch("/api/admin/site-checkin/configs");
+      if (configsRes.status === 401) {
+        authFailed = true;
+      } else if (configsRes.ok) {
+        const data = (await configsRes.json()) as { configs?: SiteCheckinConfig[] };
+        if (Array.isArray(data?.configs)) {
+          setConfigs(data.configs);
+        } else if (Array.isArray(data)) {
+          setConfigs(data as unknown as SiteCheckinConfig[]);
+        }
+      } else {
+        const errJson = await configsRes.json().catch(() => ({}));
+        setMessage({
+          text: errJson.error || `Failed to load site configurations (HTTP ${configsRes.status}).`,
+          type: "error",
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching site checkin configs:", err);
+      setMessage({ text: "Could not load site check-in policies.", type: "error" });
+    }
+
+    if (authFailed) {
+      setUnauthorized(true);
+    }
+
+    setLoading(false);
   }
 
   useEffect(() => {

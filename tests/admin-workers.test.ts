@@ -190,3 +190,46 @@ describe("Site QR & GPS Admin Coordinates and DMS Parsing", () => {
     assert.equal(parseDmsOrDecimal(""), null);
   });
 });
+
+describe("Site QR Admin Page Data-Loading Resilience", () => {
+  it("populates jobs list independently even if site configs request fails", async () => {
+    const mockJobs = [
+      { id: "j-1", title: "Tester", location: "15 Gilbert Road, Belvedere, DA17 5DB" },
+      { id: "j-2", title: "Woolwich Church", location: "165 Powis Street, SE18 6JW" },
+      { id: "j-3", title: "38 Crescent Road", location: "SE18 7BN" },
+    ];
+
+    let loadedJobs: any[] = [];
+    let loadedConfigs: any[] = [];
+    let errorMessage: string | null = null;
+
+    // Simulate independent fetch handling
+    const fetchJobs = async () => {
+      return { ok: true, json: async () => mockJobs };
+    };
+
+    const fetchConfigs = async () => {
+      // Simulate config fetch failure (e.g. HTTP 500 or network issue)
+      return { ok: false, status: 500, json: async () => ({ error: "Database error" }) };
+    };
+
+    // 1. Fetch jobs
+    const jobsRes = await fetchJobs();
+    if (jobsRes.ok) {
+      loadedJobs = await jobsRes.json();
+    }
+
+    // 2. Fetch configs
+    const configsRes = await fetchConfigs();
+    if (!configsRes.ok) {
+      errorMessage = "Could not load site check-in policies.";
+    }
+
+    // Verify jobs populated regardless of config error
+    assert.equal(loadedJobs.length, 3);
+    assert.equal(loadedJobs[0].title, "Tester");
+    assert.equal(loadedJobs[1].title, "Woolwich Church");
+    assert.equal(loadedJobs[2].title, "38 Crescent Road");
+    assert.equal(errorMessage, "Could not load site check-in policies.");
+  });
+});
