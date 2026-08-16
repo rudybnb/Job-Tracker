@@ -112,6 +112,19 @@ export default function Login() {
         description: "QR poster token captured successfully.",
       });
     }
+
+    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+    const userRole = localStorage.getItem("userRole");
+    if (isLoggedIn && userRole === "contractor") {
+      const pendingToken = sessionStorage.getItem("pendingQrToken") || params.get("t") || params.get("qrToken");
+      if (pendingToken) {
+        window.location.href = "/checkin";
+      } else {
+        window.location.href = "/";
+      }
+    } else if (isLoggedIn && userRole === "admin") {
+      window.location.href = "/admin";
+    }
   }, []);
 
   // Request GPS Location on mount
@@ -291,6 +304,17 @@ export default function Login() {
             ? "Temporary password detected. Please set your new private password."
             : `Welcome back, ${contractor.fullName || contractor.username}!`,
         });
+
+        if (!needsPasswordChange) {
+          const pendingToken = sessionStorage.getItem("pendingQrToken");
+          setTimeout(() => {
+            if (pendingToken) {
+              window.location.href = "/checkin";
+            } else {
+              window.location.href = "/";
+            }
+          }, 300);
+        }
       } else {
         toast({ title: "Login Failed", description: "Invalid username or password", variant: "destructive" });
       }

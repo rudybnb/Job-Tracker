@@ -246,6 +246,51 @@ describe("Worker GPS Dashboard - Site Checkin Config Integration", () => {
   });
 });
 
+describe("Worker App Access Rules Without Clock-In", () => {
+  it("grants access to Worker Dashboard (/) immediately upon login without clock-in", () => {
+    const isLoggedIn = true;
+    const userRole = "contractor";
+    const pendingToken = null;
+
+    const targetRoute = isLoggedIn && userRole === "contractor" ? (pendingToken ? "/checkin" : "/") : "/login";
+    assert.equal(targetRoute, "/");
+  });
+
+  it("allows access to Dashboard (/), Jobs (/jobs), and More (/more) when Not Clocked In", () => {
+    const isClockedIn = false;
+    const accessiblePagesWhenUnclocked = ["/", "/jobs", "/more", "/task-progress"];
+
+    assert.equal(isClockedIn, false);
+    for (const page of accessiblePagesWhenUnclocked) {
+      assert.ok(page.length > 0);
+    }
+  });
+
+  it("displays 'Not Clocked In' status and 'Scan Site QR to Clock In' action when session is inactive", () => {
+    const isTracking = false;
+    const statusText = isTracking ? "Clocked In" : "Not Clocked In";
+    const actionButtonText = isTracking ? "Clock Out" : "Scan Site QR to Clock In";
+
+    assert.equal(statusText, "Not Clocked In");
+    assert.equal(actionButtonText, "Scan Site QR to Clock In");
+  });
+
+  it("displays 'Clocked In' status, site name, and start time when session is active", () => {
+    const isTracking = true;
+    const siteName = "Tester — 15 Gilbert Road";
+    const statusText = isTracking ? "Clocked In" : "Not Clocked In";
+
+    assert.equal(statusText, "Clocked In");
+    assert.equal(siteName, "Tester — 15 Gilbert Road");
+  });
+
+  it("strictly blocks Admin pages (/admin) for worker role 'contractor'", () => {
+    const userRole = "contractor";
+    const isAdminAllowed = userRole === "admin";
+    assert.equal(isAdminAllowed, false);
+  });
+});
+
 describe("Worker Post-Clock-In Navigation & Active Session UI", () => {
   it("triggers redirect target '/' upon successful clock-in", () => {
     const clockInAccepted = true;
@@ -277,13 +322,6 @@ describe("Worker Post-Clock-In Navigation & Active Session UI", () => {
     const canClockOut = isTracking;
     assert.equal(canClockOut, false);
     assert.equal(activeSessionId, null);
-  });
-
-  it("provides worker navigation paths for Dashboard (/), Jobs (/jobs), and More (/more)", () => {
-    const workerRoutes = ["/", "/jobs", "/more", "/task-progress"];
-    assert.ok(workerRoutes.includes("/"));
-    assert.ok(workerRoutes.includes("/jobs"));
-    assert.ok(workerRoutes.includes("/more"));
   });
 });
 

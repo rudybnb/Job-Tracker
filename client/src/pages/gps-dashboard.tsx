@@ -360,20 +360,41 @@ export default function GPSDashboard() {
         {/* GPS Time Tracker Card */}
         <Card className="bg-slate-800/90 border-slate-700 shadow-xl backdrop-blur">
           <CardContent className="p-6 text-center space-y-4">
-            <div className="text-xs uppercase tracking-widest text-slate-400 font-semibold flex items-center justify-center gap-2">
-              <Clock className="w-4 h-4 text-amber-400" /> GPS Work Session Timer
+            <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+              <div className="text-xs uppercase tracking-widest text-slate-400 font-semibold flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-400" /> Attendance Status
+              </div>
+              <Badge className={isTracking ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 font-semibold" : "bg-slate-700 text-slate-300 border-slate-600 font-semibold"}>
+                {isTracking ? "Clocked In" : "Not Clocked In"}
+              </Badge>
             </div>
 
             <div className="text-5xl font-mono font-bold text-amber-400 tracking-wider py-2">{currentTime}</div>
 
-            {/* ONLY SHOW GPS TIMER ACTIVE WHEN ACTUAL DB SESSION IS RUNNING */}
+            {/* STATUS DISPLAY AND ACTIONS */}
             {isTracking ? (
-              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-medium">
-                ✅ GPS Timer Active — Work session in progress on site
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs space-y-1 text-left">
+                <div className="font-semibold flex items-center gap-1.5 text-sm">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Work Session Active
+                </div>
+                <div><span className="text-slate-400">Site:</span> <span className="font-medium text-white">{siteNameDisplay}</span></div>
+                {startTime && (
+                  <div><span className="text-slate-400">Clocked in at:</span> <span className="font-mono text-white">{startTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                )}
               </div>
             ) : (
-              <div className="p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-400 text-xs">
-                Time tracking inactive. Scan site QR & verify GPS to clock in.
+              <div className="p-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-400 text-xs text-left space-y-2">
+                <div className="font-medium text-slate-300 flex items-center gap-1.5 text-xs">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" /> Not Clocked In
+                </div>
+                <div>Attendance tracking inactive. Scan site QR poster & verify GPS proximity to begin session.</div>
+                <Button
+                  type="button"
+                  onClick={() => (window.location.href = "/checkin")}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs h-9 mt-1"
+                >
+                  <Camera className="w-4 h-4 mr-2" /> Scan Site QR to Clock In
+                </Button>
               </div>
             )}
 
@@ -397,13 +418,13 @@ export default function GPSDashboard() {
               </Button>
             </div>
 
-            {!isWithinRadius && distanceMetres !== null && (
+            {!isTracking && !isWithinRadius && distanceMetres !== null && (
               <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-xl">
                 ⚠️ Clock In blocked: You are {distanceMetres}m from site (allowed: {allowedRadius}m).
               </div>
             )}
 
-            {qrRequired && !scannedQrToken && (
+            {!isTracking && qrRequired && !scannedQrToken && (
               <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
                 📷 Scan the printed Site QR poster before clocking in.
               </div>
