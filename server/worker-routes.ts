@@ -8,7 +8,7 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
   const router = express.Router();
 
   // GET /api/admin/workers - List all workers
-  router.get(WORKERS_ADMIN_API_PREFIX, requireAdmin, async (_req: Request, res: Response) => {
+  router.get(WORKERS_ADMIN_API_PREFIX, requireAdmin as any, async (_req: Request, res: Response) => {
     try {
       const list = await workerService.listWorkers();
       return res.status(200).json(list);
@@ -19,7 +19,7 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
   });
 
   // GET /api/admin/workers/:id - Get worker details
-  router.get(`${WORKERS_ADMIN_API_PREFIX}/:id`, requireAdmin, async (req: Request, res: Response) => {
+  router.get(`${WORKERS_ADMIN_API_PREFIX}/:id`, requireAdmin as any, async (req: Request, res: Response) => {
     try {
       const worker = await workerService.getWorkerById(req.params.id);
       if (!worker) {
@@ -33,7 +33,7 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
   });
 
   // POST /api/admin/workers - Create new site worker
-  router.post(WORKERS_ADMIN_API_PREFIX, requireAdmin, async (req: Request, res: Response) => {
+  router.post(WORKERS_ADMIN_API_PREFIX, requireAdmin as any, async (req: Request, res: Response) => {
     try {
       const body = req.body ?? {};
       const firstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
@@ -88,7 +88,7 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
   });
 
   // PATCH /api/admin/workers/:id - Update worker
-  router.patch(`${WORKERS_ADMIN_API_PREFIX}/:id`, requireAdmin, async (req: Request, res: Response) => {
+  router.patch(`${WORKERS_ADMIN_API_PREFIX}/:id`, requireAdmin as any, async (req: Request, res: Response) => {
     try {
       const id = req.params.id;
       const body = req.body ?? {};

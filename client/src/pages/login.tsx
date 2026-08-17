@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, QrCode, MapPin, CheckCircle, AlertTriangle, LogOut, Camera, X } from "lucide-react";
 import { getCurrentLocation, calculateDistanceMetres } from "@/lib/location";
 import { apiFetch } from "@/lib/api";
+import { startQrScanner, extractQrToken } from "@/lib/qr-scanner-helper";
 import "./hallmark-sweep.css";
 
 interface SiteConfig {
@@ -213,27 +214,29 @@ export default function Login() {
 
     const timer = setTimeout(() => {
       if (!isMounted) return;
-      const scanner = new Html5Qrcode(scannerDivId);
-      scannerRef.current = scanner;
-
-      scanner
-        .start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 220, height: 220 } },
-          (decodedText) => {
-            const token = extractTokenFromUrlOrText(decodedText);
-            if (token) {
-              setScannedQrToken(token);
-              setShowQrScannerModal(false);
-              toast({ title: "QR Code Verified!", description: `Scanned token: ${token.substring(0, 14)}...` });
-            }
-          },
-          () => undefined,
-        )
-        .catch((err) => {
+      void startQrScanner(
+        scannerDivId,
+        (token) => {
+          if (!isMounted) return;
+          setScannedQrToken(token);
+          setShowQrScannerModal(false);
+          toast({ title: "QR Code Verified!", description: `Scanned token: ${token.substring(0, 14)}...` });
+        },
+        (errorMsg) => {
+          if (isMounted) setCameraError(errorMsg);
+        },
+      )
+        .then((scanner) => {
+          if (isMounted) {
+            scannerRef.current = scanner;
+          } else {
+            void scanner.stop().catch(() => undefined);
+          }
+        })
+        .catch((err: any) => {
           console.warn("Camera start failed:", err);
           if (isMounted) {
-            setCameraError("Camera unavailable or permission denied. Scan printed poster with native phone camera.");
+            setCameraError(err?.message || "Camera unavailable or permission denied.");
           }
         });
     }, 200);

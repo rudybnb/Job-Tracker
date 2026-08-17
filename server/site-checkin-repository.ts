@@ -206,12 +206,12 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
           submitted_longitude, gps_accuracy_metres, calculated_distance_metres,
           permitted_radius_metres, gps_valid, accepted, rejection_reason
         ) VALUES (
-          ${attempt.workerId}, ${attempt.contractorId}, ${attempt.jobId},
-          ${attempt.siteCheckinConfigId}, ${identity.identityLabel},
-          ${attempt.attemptTime}, ${attempt.qrValid}, ${attempt.submittedLatitude},
-          ${attempt.submittedLongitude}, ${attempt.gpsAccuracyMetres},
-          ${attempt.calculatedDistanceMetres}, ${attempt.permittedRadiusMetres},
-          ${attempt.gpsValid}, ${attempt.accepted}, ${attempt.rejectionReason}
+          ${attempt.workerId ?? null}, ${attempt.contractorId ?? null}, ${attempt.jobId ?? null},
+          ${attempt.siteCheckinConfigId ?? null}, ${identity.label},
+          ${attempt.attemptTime}, ${attempt.qrValid}, ${attempt.submittedLatitude ?? null},
+          ${attempt.submittedLongitude ?? null}, ${attempt.gpsAccuracyMetres ?? null},
+          ${attempt.calculatedDistanceMetres ?? null}, ${attempt.permittedRadiusMetres ?? null},
+          ${attempt.gpsValid}, ${attempt.accepted}, ${attempt.rejectionReason ?? null}
         )
         RETURNING id
       `;
@@ -237,7 +237,7 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
              qr_token_expires_at = ${qrTokenExpiresAt},
              created_by = ${rotatedBy},
              updated_at = now()
-       WHERE id = ${configId}
+        WHERE id = ${configId}
     `;
   }
 
@@ -253,50 +253,51 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
       let duplicate = false;
 
       if (attempt.accepted && workSessionDraft) {
-        const existingActive = await dbTx<{ id: string }[]>`
+        const existingActive = await (dbTx<{ id: string }[]>`
           SELECT id FROM work_sessions
            WHERE job_id = ${workSessionDraft.jobId}
-             AND contractor_name = ${identity.identityLabel}
+             AND contractor_name = ${identity.label}
              AND status = 'active'
            LIMIT 1
-        `;
+        ` as unknown as Promise<{ id: string }[]>);
 
         if (existingActive.length > 0) {
           duplicate = true;
           createdSessionId = existingActive[0].id;
         } else {
-          const sessionRows = await dbTx<{ id: string }[]>`
+          const nowIso = new Date().toISOString();
+          const sessionRows = await (dbTx<{ id: string }[]>`
             INSERT INTO work_sessions (
               contractor_name, job_site_location, start_time, end_time, status,
               job_id, worker_id, contractor_id
             ) VALUES (
-              ${identity.identityLabel}, ${workSessionDraft.jobSiteLocation},
-              ${workSessionDraft.startTime}, ${workSessionDraft.endTime},
-              ${workSessionDraft.status}, ${workSessionDraft.jobId},
-              ${attempt.workerId}, ${attempt.contractorId}
+              ${identity.label}, ${workSessionDraft.jobSiteLocation},
+              ${nowIso}, ${null},
+              'active', ${workSessionDraft.jobId},
+              ${attempt.workerId ?? null}, ${attempt.contractorId ?? null}
             )
             RETURNING id
-          `;
+          ` as unknown as Promise<{ id: string }[]>);
           createdSessionId = sessionRows[0].id;
         }
       }
 
-      const attemptRows = await dbTx<{ id: string }[]>`
+      const attemptRows = await (dbTx<{ id: string }[]>`
         INSERT INTO site_checkin_attempt (
           worker_id, contractor_id, job_id, site_checkin_config_id,
           identity_label, attempt_time, qr_valid, submitted_latitude,
           submitted_longitude, gps_accuracy_metres, calculated_distance_metres,
           permitted_radius_metres, gps_valid, accepted, rejection_reason
         ) VALUES (
-          ${attempt.workerId}, ${attempt.contractorId}, ${attempt.jobId},
-          ${attempt.siteCheckinConfigId}, ${identity.identityLabel},
-          ${attempt.attemptTime}, ${attempt.qrValid}, ${attempt.submittedLatitude},
-          ${attempt.submittedLongitude}, ${attempt.gpsAccuracyMetres},
-          ${attempt.calculatedDistanceMetres}, ${attempt.permittedRadiusMetres},
-          ${attempt.gpsValid}, ${attempt.accepted}, ${attempt.rejectionReason}
+          ${attempt.workerId ?? null}, ${attempt.contractorId ?? null}, ${attempt.jobId ?? null},
+          ${attempt.siteCheckinConfigId ?? null}, ${identity.label},
+          ${attempt.attemptTime}, ${attempt.qrValid}, ${attempt.submittedLatitude ?? null},
+          ${attempt.submittedLongitude ?? null}, ${attempt.gpsAccuracyMetres ?? null},
+          ${attempt.calculatedDistanceMetres ?? null}, ${attempt.permittedRadiusMetres ?? null},
+          ${attempt.gpsValid}, ${attempt.accepted}, ${attempt.rejectionReason ?? null}
         )
         RETURNING id
-      `;
+      ` as unknown as Promise<{ id: string }[]>);
 
       return {
         attemptId: attemptRows[0].id,

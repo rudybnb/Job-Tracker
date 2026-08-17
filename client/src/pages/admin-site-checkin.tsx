@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { apiFetch } from "@/lib/api";
 import { getCurrentLocation } from "@/lib/location";
-import { parseDmsOrDecimal, lookupUkPostcodeOrAddress } from "@/lib/geo-utils";
-import { MapPin, QrCode, RefreshCw, Printer, Compass, CheckCircle, AlertTriangle, Lock, Users, Building } from "lucide-react";
+import { parseDmsOrDecimal, lookupUkPostcodeOrAddress, extractUkPostcode, type PostcodeLookupResult } from "@/lib/geo-utils";
+import { MapPin, QrCode, RefreshCw, Printer, Compass, CheckCircle, AlertTriangle, Lock, Users, Building, Check } from "lucide-react";
 import "./hallmark-sweep.css";
 
 interface SiteCheckinConfig {
@@ -65,6 +65,7 @@ export default function AdminSiteCheckin() {
   const [gpsEnabled, setGpsEnabled] = useState(true);
   const [reportedAccuracy, setReportedAccuracy] = useState<number | null>(null);
   const [geocoding, setGeocoding] = useState(false);
+  const [resolvedLocation, setResolvedLocation] = useState<PostcodeLookupResult | null>(null);
 
   async function load() {
     setLoading(true);
@@ -136,11 +137,65 @@ export default function AdminSiteCheckin() {
     void load();
   }, []);
 
+  async function autoResolveLocationForJob(job: JobOption, existingConfig?: SiteCheckinConfig) {
+    const targetPostcode = job.postcode || extractUkPostcode(job.address) || extractUkPostcode(job.location);
+    const searchQuery = job.postcode || job.address || job.location;
+
+    if (!searchQuery) {
+      setResolvedLocation(null);
+      setMessage({
+        text: "Selected site missing stored postcode/address. Please enter coordinates or use device location fallback.",
+        type: "error",
+      });
+      return;
+    }
+
+    setGeocoding(true);
+    setMessage({
+      text: `Auto-resolving UK postcode coordinates for "${targetPostcode || searchQuery}"...`,
+      type: "info",
+    });
+
+    const result = await lookupUkPostcodeOrAddress(searchQuery, targetPostcode || undefined);
+    setGeocoding(false);
+
+    if (result) {
+      setResolvedLocation(result);
+      setSiteLatitude(result.latitude.toFixed(6));
+      setSiteLongitude(result.longitude.toFixed(6));
+
+      const areaParts = [result.adminWard, result.adminDistrict].filter(Boolean);
+      const areaDesc = areaParts.length > 0 ? ` (${areaParts.join(", ")})` : "";
+
+      if (result.matchType === "exact_postcode" && result.isValidatedPostcode) {
+        setMessage({
+          text: `Auto-resolved coordinates for UK Postcode ${result.postcode}${areaDesc}: Lat ${result.latitude.toFixed(6)}, Lng ${result.longitude.toFixed(6)}. Review and click "Save Site QR & GPS Policy".`,
+          type: "success",
+        });
+      } else {
+        setMessage({
+          text: `Auto-resolved GPS location: Lat ${result.latitude.toFixed(6)}, Lng ${result.longitude.toFixed(6)}. Review and click "Save Site QR & GPS Policy".`,
+          type: "success",
+        });
+      }
+    } else {
+      setResolvedLocation(null);
+      setMessage({
+        text: `Could not auto-resolve postcode for "${searchQuery}". Please use "Use My Current Location" or enter manual coordinates fallback.`,
+        type: "error",
+      });
+    }
+  }
+
   function selectJob(jobId: string) {
     setSelectedJobId(jobId);
+    setResolvedLocation(null);
+    setMessage(null);
+
     const job = jobs.find((j) => j.id === jobId);
     if (job) {
-      setSiteName(`${job.title} — ${job.location}`);
+      const defaultName = `${job.title} — ${job.location}`;
+      setSiteName(defaultName);
       if (job.latitude) setSiteLatitude(job.latitude);
       if (job.longitude) setSiteLongitude(job.longitude);
 
@@ -154,6 +209,9 @@ export default function AdminSiteCheckin() {
         setGpsEnabled(existingConfig.gpsEnabled);
         if (existingConfig.siteName) setSiteName(existingConfig.siteName);
       }
+
+      // Automatically resolve UK postcode to GPS coordinates when site is selected
+      void autoResolveLocationForJob(job, existingConfig);
     }
   }
 
@@ -165,11 +223,17 @@ export default function AdminSiteCheckin() {
     setRadius(config.allowedRadiusMetres.toString());
     setQrEnabled(config.qrEnabled);
     setGpsEnabled(config.gpsEnabled);
+
+    const linkedJob = jobs.find((j) => j.id === config.jobId);
+    if (linkedJob) {
+      void autoResolveLocationForJob(linkedJob, config);
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handlePostcodeLookup() {
     const job = jobs.find((j) => j.id === selectedJobId);
+    const targetPostcode = job?.postcode || extractUkPostcode(job?.address) || extractUkPostcode(job?.location) || extractUkPostcode(siteName);
     const searchQuery = job?.address || job?.postcode || job?.location || siteName;
 
     if (!searchQuery) {
@@ -178,19 +242,21 @@ export default function AdminSiteCheckin() {
     }
 
     setGeocoding(true);
-    setMessage({ text: `Geocoding address: "${searchQuery}"...`, type: "info" });
+    setMessage({ text: `Looking up UK postcode coordinates for "${targetPostcode || searchQuery}"...`, type: "info" });
 
-    const result = await lookupUkPostcodeOrAddress(searchQuery);
+    const result = await lookupUkPostcodeOrAddress(searchQuery, targetPostcode || undefined);
     setGeocoding(false);
 
     if (result) {
+      setResolvedLocation(result);
       setSiteLatitude(result.latitude.toFixed(6));
       setSiteLongitude(result.longitude.toFixed(6));
       setMessage({
-        text: `Found location: Lat ${result.latitude.toFixed(6)}, Lng ${result.longitude.toFixed(6)}. Please confirm before saving.`,
+        text: `Resolved UK postcode location: Lat ${result.latitude.toFixed(6)}, Lng ${result.longitude.toFixed(6)}. Please review before saving.`,
         type: "success",
       });
     } else {
+      setResolvedLocation(null);
       setMessage({
         text: `Could not resolve GPS coordinates for "${searchQuery}". Please enter decimal coordinates or use device location.`,
         type: "error",
@@ -462,17 +528,57 @@ export default function AdminSiteCheckin() {
               </select>
             </div>
 
-            {/* Linked Site Address & Assigned Workers Panel */}
+            {/* Linked Site Address & Location Summary Panel */}
             {selectedJob && (
-              <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <Building className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
-                  <div>
-                    <div className="font-semibold text-white text-sm">Site Address & Location</div>
-                    <div className="text-xs text-slate-300">
-                      {selectedJob.address || selectedJob.location}
-                      {selectedJob.postcode ? ` (${selectedJob.postcode})` : ""}
+              <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-4 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                  <div className="flex items-start gap-3">
+                    <Building className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+                    <div>
+                      <div className="font-bold text-white text-base">{siteName || selectedJob.title}</div>
+                      <div className="text-xs text-slate-300">
+                        Address: {selectedJob.address || selectedJob.location}
+                      </div>
+                      <div className="text-xs text-amber-400 font-mono mt-0.5">
+                        Stored Postcode: {selectedJob.postcode || extractUkPostcode(selectedJob.address) || extractUkPostcode(selectedJob.location) || "Not specified"}
+                      </div>
                     </div>
+                  </div>
+
+                  {resolvedLocation?.matchType === "exact_postcode" && resolvedLocation.isValidatedPostcode ? (
+                    <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 px-3 py-1.5 self-start md:self-auto">
+                      <Check className="w-3.5 h-3.5 mr-1" />
+                      Verified UK Postcode ({resolvedLocation.postcode})
+                      {resolvedLocation.adminWard ? ` · ${resolvedLocation.adminWard}` : ""}
+                    </Badge>
+                  ) : resolvedLocation ? (
+                    <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1.5 self-start md:self-auto">
+                      Resolved via {resolvedLocation.matchType}
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 px-3 py-1.5 self-start md:self-auto">
+                      Postcode Lookup Pending
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Summary Metrics */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-xs">
+                  <div>
+                    <span className="text-slate-400 block">Target Postcode</span>
+                    <span className="font-mono text-white font-semibold">{selectedJob.postcode || extractUkPostcode(selectedJob.address) || resolvedLocation?.postcode || "None"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Latitude</span>
+                    <span className="font-mono text-amber-300 font-semibold">{siteLatitude || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Longitude</span>
+                    <span className="font-mono text-amber-300 font-semibold">{siteLongitude || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Allowed Geofence</span>
+                    <span className="font-mono text-emerald-400 font-semibold">±{radius}m</span>
                   </div>
                 </div>
 
@@ -516,7 +622,7 @@ export default function AdminSiteCheckin() {
                 className="bg-amber-600 hover:bg-amber-700 text-white font-medium h-11"
               >
                 <MapPin className="w-4 h-4 mr-2" />
-                Find Location from Address/Postcode
+                Re-Lookup UK Postcode GPS
               </Button>
               <Button
                 type="button"
@@ -526,14 +632,17 @@ export default function AdminSiteCheckin() {
                 className="border-slate-600 text-slate-200 hover:bg-slate-700 h-11"
               >
                 <Compass className="w-4 h-4 mr-2" />
-                Use My Current Location
+                Use My Current Location (Fallback)
               </Button>
             </div>
 
             {/* Coordinates Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-slate-200 font-medium">Decimal Latitude (-90 to +90)</Label>
+                <Label className="text-slate-200 font-medium flex items-center justify-between">
+                  <span>Decimal Latitude (-90 to +90)</span>
+                  <span className="text-xs text-amber-400 font-normal">Auto-filled</span>
+                </Label>
                 <Input
                   value={siteLatitude}
                   onChange={(e) => setSiteLatitude(e.target.value)}
@@ -542,7 +651,10 @@ export default function AdminSiteCheckin() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-200 font-medium">Decimal Longitude (-180 to +180)</Label>
+                <Label className="text-slate-200 font-medium flex items-center justify-between">
+                  <span>Decimal Longitude (-180 to +180)</span>
+                  <span className="text-xs text-amber-400 font-normal">Auto-filled</span>
+                </Label>
                 <Input
                   value={siteLongitude}
                   onChange={(e) => setSiteLongitude(e.target.value)}
@@ -550,6 +662,10 @@ export default function AdminSiteCheckin() {
                   className="bg-slate-900 border-slate-600 text-white h-11 font-mono text-sm"
                 />
               </div>
+            </div>
+
+            <div className="text-xs text-slate-400">
+              Coordinates are automatically populated from the UK postcode. Manual coordinate edits serve as an advanced fallback.
             </div>
 
             {reportedAccuracy !== null && (

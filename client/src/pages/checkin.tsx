@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentLocation } from "@/lib/location";
 import { apiFetch } from "@/lib/api";
+import { startQrScanner, extractQrToken } from "@/lib/qr-scanner-helper";
 
 type FlowState =
   | { readonly kind: "idle" }
@@ -70,7 +71,7 @@ export default function CheckIn() {
     }
 
     if (token && token.trim().length > 0) {
-      const cleanToken = token.trim();
+      const cleanToken = extractQrToken(token) ?? token.trim();
       tokenRef.current = cleanToken;
       void checkCurrentSession(cleanToken).then((active) => {
         if (!active) {
@@ -86,6 +87,70 @@ export default function CheckIn() {
       }
     };
   }, []);
+
+  // Initialize camera scanner when flow state transitions to scanning (after DOM element is mounted)
+  useEffect(() => {
+    if (flow.kind !== "scanning") {
+      if (scannerRef.current) {
+        void scannerRef.current.stop().catch(() => undefined);
+        scannerRef.current = null;
+      }
+      return;
+    }
+
+    let isMounted = true;
+
+    const timer = setTimeout(() => {
+      void startQrScanner(
+        scannerDivId,
+        (token) => {
+          if (!isMounted) return;
+          if (scannerRef.current) {
+            void scannerRef.current.stop().catch(() => undefined);
+            scannerRef.current = null;
+          }
+          tokenRef.current = token;
+          void checkCurrentSession(token).then((active) => {
+            if (!active) {
+              void submitCheckIn(token);
+            }
+          });
+        },
+        (errorMsg) => {
+          if (!isMounted) return;
+          if (scannerRef.current) {
+            void scannerRef.current.stop().catch(() => undefined);
+            scannerRef.current = null;
+          }
+          setFlow({ kind: "error", message: errorMsg });
+        },
+      )
+        .then((scanner) => {
+          if (isMounted) {
+            scannerRef.current = scanner;
+          } else {
+            void scanner.stop().catch(() => undefined);
+          }
+        })
+        .catch((err: any) => {
+          if (!isMounted) return;
+          scannerRef.current = null;
+          setFlow({
+            kind: "error",
+            message: err?.message || "Camera could not be started. Check permissions and try again.",
+          });
+        });
+    }, 100);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+      if (scannerRef.current) {
+        void scannerRef.current.stop().catch(() => undefined);
+        scannerRef.current = null;
+      }
+    };
+  }, [flow.kind]);
 
   async function checkCurrentSession(token: string): Promise<boolean> {
     setFlow({ kind: "checkingSession" });
@@ -252,42 +317,6 @@ export default function CheckIn() {
       scannerRef.current = null;
     }
     setFlow({ kind: "scanning" });
-
-    const scanner = new Html5Qrcode(scannerDivId);
-    scannerRef.current = scanner;
-
-    try {
-      await scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 240, height: 240 } },
-        (decodedText) => {
-          const token = extractToken(decodedText);
-          void scanner.stop().catch(() => undefined);
-          scannerRef.current = null;
-          if (token) {
-            tokenRef.current = token;
-            void checkCurrentSession(token).then((active) => {
-              if (!active) {
-                void submitCheckIn(token);
-              }
-            });
-          } else {
-            setFlow({
-              kind: "error",
-              message: "This QR code does not look like a Job Tracker site code. Try the site QR.",
-            });
-          }
-        },
-        () => undefined,
-      );
-    } catch {
-      scannerRef.current = null;
-      setFlow({
-        kind: "error",
-        message:
-          "Camera could not be started. Allow camera permission, then press Check In again.",
-      });
-    }
   }
 
   return (

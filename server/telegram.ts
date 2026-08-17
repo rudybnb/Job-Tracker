@@ -69,7 +69,7 @@ export class TelegramService {
         return { success: false, error: `Telegram API error: ${response.status}` };
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       console.log('✅ Telegram message sent successfully:', result);
       
       return { success: true, messageId: result.message_id };
@@ -126,7 +126,7 @@ Ready to receive your first job assignment!
         return { success: false, error: `Telegram API error: ${response.status}` };
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       console.log('✅ Telegram welcome message sent:', result);
       
       return { success: true, messageId: result.message_id };
@@ -234,7 +234,7 @@ Need help? Reply to this message! 💬`;
         return { success: false, error: `Telegram API error: ${response.status}` };
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       console.log('✅ Onboarding form sent with ID:', contractorId);
       
       return { 
@@ -289,7 +289,7 @@ Looking forward to today's assignments! 💪`;
         return { success: false, error: `Telegram API error: ${response.status}` };
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       console.log('✅ Contractor hello message sent:', result);
       
       return { success: true, messageId: result.message_id };
@@ -328,7 +328,7 @@ Looking forward to today's assignments! 💪`;
         return { success: false, error: `Telegram API error: ${response.status}` };
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       console.log('✅ Custom message sent successfully:', result);
       
       return { success: true, messageId: result.message_id };
@@ -416,7 +416,7 @@ Looking forward to today's assignments! 💪`;
             // Update contractor with Telegram ID
             await storage.updateContractor(matchingContractor.id, { 
               telegramId: chatId 
-            });
+            } as any);
             knownIds.push(chatId);
           } else {
             console.log(`⚠️ No matching contractor found for ${firstName}`);
@@ -445,7 +445,7 @@ Looking forward to today's assignments! 💪`;
         return { success: false, error: `Connection test failed: ${response.status}` };
       }
 
-      const botInfo = await response.json();
+      const botInfo: any = await response.json();
       console.log('✅ Bot connection successful:', botInfo.result);
       
       return { 
@@ -519,7 +519,7 @@ ${payRateInfo}
         return { success: false, error: `Telegram API error: ${response.status}` };
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       console.log('✅ Approval notification sent successfully');
       
       return { success: true, messageId: result.message_id };
@@ -589,7 +589,7 @@ Thank you for your interest in our contractor network.
         return { success: false, error: `Telegram API error: ${response.status}` };
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       console.log('✅ Rejection notification sent successfully');
       
       return { success: true, messageId: result.message_id };
