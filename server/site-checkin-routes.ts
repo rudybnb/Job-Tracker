@@ -18,6 +18,7 @@ import {
   evaluateCheckIn,
   generateQrToken,
   hashQrToken,
+  haversineDistanceMetres,
   parseCoordinates,
   toIsoTimestamp,
   type CheckInDecision,
@@ -30,6 +31,7 @@ import {
 } from "./site-checkin.ts";
 import {
   type SiteCheckinStore,
+  type SiteCheckinConfigRecord,
   type UpsertSiteCheckinConfigInput,
 } from "./site-checkin-repository.ts";
 
@@ -407,7 +409,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         }
 
         // 5. Geofence verified -> Close active session
-        const now = nowIso();
+        const now = new Date().toISOString();
         const closed = await options.store.closeWorkSession(activeSession.id, now, identity.label);
 
         return response.status(200).json({
