@@ -466,8 +466,8 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
             allowedRadiusMetres: radius,
             qrEnabled,
             gpsEnabled,
-            qrToken: existing.qrToken,
-            qrTokenHash: hashQrToken(existing.qrToken),
+            qrToken: "",
+            qrTokenHash: existing.qrTokenHash,
             qrTokenExpiresAt: existing.qrTokenExpiresAt ? new Date(existing.qrTokenExpiresAt) : null,
             createdBy,
           };
@@ -489,19 +489,35 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         }
 
         const saved = await options.store.createOrUpdateConfig(input);
-        return response.status(200).json({
-          config: {
-            id: saved.id,
-            jobId: saved.jobId,
-            siteName: saved.siteName,
-            siteLatitude: saved.siteLatitude,
-            siteLongitude: saved.siteLongitude,
-            allowedRadiusMetres: saved.allowedRadiusMetres,
-            qrEnabled: saved.qrEnabled,
-            gpsEnabled: saved.gpsEnabled,
-            qrToken: saved.qrToken,
-          },
-        });
+
+        // Return the ephemeral raw token only when a new one was generated.
+        // For keepExistingToken, input.qrToken is "" (raw token is not recoverable).
+        const rawToken = input.qrToken || "";
+        const configResponse: Record<string, unknown> = {
+          id: saved.id,
+          jobId: saved.jobId,
+          siteName: saved.siteName,
+          siteLatitude: saved.siteLatitude,
+          siteLongitude: saved.siteLongitude,
+          allowedRadiusMetres: saved.allowedRadiusMetres,
+          qrEnabled: saved.qrEnabled,
+          gpsEnabled: saved.gpsEnabled,
+          qrToken: rawToken,
+        };
+
+        // If a fresh token was generated, include the QR poster immediately
+        // (the raw token is ephemeral and will not be available later).
+        let qrPoster: { url: string; dataUrl: string } | undefined;
+        if (rawToken) {
+          const baseUrl = options.checkInAppBaseUrl
+            ? options.checkInAppBaseUrl(request)
+            : defaultAppBaseUrl(request);
+          const qrUrl = `${baseUrl}/checkin?t=${encodeURIComponent(rawToken)}`;
+          const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 512, margin: 2 });
+          qrPoster = { url: qrUrl, dataUrl: qrDataUrl };
+        }
+
+        return response.status(200).json({ config: configResponse, ...(qrPoster ? { qrPoster } : {}) });
       } catch (error: any) {
         console.error("❌ Error saving site check-in policy:", error);
         return response.status(500).json({
@@ -528,7 +544,21 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         null,
         ((request as CheckInRequest).session?.username ?? "admin").trim(),
       );
-      return response.status(200).json({ configId, qrToken });
+
+      // Generate the QR poster immediately while the raw token is in memory.
+      // After this response the raw token is no longer available.
+      const baseUrl = options.checkInAppBaseUrl
+        ? options.checkInAppBaseUrl(request)
+        : defaultAppBaseUrl(request);
+      const qrUrl = `${baseUrl}/checkin?t=${encodeURIComponent(qrToken)}`;
+      const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 512, margin: 2 });
+      return response.status(200).json({
+        configId,
+        qrToken,
+        siteName: existing.siteName,
+        qrUrl,
+        qrDataUrl,
+      });
     },
   );
 
@@ -540,6 +570,16 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
       const existing = (await options.store.listConfigs()).find((c) => c.id === configId);
       if (!existing) {
         return response.status(404).json({ error: "Site check-in config not found" });
+      }
+      // The raw QR token is never stored in the database (only the SHA-256 hash
+      // is persisted). A valid QR poster can only be generated at the moment the
+      // token is created or rotated. If the raw token is not available, the admin
+      // must rotate the token to receive a new poster.
+      if (!existing.qrToken) {
+        return response.status(409).json({
+          error: "The raw QR token is no longer available. Please rotate the site token to generate a new QR poster.",
+          code: "TOKEN_ROTATION_REQUIRED",
+        });
       }
       const baseUrl = options.checkInAppBaseUrl
         ? options.checkInAppBaseUrl(request)

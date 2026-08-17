@@ -87,7 +87,7 @@ function configFromRow(row: ConfigDbRow): SiteCheckinConfigRecord {
     qrEnabled: row.qr_enabled,
     gpsEnabled: row.gps_enabled,
     qrTokenHash: row.qr_token_hash,
-    qrToken: row.qr_token_hash,
+    qrToken: "",
     qrTokenExpiresAt: row.qr_token_expires_at,
     createdBy: row.created_by,
     contractorId: null,
