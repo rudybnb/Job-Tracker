@@ -191,7 +191,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
           qrValid: baseDecision.qrValid,
           gpsValid: baseDecision.gpsValid,
           accepted: baseDecision.accepted && authorised,
-          rejectionReason: authorised ? null : "UNAUTHORISED_WORKER",
+          rejectionReason: authorised ? baseDecision.rejectionReason : "UNAUTHORISED_WORKER",
           siteName: baseDecision.siteName,
           siteCheckinConfigId: baseDecision.siteCheckinConfigId,
           jobId: baseDecision.jobId,
