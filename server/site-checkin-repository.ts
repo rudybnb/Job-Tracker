@@ -369,16 +369,16 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
   }
 
   async closeWorkSession(sessionId: string, endTime: string, identityLabel?: string): Promise<boolean> {
-    const session = await this.sql<{ start_time: Date | string | null }[]>`
-      SELECT start_time FROM work_sessions WHERE id = ${sessionId}
+    const session = await this.sql<{ start_time: Date | string | null; total_hours: string | null }[]>`
+      SELECT start_time, total_hours FROM work_sessions WHERE id = ${sessionId}
     `;
-    let totalHours: string | null = null;
+    let totalHoursStr: string | null = session.length > 0 ? (session[0].total_hours ?? null) : null;
     if (session.length > 0 && session[0].start_time) {
       const startMs = new Date(session[0].start_time).getTime();
       const endMs = new Date(endTime).getTime();
       if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
         const hours = (endMs - startMs) / (1000 * 60 * 60);
-        totalHours = Math.min(hours, 8).toFixed(2);
+        totalHoursStr = Math.min(hours, 8).toFixed(2);
       }
     }
 
@@ -386,7 +386,7 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
       UPDATE work_sessions
          SET end_time = ${endTime},
              status = 'completed',
-             total_hours = COALESCE(${totalHours}, total_hours)
+             total_hours = ${totalHoursStr}
        WHERE id = ${sessionId}
          AND status = 'active'
        RETURNING id
