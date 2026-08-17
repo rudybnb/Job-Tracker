@@ -235,7 +235,7 @@ export default function GPSDashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          qrToken: scannedQrToken || currentSiteConfig?.qrToken || "tok_tester_default",
+          workSessionId: activeSessionId ?? undefined,
           latitude: userLocation?.latitude?.toString(),
           longitude: userLocation?.longitude?.toString(),
         }),

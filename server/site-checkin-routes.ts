@@ -161,6 +161,20 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
           });
         }
 
+        // Enforce: A worker can have only one active work session at a time.
+        const existingActive = await options.store.findActiveSessionForWorker(identity.label);
+        if (existingActive) {
+          return response.status(409).json({
+            accepted: false,
+            qrValid: true,
+            gpsValid: true,
+            rejectionReason: "ALREADY_CHECKED_IN",
+            siteName: existingActive.jobSiteLocation,
+            workSessionId: existingActive.id,
+            error: "You already have an active work session. Please clock out before checking in again.",
+          });
+        }
+
         const tokenHash = hashQrToken(submission.qrToken);
         const config = await options.store.findConfigByTokenHash(tokenHash);
 
@@ -246,33 +260,42 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
       try {
         const identity = identityFromSession((request as CheckInRequest).session);
         const qrToken = typeof request.query.qrToken === "string" ? request.query.qrToken.trim() : "";
-        if (qrToken === "") {
-          return response.status(400).json({ error: "qrToken is required" });
+
+        if (qrToken !== "") {
+          const tokenHash = hashQrToken(qrToken);
+          const config = await options.store.findConfigByTokenHash(tokenHash);
+          if (config) {
+            const activeSession = await options.store.findActiveSession(config.jobId, identity.label);
+            if (activeSession) {
+              return response.status(200).json({
+                checkedIn: true,
+                active: true,
+                siteName: config.siteName,
+                jobId: config.jobId,
+                workSessionId: activeSession.id,
+                checkedInAt: toIsoTimestamp(activeSession.startTime),
+              });
+            }
+          }
         }
 
-        const tokenHash = hashQrToken(qrToken);
-        const config = await options.store.findConfigByTokenHash(tokenHash);
-        if (!config) {
-          return response.status(200).json({ checkedIn: false, active: false, siteName: null });
-        }
-
-        const activeSession = await options.store.findActiveSession(config.jobId, identity.label);
-        if (!activeSession) {
+        // Server is single source of truth: check if worker has ANY active session
+        const workerActive = await options.store.findActiveSessionForWorker(identity.label);
+        if (workerActive) {
           return response.status(200).json({
-            checkedIn: false,
-            active: false,
-            siteName: config.siteName,
-            jobId: config.jobId,
+            checkedIn: true,
+            active: true,
+            siteName: workerActive.jobSiteLocation ?? "Active Site",
+            jobId: workerActive.jobId,
+            workSessionId: workerActive.id,
+            checkedInAt: toIsoTimestamp(workerActive.startTime),
           });
         }
 
         return response.status(200).json({
-          checkedIn: true,
-          active: true,
-          siteName: config.siteName,
-          jobId: config.jobId,
-          workSessionId: activeSession.id,
-          checkedInAt: toIsoTimestamp(activeSession.startTime),
+          checkedIn: false,
+          active: false,
+          siteName: null,
         });
       } catch (error) {
         console.error("Error checking worker current session:", error);
@@ -288,85 +311,51 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
       try {
         const session = (request as CheckInRequest).session;
         const identity = identityFromSession(session);
-        const rateKey = `${session!.username}:${request.ip ?? "unknown"}`;
-        const nowMs = Date.now();
 
         const body = (request.body ?? {}) as {
+          workSessionId?: unknown;
           qrToken?: unknown;
           latitude?: unknown;
           longitude?: unknown;
           gpsAccuracy?: unknown;
         };
 
-        if (typeof body.qrToken !== "string" || body.qrToken.trim() === "") {
-          return response.status(400).json({ error: "qrToken is required" });
+        // Find active session for this worker (by workSessionId or worker identity)
+        let activeSession = await options.store.findActiveSessionForWorker(identity.label);
+        if (!activeSession && typeof body.workSessionId === "string" && body.workSessionId.trim() !== "") {
+          const allSessions = await options.store.getAllWorkSessions();
+          const match = allSessions.find((s) => s.id === body.workSessionId && s.status === "active");
+          if (match) {
+            activeSession = {
+              id: match.id,
+              jobId: match.jobId,
+              jobSiteLocation: match.jobSiteLocation,
+              startTime: match.startTime,
+              status: match.status,
+            };
+          }
         }
 
-        const submission: CheckInSubmission = {
-          qrToken: body.qrToken.trim(),
-          latitude: body.latitude,
-          longitude: body.longitude,
-          gpsAccuracy: toOptionalNumber(body.gpsAccuracy),
-        };
-
-        const gpsAccuracy = submission.gpsAccuracy;
-        if (typeof gpsAccuracy === "number" && gpsAccuracy > GPS_ACCURACY_MAX) {
+        if (!activeSession) {
           return response.status(400).json({
-            error: "gpsAccuracy is implausible",
-            code: "INVALID_ACCURACY",
+            accepted: false,
+            closed: false,
+            error: "No active work session found.",
+            rejectionReason: "NO_ACTIVE_SESSION",
           });
         }
 
-        const tokenHash = hashQrToken(submission.qrToken);
-        const config = await options.store.findConfigByTokenHash(tokenHash);
+        const now = nowIso();
+        const closed = await options.store.closeWorkSession(activeSession.id, now, identity.label);
 
-        // Build the full decision using existing evaluateCheckIn logic
-        // for QR validation, GPS verification, and contractor authorisation.
-        const baseDecision = evaluateCheckIn({
-          config,
-          qrToken: submission.qrToken,
-          latitude: submission.latitude,
-          longitude: submission.longitude,
-          gpsAccuracy,
-          contractorId: identity.contractorId ?? null,
-        });
-
-        const decision: CheckInDecision = {
-          qrValid: baseDecision.qrValid,
-          gpsValid: baseDecision.gpsValid,
-          accepted: baseDecision.accepted,
-          rejectionReason: baseDecision.rejectionReason,
-          siteName: baseDecision.siteName,
-          siteCheckinConfigId: baseDecision.siteCheckinConfigId,
-          jobId: baseDecision.jobId,
-          distanceMetres: baseDecision.distanceMetres,
-          permittedRadiusMetres: baseDecision.permittedRadiusMetres,
-          submission: baseDecision.submission,
-        };
-
-        // Apply check-out through the repository layer.
-        // The repository will:
-        //   - verify an active work session exists for this worker/contractor/job
-        //   - close the session on success
-        //   - reject with appropriate reason if no active session / invalid QR / failed GPS
-        const attemptRow = buildAttemptRow(decision, identity, nowIso());
-        const { attemptId, workSessionId, closed } = await options.store.applyCheckOutAttempt(
-          attemptRow,
-          identity,
-        );
-
-        const responseBody = {
-          accepted: decision.accepted,
-          qrValid: decision.qrValid,
-          gpsValid: decision.gpsValid,
-          rejectionReason: decision.rejectionReason,
-          siteName: decision.siteName,
-          attemptId,
-          workSessionId,
+        return response.status(200).json({
+          accepted: true,
           closed,
-        };
-
-        return response.status(200).json(responseBody);
+          workSessionId: activeSession.id,
+          siteName: activeSession.jobSiteLocation,
+          checkedOutAt: now,
+          message: "Clocked out successfully.",
+        });
       } catch (error) {
         console.error("Error processing site check-out:", error);
         return response.status(500).json({ error: "Internal server error" });

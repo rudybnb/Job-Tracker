@@ -60,6 +60,10 @@ export interface SiteCheckinStore {
   getAllWorkSessions(): Promise<{ id: string; contractorName: string; jobSiteLocation: string | null; startTime: Date | string | null; endTime: Date | string | null; status: string; jobId: string | null; workerId: string | null; contractorId: string | null }[]>;
 
   findActiveSession(jobId: string, identityLabel: string): Promise<{ id: string; startTime: Date | string | null; status: string } | null>;
+
+  findActiveSessionForWorker(identityLabel: string): Promise<{ id: string; jobId: string | null; jobSiteLocation: string | null; startTime: Date | string | null; status: string } | null>;
+
+  closeWorkSession(sessionId: string, endTime: string, identityLabel?: string): Promise<boolean>;
 }
 
 interface ConfigDbRow {
@@ -337,5 +341,36 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
        LIMIT 1
     `;
     return rows.length === 1 ? { id: rows[0].id, startTime: rows[0].start_time, status: rows[0].status } : null;
+  }
+
+  async findActiveSessionForWorker(identityLabel: string): Promise<{ id: string; jobId: string | null; jobSiteLocation: string | null; startTime: Date | string | null; status: string } | null> {
+    const rows = await this.sql<{ id: string; job_id: string | null; job_site_location: string | null; start_time: Date | string | null; status: string }[]>`
+      SELECT id, job_id, job_site_location, start_time, status
+        FROM work_sessions
+       WHERE contractor_name = ${identityLabel}
+         AND status = 'active'
+       ORDER BY start_time DESC
+       LIMIT 1
+    `;
+    return rows.length === 1 ? {
+      id: rows[0].id,
+      jobId: rows[0].job_id,
+      jobSiteLocation: rows[0].job_site_location,
+      startTime: rows[0].start_time,
+      status: rows[0].status,
+    } : null;
+  }
+
+  async closeWorkSession(sessionId: string, endTime: string, identityLabel?: string): Promise<boolean> {
+    const rows = await this.sql<{ id: string }[]>`
+      UPDATE work_sessions
+         SET end_time = ${endTime},
+             status = 'completed'
+       WHERE id = ${sessionId}
+         AND status = 'active'
+         ${identityLabel ? this.sql`AND contractor_name = ${identityLabel}` : this.sql``}
+       RETURNING id
+    `;
+    return rows.length === 1;
   }
 }
