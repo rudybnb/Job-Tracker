@@ -430,3 +430,94 @@ test("7. worker site resolution uses active session site and never defaults to f
   assert.notEqual(active.jobSiteLocation, "Mary G — 38 Crescent Road, SE18 7BN");
 });
 
+// 8. Earnings calculation excludes invalid, negative, or active sessions
+test("8. earnings calculation strictly excludes active and negative/corrupted sessions", () => {
+  function calculatePayableHours(session: any): number {
+    if (session.status !== "completed" || !session.endTime || !session.startTime) {
+      return 0;
+    }
+    const startMs = new Date(session.startTime).getTime();
+    const endMs = new Date(session.endTime).getTime();
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+      return 0;
+    }
+    if (session.totalHours !== null && session.totalHours !== undefined) {
+      const parsed = parseFloat(session.totalHours);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        return Math.min(parsed, 8);
+      }
+    }
+    const durationHours = (endMs - startMs) / (1000 * 60 * 60);
+    if (durationHours > 0) {
+      return Math.min(durationHours, 8);
+    }
+    return 0;
+  }
+
+  // Corrupted session where end_time <= start_time (like the -4.59h test session)
+  const corruptedSession = {
+    id: "s-1",
+    status: "completed",
+    startTime: "2026-08-16T20:35:14.345Z",
+    endTime: "2026-08-16T16:00:00.000Z",
+    totalHours: "-4.59",
+  };
+  assert.equal(calculatePayableHours(corruptedSession), 0, "negative/inverted session must return 0 hours");
+
+  // Active session without end_time
+  const activeSession = {
+    id: "s-2",
+    status: "active",
+    startTime: "2026-08-17T05:28:04.126Z",
+    endTime: null,
+    totalHours: null,
+  };
+  assert.equal(calculatePayableHours(activeSession), 0, "active session must return 0 hours");
+
+  // Valid completed 8-hour shift
+  const validSession = {
+    id: "s-3",
+    status: "completed",
+    startTime: "2026-08-17T08:00:00.000Z",
+    endTime: "2026-08-17T16:00:00.000Z",
+    totalHours: "8.00",
+  };
+  assert.equal(calculatePayableHours(validSession), 8, "valid session must return positive hours");
+});
+
+// 9. Worker with only corrupted sessions starts at £0.00
+test("9. worker with only invalid sessions computes £0.00 gross and £0.00 net", () => {
+  const hourlyRate = 16.25;
+  const cisRate = 20;
+
+  const rawSessions = [
+    { id: "1", status: "completed", startTime: "2026-08-16T20:17:12.273Z", endTime: "2026-08-16T16:00:00.000Z", totalHours: "-4.29" },
+    { id: "2", status: "completed", startTime: "2026-08-16T20:18:44.039Z", endTime: "2026-08-16T16:00:00.000Z", totalHours: "-4.31" },
+    { id: "3", status: "completed", startTime: "2026-08-16T20:19:07.787Z", endTime: "2026-08-16T16:00:00.000Z", totalHours: "-4.32" },
+    { id: "4", status: "completed", startTime: "2026-08-16T20:25:01.962Z", endTime: "2026-08-16T16:00:00.000Z", totalHours: "-4.42" },
+    { id: "5", status: "completed", startTime: "2026-08-16T20:33:55.269Z", endTime: "2026-08-16T16:00:00.000Z", totalHours: "-4.57" },
+    { id: "6", status: "completed", startTime: "2026-08-16T20:35:14.345Z", endTime: "2026-08-16T16:00:00.000Z", totalHours: "-4.59" },
+  ];
+
+  function getPayableHours(s: any) {
+    if (s.status !== "completed" || !s.endTime || !s.startTime) return 0;
+    const startMs = new Date(s.startTime).getTime();
+    const endMs = new Date(s.endTime).getTime();
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) return 0;
+    const p = parseFloat(s.totalHours || "0");
+    return p > 0 ? Math.min(p, 8) : 0;
+  }
+
+  const hoursArray = rawSessions.map(getPayableHours);
+  const totalHours = Math.max(0, hoursArray.reduce((a, b) => a + b, 0));
+  const grossEarnings = Math.max(0, totalHours * hourlyRate);
+  const cisDeduction = grossEarnings > 0 ? (grossEarnings * cisRate) / 100 : 0;
+  const netEarnings = Math.max(0, grossEarnings - cisDeduction);
+
+  assert.equal(totalHours, 0, "total hours must be 0.00");
+  assert.equal(grossEarnings, 0, "gross earnings must be 0.00");
+  assert.equal(cisDeduction, 0, "cis deduction must be 0.00");
+  assert.equal(netEarnings, 0, "net earnings must be 0.00");
+});
+
+

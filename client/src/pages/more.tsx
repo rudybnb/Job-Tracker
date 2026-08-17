@@ -135,78 +135,92 @@ export default function More() {
   console.log(`💼 Contractor Info: ${contractorInfo.name}, £${hourlyRate}/hr, £${contractorInfo.dailyRate}/day, CIS: ${contractorInfo.cisRate}%`);
   // Verified: Mohamed's earnings display correctly - £21.25/hr, £170/day
 
-  // Convert real work sessions to our format with proper payment calculation
+  // Helper to validate and calculate authentic payable hours for a work session
+  const getPayableHours = (session: any): number => {
+    // 1. Exclude non-completed sessions or missing timestamps
+    if (session.status !== "completed" || !session.endTime || !session.startTime) {
+      return 0;
+    }
+
+    const startMs = new Date(session.startTime).getTime();
+    const endMs = new Date(session.endTime).getTime();
+
+    // 2. Exclude corrupted sessions where end_time <= start_time
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+      return 0;
+    }
+
+    // 3. Check database totalHours if present and strictly positive
+    if (session.totalHours !== null && session.totalHours !== undefined) {
+      const parsed = parseFloat(session.totalHours);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        return Math.min(parsed, 8);
+      }
+    }
+
+    // 4. Calculate actual duration in hours (capped at 8 for standard daily shift)
+    const durationHours = (endMs - startMs) / (1000 * 60 * 60);
+    if (durationHours > 0) {
+      return Math.min(durationHours, 8);
+    }
+
+    return 0;
+  };
+
+  // Convert real work sessions with strict validity and payable earnings rules
   const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
-    // Use totalHours from database - it's already set to 8.0
-    let hoursWorked = parseFloat(session.totalHours || "0");
-    console.log(`🔢 Using totalHours from DB: ${session.totalHours} → ${hoursWorked} hours`);
-    const startTime = new Date(session.startTime);
-    const startHour = startTime.getHours();
-    const startMinute = startTime.getMinutes();
-    const startTimeDecimal = startHour + startMinute / 60;
-    
-    // Check if started after 8:15 AM (8.25 in decimal)
-    const startedLate = startTimeDecimal > 8.25;
-    console.log(`⏰ Start time check: ${startTimeDecimal.toFixed(2)} vs 8.25 (8:15 AM) - Late: ${startedLate}`);
-    
-    // Daily rate covers maximum 8 hours. If worked 8+ hours, pay daily rate (£170)
-    const paidHours = Math.min(hoursWorked, 8); // Cap paid hours at 8 for daily rate calculation
-    const isFullDay = hoursWorked >= 8; // Full day if worked 8+ hours
-    let grossEarnings = isFullDay ? contractorInfo.dailyRate : (paidHours * contractorInfo.hourlyRate);
-    
-    console.log(`💵 Earnings calculation: hoursWorked=${hoursWorked}, paidHours=${paidHours}, isFullDay=${isFullDay}`);
-    console.log(`💵 Rate used: ${isFullDay ? `Daily £${contractorInfo.dailyRate}` : `Hourly £${contractorInfo.hourlyRate} × ${paidHours}h`} = £${grossEarnings}`);
-    
-    // NO LATE PENALTIES APPLIED - Use standard pay rates for authentic earnings
-    // Late penalties disabled to match displayed earnings expectations
-    console.log(`💰 Standard pay applied: ${isFullDay ? `Daily £${contractorInfo.dailyRate}` : `Hourly rate`} - no penalties`);
-    // Keep grossEarnings as calculated above without deductions
-    
-    // AUTHENTIC TIME DISPLAY: Use real database times - Mandatory Rule #2: DATA INTEGRITY
-    // FIXED: Use UTC times directly to show correct 08:00-17:00 instead of timezone-adjusted 09:00-18:00
-    const startTimeStr = new Date(session.startTime).toISOString().substring(11, 16); // Extract HH:MM from UTC
-    const endTimeStr = session.endTime ? new Date(session.endTime).toISOString().substring(11, 16) : 'Active';
-    const lateStatus = startedLate ? ' (LATE)' : '';
-    console.log(`💰 Session ${session.id}: ${Math.min(hoursWorked, 8)} hours paid (${startTimeStr}-${endTimeStr}), started ${startTimeStr}${lateStatus} = £${grossEarnings.toFixed(2)}`);
-    console.log(`⏰ Raw data - Hours: ${hoursWorked}, TotalHours from DB: ${session.totalHours}`);
-    console.log(`💸 Pay calculation: isFullDay=${isFullDay}, hourlyRate=£${contractorInfo.hourlyRate}, dailyRate=£${contractorInfo.dailyRate}`);
-    
-    // Use the same earnings calculation for consistency - NO duplicate calculations
-    const correctGrossEarnings = grossEarnings; // Use the same grossEarnings calculated above
-    
+    const hoursWorked = getPayableHours(session);
+    const isFullDay = hoursWorked >= 8;
+    const grossEarnings = hoursWorked > 0
+      ? (isFullDay ? contractorInfo.dailyRate : hoursWorked * contractorInfo.hourlyRate)
+      : 0;
+
+    const startTimeStr = session.startTime
+      ? new Date(session.startTime).toISOString().substring(11, 16)
+      : "--:--";
+    const endTimeStr = session.endTime && session.status === "completed"
+      ? new Date(session.endTime).toISOString().substring(11, 16)
+      : "Active";
+
     return {
       id: session.id,
-      location: session.jobSiteLocation || "Work Site", 
-      date: new Date(session.startTime).toLocaleDateString('en-GB', { 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit' 
-      }).split('/').reverse().join('-'), // Convert DD/MM/YYYY to YYYY-MM-DD
+      location: session.jobSiteLocation || "Work Site",
+      date: session.startTime
+        ? new Date(session.startTime).toLocaleDateString("en-GB", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).split("/").reverse().join("-")
+        : new Date().toISOString().split("T")[0],
       startTime: startTimeStr,
       endTime: endTimeStr,
-      hoursWorked: Math.min(hoursWorked, 8), // Display hours worked, max 8 for pay
-      hourlyRate: contractorInfo.hourlyRate, // Use contractor's actual rate
-      grossEarnings: correctGrossEarnings, // Use contractor's actual calculation
-      gpsVerified: true
+      hoursWorked,
+      hourlyRate: contractorInfo.hourlyRate,
+      grossEarnings,
+      gpsVerified: true,
     };
   });
 
   const calculateWeeklyEarnings = (): WeeklyEarnings => {
-    const weekSessions = workSessions.filter(session => {
+    const weekSessions = workSessions.filter((session) => {
       const sessionDate = new Date(session.date);
       const weekEndDate = new Date(selectedWeek);
       const weekStartDate = new Date(weekEndDate.getTime() - 6 * 24 * 60 * 60 * 1000);
-      
-      // Week filtering: Check if session falls within selected week range
-      
       return sessionDate >= weekStartDate && sessionDate <= weekEndDate;
     });
 
-    const totalHours = weekSessions.reduce((sum, session) => sum + session.hoursWorked, 0);
-    const grossEarnings = weekSessions.reduce((sum, session) => sum + session.grossEarnings, 0);
-    // Use authentic CIS rate from contractor's database data
-    const cisDeduction = Math.round((grossEarnings * contractorInfo.cisRate / 100) * 100) / 100; // Round to 2 decimal places
-    const netEarnings = Math.round((grossEarnings - cisDeduction) * 100) / 100;
+    const totalHours = Math.max(
+      0,
+      Math.round(weekSessions.reduce((sum, session) => sum + session.hoursWorked, 0) * 100) / 100,
+    );
+    const grossEarnings = Math.max(
+      0,
+      Math.round(weekSessions.reduce((sum, session) => sum + session.grossEarnings, 0) * 100) / 100,
+    );
+    const cisDeduction = grossEarnings > 0
+      ? Math.round(((grossEarnings * contractorInfo.cisRate) / 100) * 100) / 100
+      : 0;
+    const netEarnings = Math.max(0, Math.round((grossEarnings - cisDeduction) * 100) / 100);
 
     return {
       weekEnding: selectedWeek,
@@ -214,8 +228,8 @@ export default function More() {
       grossEarnings,
       cisDeduction,
       netEarnings,
-      cisRate: contractorInfo.cisRate, // Use contractor's actual CIS rate from database
-      sessions: weekSessions
+      cisRate: contractorInfo.cisRate,
+      sessions: weekSessions,
     };
   };
 

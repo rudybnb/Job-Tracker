@@ -3042,8 +3042,25 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
           };
         }
         
-        // Use authentic database totalHours - Mandatory Rule #2: DATA INTEGRITY
-        const sessionHours = parseFloat(session.totalHours || "0");
+        // Only count valid completed payable sessions
+        let sessionHours = 0;
+        if (session.status === "completed" && session.startTime && session.endTime) {
+          const startMs = new Date(session.startTime).getTime();
+          const endMs = new Date(session.endTime).getTime();
+          if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
+            if (session.totalHours !== null && session.totalHours !== undefined) {
+              const parsed = parseFloat(session.totalHours);
+              if (!Number.isNaN(parsed) && parsed > 0) {
+                sessionHours = Math.min(parsed, 8);
+              }
+            } else {
+              const durationHours = (endMs - startMs) / (1000 * 60 * 60);
+              if (durationHours > 0) {
+                sessionHours = Math.min(durationHours, 8);
+              }
+            }
+          }
+        }
         
         acc[contractorName].sessions.push({
           ...session,
@@ -3063,30 +3080,31 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
         const hoursWorked = contractor.hoursWorked;
         const hourlyRate = contractor.hourlyRate;
         
-        // Weekend overtime disabled to match individual contractor calculations
-        // Original hourlyRate used consistently
-        
         // Calculate gross earnings using same logic as individual contractor pages
         // Apply daily rate cap of hourlyRate * 8 for 8+ hour days, hourly rate for partial days
         let grossEarnings = 0;
         contractor.sessions.forEach((session: any) => {
           const sessionHours = parseFloat(session.sessionHours);
-          const isFullDay = sessionHours >= 8;
-          const dailyRate = hourlyRate * 8; // £150 for Dalwayne, £200 for Marius
-          
-          if (isFullDay) {
-            grossEarnings += dailyRate; // Pay daily rate for 8+ hours
-          } else {
-            grossEarnings += sessionHours * hourlyRate; // Pay hourly for partial days
+          if (sessionHours > 0) {
+            const isFullDay = sessionHours >= 8;
+            const dailyRate = hourlyRate * 8;
+            
+            if (isFullDay) {
+              grossEarnings += dailyRate; // Pay daily rate for 8+ hours
+            } else {
+              grossEarnings += sessionHours * hourlyRate; // Pay hourly for partial days
+            }
           }
         });
-        contractor.grossEarnings = grossEarnings;
+        contractor.grossEarnings = Math.max(0, grossEarnings);
         
-        // Calculate CIS deduction
-        contractor.cisDeduction = contractor.grossEarnings * contractor.cisRate;
+        // Calculate CIS deduction from positive gross earnings only
+        contractor.cisDeduction = contractor.grossEarnings > 0
+          ? Math.round(contractor.grossEarnings * contractor.cisRate * 100) / 100
+          : 0;
         
-        // Calculate net earnings - match individual contractor calculation method
-        contractor.netEarnings = contractor.grossEarnings - contractor.cisDeduction;
+        // Calculate net earnings
+        contractor.netEarnings = Math.max(0, Math.round((contractor.grossEarnings - contractor.cisDeduction) * 100) / 100);
         
         // Round all monetary values
         contractor.grossEarnings = Math.round(contractor.grossEarnings * 100) / 100;
@@ -3554,30 +3572,52 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
       const weekSessions = await storage.getWorkSessionsForWeek(weekStart, weekEndingFriday);
       const contractorSessions = weekSessions.filter(session => session.contractorName === contractorName);
       
-      // Get authentic pay rate
-      const payRate = await storage.getContractorPayRate(contractorName);
+      // Calculate earnings from valid completed payable sessions only
+      const validSessions = contractorSessions.map((session) => {
+        let hours = 0;
+        if (session.status === "completed" && session.startTime && session.endTime) {
+          const startMs = new Date(session.startTime).getTime();
+          const endMs = new Date(session.endTime).getTime();
+          if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
+            if (session.totalHours !== null && session.totalHours !== undefined) {
+              const parsed = parseFloat(session.totalHours);
+              if (!Number.isNaN(parsed) && parsed > 0) {
+                hours = Math.min(parsed, 8);
+              }
+            } else {
+              const durationHours = (endMs - startMs) / (1000 * 60 * 60);
+              if (durationHours > 0) {
+                hours = Math.min(durationHours, 8);
+              }
+            }
+          }
+        }
+        return {
+          ...session,
+          validHours: hours,
+        };
+      });
+
+      const totalHours = Math.max(
+        0,
+        Math.round(validSessions.reduce((sum, s) => sum + s.validHours, 0) * 100) / 100,
+      );
       
-      // Calculate earnings
-      const totalHours = contractorSessions.reduce((sum, session) => {
-        const hours = typeof session.totalHours === 'string' ? parseFloat(session.totalHours) : (session.totalHours || 0);
-        return sum + hours;
-      }, 0);
-      
-      const grossEarnings = totalHours * payRate;
-      const cisDeduction = grossEarnings * 0.30; // 30% CIS
-      const netEarnings = grossEarnings - cisDeduction;
+      const grossEarnings = Math.max(0, Math.round(totalHours * payRate * 100) / 100);
+      const cisDeduction = grossEarnings > 0 ? Math.round(grossEarnings * 0.30 * 100) / 100 : 0;
+      const netEarnings = Math.max(0, Math.round((grossEarnings - cisDeduction) * 100) / 100);
       
       // Format sessions for display
-      const formattedSessions = contractorSessions.map(session => ({
+      const formattedSessions = validSessions.map(session => ({
         id: session.id,
         jobName: session.jobSiteLocation || 'Unknown Job',
         location: session.jobSiteLocation || 'Unknown Location',
         date: new Date(session.startTime).toLocaleDateString('en-GB'),
         startTime: new Date(session.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        endTime: session.endTime ? new Date(session.endTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Active',
-        hoursWorked: typeof session.totalHours === 'string' ? parseFloat(session.totalHours) : (session.totalHours || 0),
+        endTime: session.endTime && session.status === 'completed' ? new Date(session.endTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Active',
+        hoursWorked: session.validHours,
         hourlyRate: payRate,
-        grossEarnings: (typeof session.totalHours === 'string' ? parseFloat(session.totalHours) : (session.totalHours || 0)) * payRate,
+        grossEarnings: session.validHours * payRate,
         gpsVerified: true
       }));
       
