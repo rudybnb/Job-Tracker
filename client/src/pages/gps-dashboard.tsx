@@ -242,17 +242,40 @@ export default function GPSDashboard() {
 
   const handleClockOut = async () => {
     try {
+      let loc = userLocation;
+      if (!loc) {
+        try {
+          const fresh = await getCurrentLocation();
+          loc = {
+            latitude: fresh.latitude,
+            longitude: fresh.longitude,
+            accuracy: fresh.accuracy ?? 10,
+          };
+          setUserLocation(loc);
+        } catch {
+          toast({
+            title: "GPS Required",
+            description: "GPS location is required to clock out. Please enable location services.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const resp = await apiFetch("/api/checkin/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workSessionId: activeSessionId ?? undefined,
-          latitude: userLocation?.latitude?.toString(),
-          longitude: userLocation?.longitude?.toString(),
+          latitude: loc?.latitude?.toString(),
+          longitude: loc?.longitude?.toString(),
+          gpsAccuracy: loc?.accuracy ?? 10,
         }),
       });
 
-      if (resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.ok && data.accepted) {
         setIsTracking(false);
         setActiveSessionId(null);
         setStartTime(null);
@@ -262,7 +285,10 @@ export default function GPSDashboard() {
         queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorFirstName}/active`] });
         toast({ title: "Clocked Out", description: `Session completed for ${contractorName}` });
       } else {
-        toast({ title: "Clock-out Failed", description: "Unable to end session", variant: "destructive" });
+        const errorMsg = data.rejectionReason === "GPS_OUTSIDE_RADIUS"
+          ? "You must be at the site to clock out."
+          : (data.error || "Unable to end session");
+        toast({ title: "Clock-out Failed", description: errorMsg, variant: "destructive" });
       }
     } catch {
       toast({ title: "Error", description: "Could not reach check-out service", variant: "destructive" });

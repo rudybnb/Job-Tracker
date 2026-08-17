@@ -286,15 +286,32 @@ export default function CheckIn() {
     }
   }
 
-  // 1-tap direct Clock Out: uses existing active session ID, NO QR required, NO camera opened!
+  // Clock Out requires GPS verification within site geofence, NO QR required, NO camera opened!
   async function submitCheckOut(workSessionId?: string | null): Promise<void> {
     setSubmittingCheckout(true);
     try {
+      let coords: { latitude: number; longitude: number; accuracy?: number } | null = null;
+      try {
+        coords = await getCurrentLocation();
+      } catch {
+        setFlow({
+          kind: "result",
+          accepted: false,
+          siteName: null,
+          message: "We could not get your location. GPS must be enabled to clock out.",
+        });
+        setSubmittingCheckout(false);
+        return;
+      }
+
       const response = await apiFetch("/api/checkin/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workSessionId: workSessionId ?? undefined,
+          latitude: coords.latitude.toString(),
+          longitude: coords.longitude.toString(),
+          gpsAccuracy: coords.accuracy ?? 10,
         }),
       });
 
@@ -308,6 +325,7 @@ export default function CheckIn() {
         closed?: boolean;
         siteName?: string | null;
         rejectionReason?: string | null;
+        error?: string;
         message?: string;
       };
 
@@ -326,11 +344,15 @@ export default function CheckIn() {
           window.location.href = "/";
         }, 700);
       } else {
+        const failureMsg = data.rejectionReason === "GPS_OUTSIDE_RADIUS"
+          ? "You must be at the site to clock out."
+          : (data.error || (data.rejectionReason ? friendlyFailure(data.rejectionReason) : "Unable to complete clock out."));
+
         setFlow({
           kind: "result",
           accepted: false,
           siteName: null,
-          message: data.rejectionReason ? friendlyFailure(data.rejectionReason) : "Unable to complete clock out.",
+          message: failureMsg,
         });
       }
     } catch {

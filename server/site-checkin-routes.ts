@@ -314,13 +314,12 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
 
         const body = (request.body ?? {}) as {
           workSessionId?: unknown;
-          qrToken?: unknown;
           latitude?: unknown;
           longitude?: unknown;
           gpsAccuracy?: unknown;
         };
 
-        // Find active session for this worker (by workSessionId or worker identity)
+        // 1. Find active session for this worker (by workSessionId or worker identity)
         let activeSession = await options.store.findActiveSessionForWorker(identity.label);
         if (!activeSession && typeof body.workSessionId === "string" && body.workSessionId.trim() !== "") {
           const allSessions = await options.store.getAllWorkSessions();
@@ -345,6 +344,69 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
           });
         }
 
+        // 2. GPS validation is required for Clock Out (QR not required)
+        const parsedCoords = parseCoordinates(body.latitude, body.longitude);
+        if (!parsedCoords) {
+          return response.status(400).json({
+            accepted: false,
+            closed: false,
+            error: "GPS location is required to clock out.",
+            rejectionReason: "GPS_REQUIRED",
+          });
+        }
+
+        const gpsAccuracy = toOptionalNumber(body.gpsAccuracy);
+        if (typeof gpsAccuracy === "number" && gpsAccuracy > GPS_ACCURACY_MAX) {
+          return response.status(400).json({
+            accepted: false,
+            closed: false,
+            error: "gpsAccuracy is implausible",
+            rejectionReason: "INVALID_ACCURACY",
+          });
+        }
+
+        // 3. Retrieve site configuration for this session
+        let config: SiteCheckinConfigRecord | null = null;
+        if (activeSession.jobId) {
+          config = await options.store.findConfigByJobId(activeSession.jobId);
+        }
+        if (!config) {
+          const allConfigs = await options.store.listConfigs();
+          if (activeSession.jobSiteLocation) {
+            config = allConfigs.find((c) => c.siteName === activeSession!.jobSiteLocation) ?? null;
+          }
+          if (!config && allConfigs.length > 0) {
+            config = allConfigs[0];
+          }
+        }
+
+        // 4. Verify worker is within allowed site geofence
+        if (config && config.siteLatitude && config.siteLongitude) {
+          const siteLat = parseFloat(config.siteLatitude);
+          const siteLng = parseFloat(config.siteLongitude);
+          if (!Number.isNaN(siteLat) && !Number.isNaN(siteLng)) {
+            const distance = haversineDistanceMetres(
+              parsedCoords.latitude,
+              parsedCoords.longitude,
+              siteLat,
+              siteLng,
+            );
+            const permittedRadius = config.allowedRadiusMetres ?? 100;
+            if (distance > permittedRadius) {
+              return response.status(400).json({
+                accepted: false,
+                closed: false,
+                rejectionReason: "GPS_OUTSIDE_RADIUS",
+                distanceMetres: distance,
+                permittedRadiusMetres: permittedRadius,
+                siteName: activeSession.jobSiteLocation ?? config.siteName,
+                error: "You must be at the site to clock out.",
+              });
+            }
+          }
+        }
+
+        // 5. Geofence verified -> Close active session
         const now = nowIso();
         const closed = await options.store.closeWorkSession(activeSession.id, now, identity.label);
 

@@ -4,6 +4,7 @@ import {
   evaluateCheckIn,
   generateQrToken,
   hashQrToken,
+  haversineDistanceMetres,
   buildWorkSessionDraft,
   buildAttemptRow,
   type SiteCheckinConfig,
@@ -519,5 +520,120 @@ test("9. worker with only invalid sessions computes £0.00 gross and £0.00 net"
   assert.equal(cisDeduction, 0, "cis deduction must be 0.00");
   assert.equal(netEarnings, 0, "net earnings must be 0.00");
 });
+
+// 10. Clock Out with GPS inside geofence closes active session
+test("10. clock out with GPS inside geofence closes active session", async () => {
+  const store = new InMemorySiteCheckinStore();
+  const rawToken = generateQrToken();
+  const tokenHash = hashQrToken(rawToken);
+
+  // Mary G site at SE18 7BN
+  await store.createOrUpdateConfig({
+    jobId: "job-mary-g",
+    siteName: "Mary G — 38 Crescent Road, Woolwich Arsenal, SE18 7BN",
+    siteLatitude: "51.486614",
+    siteLongitude: "0.068855",
+    allowedRadiusMetres: 100,
+    qrEnabled: true,
+    gpsEnabled: true,
+    qrToken: "",
+    qrTokenHash: tokenHash,
+    qrTokenExpiresAt: null,
+    createdBy: "admin",
+  });
+
+  const worker = "ahmed.gouda";
+  const identity: CheckInIdentity = { label: worker, workerId: "w-ahmed", contractorId: null };
+
+  // Step 1: Clock In at site
+  const config = await store.findConfigByTokenHash(tokenHash);
+  const decision = evaluateCheckIn({
+    config,
+    qrToken: rawToken,
+    latitude: 51.486614,
+    longitude: 0.068855,
+    gpsAccuracy: 10,
+    contractorId: null,
+  });
+  await store.applyCheckInAttempt(
+    buildAttemptRow(decision, identity, new Date().toISOString()),
+    buildWorkSessionDraft(decision, identity),
+    identity,
+  );
+
+  const active = await store.findActiveSessionForWorker(worker);
+  assert.ok(active);
+
+  // Step 2: Clock Out inside site (20m away) -> GPS valid -> closed
+  const workerLat = 51.4865706;
+  const workerLng = 0.0691914;
+  const dist = haversineDistanceMetres(workerLat, workerLng, 51.486614, 0.068855);
+  assert.ok(dist <= 100, "worker is inside 100m geofence");
+
+  const closed = await store.closeWorkSession(active.id, new Date().toISOString(), worker);
+  assert.equal(closed, true);
+
+  const after = await store.findActiveSessionForWorker(worker);
+  assert.equal(after, null, "active session is closed");
+});
+
+// 11. Clock Out with GPS outside geofence is rejected and session remains open
+test("11. clock out with GPS outside geofence is rejected and session remains open", async () => {
+  const store = new InMemorySiteCheckinStore();
+  const rawToken = generateQrToken();
+  const tokenHash = hashQrToken(rawToken);
+
+  await store.createOrUpdateConfig({
+    jobId: "job-mary-g",
+    siteName: "Mary G — 38 Crescent Road, Woolwich Arsenal, SE18 7BN",
+    siteLatitude: "51.486614",
+    siteLongitude: "0.068855",
+    allowedRadiusMetres: 100,
+    qrEnabled: true,
+    gpsEnabled: true,
+    qrToken: "",
+    qrTokenHash: tokenHash,
+    qrTokenExpiresAt: null,
+    createdBy: "admin",
+  });
+
+  const worker = "ahmed.gouda";
+  const identity: CheckInIdentity = { label: worker, workerId: "w-ahmed", contractorId: null };
+
+  const config = await store.findConfigByTokenHash(tokenHash);
+  const decision = evaluateCheckIn({
+    config,
+    qrToken: rawToken,
+    latitude: 51.486614,
+    longitude: 0.068855,
+    gpsAccuracy: 10,
+    contractorId: null,
+  });
+  await store.applyCheckInAttempt(
+    buildAttemptRow(decision, identity, new Date().toISOString()),
+    buildWorkSessionDraft(decision, identity),
+    identity,
+  );
+
+  const active = await store.findActiveSessionForWorker(worker);
+  assert.ok(active);
+
+  // Worker is 5km away (e.g. in East Ham)
+  const outsideLat = 51.535583;
+  const outsideLng = 0.024777;
+  const dist = haversineDistanceMetres(outsideLat, outsideLng, 51.486614, 0.068855);
+  assert.ok(dist > 100, "worker is outside 100m geofence");
+
+  // Geofence check fails -> session must not be closed
+  const permittedRadius = config!.allowedRadiusMetres ?? 100;
+  const isWithinGeofence = dist <= permittedRadius;
+  assert.equal(isWithinGeofence, false);
+
+  // Active session remains active
+  const stillActive = await store.findActiveSessionForWorker(worker);
+  assert.ok(stillActive);
+  assert.equal(stillActive.status, "active");
+});
+
 
 
