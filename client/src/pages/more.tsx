@@ -108,10 +108,11 @@ export default function More() {
   });
 
   // Get authentic work sessions from database (using logged-in contractor)  
+  const queryName = contractorFirstName || username || contractorName;
   const { data: realWorkSessions = [] } = useQuery({
-    queryKey: [`/api/work-sessions/${contractorFirstName}`],
+    queryKey: [`/api/work-sessions/${queryName}`],
     queryFn: async () => {
-      const response = await fetch(`/api/work-sessions/${contractorFirstName}?t=${Date.now()}`);
+      const response = await fetch(`/api/work-sessions/${encodeURIComponent(queryName)}?t=${Date.now()}`);
       if (!response.ok) throw new Error('Failed to fetch work sessions');
       return response.json();
     },

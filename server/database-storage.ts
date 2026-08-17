@@ -41,7 +41,7 @@ import {
 } from "@shared/schema";
 import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults, projectCashflowWeekly, materialPurchases, projectMaster, calendarEvents, emailRecords, meetings } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, like, inArray, sql } from "drizzle-orm";
+import { eq, desc, and, or, like, ilike, inArray, sql } from "drizzle-orm";
 import { IStorage, JobAssignment } from "./storage";
 
 export class DatabaseStorage implements IStorage {
@@ -353,18 +353,40 @@ export class DatabaseStorage implements IStorage {
   // Work Sessions
   async getWorkSessions(contractorName?: string): Promise<WorkSession[]> {
     if (contractorName) {
+      const clean = contractorName.trim();
+      const dotVariant = clean.replace(/\s+/g, ".");
+      const spaceVariant = clean.replace(/\./g, " ");
+      const firstName = clean.split(/[\s.]/)[0];
+
       return db.select().from(workSessions)
-        .where(like(workSessions.contractorName, `%${contractorName}%`))
+        .where(
+          or(
+            ilike(workSessions.contractorName, `%${clean}%`),
+            ilike(workSessions.contractorName, `%${dotVariant}%`),
+            ilike(workSessions.contractorName, `%${spaceVariant}%`),
+            ilike(workSessions.contractorName, `%${firstName}%`)
+          )
+        )
         .orderBy(desc(workSessions.createdAt));
     }
     return db.select().from(workSessions).orderBy(desc(workSessions.createdAt));
   }
 
   async getActiveWorkSession(contractorName: string): Promise<WorkSession | undefined> {
+    const clean = contractorName.trim();
+    const dotVariant = clean.replace(/\s+/g, ".");
+    const spaceVariant = clean.replace(/\./g, " ");
+    const firstName = clean.split(/[\s.]/)[0];
+
     const [session] = await db.select().from(workSessions)
       .where(
         and(
-          like(workSessions.contractorName, `%${contractorName}%`),
+          or(
+            ilike(workSessions.contractorName, `%${clean}%`),
+            ilike(workSessions.contractorName, `%${dotVariant}%`),
+            ilike(workSessions.contractorName, `%${spaceVariant}%`),
+            ilike(workSessions.contractorName, `%${firstName}%`)
+          ),
           eq(workSessions.status, "active")
         )
       );
