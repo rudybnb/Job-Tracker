@@ -124,11 +124,6 @@ export async function startQrScanner(
     throw err;
   }
 
-  // NOTE: Do NOT call getUserMedia pre-flight here! Calling getUserMedia and stopping tracks
-  // right before Html5Qrcode.start() causes Android Chrome camera HAL lockup (camera flashes & closes).
-  // Html5Qrcode handles getUserMedia internally in a single clean stream request.
-
-  const scanner = new Html5Qrcode(elementId);
   const qrConfig = { fps: 10, qrbox: { width: 240, height: 240 } };
 
   const handleDecoded = (decodedText: string) => {
@@ -147,40 +142,59 @@ export async function startQrScanner(
     }
   };
 
-  // Attempt 1: Environment facing mode (rear camera)
-  try {
-    await scanner.start({ facingMode: "environment" }, qrConfig, handleDecoded, () => undefined);
-    console.log("[QR Scanner] Camera started successfully (facingMode: environment)");
-    return scanner;
-  } catch (err1: any) {
-    console.warn("[QR Scanner] Attempt 1 (facingMode: environment) failed:", err1);
-  }
-
-  // Attempt 2: Select rear camera from available cameras list
+  // 1. Identify camera target once without repeated open/closes
+  let cameraTarget: string | { facingMode: string } = { facingMode: "environment" };
   try {
     const devices = await Html5Qrcode.getCameras();
     if (devices && devices.length > 0) {
       const rearCamera =
         devices.find((d) => /back|rear|environment|main/i.test(d.label)) ||
-        devices[devices.length - 1]; // rear camera is typically last
-      await scanner.start(rearCamera.id, qrConfig, handleDecoded, () => undefined);
-      console.log(`[QR Scanner] Camera started successfully (Device ID: ${rearCamera.id})`);
-      return scanner;
+        devices[devices.length - 1];
+      if (rearCamera && rearCamera.id) {
+        cameraTarget = rearCamera.id;
+      }
     }
-  } catch (err2: any) {
-    console.warn("[QR Scanner] Attempt 2 (getCameras list) failed:", err2);
+  } catch {
+    // If getCameras fails or is restricted, use generic facingMode
+    cameraTarget = { facingMode: "environment" };
   }
 
-  // Attempt 3: Default/user facing mode fallback
+  // 2. Start Html5Qrcode ONCE with selected camera
+  const scanner = new Html5Qrcode(elementId);
   try {
-    await scanner.start({ facingMode: "user" }, qrConfig, handleDecoded, () => undefined);
-    console.log("[QR Scanner] Camera started successfully (facingMode: user fallback)");
+    await scanner.start(cameraTarget, qrConfig, handleDecoded, () => undefined);
+    console.log("[QR Scanner] Camera started successfully (single start).");
     return scanner;
-  } catch (err3: any) {
-    const formatted = formatCameraError(err3);
-    console.error(`[QR Scanner] Diagnostic Error [${formatted.code}]: ${formatted.message}`);
-    const err = new Error(formatted.message);
-    (err as any).code = formatted.code;
-    throw err;
+  } catch (err: any) {
+    // If direct device ID failed, cleanly clear and retry ONCE with fresh instance and generic facingMode
+    try {
+      await scanner.clear();
+    } catch {
+      // ignore clear error
+    }
+
+    if (typeof cameraTarget === "string") {
+      const fallbackScanner = new Html5Qrcode(elementId);
+      try {
+        await fallbackScanner.start({ facingMode: "environment" }, qrConfig, handleDecoded, () => undefined);
+        console.log("[QR Scanner] Camera started successfully on clean fallback instance.");
+        return fallbackScanner;
+      } catch (fallbackErr: any) {
+        try {
+          await fallbackScanner.clear();
+        } catch {
+          // ignore
+        }
+        const formatted = formatCameraError(fallbackErr || err);
+        const error = new Error(formatted.message);
+        (error as any).code = formatted.code;
+        throw error;
+      }
+    }
+
+    const formatted = formatCameraError(err);
+    const error = new Error(formatted.message);
+    (error as any).code = formatted.code;
+    throw error;
   }
 }
