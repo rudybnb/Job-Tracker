@@ -42,20 +42,23 @@ describe("Camera Error Formatting (formatCameraError)", () => {
   it("formats NotAllowedError / permission denied cleanly", () => {
     const err = { name: "NotAllowedError", message: "Permission denied" };
     const formatted = formatCameraError(err);
-    assert.match(formatted, /permission/i);
-    assert.match(formatted, /settings/i);
+    assert.equal(formatted.code, "CAMERA_PERMISSION_DENIED");
+    assert.match(formatted.message, /permission/i);
+    assert.match(formatted.message, /settings/i);
   });
 
   it("formats NotFoundError cleanly", () => {
     const err = { name: "NotFoundError", message: "Requested device not found" };
     const formatted = formatCameraError(err);
-    assert.match(formatted, /No camera found/i);
+    assert.equal(formatted.code, "NO_CAMERA_FOUND");
+    assert.match(formatted.message, /No camera found/i);
   });
 
   it("formats NotReadableError cleanly", () => {
     const err = { name: "NotReadableError", message: "Could not start video source" };
     const formatted = formatCameraError(err);
-    assert.match(formatted, /in use by another application/i);
+    assert.equal(formatted.code, "CAMERA_IN_USE");
+    assert.match(formatted.message, /in use by another application/i);
   });
 });
 

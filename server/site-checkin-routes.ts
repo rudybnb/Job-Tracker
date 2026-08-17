@@ -379,12 +379,24 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
     requireCheckInSession,
     async (request: Request, response: Response) => {
       try {
+        const session = (request as CheckInRequest).session;
+        const contractorId = session?.contractorId;
+        const jobIdQuery = typeof request.query.jobId === "string" ? request.query.jobId.trim() : null;
+
         const configs = await options.store.listConfigs();
         if (configs.length === 0) {
           return response.status(404).json({ error: "No site check-in policy configured" });
         }
 
-        const target = configs[0];
+        let target = configs[0];
+        if (jobIdQuery) {
+          const matchJob = configs.find((c) => c.jobId === jobIdQuery);
+          if (matchJob) target = matchJob;
+        } else if (contractorId) {
+          const matchContractor = configs.find((c) => c.contractorId === contractorId);
+          if (matchContractor) target = matchContractor;
+        }
+
         return response.status(200).json({
           config: {
             jobId: target.jobId,

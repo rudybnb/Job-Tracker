@@ -298,7 +298,6 @@ export default function Login() {
         const pendingToken = sessionStorage.getItem("pendingQrToken");
         if (pendingToken) {
           setScannedQrToken(extractTokenFromUrlOrText(pendingToken));
-          sessionStorage.removeItem("pendingQrToken");
         }
 
         toast({
@@ -309,9 +308,9 @@ export default function Login() {
         });
 
         if (!needsPasswordChange) {
-          const pendingToken = sessionStorage.getItem("pendingQrToken");
           setTimeout(() => {
             if (pendingToken) {
+              sessionStorage.removeItem("pendingQrToken");
               window.location.href = "/checkin";
             } else {
               window.location.href = "/";
