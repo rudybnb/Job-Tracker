@@ -333,7 +333,11 @@ export default function AdminSiteCheckin() {
         }),
       });
 
-      const data = (await response.json().catch(() => ({}))) as { config?: SiteCheckinConfig; error?: string };
+      const data = (await response.json().catch(() => ({}))) as {
+        config?: SiteCheckinConfig;
+        qrPoster?: { url: string; dataUrl: string };
+        error?: string;
+      };
       if (!response.ok) {
         setMessage({ text: data.error ?? `Failed to save site check-in policy (HTTP ${response.status}).`, type: "error" });
         return;
@@ -341,6 +345,13 @@ export default function AdminSiteCheckin() {
 
       setMessage({ text: `Successfully saved site check-in policy for "${siteName}".`, type: "success" });
       await load();
+      if (data.qrPoster) {
+        setQrView({
+          siteName: siteName.trim(),
+          payload: data.qrPoster.url,
+          dataUrl: data.qrPoster.dataUrl,
+        });
+      }
     } catch {
       setMessage({ text: "Failed to save site check-in policy.", type: "error" });
     } finally {
@@ -351,6 +362,14 @@ export default function AdminSiteCheckin() {
   async function showQr(config: SiteCheckinConfig) {
     try {
       const response = await apiFetch(`/api/admin/site-checkin/configs/${config.id}/qr`);
+      if (response.status === 409) {
+        const errData = (await response.json().catch(() => ({}))) as { error?: string; code?: string };
+        setMessage({
+          text: errData.error || "QR regeneration required. Click Rotate QR to create a new code.",
+          type: "info",
+        });
+        return;
+      }
       const data = (await response.json()) as QrView;
       if (response.ok) {
         setQrView(data);
@@ -367,11 +386,24 @@ export default function AdminSiteCheckin() {
       const response = await apiFetch(`/api/admin/site-checkin/configs/${config.id}/rotate-token`, {
         method: "POST",
       });
-      const data = (await response.json()) as { qrToken?: string; error?: string };
-      if (response.ok) {
+      const data = (await response.json()) as {
+        qrToken?: string;
+        siteName?: string | null;
+        qrUrl?: string;
+        qrDataUrl?: string;
+        error?: string;
+      };
+      if (response.ok && data.qrDataUrl && data.qrUrl) {
         setMessage({ text: "New QR token generated. Previous QR code invalidated.", type: "success" });
         await load();
-        await showQr({ ...config, qrToken: data.qrToken ?? config.qrToken });
+        setQrView({
+          siteName: data.siteName ?? config.siteName,
+          payload: data.qrUrl,
+          dataUrl: data.qrDataUrl,
+        });
+      } else if (response.ok) {
+        setMessage({ text: "New QR token generated. Previous QR code invalidated.", type: "success" });
+        await load();
       } else {
         setMessage({ text: data.error ?? "Could not rotate token.", type: "error" });
       }
