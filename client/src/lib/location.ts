@@ -31,7 +31,7 @@ export async function getCurrentLocation(): Promise<GPSFix> {
         });
       },
       (err) => reject(new Error(err.message || "Failed to get location")),
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
   });
 }

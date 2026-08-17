@@ -344,10 +344,17 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
   }
 
   async findActiveSessionForWorker(identityLabel: string): Promise<{ id: string; jobId: string | null; jobSiteLocation: string | null; startTime: Date | string | null; status: string } | null> {
+    const cleanLabel = (identityLabel || "").trim();
+    const dotVariant = cleanLabel.replace(/\s+/g, ".");
+    const spaceVariant = cleanLabel.replace(/\./g, " ");
+
     const rows = await this.sql<{ id: string; job_id: string | null; job_site_location: string | null; start_time: Date | string | null; status: string }[]>`
       SELECT id, job_id, job_site_location, start_time, status
         FROM work_sessions
-       WHERE contractor_name = ${identityLabel}
+       WHERE (contractor_name = ${cleanLabel}
+          OR contractor_name ILIKE ${cleanLabel}
+          OR contractor_name ILIKE ${dotVariant}
+          OR contractor_name ILIKE ${spaceVariant})
          AND status = 'active'
        ORDER BY start_time DESC
        LIMIT 1
@@ -362,13 +369,26 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
   }
 
   async closeWorkSession(sessionId: string, endTime: string, identityLabel?: string): Promise<boolean> {
+    const session = await this.sql<{ start_time: Date | string | null }[]>`
+      SELECT start_time FROM work_sessions WHERE id = ${sessionId}
+    `;
+    let totalHours: string | null = null;
+    if (session.length > 0 && session[0].start_time) {
+      const startMs = new Date(session[0].start_time).getTime();
+      const endMs = new Date(endTime).getTime();
+      if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
+        const hours = (endMs - startMs) / (1000 * 60 * 60);
+        totalHours = Math.min(hours, 8).toFixed(2);
+      }
+    }
+
     const rows = await this.sql<{ id: string }[]>`
       UPDATE work_sessions
          SET end_time = ${endTime},
-             status = 'completed'
+             status = 'completed',
+             total_hours = COALESCE(${totalHours}, total_hours)
        WHERE id = ${sessionId}
          AND status = 'active'
-         ${identityLabel ? this.sql`AND contractor_name = ${identityLabel}` : this.sql``}
        RETURNING id
     `;
     return rows.length === 1;
