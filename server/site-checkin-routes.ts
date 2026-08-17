@@ -420,9 +420,9 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
           checkedOutAt: now,
           message: "Clocked out successfully.",
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error processing site check-out:", error);
-        return response.status(500).json({ error: "Internal server error" });
+        return response.status(500).json({ error: error?.message || "Internal server error" });
       }
     },
   );
