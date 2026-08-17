@@ -369,6 +369,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
     async (request: Request, response: Response) => {
       try {
         const session = (request as CheckInRequest).session;
+        const identity = identityFromSession(session);
         const contractorId = session?.contractorId;
         const jobIdQuery = typeof request.query.jobId === "string" ? request.query.jobId.trim() : null;
 
@@ -377,13 +378,26 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
           return response.status(404).json({ error: "No site check-in policy configured" });
         }
 
-        let target = configs[0];
-        if (jobIdQuery) {
-          const matchJob = configs.find((c) => c.jobId === jobIdQuery);
-          if (matchJob) target = matchJob;
-        } else if (contractorId) {
-          const matchContractor = configs.find((c) => c.contractorId === contractorId);
-          if (matchContractor) target = matchContractor;
+        // 1. If worker has an active work session, return that exact site's config
+        const activeSession = await options.store.findActiveSessionForWorker(identity.label);
+        let target: SiteCheckinConfigRecord | null = null;
+
+        if (activeSession?.jobId) {
+          target = configs.find((c) => c.jobId === activeSession.jobId) ?? null;
+        }
+
+        // 2. Otherwise if a specific jobId was requested
+        if (!target && jobIdQuery) {
+          target = configs.find((c) => c.jobId === jobIdQuery) ?? null;
+        }
+
+        // 3. Otherwise if worker is assigned to a contractor with a configured job
+        if (!target && contractorId) {
+          target = configs.find((c) => c.contractorId === contractorId) ?? null;
+        }
+
+        if (!target) {
+          return response.status(200).json({ config: null });
         }
 
         return response.status(200).json({

@@ -367,3 +367,66 @@ test("6. full attendance cycle: not clocked in → QR clock in → clocked in �
   state = await store.findActiveSessionForWorker(worker);
   assert.equal(state, null);
 });
+
+// 7. Active session resolves correct site location; does not default to first config (Mary G)
+test("7. worker site resolution uses active session site and never defaults to first config (Mary G)", async () => {
+  const store = new InMemorySiteCheckinStore();
+
+  // Mary G (alphabetically first)
+  await store.createOrUpdateConfig({
+    jobId: "job-mary-g",
+    siteName: "Mary G — 38 Crescent Road, SE18 7BN",
+    siteLatitude: "51.488344",
+    siteLongitude: "0.068153",
+    allowedRadiusMetres: 100,
+    qrEnabled: true,
+    gpsEnabled: true,
+    qrToken: "",
+    qrTokenHash: hashQrToken(generateQrToken()),
+    qrTokenExpiresAt: null,
+    createdBy: "admin",
+  });
+
+  // Gilbert Road
+  const rawToken = generateQrToken();
+  const tokenHash = hashQrToken(rawToken);
+  await store.createOrUpdateConfig({
+    jobId: "job-gilbert",
+    siteName: "Tester — 15 Gilbert Road, Belvedere, DA17 5DB",
+    siteLatitude: "51.490501",
+    siteLongitude: "0.147492",
+    allowedRadiusMetres: 100,
+    qrEnabled: true,
+    gpsEnabled: true,
+    qrToken: "",
+    qrTokenHash: tokenHash,
+    qrTokenExpiresAt: null,
+    createdBy: "admin",
+  });
+
+  const worker = "rudy.test";
+  const identity: CheckInIdentity = { label: worker, workerId: null, contractorId: null };
+
+  // When clocked into Gilbert Road
+  const config = await store.findConfigByTokenHash(tokenHash);
+  const decision = evaluateCheckIn({
+    config,
+    qrToken: rawToken,
+    latitude: 51.490501,
+    longitude: 0.147492,
+    gpsAccuracy: 10,
+    contractorId: null,
+  });
+
+  await store.applyCheckInAttempt(
+    buildAttemptRow(decision, identity, new Date().toISOString()),
+    buildWorkSessionDraft(decision, identity),
+    identity,
+  );
+
+  const active = await store.findActiveSessionForWorker(worker);
+  assert.ok(active);
+  assert.equal(active.jobSiteLocation, "Tester — 15 Gilbert Road, Belvedere, DA17 5DB");
+  assert.notEqual(active.jobSiteLocation, "Mary G — 38 Crescent Road, SE18 7BN");
+});
+

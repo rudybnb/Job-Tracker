@@ -265,11 +265,14 @@ export default function CheckIn() {
 
       if (data.accepted) {
         setFlow({
-          kind: "onsite",
+          kind: "result",
+          accepted: true,
           siteName: data.siteName ?? "Site",
-          checkedInAt: new Date().toISOString(),
-          workSessionId: data.workSessionId ?? null,
+          message: `Checked in — ${data.siteName ?? "Site"}. Redirecting to dashboard…`,
         });
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 700);
       } else {
         setFlow({
           kind: "result",
@@ -317,8 +320,11 @@ export default function CheckIn() {
           kind: "result",
           accepted: true,
           siteName: data.siteName ?? "Site",
-          message: `Clocked out successfully from ${data.siteName ?? "Site"} at ${checkedOutAt}.`,
+          message: `Clocked out successfully at ${checkedOutAt}. Redirecting to dashboard…`,
         });
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 700);
       } else {
         setFlow({
           kind: "result",

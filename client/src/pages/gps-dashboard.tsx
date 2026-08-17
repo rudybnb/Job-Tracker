@@ -78,33 +78,40 @@ export default function GPSDashboard() {
     }
   }, []);
 
-  // Check DB for actual active work session on load
-  const { data: activeSession, isLoading: sessionLoading } = useQuery({
-    queryKey: [`/api/work-sessions/${contractorFirstName}/active`],
+  // Authoritative server attendance session check (/api/checkin/current-session)
+  const { data: currentSession, refetch: refetchSession } = useQuery<{
+    checkedIn?: boolean;
+    active?: boolean;
+    siteName?: string | null;
+    jobId?: string | null;
+    workSessionId?: string | null;
+    checkedInAt?: string | null;
+  } | null>({
+    queryKey: ["/api/checkin/current-session"],
     queryFn: async () => {
-      const response = await apiFetch(`/api/work-sessions/${encodeURIComponent(contractorFirstName)}/active`);
-      if (response.status === 404) return null;
-      if (!response.ok) return null;
-      return response.json();
+      const res = await apiFetch("/api/checkin/current-session");
+      if (!res.ok) return null;
+      return res.json();
     },
-    retry: false,
+    refetchInterval: 8000,
   });
 
-  // Only activate timer if DB confirms a real active session!
+  // Only activate timer if server confirms an active session
   useEffect(() => {
-    if (activeSession && activeSession.id && activeSession.status === "active") {
+    if (currentSession?.active && currentSession.workSessionId) {
       setIsTracking(true);
-      setActiveSessionId(activeSession.id);
-      if (activeSession.startTime) {
-        setStartTime(new Date(activeSession.startTime));
+      setActiveSessionId(currentSession.workSessionId);
+      if (currentSession.checkedInAt) {
+        setStartTime(new Date(currentSession.checkedInAt));
       }
-    } else if (activeSession === null) {
+    } else if (currentSession && !currentSession.active) {
       setIsTracking(false);
       setActiveSessionId(null);
+      setStartTime(null);
       localStorage.removeItem("gps_timer_active");
       localStorage.removeItem("gps_timer_start");
     }
-  }, [activeSession]);
+  }, [currentSession]);
 
   // Fetch site check-in policy for worker (/api/checkin/site-config)
   const { data: currentSiteConfig } = useQuery<SiteCheckinConfig | null>({
@@ -121,8 +128,10 @@ export default function GPSDashboard() {
     queryKey: ["/api/jobs"],
   });
 
-  const currentJob = jobs.find((j) => j.id === currentSiteConfig?.jobId);
-  const siteNameDisplay = currentSiteConfig?.siteName || currentJob?.title || currentJob?.location || "Tester Site — 15 Gilbert Road";
+  // Active session site is the authoritative site name; otherwise use assigned config or generic prompt
+  const siteNameDisplay = currentSession?.active && currentSession.siteName
+    ? currentSession.siteName
+    : currentSiteConfig?.siteName || "Scan Site QR Code to Clock In";
 
   // Request worker GPS location
   useEffect(() => {
@@ -219,6 +228,8 @@ export default function GPSDashboard() {
         setIsTracking(true);
         setActiveSessionId(data.workSessionId ?? "active");
         setStartTime(new Date());
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/current-session"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/site-config"] });
         queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorFirstName}/active`] });
         toast({ title: "Clocked In", description: `Verified QR + GPS clock-in at ${siteNameDisplay}` });
       } else {
@@ -246,6 +257,8 @@ export default function GPSDashboard() {
         setActiveSessionId(null);
         setStartTime(null);
         localStorage.removeItem("gps_timer_active");
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/current-session"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/site-config"] });
         queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorFirstName}/active`] });
         toast({ title: "Clocked Out", description: `Session completed for ${contractorName}` });
       } else {
