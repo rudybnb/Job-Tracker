@@ -2364,6 +2364,7 @@ export const workers = pgTable("workers", {
   contractorId: varchar("contractor_id").references(() => contractors.id),
   contractorApplicationId: varchar("contractor_application_id").references(() => contractorApplications.id),
   isActive: boolean("is_active").notNull().default(true),
+  isDeleted: boolean("is_deleted").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

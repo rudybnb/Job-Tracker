@@ -129,5 +129,24 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
     }
   });
 
+  // DELETE /api/admin/workers/:id - Remove worker from active list while preserving all historical records
+  router.delete(`${WORKERS_ADMIN_API_PREFIX}/:id`, requireAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      const result = await workerService.deleteWorker(id);
+      return res.status(200).json({
+        success: true,
+        message: "Worker removed from active directory. All historical attendance, timesheet, and payroll records have been preserved.",
+        worker: result.worker,
+      });
+    } catch (error: any) {
+      if (error?.message === "Worker not found") {
+        return res.status(404).json({ error: "Worker not found" });
+      }
+      console.error("Error deleting worker:", error);
+      return res.status(500).json({ error: error.message || "Failed to delete worker" });
+    }
+  });
+
   return router;
 }

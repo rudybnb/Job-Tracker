@@ -473,8 +473,8 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
     
     // Simple postcode map for lookup
     const postcodeMap: { [key: string]: { latitude: string; longitude: string } } = {
-      'DA17 5DB': { latitude: '51.4851', longitude: '0.1540' },
-      'DA17': { latitude: '51.4851', longitude: '0.1540' },
+      'DA17 5DB': { latitude: '51.491306', longitude: '0.148139' },
+      'DA17': { latitude: '51.491306', longitude: '0.148139' },
       'DA7 6HJ': { latitude: '51.4851', longitude: '0.1540' },
       'DA7': { latitude: '51.4851', longitude: '0.1540' },
       'BR6 9HE': { latitude: '51.361', longitude: '0.106' },
@@ -533,8 +533,8 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
     
     // Simple postcode-to-GPS lookup for common UK postcodes
     const postcodeMap: { [key: string]: { latitude: string; longitude: string } } = {
-      'DA17 5DB': { latitude: '51.4851', longitude: '0.1540' },
-      'DA17': { latitude: '51.4851', longitude: '0.1540' },
+      'DA17 5DB': { latitude: '51.491306', longitude: '0.148139' },
+      'DA17': { latitude: '51.491306', longitude: '0.148139' },
       'DA7 6HJ': { latitude: '51.4851', longitude: '0.1540' }, // Xavier Jones location
       'DA7': { latitude: '51.4851', longitude: '0.1540' },
       'BR6 9HE': { latitude: '51.361', longitude: '0.106' }, // Orpington site (actual location)

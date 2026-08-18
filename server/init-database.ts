@@ -134,6 +134,35 @@ export async function initializeDatabase() {
       console.log('✅ attendance_events table created successfully');
     }
     
+    // Ensure workers table has is_deleted column
+    try {
+      await db.execute(sql`
+        ALTER TABLE workers ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false
+      `);
+    } catch (e: any) {
+      if (!e?.message?.includes('already exists')) {
+        console.warn('Note on workers.is_deleted column migration:', e?.message);
+      }
+    }
+
+    // Fix live coordinates for Tester — 15 Gilbert Road, Belvedere, DA17 5DB
+    try {
+      await db.execute(sql`
+        UPDATE site_checkin_config
+           SET site_latitude = '51.491306',
+               site_longitude = '0.148139',
+               updated_at = NOW()
+         WHERE (
+           site_name ILIKE '%Gilbert Road%'
+           OR site_name ILIKE '%DA17 5DB%'
+           OR (site_latitude = '51.4851' AND site_longitude = '0.1540')
+         )
+      `);
+      console.log('✅ Corrected live Gilbert Road coordinates in site_checkin_config to 51.491306, 0.148139');
+    } catch (e: any) {
+      console.warn('Note on Gilbert Road coordinate update:', e?.message);
+    }
+    
     console.log('✅ Database schema initialization complete');
     return true;
   } catch (error) {

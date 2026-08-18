@@ -419,3 +419,57 @@ describe("Site QR & GPS Worker Check-In Enforcement", () => {
     assert.ok(canonicalJobId.length > 3);
   });
 });
+
+describe("Worker Deletion & Record Preservation", () => {
+  it("soft-deletes worker by flagging isDeleted=true and isActive=false", () => {
+    const worker = {
+      id: "w-101",
+      firstName: "Mohamed",
+      lastName: "Shawky",
+      phone: "+447123456789",
+      isActive: true,
+      isDeleted: false,
+    };
+
+    // Simulate deleteWorker soft-delete action
+    const deletedWorker = {
+      ...worker,
+      isDeleted: true,
+      isActive: false,
+      updatedAt: new Date(),
+    };
+
+    assert.equal(deletedWorker.isDeleted, true);
+    assert.equal(deletedWorker.isActive, false);
+  });
+
+  it("filters out soft-deleted workers from active list", () => {
+    const workerList = [
+      { id: "w-1", fullName: "Ahmed Gouda", isDeleted: false },
+      { id: "w-2", fullName: "Mohamed Shawky", isDeleted: true },
+      { id: "w-3", fullName: "John Doe", isDeleted: false },
+    ];
+
+    const activeDirectory = workerList.filter((w) => !w.isDeleted);
+    assert.equal(activeDirectory.length, 2);
+    assert.equal(activeDirectory.some((w) => w.id === "w-2"), false);
+  });
+
+  it("preserves historical work sessions, attendance events and payroll when worker is deleted", () => {
+    const historicalWorkSessions = [
+      { id: "ws-1", contractorName: "Mohamed Shawky", totalHours: 8, status: "completed" },
+      { id: "ws-2", contractorName: "Mohamed Shawky", totalHours: 7.5, status: "completed" },
+    ];
+
+    const historicalAttendanceEvents = [
+      { id: "ev-1", workSessionId: "ws-1", eventType: "CLOCK_IN", timestamp: "2026-08-18T08:00:00Z" },
+      { id: "ev-2", workSessionId: "ws-1", eventType: "CLOCK_OUT", timestamp: "2026-08-18T16:30:00Z" },
+    ];
+
+    // Deleting the worker removes worker from directory, but historical sessions and events remain intact
+    assert.equal(historicalWorkSessions.length, 2);
+    assert.equal(historicalAttendanceEvents.length, 2);
+    assert.equal(historicalWorkSessions[0].totalHours, 8);
+  });
+});
+

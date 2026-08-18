@@ -121,6 +121,25 @@ export default function AdminWorkers() {
     },
   });
 
+  // Delete Worker Mutation (soft-delete, preserves historical records)
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/admin/workers/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/workers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      setWorkerToDelete(null);
+      closeModal();
+    },
+    onError: (err: any) => {
+      alert(err?.message || "Failed to delete worker");
+    },
+  });
+
+  const [workerToDelete, setWorkerToDelete] = useState<Worker | null>(null);
+
   const openAddModal = () => {
     setEditingWorker(null);
     setFirstName("");
@@ -514,8 +533,9 @@ export default function AdminWorkers() {
                         paddingTop: "1rem",
                         borderTop: "1px solid var(--sp-color-rule, #374151)",
                         display: "flex",
-                        justify: "space-between",
+                        justifyContent: "space-between",
                         alignItems: "center",
+                        gap: "0.5rem",
                       }}
                     >
                       <button
@@ -533,21 +553,44 @@ export default function AdminWorkers() {
                         {worker.isActive ? "Deactivate" : "Activate"}
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(worker)}
-                        style={{
-                          background: "transparent",
-                          border: "1px solid var(--sp-color-rule-strong, #4b5563)",
-                          borderRadius: "0.375rem",
-                          color: "var(--sp-color-ink, #eeeae1)",
-                          padding: "0.375rem 0.75rem",
-                          fontSize: "0.875rem",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Edit Details
-                      </button>
+                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                        <button
+                          type="button"
+                          onClick={() => setWorkerToDelete(worker)}
+                          style={{
+                            background: "rgba(239, 68, 68, 0.1)",
+                            border: "1px solid rgba(239, 68, 68, 0.3)",
+                            borderRadius: "0.375rem",
+                            color: "#f87171",
+                            padding: "0.375rem 0.625rem",
+                            fontSize: "0.8125rem",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.3rem",
+                          }}
+                          title="Delete worker and preserve records"
+                        >
+                          <i className="fas fa-trash-alt" aria-hidden="true"></i>
+                          <span>Delete</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(worker)}
+                          style={{
+                            background: "transparent",
+                            border: "1px solid var(--sp-color-rule-strong, #4b5563)",
+                            borderRadius: "0.375rem",
+                            color: "var(--sp-color-ink, #eeeae1)",
+                            padding: "0.375rem 0.75rem",
+                            fontSize: "0.875rem",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Edit Details
+                        </button>
+                      </div>
                     </div>
                   </article>
                 ))}
@@ -841,39 +884,186 @@ export default function AdminWorkers() {
                 </label>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1rem" }}>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  style={{
-                    padding: "0.625rem 1.25rem",
-                    background: "transparent",
-                    border: "1px solid var(--sp-color-rule-strong, #4b5563)",
-                    borderRadius: "0.375rem",
-                    color: "var(--sp-color-muted, #9ca3af)",
-                    cursor: "pointer",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                  className="sculpt-button sculpt-button--gold"
-                  style={{
-                    padding: "0.625rem 1.25rem",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {createMutation.isPending || updateMutation.isPending
-                    ? "Saving..."
-                    : editingWorker
-                    ? "Update Worker"
-                    : "Add Worker"}
-                </button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", marginTop: "1.25rem" }}>
+                {editingWorker ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = editingWorker;
+                      closeModal();
+                      setWorkerToDelete(target);
+                    }}
+                    style={{
+                      padding: "0.625rem 0.875rem",
+                      background: "rgba(239, 68, 68, 0.12)",
+                      border: "1px solid rgba(239, 68, 68, 0.35)",
+                      borderRadius: "0.375rem",
+                      color: "#f87171",
+                      cursor: "pointer",
+                      fontSize: "0.875rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                    }}
+                    title="Delete worker and preserve all historical records"
+                  >
+                    <i className="fas fa-trash-alt" aria-hidden="true"></i>
+                    <span>Delete Worker</span>
+                  </button>
+                ) : <div />}
+
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    style={{
+                      padding: "0.625rem 1.25rem",
+                      background: "transparent",
+                      border: "1px solid var(--sp-color-rule-strong, #4b5563)",
+                      borderRadius: "0.375rem",
+                      color: "var(--sp-color-muted, #9ca3af)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                    className="sculpt-button sculpt-button--gold"
+                    style={{
+                      padding: "0.625rem 1.25rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {createMutation.isPending || updateMutation.isPending
+                      ? "Saving..."
+                      : editingWorker
+                      ? "Update Worker"
+                      : "Add Worker"}
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Worker Confirmation Modal */}
+      {workerToDelete && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.8)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+            padding: "1rem",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--sp-color-surface, #1f2937)",
+              border: "1px solid rgba(239, 68, 68, 0.4)",
+              borderRadius: "0.75rem",
+              width: "100%",
+              maxWidth: "28rem",
+              padding: "1.5rem",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+              <div
+                style={{
+                  width: "2.5rem",
+                  height: "2.5rem",
+                  borderRadius: "999px",
+                  background: "rgba(239, 68, 68, 0.15)",
+                  border: "1px solid rgba(239, 68, 68, 0.4)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#f87171",
+                  fontSize: "1.125rem",
+                  flexShrink: 0,
+                }}
+              >
+                <i className="fas fa-exclamation-triangle" aria-hidden="true"></i>
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 700, color: "var(--sp-color-ink, #eeeae1)" }}>
+                  Delete Worker
+                </h3>
+                <span style={{ fontSize: "0.8125rem", color: "var(--sp-color-muted, #9ca3af)" }}>
+                  Historical records will be preserved
+                </span>
+              </div>
+            </div>
+
+            <p style={{ fontSize: "0.875rem", color: "var(--sp-color-ink-muted, #d1d5db)", lineHeight: 1.5, marginBottom: "1rem" }}>
+              Are you sure you want to delete <strong style={{ color: "#fff" }}>{workerToDelete.fullName}</strong>?
+            </p>
+
+            <div
+              style={{
+                background: "rgba(16, 185, 129, 0.1)",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+                borderRadius: "0.5rem",
+                padding: "0.75rem",
+                fontSize: "0.8125rem",
+                color: "#10b981",
+                marginBottom: "1.25rem",
+                lineHeight: 1.4,
+              }}
+            >
+              <i className="fas fa-shield-alt" style={{ marginRight: "0.35rem" }}></i>
+              <strong>Records Preserved:</strong> All past attendance logs, clock-in/out times, timesheets, and payroll entries for this worker will remain safely in the system.
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+              <button
+                type="button"
+                onClick={() => setWorkerToDelete(null)}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: "transparent",
+                  border: "1px solid var(--sp-color-rule-strong, #4b5563)",
+                  borderRadius: "0.375rem",
+                  color: "var(--sp-color-muted, #9ca3af)",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(workerToDelete.id)}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: "#dc2626",
+                  border: "none",
+                  borderRadius: "0.375rem",
+                  color: "#ffffff",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                }}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete Worker"}
+              </button>
+            </div>
           </div>
         </div>
       )}

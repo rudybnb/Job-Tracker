@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { workers, jobAssignments, jobs } from "@shared/schema";
-import { eq, and, desc, ne, sql } from "drizzle-orm";
+import { eq, and, desc, ne, sql, or, isNull } from "drizzle-orm";
 
 /**
  * Normalise UK and international phone numbers to E.164 format.
@@ -117,11 +117,13 @@ export class WorkerService {
 
   /**
    * List all workers with their active site/job assignments.
+   * Soft-deleted workers are excluded.
    */
   async listWorkers(): Promise<WorkerWithAssignment[]> {
     const workerRows = await db
       .select()
       .from(workers)
+      .where(or(isNull(workers.isDeleted), eq(workers.isDeleted, false)))
       .orderBy(desc(workers.createdAt));
 
     const assignments = await db
@@ -206,8 +208,12 @@ export class WorkerService {
 
     const normalizedPhone = normalizePhoneE164(rawPhone);
 
-    // Duplicate protection check
-    const existingWorkers = await db.select().from(workers);
+    // Duplicate protection check among non-deleted workers
+    const existingWorkers = await db
+      .select()
+      .from(workers)
+      .where(or(isNull(workers.isDeleted), eq(workers.isDeleted, false)));
+
     const duplicate = existingWorkers.find((w) => {
       if (!w.phone) return false;
       return normalizePhoneE164(w.phone) === normalizedPhone;
@@ -236,6 +242,7 @@ export class WorkerService {
         email: input.email?.trim() || null,
         workerType: input.workerType ?? "DIRECT_SELF_EMPLOYED",
         isActive: input.isActive ?? true,
+        isDeleted: false,
       })
       .returning();
 
@@ -252,7 +259,11 @@ export class WorkerService {
    * Update an existing worker record.
    */
   async updateWorker(id: string, input: UpdateWorkerInput): Promise<WorkerWithAssignment> {
-    const [existing] = await db.select().from(workers).where(eq(workers.id, id));
+    const [existing] = await db
+      .select()
+      .from(workers)
+      .where(and(eq(workers.id, id), or(isNull(workers.isDeleted), eq(workers.isDeleted, false))));
+
     if (!existing) {
       throw new Error("Worker not found");
     }
@@ -278,8 +289,12 @@ export class WorkerService {
       if (!rawPhone) throw new Error("Mobile number cannot be empty");
       const normPhone = normalizePhoneE164(rawPhone);
 
-      // Duplicate check among OTHER workers
-      const allWorkers = await db.select().from(workers).where(ne(workers.id, id));
+      // Duplicate check among OTHER non-deleted workers
+      const allWorkers = await db
+        .select()
+        .from(workers)
+        .where(and(ne(workers.id, id), or(isNull(workers.isDeleted), eq(workers.isDeleted, false))));
+
       const duplicate = allWorkers.find((w) => {
         if (!w.phone) return false;
         return normalizePhoneE164(w.phone) === normPhone;
@@ -328,6 +343,43 @@ export class WorkerService {
 
     const result = await this.getWorkerById(id);
     return result!;
+  }
+
+  /**
+   * Soft-delete a worker from the active workers directory.
+   * Preserves all historical attendance records, work sessions, timesheets, and payroll entries.
+   */
+  async deleteWorker(id: string): Promise<{ success: boolean; worker: WorkerWithAssignment | null }> {
+    const [existing] = await db
+      .select()
+      .from(workers)
+      .where(and(eq(workers.id, id), or(isNull(workers.isDeleted), eq(workers.isDeleted, false))));
+
+    if (!existing) {
+      throw new Error("Worker not found");
+    }
+
+    const workerDetail = await this.getWorkerById(id);
+
+    // Soft delete: mark isDeleted = true and isActive = false
+    await db
+      .update(workers)
+      .set({
+        isDeleted: true,
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(workers.id, id));
+
+    // Remove active job assignment if any
+    if (workerDetail) {
+      await this.unassignWorkerFromJobs(workerDetail.fullName, workerDetail.phone);
+    }
+
+    return {
+      success: true,
+      worker: workerDetail,
+    };
   }
 
   /**
