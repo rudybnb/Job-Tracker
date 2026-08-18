@@ -1,4 +1,5 @@
 import type postgres from "postgres";
+import { randomUUID } from "node:crypto";
 import type {
   CheckInAttemptRow,
   CheckInIdentity,
@@ -237,12 +238,13 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
 
   async recordAttendanceEvent(input: InsertAttendanceEventInput): Promise<AttendanceEventRecord> {
     const ts = input.timestamp ? new Date(input.timestamp).toISOString() : new Date().toISOString();
+    const eventId = randomUUID();
     const rows = await this.sql<EventDbRow[]>`
       INSERT INTO attendance_events (
-        work_session_id, event_type, timestamp, latitude, longitude,
+        id, work_session_id, event_type, timestamp, latitude, longitude,
         gps_accuracy, job_id, site_name, source
       ) VALUES (
-        ${input.workSessionId}, ${input.eventType}, ${ts},
+        ${eventId}, ${input.workSessionId}, ${input.eventType}, ${ts},
         ${input.latitude ?? null}, ${input.longitude ?? null},
         ${input.gpsAccuracy ?? null}, ${input.jobId ?? null},
         ${input.siteName ?? null}, ${input.source ?? "worker"}
@@ -288,12 +290,13 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
         return { eventId: "", accepted: false };
       }
 
+      const eventId = randomUUID();
       const eventRows = await dbTx<{ id: string }[]>`
         INSERT INTO attendance_events (
-          work_session_id, event_type, timestamp, latitude, longitude,
+          id, work_session_id, event_type, timestamp, latitude, longitude,
           gps_accuracy, job_id, site_name, source
         ) VALUES (
-          ${sessionId}, 'BREAK_START', ${breakTime},
+          ${eventId}, ${sessionId}, 'BREAK_START', ${breakTime},
           ${coords?.latitude ?? null}, ${coords?.longitude ?? null},
           ${coords?.gpsAccuracy ?? null}, ${coords?.jobId ?? null},
           ${coords?.siteName ?? null}, 'worker'
@@ -325,12 +328,13 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
         return { eventId: "", accepted: false };
       }
 
+      const eventId = randomUUID();
       const eventRows = await dbTx<{ id: string }[]>`
         INSERT INTO attendance_events (
-          work_session_id, event_type, timestamp, latitude, longitude,
+          id, work_session_id, event_type, timestamp, latitude, longitude,
           gps_accuracy, job_id, site_name, source
         ) VALUES (
-          ${sessionId}, 'BREAK_END', ${breakTime},
+          ${eventId}, ${sessionId}, 'BREAK_END', ${breakTime},
           ${coords?.latitude ?? null}, ${coords?.longitude ?? null},
           ${coords?.gpsAccuracy ?? null}, ${coords?.jobId ?? null},
           ${coords?.siteName ?? null}, 'worker'
@@ -368,12 +372,13 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
                  status = 'completed'
            WHERE id = ${targetSessionId}
         `;
+        const eventId = randomUUID();
         await dbTx`
           INSERT INTO attendance_events (
-            work_session_id, event_type, timestamp, latitude, longitude,
+            id, work_session_id, event_type, timestamp, latitude, longitude,
             gps_accuracy, job_id, source
           ) VALUES (
-            ${targetSessionId}, 'CLOCK_OUT', ${attempt.attemptTime},
+            ${eventId}, ${targetSessionId}, 'CLOCK_OUT', ${attempt.attemptTime},
             ${attempt.submittedLatitude ?? null}, ${attempt.submittedLongitude ?? null},
             ${attempt.gpsAccuracyMetres ?? null}, ${attempt.jobId ?? null}, 'worker'
           )
@@ -381,14 +386,15 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
         closed = true;
       }
 
+      const attemptId = randomUUID();
       const attemptRows = await dbTx<{ id: string }[]>`
         INSERT INTO site_checkin_attempt (
-          worker_id, contractor_id, job_id, site_checkin_config_id,
+          id, worker_id, contractor_id, job_id, site_checkin_config_id,
           identity_label, attempt_time, qr_valid, submitted_latitude,
           submitted_longitude, gps_accuracy_metres, calculated_distance_metres,
           permitted_radius_metres, gps_valid, accepted, rejection_reason
         ) VALUES (
-          ${attempt.workerId ?? null}, ${attempt.contractorId ?? null}, ${attempt.jobId ?? null},
+          ${attemptId}, ${attempt.workerId ?? null}, ${attempt.contractorId ?? null}, ${attempt.jobId ?? null},
           ${attempt.siteCheckinConfigId ?? null}, ${identity.label},
           ${attempt.attemptTime}, ${attempt.qrValid}, ${attempt.submittedLatitude ?? null},
           ${attempt.submittedLongitude ?? null}, ${attempt.gpsAccuracyMetres ?? null},
@@ -448,12 +454,13 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
           createdSessionId = existingActive[0].id;
         } else {
           const nowIso = new Date().toISOString();
+          const newSessionId = randomUUID();
           const sessionRows = await (dbTx<{ id: string }[]>`
             INSERT INTO work_sessions (
-              contractor_name, job_site_location, start_time, end_time, status,
+              id, contractor_name, job_site_location, start_time, end_time, status,
               job_id, worker_id, contractor_id, start_latitude, start_longitude
             ) VALUES (
-              ${identity.label}, ${workSessionDraft.jobSiteLocation},
+              ${newSessionId}, ${identity.label}, ${workSessionDraft.jobSiteLocation},
               ${nowIso}, ${null},
               'active', ${workSessionDraft.jobId},
               ${attempt.workerId ?? null}, ${attempt.contractorId ?? null},
@@ -464,12 +471,13 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
           createdSessionId = sessionRows[0].id;
 
           // Record CLOCK_IN attendance event
+          const eventId = randomUUID();
           await dbTx`
             INSERT INTO attendance_events (
-              work_session_id, event_type, timestamp, latitude, longitude,
+              id, work_session_id, event_type, timestamp, latitude, longitude,
               gps_accuracy, job_id, site_name, source
             ) VALUES (
-              ${createdSessionId}, 'CLOCK_IN', ${nowIso},
+              ${eventId}, ${createdSessionId}, 'CLOCK_IN', ${nowIso},
               ${attempt.submittedLatitude ?? null}, ${attempt.submittedLongitude ?? null},
               ${attempt.gpsAccuracyMetres ?? null}, ${workSessionDraft.jobId},
               ${workSessionDraft.jobSiteLocation}, 'worker'
@@ -478,14 +486,15 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
         }
       }
 
+      const attemptId = randomUUID();
       const attemptRows = await (dbTx<{ id: string }[]>`
         INSERT INTO site_checkin_attempt (
-          worker_id, contractor_id, job_id, site_checkin_config_id,
+          id, worker_id, contractor_id, job_id, site_checkin_config_id,
           identity_label, attempt_time, qr_valid, submitted_latitude,
           submitted_longitude, gps_accuracy_metres, calculated_distance_metres,
           permitted_radius_metres, gps_valid, accepted, rejection_reason
         ) VALUES (
-          ${attempt.workerId ?? null}, ${attempt.contractorId ?? null}, ${attempt.jobId ?? null},
+          ${attemptId}, ${attempt.workerId ?? null}, ${attempt.contractorId ?? null}, ${attempt.jobId ?? null},
           ${attempt.siteCheckinConfigId ?? null}, ${identity.label},
           ${attempt.attemptTime}, ${attempt.qrValid}, ${attempt.submittedLatitude ?? null},
           ${attempt.submittedLongitude ?? null}, ${attempt.gpsAccuracyMetres ?? null},

@@ -312,12 +312,24 @@ export default function CheckIn() {
         setFlow({ kind: "result", accepted: false, siteName: null, message: friendlyFailure("TOO_MANY_ATTEMPTS") });
         return;
       }
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const errMsg = errData.error || errData.message || `Server error (${response.status})`;
+        setFlow({
+          kind: "result",
+          accepted: false,
+          siteName: null,
+          message: errData.rejectionReason ? friendlyFailure(errData.rejectionReason) : errMsg,
+        });
+        return;
+      }
 
       const data = (await response.json()) as {
         accepted?: boolean;
         siteName?: string | null;
         rejectionReason?: string | null;
         workSessionId?: string | null;
+        error?: string;
       };
 
       if (data.accepted) {
@@ -331,11 +343,12 @@ export default function CheckIn() {
           window.location.href = "/";
         }, 700);
       } else {
+        const msg = data.error || (data.rejectionReason ? friendlyFailure(data.rejectionReason) : "Attendance action could not be completed.");
         setFlow({
           kind: "result",
           accepted: false,
           siteName: null,
-          message: friendlyFailure(data.rejectionReason ?? null),
+          message: msg,
         });
       }
     } catch {

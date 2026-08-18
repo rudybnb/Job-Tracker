@@ -162,6 +162,17 @@ export async function initializeDatabase() {
     } catch (e: any) {
       console.warn('Note on Gilbert Road coordinate update:', e?.message);
     }
+
+    // Ensure default UUID generation on ID columns
+    try {
+      await db.execute(sql`ALTER TABLE work_sessions ALTER COLUMN id SET DEFAULT gen_random_uuid()::text;`);
+    } catch {}
+    try {
+      await db.execute(sql`ALTER TABLE attendance_events ALTER COLUMN id SET DEFAULT gen_random_uuid()::text;`);
+    } catch {}
+    try {
+      await db.execute(sql`ALTER TABLE site_checkin_attempt ALTER COLUMN id SET DEFAULT gen_random_uuid()::text;`);
+    } catch {}
     
     console.log('✅ Database schema initialization complete');
     return true;
