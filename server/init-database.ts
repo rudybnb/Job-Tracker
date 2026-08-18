@@ -173,6 +173,9 @@ export async function initializeDatabase() {
     try {
       await db.execute(sql`ALTER TABLE site_checkin_attempt ALTER COLUMN id SET DEFAULT gen_random_uuid()::text;`);
     } catch {}
+    try {
+      await db.execute(sql`ALTER TABLE site_checkin_attempt DROP CONSTRAINT IF EXISTS site_checkin_attempt_reason_check;`);
+    } catch {}
     
     console.log('✅ Database schema initialization complete');
     return true;

@@ -253,9 +253,9 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         };
 
         return response.status(200).json(responseBody);
-      } catch (error) {
-        console.error("Error processing site check-in:", error);
-        return response.status(500).json({ error: "Internal server error" });
+      } catch (error: any) {
+        console.error("❌ Error processing site check-in:", error);
+        return response.status(500).json({ error: error?.message || "Internal server error" });
       }
     },
   );
@@ -890,34 +890,40 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
     `${SITE_CHECKIN_ADMIN_PREFIX}/configs/:configId/rotate-token`,
     requireAdminHandler,
     async (request, response) => {
-      const configId = request.params.configId;
-      const existing = (await options.store.listConfigs()).find((c) => c.id === configId);
-      if (!existing) {
-        return response.status(404).json({ error: "Site check-in config not found" });
-      }
-      const qrToken = generateQrToken();
-      await options.store.rotateConfigToken(
-        configId,
-        qrToken,
-        hashQrToken(qrToken),
-        null,
-        ((request as CheckInRequest).session?.username ?? "admin").trim(),
-      );
+      try {
+        const configId = request.params.configId;
+        const existing = (await options.store.listConfigs()).find((c) => c.id === configId);
+        if (!existing) {
+          return response.status(404).json({ error: "Site check-in config not found" });
+        }
+        const qrToken = generateQrToken();
+        const username = ((request as any).session?.username || (request as any).session?.adminName || "admin").toString().trim();
+        await options.store.rotateConfigToken(
+          configId,
+          qrToken,
+          hashQrToken(qrToken),
+          null,
+          username,
+        );
 
-      // Generate the QR poster immediately while the raw token is in memory.
-      // After this response the raw token is no longer available.
-      const baseUrl = options.checkInAppBaseUrl
-        ? options.checkInAppBaseUrl(request)
-        : defaultAppBaseUrl(request);
-      const qrUrl = `${baseUrl}/checkin?t=${encodeURIComponent(qrToken)}`;
-      const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 512, margin: 2 });
-      return response.status(200).json({
-        configId,
-        qrToken,
-        siteName: existing.siteName,
-        qrUrl,
-        qrDataUrl,
-      });
+        // Generate the QR poster immediately while the raw token is in memory.
+        // After this response the raw token is no longer available.
+        const baseUrl = options.checkInAppBaseUrl
+          ? options.checkInAppBaseUrl(request)
+          : defaultAppBaseUrl(request);
+        const qrUrl = `${baseUrl}/checkin?t=${encodeURIComponent(qrToken)}`;
+        const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 512, margin: 2 });
+        return response.status(200).json({
+          configId,
+          qrToken,
+          siteName: existing.siteName,
+          qrUrl,
+          qrDataUrl,
+        });
+      } catch (error: any) {
+        console.error("❌ Error rotating token:", error);
+        return response.status(500).json({ error: error?.message || "Failed to rotate token" });
+      }
     },
   );
 
