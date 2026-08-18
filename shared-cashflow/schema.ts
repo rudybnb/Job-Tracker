@@ -6,7 +6,7 @@ import { z } from "zod";
 export const jobStatusEnum = pgEnum("job_status", ["pending", "assigned", "completed"]);
 export const contractorStatusEnum = pgEnum("contractor_status", ["available", "busy", "unavailable"]);
 export const uploadStatusEnum = pgEnum("upload_status", ["processing", "processed", "failed"]);
-export const sessionStatusEnum = pgEnum("session_status", ["active", "completed", "cancelled", "temporarily_away"]);
+export const sessionStatusEnum = pgEnum("session_status", ["active", "completed", "cancelled", "temporarily_away", "on_break"]);
 
 export const contractors = pgTable("contractors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
