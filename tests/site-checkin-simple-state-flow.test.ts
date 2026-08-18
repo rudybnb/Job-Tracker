@@ -22,8 +22,9 @@ import type {
 /** In-memory store simulating the single source of truth database behavior */
 class InMemorySiteCheckinStore implements SiteCheckinStore {
   configs: Map<string, SiteCheckinConfigRecord> = new Map();
-  sessions: Map<string, { id: string; contractorName: string; jobSiteLocation: string | null; startTime: string | null; endTime: string | null; status: string; jobId: string | null; workerId: string | null; contractorId: string | null }> = new Map();
+  sessions: Map<string, { id: string; contractorName: string; jobSiteLocation: string | null; startTime: string | null; endTime: string | null; status: string; jobId: string | null; workerId: string | null; contractorId: string | null; totalHours?: number | null }> = new Map();
   attempts: CheckInAttemptRow[] = [];
+  events: Array<{ id: string; workSessionId: string; eventType: string; timestamp: string; latitude: string | null; longitude: string | null; gpsAccuracy: number | null; jobId: string | null; siteName: string | null; source: string; createdAt: string }> = [];
 
   async findConfigByTokenHash(tokenHash: string): Promise<SiteCheckinConfigRecord | null> {
     for (const cfg of this.configs.values()) {
@@ -80,23 +81,39 @@ class InMemorySiteCheckinStore implements SiteCheckinStore {
       return { attemptId: `att-${this.attempts.length}`, workSessionId: null, duplicate: false };
     }
 
-    // Check if worker already has active session
+    // Check if worker already has active or on_break session
     const existingActive = await this.findActiveSessionForWorker(identity.label);
     if (existingActive) {
       return { attemptId: `att-${this.attempts.length}`, workSessionId: existingActive.id, duplicate: true };
     }
 
     const sessionId = `ws-${this.sessions.size + 1}`;
+    const startTimeIso = new Date().toISOString();
     this.sessions.set(sessionId, {
       id: sessionId,
       contractorName: identity.label,
       jobSiteLocation: workSessionDraft.jobSiteLocation,
-      startTime: new Date().toISOString(),
+      startTime: startTimeIso,
       endTime: null,
       status: "active",
       jobId: workSessionDraft.jobId,
       workerId: workSessionDraft.workerId,
       contractorId: workSessionDraft.contractorId,
+      totalHours: null,
+    });
+
+    this.events.push({
+      id: `evt-${this.events.length + 1}`,
+      workSessionId: sessionId,
+      eventType: "CLOCK_IN",
+      timestamp: startTimeIso,
+      latitude: attempt.latitude,
+      longitude: attempt.longitude,
+      gpsAccuracy: attempt.gpsAccuracy,
+      jobId: workSessionDraft.jobId,
+      siteName: workSessionDraft.jobSiteLocation,
+      source: "worker",
+      createdAt: startTimeIso,
     });
 
     return { attemptId: `att-${this.attempts.length}`, workSessionId: sessionId, duplicate: false };
@@ -117,13 +134,91 @@ class InMemorySiteCheckinStore implements SiteCheckinStore {
     return { attemptId: `att-${this.attempts.length}`, workSessionId: active.id, closed: true };
   }
 
+  async startBreak(sessionId: string, timestamp: string, coords?: { latitude?: string | null; longitude?: string | null; gpsAccuracy?: number | null; siteName?: string | null; jobId?: string | null }, identityLabel?: string): Promise<{ accepted: boolean }> {
+    const s = this.sessions.get(sessionId);
+    if (!s || s.status !== "active") return { accepted: false };
+    if (identityLabel && s.contractorName !== identityLabel) return { accepted: false };
+
+    s.status = "on_break";
+    this.events.push({
+      id: `evt-${this.events.length + 1}`,
+      workSessionId: sessionId,
+      eventType: "BREAK_START",
+      timestamp,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
+      gpsAccuracy: coords?.gpsAccuracy ?? null,
+      jobId: coords?.jobId ?? s.jobId,
+      siteName: coords?.siteName ?? s.jobSiteLocation,
+      source: "worker",
+      createdAt: timestamp,
+    });
+
+    return { accepted: true };
+  }
+
+  async endBreak(sessionId: string, timestamp: string, coords?: { latitude?: string | null; longitude?: string | null; gpsAccuracy?: number | null; siteName?: string | null; jobId?: string | null }, identityLabel?: string): Promise<{ accepted: boolean }> {
+    const s = this.sessions.get(sessionId);
+    if (!s || s.status !== "on_break") return { accepted: false };
+    if (identityLabel && s.contractorName !== identityLabel) return { accepted: false };
+
+    s.status = "active";
+    this.events.push({
+      id: `evt-${this.events.length + 1}`,
+      workSessionId: sessionId,
+      eventType: "BREAK_END",
+      timestamp,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
+      gpsAccuracy: coords?.gpsAccuracy ?? null,
+      jobId: coords?.jobId ?? s.jobId,
+      siteName: coords?.siteName ?? s.jobSiteLocation,
+      source: "worker",
+      createdAt: timestamp,
+    });
+
+    return { accepted: true };
+  }
+
+  async recordAttendanceEvent(event: { workSessionId: string; eventType: string; timestamp: string; latitude?: string | null; longitude?: string | null; gpsAccuracy?: number | null; jobId?: string | null; siteName?: string | null; source?: string }): Promise<void> {
+    this.events.push({
+      id: `evt-${this.events.length + 1}`,
+      workSessionId: event.workSessionId,
+      eventType: event.eventType,
+      timestamp: event.timestamp,
+      latitude: event.latitude ?? null,
+      longitude: event.longitude ?? null,
+      gpsAccuracy: event.gpsAccuracy ?? null,
+      jobId: event.jobId ?? null,
+      siteName: event.siteName ?? null,
+      source: event.source ?? "worker",
+      createdAt: event.timestamp,
+    });
+  }
+
+  async getEventsForSession(sessionId: string) {
+    return this.events.filter((e) => e.workSessionId === sessionId);
+  }
+
   async getAllWorkSessions() {
-    return Array.from(this.sessions.values());
+    return Array.from(this.sessions.values()).map((s) => ({
+      ...s,
+      events: this.events.filter((e) => e.workSessionId === s.id),
+    }));
+  }
+
+  async getWorkerWorkSessions(contractorName: string) {
+    return Array.from(this.sessions.values())
+      .filter((s) => s.contractorName === contractorName)
+      .map((s) => ({
+        ...s,
+        events: this.events.filter((e) => e.workSessionId === s.id),
+      }));
   }
 
   async findActiveSession(jobId: string, identityLabel: string) {
     for (const s of this.sessions.values()) {
-      if (s.jobId === jobId && s.contractorName === identityLabel && s.status === "active") {
+      if (s.jobId === jobId && s.contractorName === identityLabel && (s.status === "active" || s.status === "on_break")) {
         return { id: s.id, startTime: s.startTime, status: s.status };
       }
     }
@@ -132,7 +227,7 @@ class InMemorySiteCheckinStore implements SiteCheckinStore {
 
   async findActiveSessionForWorker(identityLabel: string) {
     for (const s of this.sessions.values()) {
-      if (s.contractorName === identityLabel && s.status === "active") {
+      if (s.contractorName === identityLabel && (s.status === "active" || s.status === "on_break")) {
         return {
           id: s.id,
           jobId: s.jobId,
@@ -145,12 +240,27 @@ class InMemorySiteCheckinStore implements SiteCheckinStore {
     return null;
   }
 
-  async closeWorkSession(sessionId: string, endTime: string, identityLabel?: string): Promise<boolean> {
+  async closeWorkSession(sessionId: string, endTime: string, identityLabel?: string, coords?: { latitude?: string | null; longitude?: string | null; gpsAccuracy?: number | null; siteName?: string | null; jobId?: string | null }): Promise<boolean> {
     const s = this.sessions.get(sessionId);
-    if (!s || s.status !== "active") return false;
+    if (!s || (s.status !== "active" && s.status !== "on_break")) return false;
     if (identityLabel && s.contractorName !== identityLabel) return false;
     s.status = "completed";
     s.endTime = endTime;
+
+    this.events.push({
+      id: `evt-${this.events.length + 1}`,
+      workSessionId: sessionId,
+      eventType: "CLOCK_OUT",
+      timestamp: endTime,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
+      gpsAccuracy: coords?.gpsAccuracy ?? null,
+      jobId: coords?.jobId ?? s.jobId,
+      siteName: coords?.siteName ?? s.jobSiteLocation,
+      source: "worker",
+      createdAt: endTime,
+    });
+
     return true;
   }
 }

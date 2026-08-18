@@ -37,20 +37,32 @@ test("active session maps to ON SITE with no check-out time", () => {
   assert.equal(view.checkedOutAt, null);
 });
 
-test("completed session maps to CHECKED OUT and preserves check-out time", () => {
+test("completed session maps to CLOCKED OUT and preserves check-out time", () => {
   const view = buildAdminSiteSessionView(
     makeSession({
       status: "completed",
       endTime: new Date("2026-01-01T17:00:00Z"),
     }),
   );
-  assert.equal(view.status, "CHECKED OUT");
+  assert.equal(view.status, "CLOCKED OUT");
   assert.equal(view.isActive, false);
   assert.equal(view.checkedOutAt, "2026-01-01T17:00:00.000Z");
 });
 
-test("isSessionActive is true only for status 'active'", () => {
+test("on_break session maps to ON BREAK and isSessionActive is true", () => {
+  const view = buildAdminSiteSessionView(
+    makeSession({
+      status: "on_break",
+    }),
+  );
+  assert.equal(view.status, "ON BREAK");
+  assert.equal(view.isActive, true);
+  assert.equal(isSessionActive("on_break"), true);
+});
+
+test("isSessionActive is true for status 'active' and 'on_break'", () => {
   assert.equal(isSessionActive("active"), true);
+  assert.equal(isSessionActive("on_break"), true);
   assert.equal(isSessionActive("completed"), false);
   assert.equal(isSessionActive(null), false);
   assert.equal(isSessionActive(undefined), false);
@@ -75,6 +87,6 @@ test("buildAdminSiteSessionViews maps a collection of sessions", () => {
   ]);
   assert.equal(views.length, 2);
   assert.equal(views[0].status, "ON SITE");
-  assert.equal(views[1].status, "CHECKED OUT");
+  assert.equal(views[1].status, "CLOCKED OUT");
   assert.equal(views[1].checkedOutAt, "2026-01-01T15:00:00.000Z");
 });

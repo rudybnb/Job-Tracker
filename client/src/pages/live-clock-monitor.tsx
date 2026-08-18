@@ -200,54 +200,89 @@ export default function LiveClockMonitor() {
               {activeSessions.map((session: any) => {
                 const location = contractorLocations[session.contractorName];
                 const hasLocation = location && location.latitude && location.longitude;
-                const isCheckedOut = session.status === 'checked_out' || session.displayStatus === 'CHECKED OUT';
-                const startLabel = session.startedAt || (session.startTime ? new Date(session.startTime).toLocaleTimeString('en-GB', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                }) : 'Unknown');
-                const statusLabel = session.displayStatus || (isCheckedOut ? 'CHECKED OUT' : 'ON SITE');
-                const statusClass = isCheckedOut ? 'lm-status--checked-out' : 'lm-status--active';
+                const statusLabel = session.displayStatus || (session.status === 'on_break' ? 'ON BREAK' : session.status === 'checked_out' ? 'CHECKED OUT' : 'ON SITE');
+                const statusClass = statusLabel === 'ON BREAK' ? 'lm-status--break' : statusLabel === 'CHECKED OUT' ? 'lm-status--checked-out' : 'lm-status--active';
                 
-                const durationDisplay = session.totalDailyWorkedSeconds !== undefined
-                  ? `${Math.floor(session.totalDailyWorkedSeconds / 3600)}h ${Math.floor((session.totalDailyWorkedSeconds % 3600) / 60)}m`
-                  : (session.duration || 'Live');
-
                 const formatTimelineSecs = (secs: number) => {
                   const h = Math.floor(secs / 3600);
                   const m = Math.floor((secs % 3600) / 60);
                   if (h === 0) return `${m}m`;
                   return `${h}h ${m.toString().padStart(2, "0")}m`;
                 };
-                
+
+                const totalWorkedDisplay = formatTimelineSecs(session.totalDailyWorkedSeconds ?? session.todayTimeline?.totalWorkedSeconds ?? 0);
+                const totalBreakDisplay = formatTimelineSecs(session.totalDailyBreakSeconds ?? session.todayTimeline?.totalBreakSeconds ?? 0);
+
+                const clockInDisplay = session.clockInTime
+                  ? new Date(session.clockInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                  : (session.startedAt || '—');
+
+                const breakOutDisplay = session.breakOutTime || session.breakOutAt
+                  ? (session.breakOutAt || new Date(session.breakOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))
+                  : '—';
+
+                const breakReturnDisplay = session.breakReturnTime || session.breakReturnAt
+                  ? (session.breakReturnAt || new Date(session.breakReturnTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))
+                  : '—';
+
+                const clockOutDisplay = session.clockOutTime || session.checkedOutAt
+                  ? (session.checkedOutAt || new Date(session.clockOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))
+                  : '—';
+
+                const flag = session.attendanceFlag;
+                const isSignalLost = session.locationSignalLost || flag === 'LOCATION SIGNAL LOST';
+                const isReviewRequired = flag === 'ATTENDANCE REVIEW REQUIRED';
+
                 return (
                     <article key={session.id} className="lm-worker-card">
                       <div className="lm-worker-card__head">
                         <div className="lm-worker-identity">
-                          <span className={`lm-signal ${hasLocation ? 'lm-signal--good' : 'lm-signal--warn'}`} aria-hidden="true"></span>
+                          <span className={`lm-signal ${isSignalLost ? 'lm-signal--warn' : hasLocation ? 'lm-signal--good' : 'lm-signal--warn'}`} aria-hidden="true"></span>
                           <div>
                             <h3>{session.contractorName}</h3>
                             <p>{session.jobSiteLocation || 'Unknown job site'}</p>
                           </div>
                         </div>
-                        <span className={`lm-status ${statusClass}`}>{statusLabel}</span>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          {isSignalLost && (
+                            <span className="lm-flag-badge lm-flag-badge--signal-lost">Location Signal Lost</span>
+                          )}
+                          {isReviewRequired && (
+                            <span className="lm-flag-badge lm-flag-badge--review">Attendance Review Required</span>
+                          )}
+                          <span className={`lm-status ${statusClass}`}>{statusLabel}</span>
+                        </div>
                       </div>
 
+                      {/* 4 Exact Timestamps */}
+                      <div className="lm-spec-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+                        <div>
+                          <span>Clock In</span>
+                          <strong>{clockInDisplay}</strong>
+                        </div>
+                        <div>
+                          <span>Break Out</span>
+                          <strong>{breakOutDisplay}</strong>
+                        </div>
+                        <div>
+                          <span>Break Return</span>
+                          <strong>{breakReturnDisplay}</strong>
+                        </div>
+                        <div>
+                          <span>Clock Out</span>
+                          <strong>{clockOutDisplay}</strong>
+                        </div>
+                      </div>
+
+                      {/* Worked & Break Summaries */}
                       <div className="lm-spec-grid">
                         <div>
-                          <span>Start time</span>
-                          <strong>{startLabel}</strong>
+                          <span>Total Worked Today</span>
+                          <strong style={{ color: '#10b981' }}>{totalWorkedDisplay}</strong>
                         </div>
                         <div>
-                          <span>Total worked</span>
-                          <strong>{durationDisplay}</strong>
-                        </div>
-                        <div>
-                          <span>Clock status</span>
-                          <strong>{session.status || (isCheckedOut ? 'checked_out' : 'clocked_in')}</strong>
-                        </div>
-                        <div>
-                          <span>GPS signal</span>
-                          <strong>{hasLocation ? 'Tracked' : 'No signal'}</strong>
+                          <span>Total Break Today</span>
+                          <strong style={{ color: '#f59e0b' }}>{totalBreakDisplay}</strong>
                         </div>
                       </div>
 
@@ -255,20 +290,20 @@ export default function LiveClockMonitor() {
                       {session.todayTimeline && session.todayTimeline.sessions && session.todayTimeline.sessions.length > 0 && (
                         <div className="lm-timeline-block">
                           <div className="lm-timeline-block__head">
-                            <span>Today’s Timeline</span>
-                            <strong>{formatTimelineSecs(session.todayTimeline.totalWorkedSeconds)} total</strong>
+                            <span>Today’s Shift Timeline</span>
+                            <strong>{formatTimelineSecs(session.todayTimeline.totalWorkedSeconds)} worked</strong>
                           </div>
                           <div className="lm-timeline-stepper">
                             {session.todayTimeline.sessions.map((tSess: any, idx: number) => {
-                              const sStart = tSess.startTime ? new Date(tSess.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Unknown';
-                              const sEnd = tSess.endTime ? new Date(tSess.endTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Live';
-                              const isSessActive = tSess.status === 'active';
+                              const sStart = tSess.clockInTime || tSess.startTime ? new Date(tSess.clockInTime || tSess.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Unknown';
+                              const sEnd = tSess.clockOutTime || tSess.endTime ? new Date(tSess.clockOutTime || tSess.endTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : (tSess.displayStatus || 'Active');
+                              const isSessActive = tSess.status === 'active' || tSess.status === 'on_break';
 
                               return (
                                 <div key={tSess.id || idx} className="lm-timeline-node">
-                                  {tSess.breakBeforeSeconds !== null && tSess.breakBeforeSeconds > 0 && (
+                                  {tSess.breakDurationSeconds !== undefined && tSess.breakDurationSeconds > 0 && (
                                     <div className="lm-timeline-break">
-                                      <span>☕ Break / Lunch: {formatTimelineSecs(tSess.breakBeforeSeconds)}</span>
+                                      <span>☕ Break Duration: {formatTimelineSecs(tSess.breakDurationSeconds)}</span>
                                     </div>
                                   )}
                                   <div className={`lm-timeline-pill ${isSessActive ? 'lm-timeline-pill--active' : 'lm-timeline-pill--completed'}`}>
@@ -277,7 +312,7 @@ export default function LiveClockMonitor() {
                                       <span className="lm-timeline-pill__time">{sStart} → {sEnd}</span>
                                       <span className="lm-timeline-pill__site">{tSess.siteName}</span>
                                     </div>
-                                    <span className="lm-timeline-pill__dur">{formatTimelineSecs(tSess.durationSeconds)}</span>
+                                    <span className="lm-timeline-pill__dur">{formatTimelineSecs(tSess.workedDurationSeconds ?? tSess.durationSeconds)}</span>
                                   </div>
                                 </div>
                               );

@@ -102,6 +102,38 @@ export async function initializeDatabase() {
       }
     }
     
+    // Check if attendance_events table exists
+    const eventsTableCheck = await db.execute(sql`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name = 'attendance_events'
+    `);
+    
+    const eventsTableExists = Array.isArray(eventsTableCheck) && eventsTableCheck.length > 0;
+    
+    if (!eventsTableExists) {
+      console.log('📋 Creating attendance_events table...');
+      
+      await db.execute(sql`
+        CREATE TABLE attendance_events (
+          id VARCHAR PRIMARY KEY,
+          work_session_id VARCHAR NOT NULL REFERENCES work_sessions(id) ON DELETE CASCADE,
+          event_type TEXT NOT NULL,
+          timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+          latitude TEXT,
+          longitude TEXT,
+          gps_accuracy INTEGER,
+          job_id VARCHAR REFERENCES jobs(id),
+          site_name TEXT,
+          source TEXT NOT NULL DEFAULT 'worker',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+      `);
+      
+      console.log('✅ attendance_events table created successfully');
+    }
+    
     console.log('✅ Database schema initialization complete');
     return true;
   } catch (error) {

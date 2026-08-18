@@ -1313,6 +1313,24 @@ export const temporaryDepartures = pgTable("temporary_departures", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Event-driven attendance tracking history linked to parent work session
+export const attendanceEvents = pgTable("attendance_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workSessionId: varchar("work_session_id").notNull().references(() => workSessions.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(), // 'CLOCK_IN' | 'BREAK_START' | 'BREAK_END' | 'CLOCK_OUT' | 'LOCATION_SIGNAL_LOST' | 'LOCATION_SIGNAL_RESTORED'
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  gpsAccuracy: integer("gps_accuracy"),
+  jobId: varchar("job_id").references(() => jobs.id),
+  siteName: text("site_name"),
+  source: text("source").notNull().default("worker"), // 'worker' | 'admin' | 'system'
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AttendanceEvent = typeof attendanceEvents.$inferSelect;
+export type InsertAttendanceEvent = typeof attendanceEvents.$inferInsert;
+
 export const siteCheckinConfigs = pgTable("site_checkin_config", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "restrict" }),

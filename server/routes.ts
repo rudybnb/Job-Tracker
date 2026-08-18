@@ -2849,9 +2849,24 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
         .select()
         .from(workSessions)
         .orderBy(sql`start_time DESC`);
+
+      // Fetch attendance events to reconstruct multi-break history
+      let allAttendanceEvents: any[] = [];
+      try {
+        allAttendanceEvents = await db.select().from(attendanceEvents).orderBy(sql`timestamp ASC`);
+      } catch {
+        allAttendanceEvents = [];
+      }
+      const eventsBySession = new Map<string, any[]>();
+      allAttendanceEvents.forEach((evt) => {
+        if (!eventsBySession.has(evt.workSessionId)) {
+          eventsBySession.set(evt.workSessionId, []);
+        }
+        eventsBySession.get(evt.workSessionId)!.push(evt);
+      });
       
       // Group sessions by contractor name
-      const sessionsByContractor = new Map<string, typeof allWorkSessions>();
+      const sessionsByContractor = new Map<string, any[]>();
       
       allWorkSessions.forEach(session => {
         if (!session.contractorName) return;
@@ -2865,7 +2880,8 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
         }
         sessionsByContractor.get(cleanName)!.push({
           ...session,
-          contractorName: cleanName
+          contractorName: cleanName,
+          events: eventsBySession.get(session.id) ?? [],
         });
       });
       
@@ -2874,11 +2890,12 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
         Array.from(sessionsByContractor.entries()).map(async ([cleanName, contractorSessions]) => {
           const latestSession = contractorSessions[0]; // latest by start_time DESC
           const timeline = buildAttendanceTimeline(contractorSessions, cleanName, now);
+          const latestTimelineSess = timeline.sessions.length > 0 ? timeline.sessions[timeline.sessions.length - 1] : null;
           
           const startTime = latestSession.startTime ? new Date(latestSession.startTime) : now;
           const isActive = timeline.isCurrentlyClockedIn;
-          const sessionStatus = isActive ? 'clocked_in' : 'checked_out';
-          const displayStatus = isActive ? 'ON SITE' : 'CHECKED OUT';
+          const displayStatus = timeline.currentStatus;
+          const sessionStatus = displayStatus === 'ON BREAK' ? 'on_break' : (isActive ? 'clocked_in' : 'checked_out');
           
           // Detect current location by finding nearest assigned job site (DYNAMIC SYSTEM)
           let detectedLocation = latestSession.jobSiteLocation;
@@ -2893,11 +2910,33 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
             }
           }
           
-          const checkedOutAt = latestSession.endTime ? new Date(latestSession.endTime).toLocaleTimeString('en-GB', {
+          const checkedInAt = latestTimelineSess?.clockInTime ? new Date(latestTimelineSess.clockInTime).toLocaleTimeString('en-GB', {
+            timeZone: 'Europe/London',
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : (startTime ? startTime.toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }) : null);
+
+          const breakOutAt = latestTimelineSess?.breakStartTime ? new Date(latestTimelineSess.breakStartTime).toLocaleTimeString('en-GB', {
             timeZone: 'Europe/London',
             hour: '2-digit',
             minute: '2-digit'
           }) : null;
+
+          const breakReturnAt = latestTimelineSess?.breakEndTime ? new Date(latestTimelineSess.breakEndTime).toLocaleTimeString('en-GB', {
+            timeZone: 'Europe/London',
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : null;
+
+          const checkedOutAt = latestTimelineSess?.clockOutTime ? new Date(latestTimelineSess.clockOutTime).toLocaleTimeString('en-GB', {
+            timeZone: 'Europe/London',
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : (latestSession.endTime && !isActive ? new Date(latestSession.endTime).toLocaleTimeString('en-GB', {
+            timeZone: 'Europe/London',
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : null);
           
           const totalHoursNum = timeline.totalWorkedHours;
           const hoursInt = Math.floor(totalHoursNum);
@@ -2907,23 +2946,27 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
             ...latestSession,
             contractorName: cleanName,
             jobSiteLocation: detectedLocation,
-            duration: isActive ? `${hoursInt}h ${minutesInt}m` : `${hoursInt}h ${minutesInt}m`,
+            duration: `${hoursInt}h ${minutesInt}m`,
             durationMs: timeline.totalWorkedSeconds * 1000,
             isActive,
             status: sessionStatus,
             displayStatus,
             workingHours: hoursInt,
             workingMinutes: minutesInt,
-            startedAt: startTime.toLocaleTimeString('en-GB', {
-              timeZone: 'Europe/London',
-              hour: '2-digit',
-              minute: '2-digit'
-            }),
+            startedAt: checkedInAt || 'Unknown',
+            clockInTime: latestTimelineSess?.clockInTime ?? (startTime ? startTime.toISOString() : null),
+            breakOutTime: latestTimelineSess?.breakStartTime ?? null,
+            breakReturnTime: latestTimelineSess?.breakEndTime ?? null,
+            clockOutTime: latestTimelineSess?.clockOutTime ?? (latestSession.endTime ? new Date(latestSession.endTime).toISOString() : null),
+            breakOutAt,
+            breakReturnAt,
             checkedOutAt,
             todayTimeline: timeline,
             totalDailyWorkedSeconds: timeline.totalWorkedSeconds,
             totalDailyWorkedHours: timeline.totalWorkedHours,
-            totalDailyBreakSeconds: timeline.totalBreakSeconds
+            totalDailyBreakSeconds: timeline.totalBreakSeconds,
+            attendanceFlag: timeline.attendanceFlag,
+            locationSignalLost: latestTimelineSess?.locationSignalLost ?? false,
           };
         })
       );

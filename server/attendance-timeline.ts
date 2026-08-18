@@ -2,15 +2,39 @@
  * Attendance Timeline Engine
  * 
  * Provides unified, single-source-of-truth attendance timeline calculations
- * based on the work_sessions table.
+ * based on the work_sessions table and attendance_events table.
  * 
  * Rules:
  * - Uses Europe/London calendar boundaries for "today".
  * - Chronologically orders sessions (ascending by start_time).
- * - Accurately calculates session durations and lunch/break gaps between sessions.
+ * - Accurately calculates session durations and all completed/active break periods.
+ * - Supports multiple break/return cycles during one working day.
+ * - Worked time strictly excludes recorded break time.
+ * - GPS signal loss is informational only and does not trigger clock-out or break.
  * - Filters out invalid/corrupt sessions (e.g. negative duration, start > end) from worked totals.
- * - Returns raw timestamps and numeric durations so clients can format consistently.
+ * - Returns raw timestamps, break history, and numeric durations so clients format identically.
  */
+
+export type RawAttendanceEventType =
+  | "CLOCK_IN"
+  | "BREAK_START"
+  | "BREAK_END"
+  | "CLOCK_OUT"
+  | "LOCATION_SIGNAL_LOST"
+  | "LOCATION_SIGNAL_RESTORED";
+
+export interface RawAttendanceEvent {
+  id: string;
+  workSessionId: string;
+  eventType: RawAttendanceEventType;
+  timestamp: Date | string;
+  latitude?: string | null;
+  longitude?: string | null;
+  gpsAccuracy?: number | null;
+  jobId?: string | null;
+  siteName?: string | null;
+  source?: string | null;
+}
 
 export interface RawWorkSession {
   id: string;
@@ -21,6 +45,16 @@ export interface RawWorkSession {
   endTime?: Date | string | null;
   status?: string | null;
   totalHours?: string | number | null;
+  breakStartTime?: Date | string | null;
+  breakEndTime?: Date | string | null;
+  attendanceFlag?: string | null;
+  events?: RawAttendanceEvent[];
+}
+
+export interface TimelineBreak {
+  start: string; // ISO string
+  end: string | null; // ISO string or null if currently on break
+  durationSeconds: number;
 }
 
 export interface TimelineSession {
@@ -28,13 +62,23 @@ export interface TimelineSession {
   jobId: string | null;
   siteName: string;
   startTime: string; // ISO-8601 string
+  clockInTime: string; // ISO-8601 string
+  breakStartTime: string | null; // ISO-8601 string or null
+  breakEndTime: string | null; // ISO-8601 string or null
+  clockOutTime: string | null; // ISO-8601 string or null
   endTime: string | null; // ISO-8601 string or null
-  status: "active" | "completed" | "invalid";
-  durationSeconds: number;
+  status: "active" | "on_break" | "completed" | "invalid";
+  displayStatus: "ON SITE" | "ON BREAK" | "CLOCKED OUT";
+  breaks: TimelineBreak[];
+  workedDurationSeconds: number;
+  breakDurationSeconds: number;
+  durationSeconds: number; // worked duration
   durationHours: number;
   isValid: boolean;
   invalidReason?: string;
   breakBeforeSeconds: number | null;
+  attendanceFlag: string | null;
+  locationSignalLost: boolean;
 }
 
 export interface AttendanceTimeline {
@@ -47,7 +91,9 @@ export interface AttendanceTimeline {
   totalBreakSeconds: number;
   activeSessionId: string | null;
   isCurrentlyClockedIn: boolean;
+  currentStatus: "ON SITE" | "ON BREAK" | "CLOCKED OUT";
   sessionCount: number;
+  attendanceFlag: string | null;
 }
 
 /** Returns YYYY-MM-DD in Europe/London timezone for the given date. */
@@ -98,7 +144,9 @@ export function buildAttendanceTimeline(
   let totalWorkedSeconds = 0;
   let totalBreakSeconds = 0;
   let activeSessionId: string | null = null;
+  let activeStatus: "ON SITE" | "ON BREAK" | "CLOCKED OUT" = "CLOCKED OUT";
   let lastCompletedEndTimeMs: number | null = null;
+  let dayAttendanceFlag: string | null = null;
 
   for (const session of daySessions) {
     if (!session.startTime) {
@@ -117,36 +165,141 @@ export function buildAttendanceTimeline(
 
     let isValid = true;
     let invalidReason: string | undefined;
-    let durationSeconds = 0;
-    let status: "active" | "completed" | "invalid" = "completed";
+    let status: "active" | "on_break" | "completed" | "invalid" = "completed";
+    let displayStatus: "ON SITE" | "ON BREAK" | "CLOCKED OUT" = "CLOCKED OUT";
+    let locationSignalLost = false;
+    let sessionAttendanceFlag: string | null = session.attendanceFlag ?? null;
+
+    const breaks: TimelineBreak[] = [];
+    let sessionBreakSeconds = 0;
+    let firstBreakStart: string | null = null;
+    let lastBreakEnd: string | null = null;
+
+    // Process linked events if available
+    if (session.events && session.events.length > 0) {
+      const sortedEvents = [...session.events].sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+
+      let currentBreakStartMs: number | null = null;
+      let currentBreakStartIso: string | null = null;
+
+      for (const evt of sortedEvents) {
+        const evtMs = new Date(evt.timestamp).getTime();
+        const evtIso = new Date(evt.timestamp).toISOString();
+
+        if (evt.eventType === "LOCATION_SIGNAL_LOST") {
+          locationSignalLost = true;
+        } else if (evt.eventType === "LOCATION_SIGNAL_RESTORED") {
+          locationSignalLost = false;
+        } else if (evt.eventType === "BREAK_START") {
+          currentBreakStartMs = evtMs;
+          currentBreakStartIso = evtIso;
+          if (!firstBreakStart) firstBreakStart = evtIso;
+        } else if (evt.eventType === "BREAK_END" && currentBreakStartMs !== null) {
+          const bDur = Math.max(0, Math.round((evtMs - currentBreakStartMs) / 1000));
+          breaks.push({
+            start: currentBreakStartIso!,
+            end: evtIso,
+            durationSeconds: bDur,
+          });
+          sessionBreakSeconds += bDur;
+          lastBreakEnd = evtIso;
+          currentBreakStartMs = null;
+          currentBreakStartIso = null;
+        }
+      }
+
+      // If currently on an open break
+      if (currentBreakStartMs !== null) {
+        const ongoingBreakSecs = Math.max(0, Math.round((nowMs - currentBreakStartMs) / 1000));
+        breaks.push({
+          start: currentBreakStartIso!,
+          end: null,
+          durationSeconds: ongoingBreakSecs,
+        });
+        sessionBreakSeconds += ongoingBreakSecs;
+      }
+    } else {
+      // Fallback to top-level breakStartTime/breakEndTime fields
+      if (session.breakStartTime) {
+        const bStartMs = new Date(session.breakStartTime).getTime();
+        const bStartIso = new Date(session.breakStartTime).toISOString();
+        firstBreakStart = bStartIso;
+
+        if (session.breakEndTime) {
+          const bEndMs = new Date(session.breakEndTime).getTime();
+          const bEndIso = new Date(session.breakEndTime).toISOString();
+          lastBreakEnd = bEndIso;
+          const bDur = Math.max(0, Math.round((bEndMs - bStartMs) / 1000));
+          breaks.push({
+            start: bStartIso,
+            end: bEndIso,
+            durationSeconds: bDur,
+          });
+          sessionBreakSeconds += bDur;
+        } else if (!hasEndTime) {
+          const bDur = Math.max(0, Math.round((nowMs - bStartMs) / 1000));
+          breaks.push({
+            start: bStartIso,
+            end: null,
+            durationSeconds: bDur,
+          });
+          sessionBreakSeconds += bDur;
+        }
+      }
+    }
 
     if (endDate && (Number.isNaN(endMs) || endMs! < startMs)) {
       // Corrupt/invalid session: end time is before start time
       isValid = false;
       invalidReason = "END_TIME_BEFORE_START_TIME";
       status = "invalid";
-      durationSeconds = 0;
+      displayStatus = "CLOCKED OUT";
     } else if (endDate) {
       // Completed session
       status = "completed";
-      durationSeconds = Math.max(0, Math.round((endMs! - startMs) / 1000));
-    } else {
-      // Active session (in progress)
-      status = "active";
+      displayStatus = "CLOCKED OUT";
+    } else if (session.status === "on_break" || (breaks.length > 0 && breaks[breaks.length - 1].end === null)) {
+      // Active session currently on break
+      status = "on_break";
+      displayStatus = "ON BREAK";
       activeSessionId = session.id;
-      // Duration from start until current time
-      durationSeconds = Math.max(0, Math.round((nowMs - startMs) / 1000));
+      activeStatus = "ON BREAK";
+    } else {
+      // Active session currently on site
+      status = "active";
+      displayStatus = "ON SITE";
+      activeSessionId = session.id;
+      activeStatus = "ON SITE";
     }
 
-    // Calculate break gap since previous completed session
+    // Calculate gross duration
+    let grossDurationSeconds = 0;
+    if (endDate && endMs) {
+      grossDurationSeconds = Math.max(0, Math.round((endMs - startMs) / 1000));
+    } else {
+      grossDurationSeconds = Math.max(0, Math.round((nowMs - startMs) / 1000));
+    }
+
+    // Net worked duration strictly excludes recorded breaks
+    const workedDurationSeconds = isValid ? Math.max(0, grossDurationSeconds - sessionBreakSeconds) : 0;
+
+    // Check for gap since previous completed session
     let breakBeforeSeconds: number | null = null;
     if (lastCompletedEndTimeMs !== null && startMs >= lastCompletedEndTimeMs) {
       breakBeforeSeconds = Math.max(0, Math.round((startMs - lastCompletedEndTimeMs) / 1000));
       totalBreakSeconds += breakBeforeSeconds;
     }
 
+    if (locationSignalLost) {
+      sessionAttendanceFlag = "LOCATION SIGNAL LOST";
+      dayAttendanceFlag = "LOCATION SIGNAL LOST";
+    }
+
     if (isValid) {
-      totalWorkedSeconds += durationSeconds;
+      totalWorkedSeconds += workedDurationSeconds;
+      totalBreakSeconds += sessionBreakSeconds;
       if (endDate && endMs) {
         lastCompletedEndTimeMs = endMs;
       }
@@ -157,14 +310,35 @@ export function buildAttendanceTimeline(
       jobId: session.jobId ?? null,
       siteName: session.jobSiteLocation ?? "Active Site",
       startTime: startDate.toISOString(),
+      clockInTime: startDate.toISOString(),
+      breakStartTime: firstBreakStart,
+      breakEndTime: lastBreakEnd,
+      clockOutTime: endDate ? endDate.toISOString() : null,
       endTime: endDate ? endDate.toISOString() : null,
       status,
-      durationSeconds,
-      durationHours: Number((durationSeconds / 3600).toFixed(2)),
+      displayStatus,
+      breaks,
+      workedDurationSeconds,
+      breakDurationSeconds: sessionBreakSeconds,
+      durationSeconds: workedDurationSeconds,
+      durationHours: Number((workedDurationSeconds / 3600).toFixed(2)),
       isValid,
       invalidReason,
       breakBeforeSeconds,
+      attendanceFlag: sessionAttendanceFlag,
+      locationSignalLost,
     });
+  }
+
+  // Check if any review flag needed for older uncompleted sessions
+  const hasPriorUnclosed = sessions.some((s) => {
+    if (!s.startTime) return false;
+    const isToday = isSessionInLondonDate(s.startTime, londonDate);
+    return !isToday && !s.endTime && (s.status === "active" || s.status === "on_break");
+  });
+
+  if (hasPriorUnclosed && !dayAttendanceFlag) {
+    dayAttendanceFlag = "ATTENDANCE REVIEW REQUIRED";
   }
 
   return {
@@ -177,6 +351,8 @@ export function buildAttendanceTimeline(
     totalBreakSeconds,
     activeSessionId,
     isCurrentlyClockedIn: activeSessionId !== null,
+    currentStatus: activeStatus,
     sessionCount: timelineSessions.length,
+    attendanceFlag: dayAttendanceFlag,
   };
 }

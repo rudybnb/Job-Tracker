@@ -21,6 +21,19 @@ type FlowState =
       readonly siteName: string | null;
       readonly checkedInAt: string | null;
       readonly workSessionId: string | null;
+      readonly breakStartTime?: string | null;
+      readonly breakEndTime?: string | null;
+      readonly totalWorkedSeconds?: number;
+      readonly totalBreakSeconds?: number;
+      readonly flag?: string | null;
+    }
+  | {
+      readonly kind: "onbreak";
+      readonly siteName: string | null;
+      readonly checkedInAt: string | null;
+      readonly breakStartedAt: string | null;
+      readonly workSessionId: string | null;
+      readonly flag?: string | null;
     }
   | {
       readonly kind: "result";
@@ -39,7 +52,8 @@ function friendlyFailure(reason: string | null): string {
     case "SITE_CHECKIN_DISABLED":
       return "Check-in is currently disabled for this site.";
     case "GPS_UNAVAILABLE":
-      return "We could not get your location. GPS must be enabled to check in.";
+    case "GPS_REQUIRED":
+      return "We could not get your location. GPS must be enabled.";
     case "INVALID_COORDINATES":
       return "Your location was invalid. Please try again.";
     case "GPS_ACCURACY_UNACCEPTABLE":
@@ -50,19 +64,24 @@ function friendlyFailure(reason: string | null): string {
       return "You are not currently checked in. Check in first.";
     case "ALREADY_CHECKED_IN":
       return "You already have an active work session. Please clock out before checking in again.";
+    case "ALREADY_ON_BREAK":
+      return "You are already on break.";
+    case "NOT_ON_BREAK":
+      return "You are not currently on break.";
     case "UNAUTHORISED_WORKER":
       return "This site is not assigned to you. You cannot check in here.";
     case "TOO_MANY_ATTEMPTS":
       return "Too many failed attempts. Please try again later.";
     default:
-      return "Check-in could not be completed.";
+      return "Attendance action could not be completed.";
   }
 }
 
 export default function CheckIn() {
   const [flow, setFlow] = useState<FlowState>({ kind: "loading" });
   const [elapsedTime, setElapsedTime] = useState<string>("00:00:00");
-  const [submittingCheckout, setSubmittingCheckout] = useState(false);
+  const [breakElapsedTime, setBreakElapsedTime] = useState<string>("00:00:00");
+  const [submittingAction, setSubmittingAction] = useState(false);
   const scannerDivId = "checkin-qr-scanner";
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const tokenRef = useRef<string | null>(null);
@@ -72,33 +91,55 @@ export default function CheckIn() {
     try {
       const response = await apiFetch("/api/checkin/current-session");
       if (response.status === 401) {
-        setFlow({ kind: "error", message: "You must be logged in to check in or out." });
+        setFlow({ kind: "error", message: "You must be logged in to access site attendance." });
         return;
       }
 
       const data = (await response.json()) as {
         checkedIn?: boolean;
         active?: boolean;
+        status?: string;
+        displayStatus?: string;
         siteName?: string | null;
         checkedInAt?: string | null;
+        clockInTime?: string | null;
+        breakStartTime?: string | null;
+        breakEndTime?: string | null;
+        clockOutTime?: string | null;
         workSessionId?: string | null;
+        totalWorkedSeconds?: number;
+        totalBreakSeconds?: number;
+        attendanceFlag?: string | null;
       };
 
       if (data.active && data.checkedIn) {
-        // STATE 2: Worker is already clocked in
-        setFlow({
-          kind: "onsite",
-          siteName: data.siteName ?? "Active Site",
-          checkedInAt: data.checkedInAt ?? null,
-          workSessionId: data.workSessionId ?? null,
-        });
+        if (data.status === "on_break" || data.displayStatus === "ON BREAK") {
+          setFlow({
+            kind: "onbreak",
+            siteName: data.siteName ?? "Active Site",
+            checkedInAt: data.checkedInAt ?? data.clockInTime ?? null,
+            breakStartedAt: data.breakStartTime ?? null,
+            workSessionId: data.workSessionId ?? null,
+            flag: data.attendanceFlag ?? null,
+          });
+        } else {
+          setFlow({
+            kind: "onsite",
+            siteName: data.siteName ?? "Active Site",
+            checkedInAt: data.checkedInAt ?? data.clockInTime ?? null,
+            workSessionId: data.workSessionId ?? null,
+            breakStartTime: data.breakStartTime ?? null,
+            breakEndTime: data.breakEndTime ?? null,
+            totalWorkedSeconds: data.totalWorkedSeconds,
+            totalBreakSeconds: data.totalBreakSeconds,
+            flag: data.attendanceFlag ?? null,
+          });
+        }
       } else if (pendingToken && pendingToken.trim().length > 0) {
-        // Not clocked in, but incoming URL has QR token
         const cleanToken = extractQrToken(pendingToken) ?? pendingToken.trim();
         tokenRef.current = cleanToken;
         await submitCheckIn(cleanToken);
       } else {
-        // STATE 1: Worker is not clocked in
         setFlow({ kind: "idle" });
       }
     } catch {
@@ -128,27 +169,42 @@ export default function CheckIn() {
     };
   }, []);
 
-  // Live timer calculation when in onsite / clocked-in state
+  // Live timer calculation when in onsite or onbreak state
   useEffect(() => {
-    if (flow.kind !== "onsite" || !flow.checkedInAt) {
+    if (flow.kind === "onsite" && flow.checkedInAt) {
+      const startDate = new Date(flow.checkedInAt);
+      const updateTimer = () => {
+        const now = new Date();
+        const diffMs = Math.max(0, now.getTime() - startDate.getTime());
+        const totalSec = Math.floor(diffMs / 1000);
+        const hours = String(Math.floor(totalSec / 3600)).padStart(2, "0");
+        const minutes = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
+        const seconds = String(totalSec % 60).padStart(2, "0");
+        setElapsedTime(`${hours}:${minutes}:${seconds}`);
+      };
+
+      updateTimer();
+      const interval = setInterval(updateTimer, 1000);
+      return () => clearInterval(interval);
+    } else if (flow.kind === "onbreak" && flow.breakStartedAt) {
+      const bDate = new Date(flow.breakStartedAt);
+      const updateBreakTimer = () => {
+        const now = new Date();
+        const diffMs = Math.max(0, now.getTime() - bDate.getTime());
+        const totalSec = Math.floor(diffMs / 1000);
+        const hours = String(Math.floor(totalSec / 3600)).padStart(2, "0");
+        const minutes = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
+        const seconds = String(totalSec % 60).padStart(2, "0");
+        setBreakElapsedTime(`${hours}:${minutes}:${seconds}`);
+      };
+
+      updateBreakTimer();
+      const interval = setInterval(updateBreakTimer, 1000);
+      return () => clearInterval(interval);
+    } else {
       setElapsedTime("00:00:00");
-      return;
+      setBreakElapsedTime("00:00:00");
     }
-
-    const startDate = new Date(flow.checkedInAt);
-    const updateTimer = () => {
-      const now = new Date();
-      const diffMs = Math.max(0, now.getTime() - startDate.getTime());
-      const totalSec = Math.floor(diffMs / 1000);
-      const hours = String(Math.floor(totalSec / 3600)).padStart(2, "0");
-      const minutes = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
-      const seconds = String(totalSec % 60).padStart(2, "0");
-      setElapsedTime(`${hours}:${minutes}:${seconds}`);
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
   }, [flow]);
 
   // Start in-browser scanner when transitioning to scanning
@@ -269,7 +325,7 @@ export default function CheckIn() {
           kind: "result",
           accepted: true,
           siteName: data.siteName ?? "Site",
-          message: `Checked in — ${data.siteName ?? "Site"}. Redirecting to dashboard…`,
+          message: `Clocked in — ${data.siteName ?? "Site"}. Status: ON SITE.`,
         });
         setTimeout(() => {
           window.location.href = "/";
@@ -287,9 +343,104 @@ export default function CheckIn() {
     }
   }
 
-  // Clock Out requires GPS verification within site geofence, NO QR required, NO camera opened!
+  // START BREAK — GPS required
+  async function submitStartBreak(): Promise<void> {
+    setSubmittingAction(true);
+    try {
+      const coords = await getCurrentLocation().catch(() => null);
+      if (!coords) {
+        setFlow({ kind: "result", accepted: false, siteName: null, message: "GPS location is required to start break." });
+        return;
+      }
+
+      const response = await apiFetch("/api/checkin/start-break", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: coords.latitude.toString(),
+          longitude: coords.longitude.toString(),
+          gpsAccuracy: coords.accuracy ?? 10,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.accepted) {
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/current-session"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/today-timeline"] });
+        const breakTime = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+        setFlow({
+          kind: "result",
+          accepted: true,
+          siteName: data.siteName ?? "Site",
+          message: `Break started at ${breakTime}. Status: ON BREAK.`,
+        });
+      } else {
+        setFlow({
+          kind: "result",
+          accepted: false,
+          siteName: null,
+          message: data.error || friendlyFailure(data.rejectionReason ?? null),
+        });
+      }
+    } catch {
+      setFlow({ kind: "error", message: "Could not start break. Check your connection and try again." });
+    } finally {
+      setSubmittingAction(false);
+    }
+  }
+
+  // END BREAK — GPS confirms worker is back at the site
+  async function submitEndBreak(): Promise<void> {
+    setSubmittingAction(true);
+    try {
+      const coords = await getCurrentLocation().catch(() => null);
+      if (!coords) {
+        setFlow({ kind: "result", accepted: false, siteName: null, message: "GPS location is required to end break." });
+        return;
+      }
+
+      const response = await apiFetch("/api/checkin/end-break", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: coords.latitude.toString(),
+          longitude: coords.longitude.toString(),
+          gpsAccuracy: coords.accuracy ?? 10,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.accepted) {
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/current-session"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/today-timeline"] });
+        const returnTime = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+        setFlow({
+          kind: "result",
+          accepted: true,
+          siteName: data.siteName ?? "Site",
+          message: `Returned to site at ${returnTime}. Status: ON SITE.`,
+        });
+      } else {
+        const errorMsg = data.rejectionReason === "GPS_OUTSIDE_RADIUS"
+          ? "You must be back at the site to end your break."
+          : (data.error || friendlyFailure(data.rejectionReason ?? null));
+        setFlow({
+          kind: "result",
+          accepted: false,
+          siteName: null,
+          message: errorMsg,
+        });
+      }
+    } catch {
+      setFlow({ kind: "error", message: "Could not end break. Check your connection and try again." });
+    } finally {
+      setSubmittingAction(false);
+    }
+  }
+
+  // CLOCK OUT — GPS required within site geofence
   async function submitCheckOut(workSessionId?: string | null): Promise<void> {
-    setSubmittingCheckout(true);
+    setSubmittingAction(true);
     try {
       let coords: { latitude: number; longitude: number; accuracy?: number } | null = null;
       try {
@@ -301,7 +452,7 @@ export default function CheckIn() {
           siteName: null,
           message: "We could not get your location. GPS must be enabled to clock out.",
         });
-        setSubmittingCheckout(false);
+        setSubmittingAction(false);
         return;
       }
 
@@ -317,7 +468,7 @@ export default function CheckIn() {
       });
 
       if (response.status === 401) {
-        setFlow({ kind: "error", message: "You must be logged in to check out." });
+        setFlow({ kind: "error", message: "You must be logged in to clock out." });
         return;
       }
 
@@ -332,6 +483,7 @@ export default function CheckIn() {
 
       if (data.accepted && data.closed) {
         queryClient.invalidateQueries({ queryKey: ["/api/checkin/current-session"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/today-timeline"] });
         queryClient.invalidateQueries({ queryKey: ["/api/payroll/worker-weekly"] });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/time-tracking"] });
         const checkedOutAt = new Date().toLocaleTimeString("en-GB", {
@@ -362,7 +514,7 @@ export default function CheckIn() {
     } catch {
       setFlow({ kind: "error", message: "Could not reach Job Tracker. Check your connection and try again." });
     } finally {
-      setSubmittingCheckout(false);
+      setSubmittingAction(false);
     }
   }
 
@@ -383,7 +535,7 @@ export default function CheckIn() {
           </div>
           <CardTitle className="text-xl font-bold text-white tracking-tight">Site Attendance</CardTitle>
           <CardDescription className="text-slate-400 text-xs">
-            Sculpt Projects Field Operations
+            Sculpt Projects 4-State Attendance
           </CardDescription>
         </CardHeader>
 
@@ -401,10 +553,10 @@ export default function CheckIn() {
             <div className="space-y-4 text-center">
               <div className="p-4 bg-slate-900/80 border border-slate-700/80 rounded-2xl space-y-2">
                 <Badge className="bg-slate-700 text-slate-300 border-slate-600 font-semibold px-3 py-1">
-                  Status: Not Clocked In
+                  Status: CLOCKED OUT / Not Clocked In
                 </Badge>
                 <p className="text-xs text-slate-400 pt-1">
-                  Point your camera at the printed Site QR poster to verify your GPS location and begin work.
+                  Point your camera at the printed Site QR poster to verify your GPS location and clock in.
                 </p>
               </div>
 
@@ -413,12 +565,12 @@ export default function CheckIn() {
                 size="lg"
                 className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium h-12 text-sm shadow-lg shadow-amber-600/20"
               >
-                <Camera className="w-4 h-4 mr-2" /> Scan Site QR Code
+                <Camera className="w-4 h-4 mr-2" /> Scan Site QR to Clock In
               </Button>
             </div>
           )}
 
-          {/* Camera Scanning Modal / Container */}
+          {/* Camera Scanning Modal */}
           {flow.kind === "scanning" && (
             <div className="space-y-3">
               <p className="text-xs text-slate-300 text-center font-medium">Point rear camera at the printed Site QR poster…</p>
@@ -439,60 +591,145 @@ export default function CheckIn() {
             </div>
           )}
 
-          {/* STATE 2: CLOCKED IN (ONSITE) */}
+          {/* STATE 2: ON SITE (CLOCKED IN & WORKING) */}
           {flow.kind === "onsite" && (
             <div className="space-y-5 text-center">
               <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl space-y-3">
-                <div className="flex items-center justify-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-emerald-400" />
-                  <span className="text-sm font-bold text-emerald-300 uppercase tracking-wide">Work Session Active</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                    <span className="text-xs font-bold text-emerald-300 uppercase tracking-wide">Status: ON SITE</span>
+                  </div>
+                  {flow.flag && (
+                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px]">
+                      {flow.flag}
+                    </Badge>
+                  )}
                 </div>
 
-                <div className="space-y-1">
-                  <div className="text-lg font-bold text-white flex items-center justify-center gap-1.5">
+                <div className="space-y-1 text-left border-t border-emerald-500/20 pt-2 text-xs">
+                  <div className="text-base font-bold text-white flex items-center gap-1.5">
                     <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                     <span>{flow.siteName ?? "Active Job Site"}</span>
                   </div>
                   {flow.checkedInAt && (
-                    <p className="text-xs text-slate-400">
-                      Clocked in at:{" "}
-                      <span className="font-mono text-slate-200 font-medium">
-                        {new Date(flow.checkedInAt).toLocaleTimeString("en-GB", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                    <div className="flex justify-between text-slate-300 pt-1 font-mono">
+                      <span>Clock In:</span>
+                      <span className="font-bold text-emerald-300">
+                        {new Date(flow.checkedInAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                       </span>
-                    </p>
+                    </div>
+                  )}
+                  {flow.breakStartTime && (
+                    <div className="flex justify-between text-slate-400 font-mono">
+                      <span>Break Out:</span>
+                      <span>{new Date(flow.breakStartTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  )}
+                  {flow.breakEndTime && (
+                    <div className="flex justify-between text-slate-400 font-mono">
+                      <span>Break Return:</span>
+                      <span>{new Date(flow.breakEndTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
                   )}
                 </div>
 
                 {/* Elapsed Time Counter */}
-                <div className="pt-1">
-                  <span className="text-[10px] text-slate-400 uppercase tracking-widest block font-medium">Elapsed Time</span>
+                <div className="pt-2 border-t border-emerald-500/20">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-widest block font-medium">Session Elapsed</span>
                   <span className="text-3xl font-mono font-bold text-amber-400 tracking-wider">
                     {elapsedTime}
                   </span>
                 </div>
               </div>
 
-              {/* Direct 1-Tap Clock Out Button - NO QR, NO CAMERA */}
-              <Button
-                variant="destructive"
-                size="lg"
-                disabled={submittingCheckout}
-                onClick={() => void submitCheckOut(flow.workSessionId)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-medium h-12 text-sm shadow-lg shadow-red-600/20"
-              >
-                {submittingCheckout ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Ending Session…
-                  </>
-                ) : (
-                  <>
-                    <LogOut className="w-4 h-4 mr-2" /> Clock Out
-                  </>
-                )}
-              </Button>
+              {/* Action Buttons: START BREAK & CLOCK OUT */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  size="lg"
+                  disabled={submittingAction}
+                  onClick={() => void submitStartBreak()}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-medium h-12 text-sm shadow-lg shadow-amber-600/20"
+                >
+                  {submittingAction ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Start Break"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="lg"
+                  disabled={submittingAction}
+                  onClick={() => void submitCheckOut(flow.workSessionId)}
+                  className="bg-red-600 hover:bg-red-700 text-white font-medium h-12 text-sm shadow-lg shadow-red-600/20"
+                >
+                  {submittingAction ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><LogOut className="w-4 h-4 mr-1.5" /> Clock Out</>}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STATE 3: ON BREAK */}
+          {flow.kind === "onbreak" && (
+            <div className="space-y-5 text-center">
+              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-amber-400" />
+                    <span className="text-xs font-bold text-amber-300 uppercase tracking-wide">Status: ON BREAK</span>
+                  </div>
+                  {flow.flag && (
+                    <Badge className="bg-red-500/20 text-red-300 border-red-500/40 text-[10px]">
+                      {flow.flag}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="space-y-1 text-left border-t border-amber-500/20 pt-2 text-xs">
+                  <div className="text-base font-bold text-white flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>{flow.siteName ?? "Active Job Site"}</span>
+                  </div>
+                  {flow.checkedInAt && (
+                    <div className="flex justify-between text-slate-400 font-mono">
+                      <span>Clock In:</span>
+                      <span>{new Date(flow.checkedInAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  )}
+                  {flow.breakStartedAt && (
+                    <div className="flex justify-between text-amber-300 font-mono font-bold">
+                      <span>Break Started:</span>
+                      <span>{new Date(flow.breakStartedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Break Live Timer */}
+                <div className="pt-2 border-t border-amber-500/20">
+                  <span className="text-[10px] text-amber-400/80 uppercase tracking-widest block font-medium">Break Time Elapsed</span>
+                  <span className="text-3xl font-mono font-bold text-amber-400 tracking-wider">
+                    {breakElapsedTime}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons: END BREAK (GPS verified at site) & CLOCK OUT */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  size="lg"
+                  disabled={submittingAction}
+                  onClick={() => void submitEndBreak()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium h-12 text-sm shadow-lg shadow-emerald-600/20"
+                >
+                  {submittingAction ? <RefreshCw className="w-4 h-4 animate-spin" /> : "End Break"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="lg"
+                  disabled={submittingAction}
+                  onClick={() => void submitCheckOut(flow.workSessionId)}
+                  className="bg-red-600 hover:bg-red-700 text-white font-medium h-12 text-sm shadow-lg shadow-red-600/20"
+                >
+                  {submittingAction ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><LogOut className="w-4 h-4 mr-1.5" /> Clock Out</>}
+                </Button>
+              </div>
             </div>
           )}
 
@@ -557,3 +794,4 @@ export default function CheckIn() {
     </div>
   );
 }
+

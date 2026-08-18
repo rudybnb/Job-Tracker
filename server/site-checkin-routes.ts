@@ -37,6 +37,9 @@ import {
 import { buildAttendanceTimeline } from "./attendance-timeline.ts";
 
 export const CHECKIN_ATTEMPT_ROUTE = "/api/checkin/attempt";
+export const START_BREAK_ROUTE = "/api/checkin/start-break";
+export const END_BREAK_ROUTE = "/api/checkin/end-break";
+export const GPS_SIGNAL_ROUTE = "/api/checkin/gps-signal";
 export const SITE_CHECKIN_ADMIN_PREFIX = "/api/admin/site-checkin";
 export const CHECKOUT_ROUTE = "/api/checkin/checkout";
 export const CURRENT_SESSION_ROUTE = "/api/checkin/current-session";
@@ -262,44 +265,65 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
     requireCheckInSession,
     async (request: Request, response: Response) => {
       try {
-        const identity = identityFromSession((request as CheckInRequest).session);
+        const session = (request as CheckInRequest).session;
+        const identity = identityFromSession(session);
         const qrToken = typeof request.query.qrToken === "string" ? request.query.qrToken.trim() : "";
 
-        if (qrToken !== "") {
-          const tokenHash = hashQrToken(qrToken);
-          const config = await options.store.findConfigByTokenHash(tokenHash);
-          if (config) {
-            const activeSession = await options.store.findActiveSession(config.jobId, identity.label);
-            if (activeSession) {
-              return response.status(200).json({
-                checkedIn: true,
-                active: true,
-                siteName: config.siteName,
-                jobId: config.jobId,
-                workSessionId: activeSession.id,
-                checkedInAt: toIsoTimestamp(activeSession.startTime),
-              });
-            }
-          }
-        }
-
-        // Server is single source of truth: check if worker has ANY active session
+        // Check if worker has ANY active or on-break session
         const workerActive = await options.store.findActiveSessionForWorker(identity.label);
+        const workerSessions = await options.store.getWorkerWorkSessions(identity.label);
+        const timeline = buildAttendanceTimeline(workerSessions, identity.label);
+
         if (workerActive) {
+          const currentTimelineSess = timeline.sessions.find((s) => s.id === workerActive.id) || timeline.sessions[timeline.sessions.length - 1];
+          const isBreak = workerActive.status === "on_break";
+          const displayStatus = isBreak ? "ON BREAK" : "ON SITE";
+
           return response.status(200).json({
             checkedIn: true,
             active: true,
+            status: workerActive.status,
+            displayStatus,
             siteName: workerActive.jobSiteLocation ?? "Active Site",
             jobId: workerActive.jobId,
             workSessionId: workerActive.id,
             checkedInAt: toIsoTimestamp(workerActive.startTime),
+            clockInTime: toIsoTimestamp(workerActive.startTime),
+            breakStartTime: currentTimelineSess?.breakStartTime ?? null,
+            breakEndTime: currentTimelineSess?.breakEndTime ?? null,
+            clockOutTime: null,
+            breaks: currentTimelineSess?.breaks ?? [],
+            workedDurationSeconds: currentTimelineSess?.workedDurationSeconds ?? 0,
+            breakDurationSeconds: currentTimelineSess?.breakDurationSeconds ?? 0,
+            totalWorkedSeconds: timeline.totalWorkedSeconds,
+            totalBreakSeconds: timeline.totalBreakSeconds,
+            attendanceFlag: timeline.attendanceFlag,
+            locationSignalLost: currentTimelineSess?.locationSignalLost ?? false,
           });
         }
+
+        // When not currently clocked in
+        const latestTodaySession = timeline.sessions.length > 0 ? timeline.sessions[timeline.sessions.length - 1] : null;
 
         return response.status(200).json({
           checkedIn: false,
           active: false,
-          siteName: null,
+          status: "completed",
+          displayStatus: "CLOCKED OUT",
+          siteName: latestTodaySession?.siteName ?? null,
+          workSessionId: latestTodaySession?.id ?? null,
+          checkedInAt: latestTodaySession?.clockInTime ?? null,
+          clockInTime: latestTodaySession?.clockInTime ?? null,
+          breakStartTime: latestTodaySession?.breakStartTime ?? null,
+          breakEndTime: latestTodaySession?.breakEndTime ?? null,
+          clockOutTime: latestTodaySession?.clockOutTime ?? null,
+          breaks: latestTodaySession?.breaks ?? [],
+          workedDurationSeconds: latestTodaySession?.workedDurationSeconds ?? 0,
+          breakDurationSeconds: latestTodaySession?.breakDurationSeconds ?? 0,
+          totalWorkedSeconds: timeline.totalWorkedSeconds,
+          totalBreakSeconds: timeline.totalBreakSeconds,
+          attendanceFlag: timeline.attendanceFlag,
+          locationSignalLost: false,
         });
       } catch (error) {
         console.error("Error checking worker current session:", error);
@@ -326,6 +350,247 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
   );
 
   router.post(
+    START_BREAK_ROUTE,
+    requireCheckInSession,
+    async (request: Request, response: Response) => {
+      try {
+        const session = (request as CheckInRequest).session;
+        const identity = identityFromSession(session);
+        const body = (request.body ?? {}) as {
+          workSessionId?: unknown;
+          latitude?: unknown;
+          longitude?: unknown;
+          gpsAccuracy?: unknown;
+        };
+
+        const activeSession = await options.store.findActiveSessionForWorker(identity.label);
+        if (!activeSession) {
+          return response.status(400).json({
+            accepted: false,
+            error: "No active work session found.",
+            rejectionReason: "NO_ACTIVE_SESSION",
+          });
+        }
+
+        if (activeSession.status === "on_break") {
+          return response.status(400).json({
+            accepted: false,
+            error: "Worker is already on break.",
+            rejectionReason: "ALREADY_ON_BREAK",
+          });
+        }
+
+        // GPS validation is required for Start Break
+        const parsedCoords = parseCoordinates(body.latitude, body.longitude);
+        if (!parsedCoords) {
+          return response.status(400).json({
+            accepted: false,
+            error: "GPS location is required to start break.",
+            rejectionReason: "GPS_REQUIRED",
+          });
+        }
+
+        const now = nowIso();
+        const result = await options.store.startBreak(
+          activeSession.id,
+          now,
+          {
+            latitude: String(parsedCoords.latitude),
+            longitude: String(parsedCoords.longitude),
+            gpsAccuracy: toOptionalNumber(body.gpsAccuracy),
+            siteName: activeSession.jobSiteLocation,
+            jobId: activeSession.jobId,
+          },
+          identity.label,
+        );
+
+        if (!result.accepted) {
+          return response.status(400).json({
+            accepted: false,
+            error: "Could not start break. Work session is not active.",
+          });
+        }
+
+        return response.status(200).json({
+          accepted: true,
+          status: "on_break",
+          displayStatus: "ON BREAK",
+          breakStartedAt: now,
+          workSessionId: activeSession.id,
+          siteName: activeSession.jobSiteLocation,
+          message: "Break started successfully.",
+        });
+      } catch (error: any) {
+        console.error("Error processing start break:", error);
+        return response.status(500).json({ error: error?.message || "Internal server error" });
+      }
+    },
+  );
+
+  router.post(
+    END_BREAK_ROUTE,
+    requireCheckInSession,
+    async (request: Request, response: Response) => {
+      try {
+        const session = (request as CheckInRequest).session;
+        const identity = identityFromSession(session);
+        const body = (request.body ?? {}) as {
+          workSessionId?: unknown;
+          latitude?: unknown;
+          longitude?: unknown;
+          gpsAccuracy?: unknown;
+        };
+
+        const activeSession = await options.store.findActiveSessionForWorker(identity.label);
+        if (!activeSession) {
+          return response.status(400).json({
+            accepted: false,
+            error: "No active work session found.",
+            rejectionReason: "NO_ACTIVE_SESSION",
+          });
+        }
+
+        if (activeSession.status !== "on_break") {
+          return response.status(400).json({
+            accepted: false,
+            error: "Worker is not currently on break.",
+            rejectionReason: "NOT_ON_BREAK",
+          });
+        }
+
+        // GPS validation is required for End Break - confirms worker is back at the site
+        const parsedCoords = parseCoordinates(body.latitude, body.longitude);
+        if (!parsedCoords) {
+          return response.status(400).json({
+            accepted: false,
+            error: "GPS location is required to end break.",
+            rejectionReason: "GPS_REQUIRED",
+          });
+        }
+
+        // Verify worker is back within allowed site geofence
+        let config: SiteCheckinConfigRecord | null = null;
+        if (activeSession.jobId) {
+          config = await options.store.findConfigByJobId(activeSession.jobId);
+        }
+        if (!config) {
+          const allConfigs = await options.store.listConfigs();
+          if (activeSession.jobSiteLocation) {
+            config = allConfigs.find((c) => c.siteName === activeSession!.jobSiteLocation) ?? null;
+          }
+          if (!config && allConfigs.length > 0) {
+            config = allConfigs[0];
+          }
+        }
+
+        if (config && config.siteLatitude && config.siteLongitude) {
+          const siteLat = parseFloat(config.siteLatitude);
+          const siteLng = parseFloat(config.siteLongitude);
+          if (!Number.isNaN(siteLat) && !Number.isNaN(siteLng)) {
+            const distance = haversineDistanceMetres(
+              parsedCoords.latitude,
+              parsedCoords.longitude,
+              siteLat,
+              siteLng,
+            );
+            const permittedRadius = config.allowedRadiusMetres ?? 100;
+            if (distance > permittedRadius) {
+              return response.status(400).json({
+                accepted: false,
+                rejectionReason: "GPS_OUTSIDE_RADIUS",
+                distanceMetres: distance,
+                permittedRadiusMetres: permittedRadius,
+                siteName: activeSession.jobSiteLocation ?? config.siteName,
+                error: "You must be back at the site to end your break.",
+              });
+            }
+          }
+        }
+
+        const now = nowIso();
+        const result = await options.store.endBreak(
+          activeSession.id,
+          now,
+          {
+            latitude: String(parsedCoords.latitude),
+            longitude: String(parsedCoords.longitude),
+            gpsAccuracy: toOptionalNumber(body.gpsAccuracy),
+            siteName: activeSession.jobSiteLocation,
+            jobId: activeSession.jobId,
+          },
+          identity.label,
+        );
+
+        if (!result.accepted) {
+          return response.status(400).json({
+            accepted: false,
+            error: "Could not end break. Session was not on break.",
+          });
+        }
+
+        return response.status(200).json({
+          accepted: true,
+          status: "active",
+          displayStatus: "ON SITE",
+          breakEndedAt: now,
+          workSessionId: activeSession.id,
+          siteName: activeSession.jobSiteLocation,
+          message: "Break ended. Returned to site.",
+        });
+      } catch (error: any) {
+        console.error("Error processing end break:", error);
+        return response.status(500).json({ error: error?.message || "Internal server error" });
+      }
+    },
+  );
+
+  router.post(
+    GPS_SIGNAL_ROUTE,
+    requireCheckInSession,
+    async (request: Request, response: Response) => {
+      try {
+        const session = (request as CheckInRequest).session;
+        const identity = identityFromSession(session);
+        const body = (request.body ?? {}) as {
+          signalLost?: boolean;
+          latitude?: unknown;
+          longitude?: unknown;
+          gpsAccuracy?: unknown;
+        };
+
+        const signalLost = body.signalLost === true;
+        const activeSession = await options.store.findActiveSessionForWorker(identity.label);
+
+        if (activeSession) {
+          const eventType = signalLost ? "LOCATION_SIGNAL_LOST" : "LOCATION_SIGNAL_RESTORED";
+          const parsedCoords = parseCoordinates(body.latitude, body.longitude);
+
+          await options.store.recordAttendanceEvent({
+            workSessionId: activeSession.id,
+            eventType,
+            timestamp: nowIso(),
+            latitude: parsedCoords ? String(parsedCoords.latitude) : null,
+            longitude: parsedCoords ? String(parsedCoords.longitude) : null,
+            gpsAccuracy: toOptionalNumber(body.gpsAccuracy) ?? null,
+            jobId: activeSession.jobId,
+            siteName: activeSession.jobSiteLocation,
+            source: "system",
+          });
+        }
+
+        return response.status(200).json({
+          accepted: true,
+          signalLost,
+          flag: signalLost ? "LOCATION SIGNAL LOST" : null,
+        });
+      } catch (error: any) {
+        console.error("Error updating GPS signal status:", error);
+        return response.status(500).json({ error: error?.message || "Internal server error" });
+      }
+    },
+  );
+
+  router.post(
     CHECKOUT_ROUTE,
     requireCheckInSession,
     async (request: Request, response: Response) => {
@@ -344,7 +609,7 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         let activeSession = await options.store.findActiveSessionForWorker(identity.label);
         if (!activeSession && typeof body.workSessionId === "string" && body.workSessionId.trim() !== "") {
           const allSessions = await options.store.getAllWorkSessions();
-          const match = allSessions.find((s) => s.id === body.workSessionId && s.status === "active");
+          const match = allSessions.find((s) => s.id === body.workSessionId && (s.status === "active" || s.status === "on_break"));
           if (match) {
             activeSession = {
               id: match.id,
@@ -428,15 +693,23 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         }
 
         // 5. Geofence verified -> Close active session
-        const now = new Date().toISOString();
-        const closed = await options.store.closeWorkSession(activeSession.id, now, identity.label);
+        const now = nowIso();
+        const closed = await options.store.closeWorkSession(activeSession.id, now, identity.label, {
+          latitude: String(parsedCoords.latitude),
+          longitude: String(parsedCoords.longitude),
+          gpsAccuracy: toOptionalNumber(body.gpsAccuracy),
+          siteName: activeSession.jobSiteLocation,
+          jobId: activeSession.jobId,
+        });
 
         return response.status(200).json({
           accepted: true,
           closed,
+          displayStatus: "CLOCKED OUT",
           workSessionId: activeSession.id,
           siteName: activeSession.jobSiteLocation,
           checkedOutAt: now,
+          clockOutTime: now,
           message: "Clocked out successfully.",
         });
       } catch (error: any) {

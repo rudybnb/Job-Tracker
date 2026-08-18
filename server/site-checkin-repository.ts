@@ -1,18 +1,12 @@
-/**
- * Phase QR-1 — Site Check-In persistence boundary.
- *
- * SiteCheckinStore is the interface used by routes and unit tests (tests provide
- * an in-memory fake). PostgresSiteCheckinStore is the live implementation backed
- * by postgres-js, following the executor/adapter pattern used elsewhere in this
- * codebase.
- */
-
 import type postgres from "postgres";
 import type {
   CheckInAttemptRow,
   CheckInIdentity,
   SiteCheckinConfig,
   WorkSessionDraft,
+  AttendanceEventType,
+  AttendanceEventRecord,
+  SiteCheckinSessionUser,
 } from "./site-checkin.ts";
 
 export interface SiteCheckinConfigRecord extends SiteCheckinConfig {
@@ -32,6 +26,18 @@ export interface UpsertSiteCheckinConfigInput {
   readonly qrTokenHash: string;
   readonly qrTokenExpiresAt: Date | null;
   readonly createdBy: string;
+}
+
+export interface InsertAttendanceEventInput {
+  readonly workSessionId: string;
+  readonly eventType: AttendanceEventType;
+  readonly timestamp?: Date | string;
+  readonly latitude?: string | null;
+  readonly longitude?: string | null;
+  readonly gpsAccuracy?: number | null;
+  readonly jobId?: string | null;
+  readonly siteName?: string | null;
+  readonly source?: "worker" | "admin" | "system";
 }
 
 export interface SiteCheckinStore {
@@ -57,15 +63,38 @@ export interface SiteCheckinStore {
     identity: CheckInIdentity,
   ): Promise<{ attemptId: string; workSessionId: string | null; closed: boolean }>;
 
-  getAllWorkSessions(): Promise<{ id: string; contractorName: string; jobSiteLocation: string | null; startTime: Date | string | null; endTime: Date | string | null; status: string; jobId: string | null; workerId: string | null; contractorId: string | null }[]>;
+  startBreak(
+    sessionId: string,
+    breakTime: string,
+    coords?: { latitude?: string | null; longitude?: string | null; gpsAccuracy?: number | null; siteName?: string | null; jobId?: string | null },
+    identityLabel?: string,
+  ): Promise<{ eventId: string; accepted: boolean }>;
+
+  endBreak(
+    sessionId: string,
+    breakTime: string,
+    coords?: { latitude?: string | null; longitude?: string | null; gpsAccuracy?: number | null; siteName?: string | null; jobId?: string | null },
+    identityLabel?: string,
+  ): Promise<{ eventId: string; accepted: boolean }>;
+
+  recordAttendanceEvent(input: InsertAttendanceEventInput): Promise<AttendanceEventRecord>;
+
+  getEventsForSession(workSessionId: string): Promise<AttendanceEventRecord[]>;
+
+  getAllWorkSessions(): Promise<SiteCheckinSessionUser[]>;
 
   findActiveSession(jobId: string, identityLabel: string): Promise<{ id: string; startTime: Date | string | null; status: string } | null>;
 
-  findActiveSessionForWorker(identityLabel: string): Promise<{ id: string; jobId: string | null; jobSiteLocation: string | null; startTime: Date | string | null; status: string } | null>;
+  findActiveSessionForWorker(identityLabel: string): Promise<{ id: string; jobId: string | null; jobSiteLocation: string | null; startTime: Date | string | null; status: string; attendanceFlag?: string | null } | null>;
 
-  getWorkerWorkSessions(identityLabel: string): Promise<{ id: string; contractorName: string; jobSiteLocation: string | null; startTime: Date | string | null; endTime: Date | string | null; status: string; jobId: string | null; workerId: string | null; contractorId: string | null }[]>;
+  getWorkerWorkSessions(identityLabel: string): Promise<SiteCheckinSessionUser[]>;
 
-  closeWorkSession(sessionId: string, endTime: string, identityLabel?: string): Promise<boolean>;
+  closeWorkSession(
+    sessionId: string,
+    endTime: string,
+    identityLabel?: string,
+    coords?: { latitude?: string | null; longitude?: string | null; gpsAccuracy?: number | null; siteName?: string | null; jobId?: string | null },
+  ): Promise<boolean>;
 }
 
 interface ConfigDbRow {
@@ -100,6 +129,36 @@ function configFromRow(row: ConfigDbRow): SiteCheckinConfigRecord {
   };
 }
 
+interface EventDbRow {
+  readonly id: string;
+  readonly work_session_id: string;
+  readonly event_type: string;
+  readonly timestamp: Date | string;
+  readonly latitude: string | null;
+  readonly longitude: string | null;
+  readonly gps_accuracy: number | null;
+  readonly job_id: string | null;
+  readonly site_name: string | null;
+  readonly source: string;
+  readonly created_at: Date | string;
+}
+
+function eventFromRow(row: EventDbRow): AttendanceEventRecord {
+  return {
+    id: row.id,
+    workSessionId: row.work_session_id,
+    eventType: row.event_type as AttendanceEventType,
+    timestamp: row.timestamp,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    gpsAccuracy: row.gps_accuracy,
+    jobId: row.job_id,
+    siteName: row.site_name,
+    source: (row.source as "worker" | "admin" | "system") || "worker",
+    createdAt: row.created_at,
+  };
+}
+
 /**
  * Live Postgres implementation. Writes for a check-in attempt and its linked
  * work session happen in ONE transaction so a rejected attempt can never leave
@@ -119,7 +178,7 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
              qr_token_hash, qr_token_expires_at, created_by
         FROM site_checkin_config
        WHERE qr_token_hash = ${tokenHash}
-         AND (qr_token_expires_at IS NULL OR qr_token_expires_at > now())
+          AND (qr_token_expires_at IS NULL OR qr_token_expires_at > now())
        LIMIT 1
     `;
     return rows.length === 1 ? configFromRow(rows[0]) : null;
@@ -176,6 +235,113 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
     return configFromRow(rows[0]);
   }
 
+  async recordAttendanceEvent(input: InsertAttendanceEventInput): Promise<AttendanceEventRecord> {
+    const ts = input.timestamp ? new Date(input.timestamp).toISOString() : new Date().toISOString();
+    const rows = await this.sql<EventDbRow[]>`
+      INSERT INTO attendance_events (
+        work_session_id, event_type, timestamp, latitude, longitude,
+        gps_accuracy, job_id, site_name, source
+      ) VALUES (
+        ${input.workSessionId}, ${input.eventType}, ${ts},
+        ${input.latitude ?? null}, ${input.longitude ?? null},
+        ${input.gpsAccuracy ?? null}, ${input.jobId ?? null},
+        ${input.siteName ?? null}, ${input.source ?? "worker"}
+      )
+      RETURNING id, work_session_id, event_type, timestamp, latitude, longitude,
+                gps_accuracy, job_id, site_name, source, created_at
+    `;
+    return eventFromRow(rows[0]);
+  }
+
+  async getEventsForSession(workSessionId: string): Promise<AttendanceEventRecord[]> {
+    try {
+      const rows = await this.sql<EventDbRow[]>`
+        SELECT id, work_session_id, event_type, timestamp, latitude, longitude,
+               gps_accuracy, job_id, site_name, source, created_at
+          FROM attendance_events
+         WHERE work_session_id = ${workSessionId}
+         ORDER BY timestamp ASC
+      `;
+      return rows.map(eventFromRow);
+    } catch {
+      return [];
+    }
+  }
+
+  async startBreak(
+    sessionId: string,
+    breakTime: string,
+    coords?: { latitude?: string | null; longitude?: string | null; gpsAccuracy?: number | null; siteName?: string | null; jobId?: string | null },
+    identityLabel?: string,
+  ): Promise<{ eventId: string; accepted: boolean }> {
+    return this.sql.begin(async (tx) => {
+      const dbTx = tx as unknown as postgres.Sql;
+      const updateRows = await dbTx<{ id: string }[]>`
+        UPDATE work_sessions
+           SET status = 'on_break'
+         WHERE id = ${sessionId}
+           AND status = 'active'
+        RETURNING id
+      `;
+
+      if (updateRows.length === 0) {
+        return { eventId: "", accepted: false };
+      }
+
+      const eventRows = await dbTx<{ id: string }[]>`
+        INSERT INTO attendance_events (
+          work_session_id, event_type, timestamp, latitude, longitude,
+          gps_accuracy, job_id, site_name, source
+        ) VALUES (
+          ${sessionId}, 'BREAK_START', ${breakTime},
+          ${coords?.latitude ?? null}, ${coords?.longitude ?? null},
+          ${coords?.gpsAccuracy ?? null}, ${coords?.jobId ?? null},
+          ${coords?.siteName ?? null}, 'worker'
+        )
+        RETURNING id
+      `;
+
+      return { eventId: eventRows[0].id, accepted: true };
+    });
+  }
+
+  async endBreak(
+    sessionId: string,
+    breakTime: string,
+    coords?: { latitude?: string | null; longitude?: string | null; gpsAccuracy?: number | null; siteName?: string | null; jobId?: string | null },
+    identityLabel?: string,
+  ): Promise<{ eventId: string; accepted: boolean }> {
+    return this.sql.begin(async (tx) => {
+      const dbTx = tx as unknown as postgres.Sql;
+      const updateRows = await dbTx<{ id: string }[]>`
+        UPDATE work_sessions
+           SET status = 'active'
+         WHERE id = ${sessionId}
+           AND status = 'on_break'
+        RETURNING id
+      `;
+
+      if (updateRows.length === 0) {
+        return { eventId: "", accepted: false };
+      }
+
+      const eventRows = await dbTx<{ id: string }[]>`
+        INSERT INTO attendance_events (
+          work_session_id, event_type, timestamp, latitude, longitude,
+          gps_accuracy, job_id, site_name, source
+        ) VALUES (
+          ${sessionId}, 'BREAK_END', ${breakTime},
+          ${coords?.latitude ?? null}, ${coords?.longitude ?? null},
+          ${coords?.gpsAccuracy ?? null}, ${coords?.jobId ?? null},
+          ${coords?.siteName ?? null}, 'worker'
+        )
+        RETURNING id
+      `;
+
+      return { eventId: eventRows[0].id, accepted: true };
+    });
+  }
+
   async applyCheckOutAttempt(
     attempt: CheckInAttemptRow,
     identity: CheckInIdentity,
@@ -187,7 +353,7 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
         SELECT id FROM work_sessions
          WHERE job_id = ${attempt.jobId}
            AND contractor_name = ${identity.identityLabel}
-           AND status = 'active'
+           AND status IN ('active', 'on_break')
          ORDER BY start_time DESC
          LIMIT 1
       `;
@@ -201,6 +367,16 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
              SET end_time = ${attempt.attemptTime},
                  status = 'completed'
            WHERE id = ${targetSessionId}
+        `;
+        await dbTx`
+          INSERT INTO attendance_events (
+            work_session_id, event_type, timestamp, latitude, longitude,
+            gps_accuracy, job_id, source
+          ) VALUES (
+            ${targetSessionId}, 'CLOCK_OUT', ${attempt.attemptTime},
+            ${attempt.submittedLatitude ?? null}, ${attempt.submittedLongitude ?? null},
+            ${attempt.gpsAccuracyMetres ?? null}, ${attempt.jobId ?? null}, 'worker'
+          )
         `;
         closed = true;
       }
@@ -263,7 +439,7 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
           SELECT id FROM work_sessions
            WHERE job_id = ${workSessionDraft.jobId}
              AND contractor_name = ${identity.label}
-             AND status = 'active'
+             AND status IN ('active', 'on_break')
            LIMIT 1
         ` as unknown as Promise<{ id: string }[]>);
 
@@ -275,16 +451,30 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
           const sessionRows = await (dbTx<{ id: string }[]>`
             INSERT INTO work_sessions (
               contractor_name, job_site_location, start_time, end_time, status,
-              job_id, worker_id, contractor_id
+              job_id, worker_id, contractor_id, start_latitude, start_longitude
             ) VALUES (
               ${identity.label}, ${workSessionDraft.jobSiteLocation},
               ${nowIso}, ${null},
               'active', ${workSessionDraft.jobId},
-              ${attempt.workerId ?? null}, ${attempt.contractorId ?? null}
+              ${attempt.workerId ?? null}, ${attempt.contractorId ?? null},
+              ${attempt.submittedLatitude ?? null}, ${attempt.submittedLongitude ?? null}
             )
             RETURNING id
           ` as unknown as Promise<{ id: string }[]>);
           createdSessionId = sessionRows[0].id;
+
+          // Record CLOCK_IN attendance event
+          await dbTx`
+            INSERT INTO attendance_events (
+              work_session_id, event_type, timestamp, latitude, longitude,
+              gps_accuracy, job_id, site_name, source
+            ) VALUES (
+              ${createdSessionId}, 'CLOCK_IN', ${nowIso},
+              ${attempt.submittedLatitude ?? null}, ${attempt.submittedLongitude ?? null},
+              ${attempt.gpsAccuracyMetres ?? null}, ${workSessionDraft.jobId},
+              ${workSessionDraft.jobSiteLocation}, 'worker'
+            )
+          `;
         }
       }
 
@@ -313,23 +503,64 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
     });
   }
 
-  async getAllWorkSessions(): Promise<{ id: string; contractorName: string; jobSiteLocation: string | null; startTime: Date | string | null; endTime: Date | string | null; status: string; jobId: string | null; workerId: string | null; contractorId: string | null }[]> {
-    const rows = await this.sql<{ id: string; contractor_name: string; job_site_location: string | null; start_time: Date | string | null; end_time: Date | string | null; status: string; job_id: string | null; worker_id: string | null; contractor_id: string | null }[]>`
+  async getAllWorkSessions(): Promise<SiteCheckinSessionUser[]> {
+    const rows = await this.sql<{
+      id: string;
+      contractor_name: string;
+      job_site_location: string | null;
+      start_time: Date | string | null;
+      end_time: Date | string | null;
+      status: string;
+      job_id: string | null;
+      worker_id: string | null;
+      contractor_id: string | null;
+    }[]>`
       SELECT id, contractor_name, job_site_location, start_time, end_time, status, job_id, worker_id, contractor_id
         FROM work_sessions
        ORDER BY start_time DESC NULLS LAST
     `;
-    return rows.map((r) => ({
-      id: r.id,
-      contractorName: r.contractor_name,
-      jobSiteLocation: r.job_site_location,
-      startTime: r.start_time,
-      endTime: r.end_time,
-      status: r.status,
-      jobId: r.job_id,
-      workerId: r.worker_id,
-      contractorId: r.contractor_id,
-    }));
+
+    // Fetch all events grouped by session
+    let allEvents: EventDbRow[] = [];
+    try {
+      allEvents = await this.sql<EventDbRow[]>`
+        SELECT id, work_session_id, event_type, timestamp, latitude, longitude,
+               gps_accuracy, job_id, site_name, source, created_at
+          FROM attendance_events
+         ORDER BY timestamp ASC
+      `;
+    } catch {
+      allEvents = [];
+    }
+
+    const eventsBySession = new Map<string, AttendanceEventRecord[]>();
+    for (const evt of allEvents) {
+      if (!eventsBySession.has(evt.work_session_id)) {
+        eventsBySession.set(evt.work_session_id, []);
+      }
+      eventsBySession.get(evt.work_session_id)!.push(eventFromRow(evt));
+    }
+
+    return rows.map((r) => {
+      const sessEvents = eventsBySession.get(r.id) ?? [];
+      const breakStarts = sessEvents.filter((e) => e.eventType === "BREAK_START");
+      const breakEnds = sessEvents.filter((e) => e.eventType === "BREAK_END");
+
+      return {
+        id: r.id,
+        contractorName: r.contractor_name,
+        jobSiteLocation: r.job_site_location,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        status: r.status,
+        jobId: r.job_id,
+        workerId: r.worker_id,
+        contractorId: r.contractor_id,
+        breakStartedAt: breakStarts.length > 0 ? breakStarts[0].timestamp : null,
+        breakEndedAt: breakEnds.length > 0 ? breakEnds[breakEnds.length - 1].timestamp : null,
+        events: sessEvents,
+      };
+    });
   }
 
   async findActiveSession(jobId: string, identityLabel: string): Promise<{ id: string; startTime: Date | string | null; status: string } | null> {
@@ -338,14 +569,14 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
         FROM work_sessions
        WHERE job_id = ${jobId}
          AND contractor_name = ${identityLabel}
-         AND status = 'active'
+         AND status IN ('active', 'on_break')
        ORDER BY start_time DESC
        LIMIT 1
     `;
     return rows.length === 1 ? { id: rows[0].id, startTime: rows[0].start_time, status: rows[0].status } : null;
   }
 
-  async findActiveSessionForWorker(identityLabel: string): Promise<{ id: string; jobId: string | null; jobSiteLocation: string | null; startTime: Date | string | null; status: string } | null> {
+  async findActiveSessionForWorker(identityLabel: string): Promise<{ id: string; jobId: string | null; jobSiteLocation: string | null; startTime: Date | string | null; status: string; attendanceFlag?: string | null } | null> {
     const cleanLabel = (identityLabel || "").trim();
     const dotVariant = cleanLabel.replace(/\s+/g, ".");
     const spaceVariant = cleanLabel.replace(/\./g, " ");
@@ -357,7 +588,7 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
           OR contractor_name ILIKE ${cleanLabel}
           OR contractor_name ILIKE ${dotVariant}
           OR contractor_name ILIKE ${spaceVariant})
-         AND status = 'active'
+         AND status IN ('active', 'on_break')
        ORDER BY start_time DESC
        LIMIT 1
     `;
@@ -370,12 +601,22 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
     } : null;
   }
 
-  async getWorkerWorkSessions(identityLabel: string): Promise<{ id: string; contractorName: string; jobSiteLocation: string | null; startTime: Date | string | null; endTime: Date | string | null; status: string; jobId: string | null; workerId: string | null; contractorId: string | null }[]> {
+  async getWorkerWorkSessions(identityLabel: string): Promise<SiteCheckinSessionUser[]> {
     const cleanLabel = (identityLabel || "").trim();
     const dotVariant = cleanLabel.replace(/\s+/g, ".");
     const spaceVariant = cleanLabel.replace(/\./g, " ");
 
-    const rows = await this.sql<{ id: string; contractor_name: string; job_site_location: string | null; start_time: Date | string | null; end_time: Date | string | null; status: string; job_id: string | null; worker_id: string | null; contractor_id: string | null }[]>`
+    const rows = await this.sql<{
+      id: string;
+      contractor_name: string;
+      job_site_location: string | null;
+      start_time: Date | string | null;
+      end_time: Date | string | null;
+      status: string;
+      job_id: string | null;
+      worker_id: string | null;
+      contractor_id: string | null;
+    }[]>`
       SELECT id, contractor_name, job_site_location, start_time, end_time, status, job_id, worker_id, contractor_id
         FROM work_sessions
        WHERE (contractor_name = ${cleanLabel}
@@ -384,42 +625,130 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
           OR contractor_name ILIKE ${spaceVariant})
        ORDER BY start_time ASC NULLS LAST
     `;
-    return rows.map((r) => ({
-      id: r.id,
-      contractorName: r.contractor_name,
-      jobSiteLocation: r.job_site_location,
-      startTime: r.start_time,
-      endTime: r.end_time,
-      status: r.status,
-      jobId: r.job_id,
-      workerId: r.worker_id,
-      contractorId: r.contractor_id,
-    }));
-  }
 
-  async closeWorkSession(sessionId: string, endTime: string, identityLabel?: string): Promise<boolean> {
-    const session = await this.sql<{ start_time: Date | string | null; total_hours: string | null }[]>`
-      SELECT start_time, total_hours FROM work_sessions WHERE id = ${sessionId}
-    `;
-    let totalHoursStr: string | null = session.length > 0 ? (session[0].total_hours ?? null) : null;
-    if (session.length > 0 && session[0].start_time) {
-      const startMs = new Date(session[0].start_time).getTime();
-      const endMs = new Date(endTime).getTime();
-      if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
-        const hours = (endMs - startMs) / (1000 * 60 * 60);
-        totalHoursStr = Math.min(hours, 8).toFixed(2);
+    // Fetch all events for these sessions
+    const sessionIds = rows.map((r) => r.id);
+    let events: EventDbRow[] = [];
+    if (sessionIds.length > 0) {
+      try {
+        events = await this.sql<EventDbRow[]>`
+          SELECT id, work_session_id, event_type, timestamp, latitude, longitude,
+                 gps_accuracy, job_id, site_name, source, created_at
+            FROM attendance_events
+           WHERE work_session_id = ANY(${sessionIds})
+           ORDER BY timestamp ASC
+        `;
+      } catch {
+        events = [];
       }
     }
 
-    const rows = await this.sql<{ id: string }[]>`
-      UPDATE work_sessions
-         SET end_time = ${endTime},
-             status = 'completed',
-             total_hours = ${totalHoursStr}
-       WHERE id = ${sessionId}
-         AND status = 'active'
-       RETURNING id
-    `;
-    return rows.length === 1;
+    const eventsBySession = new Map<string, AttendanceEventRecord[]>();
+    for (const evt of events) {
+      if (!eventsBySession.has(evt.work_session_id)) {
+        eventsBySession.set(evt.work_session_id, []);
+      }
+      eventsBySession.get(evt.work_session_id)!.push(eventFromRow(evt));
+    }
+
+    return rows.map((r) => {
+      const sessEvents = eventsBySession.get(r.id) ?? [];
+      const breakStarts = sessEvents.filter((e) => e.eventType === "BREAK_START");
+      const breakEnds = sessEvents.filter((e) => e.eventType === "BREAK_END");
+
+      return {
+        id: r.id,
+        contractorName: r.contractor_name,
+        jobSiteLocation: r.job_site_location,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        status: r.status,
+        jobId: r.job_id,
+        workerId: r.worker_id,
+        contractorId: r.contractor_id,
+        breakStartedAt: breakStarts.length > 0 ? breakStarts[0].timestamp : null,
+        breakEndedAt: breakEnds.length > 0 ? breakEnds[breakEnds.length - 1].timestamp : null,
+        events: sessEvents,
+      };
+    });
+  }
+
+  async closeWorkSession(
+    sessionId: string,
+    endTime: string,
+    identityLabel?: string,
+    coords?: { latitude?: string | null; longitude?: string | null; gpsAccuracy?: number | null; siteName?: string | null; jobId?: string | null },
+  ): Promise<boolean> {
+    return this.sql.begin(async (tx) => {
+      const dbTx = tx as unknown as postgres.Sql;
+
+      const session = await dbTx<{ start_time: Date | string | null; total_hours: string | null }[]>`
+        SELECT start_time, total_hours FROM work_sessions WHERE id = ${sessionId}
+      `;
+
+      // Fetch completed breaks for this session to deduct from total_hours
+      let breakDurationMs = 0;
+      try {
+        const events = await dbTx<EventDbRow[]>`
+          SELECT id, work_session_id, event_type, timestamp, latitude, longitude,
+                 gps_accuracy, job_id, site_name, source, created_at
+            FROM attendance_events
+           WHERE work_session_id = ${sessionId}
+           ORDER BY timestamp ASC
+        `;
+
+        let openBreakStartMs: number | null = null;
+        for (const evt of events) {
+          const evtMs = new Date(evt.timestamp).getTime();
+          if (evt.event_type === "BREAK_START") {
+            openBreakStartMs = evtMs;
+          } else if (evt.event_type === "BREAK_END" && openBreakStartMs !== null) {
+            breakDurationMs += Math.max(0, evtMs - openBreakStartMs);
+            openBreakStartMs = null;
+          }
+        }
+      } catch {
+        breakDurationMs = 0;
+      }
+
+      let totalHoursStr: string | null = session.length > 0 ? (session[0].total_hours ?? null) : null;
+      if (session.length > 0 && session[0].start_time) {
+        const startMs = new Date(session[0].start_time).getTime();
+        const endMs = new Date(endTime).getTime();
+        if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
+          const netWorkedMs = Math.max(0, endMs - startMs - breakDurationMs);
+          const hours = netWorkedMs / (1000 * 60 * 60);
+          totalHoursStr = Math.min(hours, 8).toFixed(2);
+        }
+      }
+
+      const rows = await dbTx<{ id: string }[]>`
+        UPDATE work_sessions
+           SET end_time = ${endTime},
+               status = 'completed',
+               total_hours = ${totalHoursStr}
+         WHERE id = ${sessionId}
+           AND status IN ('active', 'on_break')
+         RETURNING id
+      `;
+
+      if (rows.length === 1) {
+        // Record CLOCK_OUT event
+        await dbTx`
+          INSERT INTO attendance_events (
+            work_session_id, event_type, timestamp, latitude, longitude,
+            gps_accuracy, job_id, site_name, source
+          ) VALUES (
+            ${sessionId}, 'CLOCK_OUT', ${endTime},
+            ${coords?.latitude ?? null}, ${coords?.longitude ?? null},
+            ${coords?.gpsAccuracy ?? null}, ${coords?.jobId ?? null},
+            ${coords?.siteName ?? null}, 'worker'
+          )
+        `;
+      }
+
+      return rows.length === 1;
+    });
   }
 }
+

@@ -378,11 +378,33 @@ export function buildWorkSessionDraft(
 }
 
 /* --------------------------------------------------------------
- * QR-4 — Admin live-monitor presentation helpers.
+ * QR-4 — Admin live-monitor presentation helpers & 4-State Engine.
  * --------------------------------------------------------------
- * Maps site-checkin work-session data (work_sessions table) into the
- * admin Live Monitor display shape. Pure functions, no I/O.
+ * Maps site-checkin work-session data (work_sessions table & attendance_events)
+ * into the admin Live Monitor display shape. Pure functions, no I/O.
  */
+
+export type AttendanceEventType =
+  | "CLOCK_IN"
+  | "BREAK_START"
+  | "BREAK_END"
+  | "CLOCK_OUT"
+  | "LOCATION_SIGNAL_LOST"
+  | "LOCATION_SIGNAL_RESTORED";
+
+export interface AttendanceEventRecord {
+  readonly id: string;
+  readonly workSessionId: string;
+  readonly eventType: AttendanceEventType;
+  readonly timestamp: Date | string;
+  readonly latitude?: string | null;
+  readonly longitude?: string | null;
+  readonly gpsAccuracy?: number | null;
+  readonly jobId?: string | null;
+  readonly siteName?: string | null;
+  readonly source: "worker" | "admin" | "system";
+  readonly createdAt?: Date | string;
+}
 
 export type SiteCheckinSessionUser = {
   readonly id: string;
@@ -394,6 +416,12 @@ export type SiteCheckinSessionUser = {
   readonly jobId?: string | null;
   readonly workerId?: string | null;
   readonly contractorId?: string | null;
+  readonly breakStartedAt?: Date | string | null;
+  readonly breakEndedAt?: Date | string | null;
+  readonly totalWorkedTime?: string | null;
+  readonly totalBreakTime?: string | null;
+  readonly attendanceFlag?: string | null;
+  readonly events?: readonly AttendanceEventRecord[];
 };
 
 export interface AdminSiteSessionView {
@@ -401,18 +429,30 @@ export interface AdminSiteSessionView {
   readonly workerName: string;
   readonly jobSiteLocation: string | null;
   readonly checkedInAt: string | null;
+  readonly breakOutAt: string | null;
+  readonly breakReturnAt: string | null;
   readonly checkedOutAt: string | null;
   readonly isActive: boolean;
-  readonly status: "ON SITE" | "CHECKED OUT";
+  readonly status: "ON SITE" | "ON BREAK" | "CLOCKED OUT";
+  readonly totalWorkedTime?: string | null;
+  readonly totalBreakTime?: string | null;
+  readonly attendanceFlag?: string | null;
 }
 
 /**
  * Derives whether a site-checkin work session is currently active.
- * A session is ACTIVE only while status is 'active' (site-checkin semantics).
+ * A session is ACTIVE while status is 'active' or 'on_break'.
  * Anything else (null, 'completed', etc.) is treated as checked out.
  */
 export function isSessionActive(status: string | null | undefined): boolean {
-  return status === "active";
+  return status === "active" || status === "on_break";
+}
+
+/** Derives human-facing 4-state status */
+export function deriveAttendanceStatus(status: string | null | undefined): "ON SITE" | "ON BREAK" | "CLOCKED OUT" {
+  if (status === "on_break") return "ON BREAK";
+  if (status === "active") return "ON SITE";
+  return "CLOCKED OUT";
 }
 
 /** Normalises a session timestamp (Date or ISO string) to an ISO string, or null. */
@@ -425,32 +465,29 @@ export function toIsoTimestamp(value: Date | string | null | undefined): string 
 
 /**
  * Builds the per-worker admin Live Monitor row from site-checkin session data.
- * The worker is ON SITE while their session is active; once status is no longer
- * 'active' (e.g. 'completed' via check-out) the row shows CHECKED OUT.
+ * The worker is ON SITE while active, ON BREAK while on break, and CHECKED OUT once completed.
  */
 export function buildAdminSiteSessionView(session: SiteCheckinSessionUser): AdminSiteSessionView {
   const active = isSessionActive(session.status);
-  const checkedInAt =
-    session.startTime == null
-      ? null
-      : session.startTime instanceof Date
-        ? session.startTime.toISOString()
-        : new Date(session.startTime).toISOString();
-  const checkedOutAt =
-    active || session.endTime == null
-      ? null
-      : session.endTime instanceof Date
-        ? session.endTime.toISOString()
-        : new Date(session.endTime).toISOString();
+  const checkedInAt = toIsoTimestamp(session.startTime);
+  const breakOutAt = toIsoTimestamp(session.breakStartedAt);
+  const breakReturnAt = toIsoTimestamp(session.breakEndedAt);
+  const checkedOutAt = active || session.endTime == null ? null : toIsoTimestamp(session.endTime);
+  const status = deriveAttendanceStatus(session.status);
 
   return {
     id: session.id,
     workerName: session.contractorName,
     jobSiteLocation: session.jobSiteLocation ?? null,
     checkedInAt,
+    breakOutAt,
+    breakReturnAt,
     checkedOutAt,
     isActive: active,
-    status: active ? "ON SITE" : "CHECKED OUT",
+    status,
+    totalWorkedTime: session.totalWorkedTime ?? null,
+    totalBreakTime: session.totalBreakTime ?? null,
+    attendanceFlag: session.attendanceFlag ?? null,
   };
 }
 
@@ -460,3 +497,4 @@ export function buildAdminSiteSessionViews(
 ): AdminSiteSessionView[] {
   return sessions.map(buildAdminSiteSessionView);
 }
+
