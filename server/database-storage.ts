@@ -399,13 +399,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateWorkSession(id: string, updates: Partial<WorkSession>): Promise<WorkSession | undefined> {
-    // If ending a session (endTime provided), calculate totalHours and money tracking
+    // If ending a session (endTime provided), calculate totalHours with strict non-negative guards
     if (updates.endTime && updates.startTime) {
       const startTime = new Date(updates.startTime);
       const endTime = new Date(updates.endTime);
-      const diffMs = endTime.getTime() - startTime.getTime();
+      const diffMs = Math.max(0, endTime.getTime() - startTime.getTime());
       const hoursWorked = diffMs / (1000 * 60 * 60);
-      updates.totalHours = hoursWorked.toFixed(2); // Convert to hours with 2 decimal places as string
+      updates.totalHours = hoursWorked.toFixed(2);
       
       console.log(`🕐 Session Summary: ${updates.totalHours}h worked`);
       console.log(`📍 GPS Distance: ${updates.endLatitude && updates.startLatitude ? 'Tracked' : 'Missing'}`);
@@ -416,7 +416,7 @@ export class DatabaseStorage implements IStorage {
       if (existingSession.length > 0 && existingSession[0].startTime) {
         const startTime = new Date(existingSession[0].startTime);
         const endTime = new Date(updates.endTime);
-        const diffMs = endTime.getTime() - startTime.getTime();
+        const diffMs = Math.max(0, endTime.getTime() - startTime.getTime());
         const hoursWorked = diffMs / (1000 * 60 * 60);
         updates.totalHours = hoursWorked.toFixed(2);
         
