@@ -177,7 +177,7 @@ export async function initializeDatabase() {
       await db.execute(sql`ALTER TABLE site_checkin_attempt DROP CONSTRAINT IF EXISTS site_checkin_attempt_reason_check;`);
     } catch {}
 
-    // Ensure session_status enum and work_sessions.status support 'on_break'
+    // Ensure session_status enum supports 'on_break'
     try {
       await db.execute(sql`ALTER TYPE session_status ADD VALUE IF NOT EXISTS 'on_break';`);
       console.log("✅ Added on_break to session_status enum");
@@ -186,9 +186,6 @@ export async function initializeDatabase() {
         console.warn("Note on session_status enum:", e?.message);
       }
     }
-    try {
-      await db.execute(sql`ALTER TABLE work_sessions ALTER COLUMN status TYPE TEXT USING status::text;`);
-    } catch {}
     
     console.log('✅ Database schema initialization complete');
     return true;
