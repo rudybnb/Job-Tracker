@@ -208,6 +208,17 @@ export default function LiveClockMonitor() {
                 const statusLabel = session.displayStatus || (isCheckedOut ? 'CHECKED OUT' : 'ON SITE');
                 const statusClass = isCheckedOut ? 'lm-status--checked-out' : 'lm-status--active';
                 
+                const durationDisplay = session.totalDailyWorkedSeconds !== undefined
+                  ? `${Math.floor(session.totalDailyWorkedSeconds / 3600)}h ${Math.floor((session.totalDailyWorkedSeconds % 3600) / 60)}m`
+                  : (session.duration || 'Live');
+
+                const formatTimelineSecs = (secs: number) => {
+                  const h = Math.floor(secs / 3600);
+                  const m = Math.floor((secs % 3600) / 60);
+                  if (h === 0) return `${m}m`;
+                  return `${h}h ${m.toString().padStart(2, "0")}m`;
+                };
+                
                 return (
                     <article key={session.id} className="lm-worker-card">
                       <div className="lm-worker-card__head">
@@ -227,8 +238,8 @@ export default function LiveClockMonitor() {
                           <strong>{startLabel}</strong>
                         </div>
                         <div>
-                          <span>{isCheckedOut ? 'Check-out time' : 'Duration'}</span>
-                          <strong>{session.checkedOutAt || session.duration || 'Live'}</strong>
+                          <span>Total worked</span>
+                          <strong>{durationDisplay}</strong>
                         </div>
                         <div>
                           <span>Clock status</span>
@@ -239,6 +250,41 @@ export default function LiveClockMonitor() {
                           <strong>{hasLocation ? 'Tracked' : 'No signal'}</strong>
                         </div>
                       </div>
+
+                      {/* Today's Attendance Timeline */}
+                      {session.todayTimeline && session.todayTimeline.sessions && session.todayTimeline.sessions.length > 0 && (
+                        <div className="lm-timeline-block">
+                          <div className="lm-timeline-block__head">
+                            <span>Today’s Timeline</span>
+                            <strong>{formatTimelineSecs(session.todayTimeline.totalWorkedSeconds)} total</strong>
+                          </div>
+                          <div className="lm-timeline-stepper">
+                            {session.todayTimeline.sessions.map((tSess: any, idx: number) => {
+                              const sStart = tSess.startTime ? new Date(tSess.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Unknown';
+                              const sEnd = tSess.endTime ? new Date(tSess.endTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Live';
+                              const isSessActive = tSess.status === 'active';
+
+                              return (
+                                <div key={tSess.id || idx} className="lm-timeline-node">
+                                  {tSess.breakBeforeSeconds !== null && tSess.breakBeforeSeconds > 0 && (
+                                    <div className="lm-timeline-break">
+                                      <span>☕ Break / Lunch: {formatTimelineSecs(tSess.breakBeforeSeconds)}</span>
+                                    </div>
+                                  )}
+                                  <div className={`lm-timeline-pill ${isSessActive ? 'lm-timeline-pill--active' : 'lm-timeline-pill--completed'}`}>
+                                    <div className="lm-timeline-pill__info">
+                                      <span className="lm-timeline-pill__num">#{idx + 1}</span>
+                                      <span className="lm-timeline-pill__time">{sStart} → {sEnd}</span>
+                                      <span className="lm-timeline-pill__site">{tSess.siteName}</span>
+                                    </div>
+                                    <span className="lm-timeline-pill__dur">{formatTimelineSecs(tSess.durationSeconds)}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {hasLocation && (
                         <div className="lm-gps-note">

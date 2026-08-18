@@ -96,6 +96,35 @@ export default function GPSDashboard() {
     refetchInterval: 8000,
   });
 
+  // Authoritative today's attendance timeline (/api/checkin/today-timeline)
+  const { data: todayTimeline, refetch: refetchTimeline } = useQuery<{
+    date: string;
+    contractorName: string;
+    sessions: Array<{
+      id: string;
+      siteName: string;
+      startTime: string;
+      endTime: string | null;
+      status: "active" | "completed" | "invalid";
+      durationSeconds: number;
+      durationHours: number;
+      isValid: boolean;
+      breakBeforeSeconds: number | null;
+    }>;
+    totalWorkedSeconds: number;
+    totalWorkedHours: number;
+    totalBreakSeconds: number;
+    isCurrentlyClockedIn: boolean;
+  } | null>({
+    queryKey: ["/api/checkin/today-timeline"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/checkin/today-timeline");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    refetchInterval: 8000,
+  });
+
   // Only activate timer if server confirms an active session
   useEffect(() => {
     if (currentSession?.active && currentSession.workSessionId) {
@@ -282,6 +311,8 @@ export default function GPSDashboard() {
         localStorage.removeItem("gps_timer_active");
         queryClient.invalidateQueries({ queryKey: ["/api/checkin/current-session"] });
         queryClient.invalidateQueries({ queryKey: ["/api/checkin/site-config"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/payroll/worker-weekly"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/time-tracking"] });
         queryClient.invalidateQueries({ queryKey: [`/api/work-sessions/${contractorFirstName}/active`] });
         toast({ title: "Clocked Out", description: `Session completed for ${contractorName}` });
       } else {
@@ -466,6 +497,92 @@ export default function GPSDashboard() {
             {!isTracking && qrRequired && !scannedQrToken && (
               <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
                 📷 Scan the printed Site QR poster before clocking in.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Today's Attendance Timeline Card */}
+        <Card className="bg-slate-800/90 border-slate-700 shadow-xl backdrop-blur">
+          <CardHeader className="pb-3 pt-4 px-4 border-b border-slate-700/60 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-400" /> Today’s Attendance Timeline
+              </CardTitle>
+              <p className="text-[11px] text-slate-400 mt-0.5">Europe/London daily shift log</p>
+            </div>
+            {todayTimeline && (
+              <div className="text-right">
+                <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                  {formatSecs(todayTimeline.totalWorkedSeconds)} worked
+                </span>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            {todayTimeline && todayTimeline.sessions.length > 0 ? (
+              <div className="space-y-3">
+                {todayTimeline.sessions.map((sess, idx) => {
+                  const startLabel = sess.startTime ? new Date(sess.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Unknown';
+                  const endLabel = sess.endTime ? new Date(sess.endTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Currently Active';
+                  const isActive = sess.status === 'active';
+
+                  return (
+                    <div key={sess.id} className="space-y-2">
+                      {sess.breakBeforeSeconds !== null && sess.breakBeforeSeconds > 0 && (
+                        <div className="flex items-center justify-center my-1.5">
+                          <span className="text-[11px] font-medium text-amber-300/90 bg-amber-500/10 border border-amber-500/20 px-3 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                            <span>☕ Lunch / Break: {formatSecs(sess.breakBeforeSeconds)}</span>
+                          </span>
+                        </div>
+                      )}
+                      <div className={`p-3 rounded-xl border transition-all ${isActive ? 'bg-emerald-950/40 border-emerald-500/40 shadow-md ring-1 ring-emerald-500/20' : 'bg-slate-900/80 border-slate-700/70'}`}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                            <span className="text-xs font-semibold text-slate-200">
+                              Session {idx + 1}
+                            </span>
+                            <span className="text-[11px] text-slate-400 truncate max-w-[150px]">
+                              {sess.siteName}
+                            </span>
+                          </div>
+                          <Badge className={`text-[10px] font-semibold py-0 px-2 ${isActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-800 text-slate-300 border-slate-600'}`}>
+                            {isActive ? 'Active' : 'Completed'}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/80 mt-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400">In:</span>
+                            <span className="font-mono font-medium text-slate-100">{startLabel}</span>
+                            <span className="text-slate-500">→</span>
+                            <span className="text-slate-400">Out:</span>
+                            <span className={`font-mono font-medium ${isActive ? 'text-emerald-400' : 'text-slate-100'}`}>{endLabel}</span>
+                          </div>
+                          <div className="font-mono font-semibold text-amber-400 text-xs">
+                            {formatSecs(sess.durationSeconds)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="pt-2 border-t border-slate-700/80 flex items-center justify-between text-xs text-slate-300 font-medium">
+                  <span>Total Today ({todayTimeline.sessions.length} session{todayTimeline.sessions.length > 1 ? 's' : ''})</span>
+                  <div className="flex items-center gap-3">
+                    {todayTimeline.totalBreakSeconds > 0 && (
+                      <span className="text-amber-400/80 text-[11px]">Breaks: {formatSecs(todayTimeline.totalBreakSeconds)}</span>
+                    )}
+                    <span className="font-mono font-bold text-emerald-400 text-sm">
+                      {formatSecs(todayTimeline.totalWorkedSeconds)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-xs text-slate-400">
+                <Clock className="w-6 h-6 mx-auto mb-1.5 text-slate-500 opacity-60" />
+                No attendance sessions recorded yet today.
               </div>
             )}
           </CardContent>

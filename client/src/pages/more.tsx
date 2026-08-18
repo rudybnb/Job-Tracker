@@ -95,167 +95,90 @@ export default function More() {
 
   const username = getUsernameFromFirstName(contractorFirstName);
 
-  // Get authentic contractor data from database - NO HARDCODED RATES
-  const { data: contractorApplication } = useQuery({
-    queryKey: [`/api/contractor-application/${username}`],
-    queryFn: async () => {
-      const response = await fetch(`/api/contractor-application/${username}`);
-      if (response.status === 404) return null;
-      if (!response.ok) throw new Error('Failed to fetch contractor data');
-      return response.json();
-    },
-    retry: false,
-  });
-
-  // Get authentic work sessions from database (using logged-in contractor)  
   const queryName = contractorFirstName || username || contractorName;
-  const { data: realWorkSessions = [] } = useQuery({
-    queryKey: [`/api/work-sessions/${queryName}`],
+
+  // Single source of truth: fetch authentic weekly payroll calculation directly from server engine
+  const { data: serverPayroll, isLoading: isPayrollLoading } = useQuery<{
+    weekEnding: string;
+    weekStart: string;
+    weekEnd: string;
+    contractorName: string;
+    username: string;
+    hourlyRate: number;
+    dailyRate: number;
+    cisRatePercentage: number;
+    cisRegistered: boolean;
+    rateMissing: boolean;
+    totalHours: number;
+    grossEarnings: number;
+    cisDeduction: number;
+    netEarnings: number;
+    sessions: {
+      id: string;
+      contractorName: string;
+      jobSiteLocation: string | null;
+      startTime: string | null;
+      endTime: string | null;
+      date: string;
+      startTimeFormatted: string;
+      endTimeFormatted: string;
+      hoursWorked: number;
+      grossEarnings: number;
+      hourlyRate: number;
+      status: string;
+      gpsVerified: boolean;
+    }[];
+  }>({
+    queryKey: ["/api/payroll/worker-weekly", queryName, selectedWeek],
     queryFn: async () => {
-      const response = await fetch(`/api/work-sessions/${encodeURIComponent(queryName)}?t=${Date.now()}`);
-      if (!response.ok) throw new Error('Failed to fetch work sessions');
+      const response = await fetch(`/api/payroll/worker-weekly?contractor=${encodeURIComponent(queryName)}&weekEnding=${selectedWeek}&t=${Date.now()}`);
+      if (!response.ok) throw new Error("Failed to fetch authoritative payroll data");
       return response.json();
     },
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 0, // Don't cache (renamed from cacheTime in v5)
+    staleTime: 0,
+    gcTime: 0,
   });
 
-  // Contractor details with AUTHENTIC data only - use contractorApplication from the API
-  const hourlyRate = contractorApplication?.adminPayRate ? parseFloat(contractorApplication.adminPayRate) : 16.25;
   const contractorInfo = {
-    name: contractorApplication?.firstName && contractorApplication?.lastName 
-      ? `${contractorApplication.firstName} ${contractorApplication.lastName}` 
-      : contractorName,
-    email: contractorApplication?.email || "",
-    cisRegistered: contractorApplication?.isCisRegistered === 'true',
-    dailyRate: hourlyRate * 8, // Calculate daily rate from authentic hourly rate
-    hourlyRate: hourlyRate,
-    cisRate: contractorApplication?.isCisRegistered === 'true' ? 20 : 30 // Use authentic CIS status
-  };
-  
-  console.log(`💼 Contractor Info: ${contractorInfo.name}, £${hourlyRate}/hr, £${contractorInfo.dailyRate}/day, CIS: ${contractorInfo.cisRate}%`);
-  // Verified: Mohamed's earnings display correctly - £21.25/hr, £170/day
-
-  // Helper to validate and calculate authentic payable hours for a work session
-  const getPayableHours = (session: any): number => {
-    // 1. Exclude non-completed sessions or missing timestamps
-    if (session.status !== "completed" || !session.endTime || !session.startTime) {
-      return 0;
-    }
-
-    const startMs = new Date(session.startTime).getTime();
-    const endMs = new Date(session.endTime).getTime();
-
-    // 2. Exclude corrupted sessions where end_time <= start_time
-    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
-      return 0;
-    }
-
-    // 3. Check database totalHours if present and strictly positive
-    if (session.totalHours !== null && session.totalHours !== undefined) {
-      const parsed = parseFloat(session.totalHours);
-      if (!Number.isNaN(parsed) && parsed > 0) {
-        return Math.min(parsed, 8);
-      }
-    }
-
-    // 4. Calculate actual duration in hours (capped at 8 for standard daily shift)
-    const durationHours = (endMs - startMs) / (1000 * 60 * 60);
-    if (durationHours > 0) {
-      return Math.min(durationHours, 8);
-    }
-
-    return 0;
+    name: serverPayroll?.contractorName || contractorName,
+    email: "",
+    cisRegistered: serverPayroll?.cisRegistered ?? false,
+    dailyRate: serverPayroll?.dailyRate ?? 0,
+    hourlyRate: serverPayroll?.hourlyRate ?? 0,
+    cisRate: serverPayroll?.cisRatePercentage ?? 0,
+    rateMissing: serverPayroll?.rateMissing ?? false,
   };
 
-  // Convert real work sessions with strict validity and payable earnings rules
-  const workSessions: WorkSession[] = realWorkSessions.map((session: any) => {
-    const hoursWorked = getPayableHours(session);
-    const isFullDay = hoursWorked >= 8;
-    const grossEarnings = hoursWorked > 0
-      ? (isFullDay ? contractorInfo.dailyRate : hoursWorked * contractorInfo.hourlyRate)
-      : 0;
-
-    const startTimeStr = session.startTime
-      ? new Date(session.startTime).toISOString().substring(11, 16)
-      : "--:--";
-    const endTimeStr = session.endTime && session.status === "completed"
-      ? new Date(session.endTime).toISOString().substring(11, 16)
-      : "Active";
-
-    return {
-      id: session.id,
-      location: session.jobSiteLocation || "Work Site",
-      date: session.startTime
-        ? new Date(session.startTime).toLocaleDateString("en-GB", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-          }).split("/").reverse().join("-")
-        : new Date().toISOString().split("T")[0],
-      startTime: startTimeStr,
-      endTime: endTimeStr,
-      hoursWorked,
-      hourlyRate: contractorInfo.hourlyRate,
-      grossEarnings,
-      gpsVerified: true,
-    };
-  });
-
-  const calculateWeeklyEarnings = (): WeeklyEarnings => {
-    const weekSessions = workSessions.filter((session) => {
-      const sessionDate = new Date(session.date);
-      const weekEndDate = new Date(selectedWeek);
-      const weekStartDate = new Date(weekEndDate.getTime() - 6 * 24 * 60 * 60 * 1000);
-      return sessionDate >= weekStartDate && sessionDate <= weekEndDate;
-    });
-
-    const totalHours = Math.max(
-      0,
-      Math.round(weekSessions.reduce((sum, session) => sum + session.hoursWorked, 0) * 100) / 100,
-    );
-    const grossEarnings = Math.max(
-      0,
-      Math.round(weekSessions.reduce((sum, session) => sum + session.grossEarnings, 0) * 100) / 100,
-    );
-    const cisDeduction = grossEarnings > 0
-      ? Math.round(((grossEarnings * contractorInfo.cisRate) / 100) * 100) / 100
-      : 0;
-    const netEarnings = Math.max(0, Math.round((grossEarnings - cisDeduction) * 100) / 100);
-
-    return {
-      weekEnding: selectedWeek,
-      totalHours,
-      grossEarnings,
-      cisDeduction,
-      netEarnings,
-      cisRate: contractorInfo.cisRate,
-      sessions: weekSessions,
-    };
+  const weeklyData: WeeklyEarnings = {
+    weekEnding: selectedWeek,
+    totalHours: serverPayroll?.totalHours ?? 0,
+    grossEarnings: serverPayroll?.grossEarnings ?? 0,
+    cisDeduction: serverPayroll?.cisDeduction ?? 0,
+    netEarnings: serverPayroll?.netEarnings ?? 0,
+    cisRate: serverPayroll?.cisRatePercentage ?? 0,
+    sessions: (serverPayroll?.sessions ?? []).map((s) => ({
+      id: s.id,
+      location: s.jobSiteLocation || "Work Site",
+      date: s.date,
+      startTime: s.startTimeFormatted,
+      endTime: s.endTimeFormatted,
+      hoursWorked: s.hoursWorked,
+      hourlyRate: s.hourlyRate,
+      grossEarnings: s.grossEarnings,
+      gpsVerified: s.gpsVerified,
+    })),
   };
-
-  const weeklyData = calculateWeeklyEarnings();
-  
-  // Weekly earnings calculation completed successfully
-  
-  // CIS Calculation verification
-  console.log(`💸 CIS Calculation: £${weeklyData.grossEarnings.toFixed(2)} × ${weeklyData.cisRate}% = £${weeklyData.cisDeduction.toFixed(2)} deduction`);
-  console.log(`💰 Net Payment: £${weeklyData.grossEarnings.toFixed(2)} - £${weeklyData.cisDeduction.toFixed(2)} = £${weeklyData.netEarnings.toFixed(2)}`);
 
   const handleExportWeek = () => {
     const exportData = {
       contractor: contractorInfo,
       week: weeklyData,
-      sessions: weeklyData.sessions
+      sessions: weeklyData.sessions,
     };
-    
-    // In a real app, this would generate CSV/PDF export
     toast({
       title: "Export Generated",
       description: `Week ending ${selectedWeek} exported for accounting`,
     });
-    
-    // For demo, log the data that would be exported
     console.log("Weekly Export Data:", exportData);
   };
 
@@ -430,6 +353,17 @@ export default function More() {
           </Select>
         </div>
 
+        {/* Missing Rate Warning */}
+        {contractorInfo.rateMissing && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6 text-amber-300 text-sm flex items-center gap-3">
+            <i className="fas fa-exclamation-triangle text-amber-400 text-xl"></i>
+            <div>
+              <div className="font-bold">Pay Rate Not Configured</div>
+              <div className="text-xs text-amber-200/80">Your pay rate is currently unassigned in admin settings. Please contact your site manager.</div>
+            </div>
+          </div>
+        )}
+
         {/* Rate Information Card */}
         <div className="bg-slate-800 border border-slate-600 rounded-lg p-4 mb-6">
           <div className="flex items-center mb-3">
@@ -439,7 +373,7 @@ export default function More() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-slate-400 text-sm">Daily Rate</div>
-              <div className="text-white font-bold text-xl">£{contractorInfo.dailyRate}</div>
+              <div className="text-white font-bold text-xl">£{contractorInfo.dailyRate.toFixed(2)}</div>
               <div className="text-slate-400 text-xs">8-hour day</div>
             </div>
             <div>
@@ -451,17 +385,17 @@ export default function More() {
         </div>
 
         {/* CIS Status Banner */}
-        <div className="bg-slate-800 border-l-4 border-orange-500 rounded-lg p-4 mb-6">
+        <div className={`border-l-4 rounded-lg p-4 mb-6 ${contractorInfo.cisRegistered ? "bg-slate-800 border-emerald-500" : "bg-slate-800 border-orange-500"}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <i className="fas fa-exclamation-triangle text-orange-500 mr-3"></i>
+              <i className={`fas ${contractorInfo.cisRegistered ? "fa-check-circle text-emerald-400" : "fa-exclamation-triangle text-orange-500"} mr-3`}></i>
               <div>
-                <div className="text-white font-semibold">Not CIS Registered</div>
-                <div className="text-slate-400 text-sm">30% tax deduction applied</div>
+                <div className="text-white font-semibold">{contractorInfo.cisRegistered ? (weeklyData.cisRate === 0 ? "CIS Registered (Gross Payment)" : "CIS Registered") : "Not CIS Registered"}</div>
+                <div className="text-slate-400 text-sm">{weeklyData.cisRate}% CIS tax deduction applied</div>
               </div>
             </div>
-            <Badge variant="default" className="bg-orange-600">
-              Non-CIS
+            <Badge variant="default" className={contractorInfo.cisRegistered ? "bg-emerald-600" : "bg-orange-600"}>
+              {contractorInfo.cisRegistered ? (weeklyData.cisRate === 0 ? "Gross (0%)" : "CIS (20%)") : "Non-CIS (30%)"}
             </Badge>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentLocation } from "@/lib/location";
 import { apiFetch } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 import { startQrScanner, extractQrToken } from "@/lib/qr-scanner-helper";
 import { CheckCircle, Clock, MapPin, Camera, LogOut, AlertTriangle, RefreshCw } from "lucide-react";
 import "./hallmark-sweep.css";
@@ -330,6 +331,9 @@ export default function CheckIn() {
       };
 
       if (data.accepted && data.closed) {
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/current-session"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/payroll/worker-weekly"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/time-tracking"] });
         const checkedOutAt = new Date().toLocaleTimeString("en-GB", {
           hour: "2-digit",
           minute: "2-digit",

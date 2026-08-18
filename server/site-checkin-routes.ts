@@ -34,11 +34,13 @@ import {
   type SiteCheckinConfigRecord,
   type UpsertSiteCheckinConfigInput,
 } from "./site-checkin-repository.ts";
+import { buildAttendanceTimeline } from "./attendance-timeline.ts";
 
 export const CHECKIN_ATTEMPT_ROUTE = "/api/checkin/attempt";
 export const SITE_CHECKIN_ADMIN_PREFIX = "/api/admin/site-checkin";
 export const CHECKOUT_ROUTE = "/api/checkin/checkout";
 export const CURRENT_SESSION_ROUTE = "/api/checkin/current-session";
+export const TODAY_TIMELINE_ROUTE = "/api/checkin/today-timeline";
 export const SITE_CONFIG_WORKER_ROUTE = "/api/checkin/site-config";
 
 const GPS_ACCURACY_MAX = 10_000; // reject absurd accuracy values in metres
@@ -301,6 +303,23 @@ export function createSiteCheckinRouter(options: SiteCheckinRouteOptions): Route
         });
       } catch (error) {
         console.error("Error checking worker current session:", error);
+        return response.status(500).json({ error: "Internal server error" });
+      }
+    },
+  );
+
+  router.get(
+    TODAY_TIMELINE_ROUTE,
+    requireCheckInSession,
+    async (request: Request, response: Response) => {
+      try {
+        const session = (request as CheckInRequest).session;
+        const identity = identityFromSession(session);
+        const workerSessions = await options.store.getWorkerWorkSessions(identity.label);
+        const timeline = buildAttendanceTimeline(workerSessions, identity.label);
+        return response.status(200).json(timeline);
+      } catch (error) {
+        console.error("Error fetching worker attendance timeline:", error);
         return response.status(500).json({ error: "Internal server error" });
       }
     },

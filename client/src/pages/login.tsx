@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, QrCode, MapPin, CheckCircle, AlertTriangle, LogOut, Camera, X } from "lucide-react";
 import { getCurrentLocation, calculateDistanceMetres } from "@/lib/location";
 import { apiFetch } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 import { startQrScanner, extractQrToken } from "@/lib/qr-scanner-helper";
 import "./hallmark-sweep.css";
 
@@ -491,6 +492,9 @@ export default function Login() {
       });
 
       if (resp.ok) {
+        queryClient.invalidateQueries({ queryKey: ["/api/checkin/current-session"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/payroll/worker-weekly"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/time-tracking"] });
         toast({ title: "Clocked Out", description: `Session completed for ${authContractorName}` });
         setActiveSessionId(null);
         localStorage.removeItem("gps_timer_active");

@@ -25,9 +25,11 @@ import * as path from "path";
 import * as XLSX from "xlsx";
 import { createHash } from "node:crypto";
 import { eq, like, sql } from "drizzle-orm";
-import { db } from "./db";
+import { db, client } from "./db";
+import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
 import { csvUploads, jobs as jobsTable, workSessions } from "@shared/schema";
 import { normalizeUploadCsvContent, parseJobUploadCsv, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
+import { buildAttendanceTimeline, getLondonDateString } from "./attendance-timeline.ts";
 
 interface MulterRequest extends ExpressRequest {
   file?: Express.Multer.File;
@@ -2836,106 +2838,97 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
 
   // Real-time clock monitoring endpoints for admin dashboard
   
-  // Get active work sessions (currently clocked in contractors) + site-checkin sessions
+  // Get active work sessions (currently clocked in contractors) + site-checkin sessions with full Today Timeline
   app.get("/api/admin/active-sessions", async (req, res) => {
     try {
       console.log("📊 Fetching active work sessions for admin monitoring");
+      const now = new Date();
       
-      // Fetch labour sessions (existing system)
-      const labourSessions = await storage.getActiveWorkSessions();
-      
-      // Fetch site-checkin sessions (QR check-in/out system)
-      const siteCheckinSessions = await db
+      // Fetch all work sessions from authoritative work_sessions table
+      const allWorkSessions = await db
         .select()
         .from(workSessions)
         .orderBy(sql`start_time DESC`);
       
-      // Combine all sessions
-      const allSessions = [...labourSessions, ...siteCheckinSessions];
+      // Group sessions by contractor name
+      const sessionsByContractor = new Map<string, typeof allWorkSessions>();
       
-      // Clean up contractor names and filter to latest session per contractor
-      const cleanedSessions = new Map();
-      
-      allSessions.forEach(session => {
-        // Clean contractor name (trim whitespace, fix known issues)
+      allWorkSessions.forEach(session => {
+        if (!session.contractorName) return;
         let cleanName = session.contractorName.trim();
         if (cleanName === 'Dalwayne Bailey') {
           cleanName = 'Dalwayne Diedericks';
         }
         
-        // Keep only the latest session for each contractor
-        const existing = cleanedSessions.get(cleanName);
-        if (!existing || new Date(session.startTime) > new Date(existing.startTime)) {
-          cleanedSessions.set(cleanName, {
-            ...session,
-            contractorName: cleanName
-          });
+        if (!sessionsByContractor.has(cleanName)) {
+          sessionsByContractor.set(cleanName, []);
         }
+        sessionsByContractor.get(cleanName)!.push({
+          ...session,
+          contractorName: cleanName
+        });
       });
       
-      // Calculate session duration and detect current location for each unique active session
-      const sessionsWithDuration = await Promise.all(Array.from(cleanedSessions.values()).map(async (session) => {
-        const startTime = new Date(session.startTime);
-        const now = new Date();
-        const durationMs = now.getTime() - startTime.getTime();
-        const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
-        const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-        
-        // Determine session status: ON SITE (active) or CHECKED OUT (completed)
-        const isSiteCheckinSession = session.status === 'active' || session.status === 'completed';
-        const sessionStatus = session.status === 'completed' ? 'checked_out' : 'clocked_in';
-        const displayStatus = session.status === 'completed' ? 'CHECKED OUT' : 'ON SITE';
-        const isActive = session.status !== 'completed';
-        
-        // Detect current location by finding nearest assigned job site (DYNAMIC SYSTEM)
-        let detectedLocation = session.jobSiteLocation; // Default to stored location
-        
-        if (session.startLatitude && session.startLongitude) {
-          console.log(`🔍 Finding nearest assigned job site for ${session.contractorName}: GPS ${session.startLatitude}, ${session.startLongitude}`);
+      // Process each contractor with authoritative attendance timeline
+      const sessionsWithDuration = await Promise.all(
+        Array.from(sessionsByContractor.entries()).map(async ([cleanName, contractorSessions]) => {
+          const latestSession = contractorSessions[0]; // latest by start_time DESC
+          const timeline = buildAttendanceTimeline(contractorSessions, cleanName, now);
           
-          const nearestSite = await findNearestAssignedJobSite(
-            session.contractorName,
-            parseFloat(session.startLatitude), 
-            parseFloat(session.startLongitude)
-          );
+          const startTime = latestSession.startTime ? new Date(latestSession.startTime) : now;
+          const isActive = timeline.isCurrentlyClockedIn;
+          const sessionStatus = isActive ? 'clocked_in' : 'checked_out';
+          const displayStatus = isActive ? 'ON SITE' : 'CHECKED OUT';
           
-          if (nearestSite) {
-            detectedLocation = nearestSite.location;
-            console.log(`📍 Dynamic location detected for ${session.contractorName}: ${nearestSite.location} (${nearestSite.distance.toFixed(2)}km away)`);
-          } else {
-            console.log(`❌ No nearby assigned job sites found for ${session.contractorName} at GPS ${session.startLatitude}, ${session.startLongitude}`);
+          // Detect current location by finding nearest assigned job site (DYNAMIC SYSTEM)
+          let detectedLocation = latestSession.jobSiteLocation;
+          if (latestSession.startLatitude && latestSession.startLongitude) {
+            const nearestSite = await findNearestAssignedJobSite(
+              cleanName,
+              parseFloat(latestSession.startLatitude), 
+              parseFloat(latestSession.startLongitude)
+            );
+            if (nearestSite) {
+              detectedLocation = nearestSite.location;
+            }
           }
-        } else {
-          console.log(`❌ No GPS coordinates available for ${session.contractorName}`);
-        }
-        
-        // Calculate check-out time if completed
-        const checkedOutAt = session.endTime ? new Date(session.endTime).toLocaleTimeString('en-GB', {
-          timeZone: 'Europe/London',
-          hour: '2-digit',
-          minute: '2-digit'
-        }) : null;
-        
-        return {
-          ...session,
-          jobSiteLocation: detectedLocation,
-          duration: isActive ? `${durationHours}h ${durationMinutes}m` : 'Completed',
-          durationMs: isActive ? durationMs : 0,
-          isActive,
-          status: sessionStatus,
-          displayStatus,
-          workingHours: durationHours,
-          workingMinutes: durationMinutes,
-          startedAt: startTime.toLocaleTimeString('en-GB', {
+          
+          const checkedOutAt = latestSession.endTime ? new Date(latestSession.endTime).toLocaleTimeString('en-GB', {
             timeZone: 'Europe/London',
             hour: '2-digit',
             minute: '2-digit'
-          }),
-          checkedOutAt
-        };
-      }));
+          }) : null;
+          
+          const totalHoursNum = timeline.totalWorkedHours;
+          const hoursInt = Math.floor(totalHoursNum);
+          const minutesInt = Math.round((totalHoursNum - hoursInt) * 60);
+          
+          return {
+            ...latestSession,
+            contractorName: cleanName,
+            jobSiteLocation: detectedLocation,
+            duration: isActive ? `${hoursInt}h ${minutesInt}m` : `${hoursInt}h ${minutesInt}m`,
+            durationMs: timeline.totalWorkedSeconds * 1000,
+            isActive,
+            status: sessionStatus,
+            displayStatus,
+            workingHours: hoursInt,
+            workingMinutes: minutesInt,
+            startedAt: startTime.toLocaleTimeString('en-GB', {
+              timeZone: 'Europe/London',
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+            checkedOutAt,
+            todayTimeline: timeline,
+            totalDailyWorkedSeconds: timeline.totalWorkedSeconds,
+            totalDailyWorkedHours: timeline.totalWorkedHours,
+            totalDailyBreakSeconds: timeline.totalBreakSeconds
+          };
+        })
+      );
       
-      console.log(`📈 Found ${sessionsWithDuration.length} sessions (active + checked out)`);
+      console.log(`📈 Found ${sessionsWithDuration.length} contractor attendance records (active + today's)`);
       res.json(sessionsWithDuration);
     } catch (error) {
       console.error("Error fetching active sessions:", error);
@@ -2943,53 +2936,54 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
     }
   });
 
-
-
   // Get all work sessions for today with daily hours calculation
   app.get("/api/admin/today-sessions", async (req, res) => {
     try {
       console.log("📊 Fetching today's work sessions for admin monitoring");
+      const now = new Date();
       
-      const todaySessions = await storage.getTodayWorkSessions();
+      const allSessions = await db
+        .select()
+        .from(workSessions)
+        .orderBy(sql`start_time DESC`);
       
-      // Group sessions by contractor for daily totals
-      const contractorDailyTotals = todaySessions.reduce((acc: any, session: any) => {
-        const contractorName = session.contractorName;
-        if (!acc[contractorName]) {
-          acc[contractorName] = {
-            contractorName,
-            sessions: [],
-            totalDailyHours: 0,
-            activeSession: null
-          };
+      const sessionsByContractor = new Map<string, typeof allSessions>();
+      
+      allSessions.forEach(session => {
+        if (!session.contractorName) return;
+        let cleanName = session.contractorName.trim();
+        if (cleanName === 'Dalwayne Bailey') cleanName = 'Dalwayne Diedericks';
+        if (!sessionsByContractor.has(cleanName)) {
+          sessionsByContractor.set(cleanName, []);
         }
-        
-        const hours = parseFloat(session.totalHours || '0');
-        acc[contractorName].sessions.push(session);
-        acc[contractorName].totalDailyHours += hours;
-        
-        if (session.status === 'active') {
-          acc[contractorName].activeSession = session;
-        }
-        
-        return acc;
-      }, {});
-      
-      // Convert to array and format
-      const dailySummary = Object.values(contractorDailyTotals).map((contractor: any) => ({
-        ...contractor,
-        totalDailyHours: contractor.totalDailyHours.toFixed(2)
-      }));
-      
-      console.log(`📊 Today's sessions: ${todaySessions.length} total, ${dailySummary.length} contractors`);
-      dailySummary.forEach((contractor: any) => {
-        console.log(`   👤 ${contractor.contractorName}: ${contractor.totalDailyHours}h (${contractor.sessions.length} sessions)`);
+        sessionsByContractor.get(cleanName)!.push({
+          ...session,
+          contractorName: cleanName
+        });
       });
       
+      const dailySummary = Array.from(sessionsByContractor.entries())
+        .map(([contractorName, contractorSessions]) => {
+          const timeline = buildAttendanceTimeline(contractorSessions, contractorName, now);
+          if (timeline.sessions.length === 0) return null;
+          
+          return {
+            contractorName,
+            sessions: timeline.sessions,
+            totalDailyHours: timeline.totalWorkedHours.toFixed(2),
+            totalDailyWorkedSeconds: timeline.totalWorkedSeconds,
+            totalDailyBreakSeconds: timeline.totalBreakSeconds,
+            activeSession: timeline.sessions.find(s => s.status === 'active') || null,
+            timeline
+          };
+        })
+        .filter(Boolean);
+      
+      const todayTotalSessions = dailySummary.reduce((acc, c: any) => acc + (c?.sessions?.length || 0), 0);
+      
       res.json({
-        sessions: todaySessions,
-        dailySummary: dailySummary,
-        totalSessions: todaySessions.length,
+        dailySummary,
+        totalSessions: todayTotalSessions,
         totalContractors: dailySummary.length
       });
     } catch (error) {
@@ -2998,144 +2992,39 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
     }
   });
 
-  // Get time tracking data with earnings calculations for admin
+  // Get time tracking data with earnings calculations for admin (Unified Engine)
   app.get("/api/admin/time-tracking", async (req, res) => {
     try {
       const weekEnding = req.query.weekEnding as string;
-      console.log(`📊 Fetching time tracking data for week ending: ${weekEnding}`);
-      
       if (!weekEnding) {
         return res.status(400).json({ error: "weekEnding parameter required" });
       }
-      
-      // Calculate week start and end dates - ensure we include the full week ending day
-      const endDate = new Date(weekEnding);
-      endDate.setHours(23, 59, 59, 999); // Include full last day
-      const startDate = new Date(weekEnding);
-      startDate.setDate(startDate.getDate() - 6); // 7 days back
-      startDate.setHours(0, 0, 0, 0); // Start of first day
-      
-      console.log(`📅 Week range: ${startDate.toDateString()} to ${endDate.toDateString()}`);
-      
-      // Get all work sessions for the week
-      const weekSessions = await storage.getWorkSessionsForWeek(startDate, endDate);
-      console.log(`🕐 Found ${weekSessions.length} sessions for the week`);
-      
-      // Group by contractor and calculate earnings with AUTHENTIC database pay rates
-      const contractorEarnings = weekSessions.reduce(async (accPromise: any, session: any) => {
-        const acc = await accPromise;
-        const contractorName = session.contractorName;
-        if (!acc[contractorName]) {
-          // Get authentic pay rate from database - Mandatory Rule #2: DATA INTEGRITY
-          const authenticPayRate = await storage.getContractorPayRate(contractorName);
-          acc[contractorName] = {
-            contractorName,
-            sessions: [],
-            totalHours: 0,
-            hoursWorked: 0,
-            hourlyRate: authenticPayRate, // AUTHENTIC database rate only
-            grossEarnings: 0,
-            cisDeduction: 0,
-            netEarnings: 0,
-            cisRate: 0.30, // Default 30% for unregistered
-            gpsVerified: true
-          };
-        }
-        
-        // Only count valid completed payable sessions
-        let sessionHours = 0;
-        if (session.status === "completed" && session.startTime && session.endTime) {
-          const startMs = new Date(session.startTime).getTime();
-          const endMs = new Date(session.endTime).getTime();
-          if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
-            if (session.totalHours !== null && session.totalHours !== undefined) {
-              const parsed = parseFloat(session.totalHours);
-              if (!Number.isNaN(parsed) && parsed > 0) {
-                sessionHours = Math.min(parsed, 8);
-              }
-            } else {
-              const durationHours = (endMs - startMs) / (1000 * 60 * 60);
-              if (durationHours > 0) {
-                sessionHours = Math.min(durationHours, 8);
-              }
-            }
-          }
-        }
-        
-        acc[contractorName].sessions.push({
-          ...session,
-          sessionHours: sessionHours.toFixed(2)
-        });
-        acc[contractorName].totalHours += sessionHours;
-        acc[contractorName].hoursWorked += sessionHours;
-        
-        return acc;
-      }, Promise.resolve({}));
-      
-      // Await the contractor earnings calculation
-      const resolvedContractorEarnings = await contractorEarnings;
-      
-      // Calculate earnings for each contractor
-      Object.values(resolvedContractorEarnings).forEach((contractor: any) => {
-        const hoursWorked = contractor.hoursWorked;
-        const hourlyRate = contractor.hourlyRate;
-        
-        // Calculate gross earnings using same logic as individual contractor pages
-        // Apply daily rate cap of hourlyRate * 8 for 8+ hour days, hourly rate for partial days
-        let grossEarnings = 0;
-        contractor.sessions.forEach((session: any) => {
-          const sessionHours = parseFloat(session.sessionHours);
-          if (sessionHours > 0) {
-            const isFullDay = sessionHours >= 8;
-            const dailyRate = hourlyRate * 8;
-            
-            if (isFullDay) {
-              grossEarnings += dailyRate; // Pay daily rate for 8+ hours
-            } else {
-              grossEarnings += sessionHours * hourlyRate; // Pay hourly for partial days
-            }
-          }
-        });
-        contractor.grossEarnings = Math.max(0, grossEarnings);
-        
-        // Calculate CIS deduction from positive gross earnings only
-        contractor.cisDeduction = contractor.grossEarnings > 0
-          ? Math.round(contractor.grossEarnings * contractor.cisRate * 100) / 100
-          : 0;
-        
-        // Calculate net earnings
-        contractor.netEarnings = Math.max(0, Math.round((contractor.grossEarnings - contractor.cisDeduction) * 100) / 100);
-        
-        // Round all monetary values
-        contractor.grossEarnings = Math.round(contractor.grossEarnings * 100) / 100;
-        contractor.cisDeduction = Math.round(contractor.cisDeduction * 100) / 100;
-        contractor.netEarnings = Math.round(contractor.netEarnings * 100) / 100;
-        contractor.totalHours = Math.round(contractor.totalHours * 100) / 100;
-      });
-      
-      // Calculate weekly totals
-      const contractors = Object.values(resolvedContractorEarnings);
-      const weeklyTotals = {
-        totalHours: contractors.reduce((sum: number, c: any) => sum + c.totalHours, 0),
-        totalGrossEarnings: contractors.reduce((sum: number, c: any) => sum + c.grossEarnings, 0),
-        totalCisDeduction: contractors.reduce((sum: number, c: any) => sum + c.cisDeduction, 0),
-        totalNetEarnings: contractors.reduce((sum: number, c: any) => sum + c.netEarnings, 0),
-        contractors: contractors.length
-      };
-      
-      console.log(`💰 Weekly totals: ${weeklyTotals.totalHours}h, £${weeklyTotals.totalGrossEarnings} gross, £${weeklyTotals.totalNetEarnings} net`);
-      
-      res.json({
-        weekEnding,
-        weekStart: startDate.toISOString().split('T')[0],
-        weekEnd: endDate.toISOString().split('T')[0],
-        contractors: contractors,
-        totals: weeklyTotals,
-        sessionsCount: weekSessions.length
-      });
-    } catch (error) {
-      console.error("Error fetching time tracking data:", error);
-      res.status(500).json({ error: "Failed to fetch time tracking data" });
+
+      console.log(`📊 Fetching unified admin payroll data for week ending: ${weekEnding}`);
+      const report = await calculateAdminWeeklyPayroll(client, weekEnding);
+      res.json(report);
+    } catch (error: any) {
+      console.error("Error fetching admin payroll data:", error);
+      res.status(500).json({ error: error?.message || "Failed to fetch payroll data" });
+    }
+  });
+
+  // Get weekly earnings data for logged-in worker (Unified Engine)
+  app.get("/api/payroll/worker-weekly", async (req, res) => {
+    try {
+      const contractor = (req.query.contractor as string) || (req as SessionRequest).session?.contractorName || "";
+      const weekEnding = (req.query.weekEnding as string) || "";
+
+      if (!contractor || !weekEnding) {
+        return res.status(400).json({ error: "contractor and weekEnding query parameters required" });
+      }
+
+      console.log(`💼 Fetching unified worker payroll for: ${contractor}, week ending: ${weekEnding}`);
+      const summary = await calculateWorkerPayroll(client, contractor, weekEnding);
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error fetching worker payroll data:", error);
+      res.status(500).json({ error: error?.message || "Failed to fetch worker payroll data" });
     }
   });
 
@@ -3551,92 +3440,27 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
     }
   });
 
-  // Contractor earnings endpoint for MORE page verification
+  // Contractor earnings endpoint for MORE page verification (Unified Engine)
   app.get("/api/contractor-earnings/:contractorName", async (req, res) => {
     try {
       const contractorName = decodeURIComponent(req.params.contractorName);
-      console.log(`💰 Getting earnings for contractor: ${contractorName}`);
-      
-      // Calculate current week ending (Friday)
-      const now = new Date();
-      const currentDay = now.getDay();
-      const daysToFriday = currentDay <= 5 ? (5 - currentDay) : (7 - currentDay + 5);
-      const weekEndingFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
-      const weekEnding = weekEndingFriday.toISOString().split('T')[0];
-      
-      // Calculate week start (Saturday, 6 days before Friday)
-      const weekStart = new Date(weekEndingFriday);
-      weekStart.setDate(weekEndingFriday.getDate() - 6);
-      
-      // Get work sessions for this week
-      const weekSessions = await storage.getWorkSessionsForWeek(weekStart, weekEndingFriday);
-      const contractorSessions = weekSessions.filter(session => session.contractorName === contractorName);
-      
-      // Calculate earnings from valid completed payable sessions only
-      const validSessions = contractorSessions.map((session) => {
-        let hours = 0;
-        if (session.status === "completed" && session.startTime && session.endTime) {
-          const startMs = new Date(session.startTime).getTime();
-          const endMs = new Date(session.endTime).getTime();
-          if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
-            if (session.totalHours !== null && session.totalHours !== undefined) {
-              const parsed = parseFloat(session.totalHours);
-              if (!Number.isNaN(parsed) && parsed > 0) {
-                hours = Math.min(parsed, 8);
-              }
-            } else {
-              const durationHours = (endMs - startMs) / (1000 * 60 * 60);
-              if (durationHours > 0) {
-                hours = Math.min(durationHours, 8);
-              }
-            }
-          }
-        }
-        return {
-          ...session,
-          validHours: hours,
-        };
-      });
+      const weekEndingParam = req.query.weekEnding as string;
 
-      const totalHours = Math.max(
-        0,
-        Math.round(validSessions.reduce((sum, s) => sum + s.validHours, 0) * 100) / 100,
-      );
-      
-      const grossEarnings = Math.max(0, Math.round(totalHours * payRate * 100) / 100);
-      const cisDeduction = grossEarnings > 0 ? Math.round(grossEarnings * 0.30 * 100) / 100 : 0;
-      const netEarnings = Math.max(0, Math.round((grossEarnings - cisDeduction) * 100) / 100);
-      
-      // Format sessions for display
-      const formattedSessions = validSessions.map(session => ({
-        id: session.id,
-        jobName: session.jobSiteLocation || 'Unknown Job',
-        location: session.jobSiteLocation || 'Unknown Location',
-        date: new Date(session.startTime).toLocaleDateString('en-GB'),
-        startTime: new Date(session.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        endTime: session.endTime && session.status === 'completed' ? new Date(session.endTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Active',
-        hoursWorked: session.validHours,
-        hourlyRate: payRate,
-        grossEarnings: session.validHours * payRate,
-        gpsVerified: true
-      }));
-      
-      const weeklyEarnings = {
-        weekEnding,
-        totalHours: totalHours,
-        grossEarnings: grossEarnings,
-        cisDeduction: cisDeduction,
-        netEarnings: netEarnings,
-        cisRate: 0.30,
-        sessions: formattedSessions
-      };
-      
-      console.log(`💰 ${contractorName}: ${totalHours}h, £${grossEarnings} gross, £${netEarnings} net`);
-      res.json(weeklyEarnings);
-      
-    } catch (error) {
+      let weekEnding = weekEndingParam;
+      if (!weekEnding) {
+        const now = new Date();
+        const currentDay = now.getDay();
+        const daysToFriday = currentDay <= 5 ? (5 - currentDay) : (7 - currentDay + 5);
+        const weekEndingFriday = new Date(now.getTime() + (daysToFriday * 24 * 60 * 60 * 1000));
+        weekEnding = weekEndingFriday.toISOString().split("T")[0];
+      }
+
+      console.log(`💰 Getting unified earnings for contractor: ${contractorName}, week ending: ${weekEnding}`);
+      const summary = await calculateWorkerPayroll(client, contractorName, weekEnding);
+      res.json(summary);
+    } catch (error: any) {
       console.error("Error fetching contractor earnings:", error);
-      res.status(500).json({ error: "Failed to fetch contractor earnings" });
+      res.status(500).json({ error: error?.message || "Failed to fetch contractor earnings" });
     }
   });
 

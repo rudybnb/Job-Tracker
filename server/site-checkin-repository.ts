@@ -63,6 +63,8 @@ export interface SiteCheckinStore {
 
   findActiveSessionForWorker(identityLabel: string): Promise<{ id: string; jobId: string | null; jobSiteLocation: string | null; startTime: Date | string | null; status: string } | null>;
 
+  getWorkerWorkSessions(identityLabel: string): Promise<{ id: string; contractorName: string; jobSiteLocation: string | null; startTime: Date | string | null; endTime: Date | string | null; status: string; jobId: string | null; workerId: string | null; contractorId: string | null }[]>;
+
   closeWorkSession(sessionId: string, endTime: string, identityLabel?: string): Promise<boolean>;
 }
 
@@ -366,6 +368,33 @@ export class PostgresSiteCheckinStore implements SiteCheckinStore {
       startTime: rows[0].start_time,
       status: rows[0].status,
     } : null;
+  }
+
+  async getWorkerWorkSessions(identityLabel: string): Promise<{ id: string; contractorName: string; jobSiteLocation: string | null; startTime: Date | string | null; endTime: Date | string | null; status: string; jobId: string | null; workerId: string | null; contractorId: string | null }[]> {
+    const cleanLabel = (identityLabel || "").trim();
+    const dotVariant = cleanLabel.replace(/\s+/g, ".");
+    const spaceVariant = cleanLabel.replace(/\./g, " ");
+
+    const rows = await this.sql<{ id: string; contractor_name: string; job_site_location: string | null; start_time: Date | string | null; end_time: Date | string | null; status: string; job_id: string | null; worker_id: string | null; contractor_id: string | null }[]>`
+      SELECT id, contractor_name, job_site_location, start_time, end_time, status, job_id, worker_id, contractor_id
+        FROM work_sessions
+       WHERE (contractor_name = ${cleanLabel}
+          OR contractor_name ILIKE ${cleanLabel}
+          OR contractor_name ILIKE ${dotVariant}
+          OR contractor_name ILIKE ${spaceVariant})
+       ORDER BY start_time ASC NULLS LAST
+    `;
+    return rows.map((r) => ({
+      id: r.id,
+      contractorName: r.contractor_name,
+      jobSiteLocation: r.job_site_location,
+      startTime: r.start_time,
+      endTime: r.end_time,
+      status: r.status,
+      jobId: r.job_id,
+      workerId: r.worker_id,
+      contractorId: r.contractor_id,
+    }));
   }
 
   async closeWorkSession(sessionId: string, endTime: string, identityLabel?: string): Promise<boolean> {

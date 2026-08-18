@@ -530,6 +530,111 @@ body {
   color: var(--sp-color-accent);
 }
 
+.lm-timeline-block {
+  margin-block-start: var(--sp-space-md);
+  padding: var(--sp-space-sm) var(--sp-space-md);
+  border: var(--sp-rule-hairline) solid var(--sp-color-rule);
+  border-radius: var(--sp-radius-md);
+  background: var(--sp-color-surface-muted);
+}
+
+.lm-timeline-block__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-block-end: var(--sp-space-xs);
+  color: var(--sp-color-muted);
+  font-size: var(--sp-text-xs);
+  font-weight: 800;
+  letter-spacing: var(--sp-track-wide);
+  text-transform: uppercase;
+}
+
+.lm-timeline-block__head strong {
+  color: var(--sp-color-accent);
+  font-size: var(--sp-text-xs);
+}
+
+.lm-timeline-stepper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-space-xs);
+}
+
+.lm-timeline-node {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-space-2xs);
+}
+
+.lm-timeline-break {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: var(--sp-space-2xs);
+}
+
+.lm-timeline-break span {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border-radius: var(--sp-radius-round);
+  background: rgba(208, 184, 115, 0.12);
+  border: 1px solid rgba(208, 184, 115, 0.25);
+  color: var(--sp-color-accent);
+  font-size: var(--sp-text-xs);
+  font-weight: 600;
+}
+
+.lm-timeline-pill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-space-sm);
+  padding: var(--sp-space-xs) var(--sp-space-sm);
+  border-radius: var(--sp-radius-sm);
+  border: var(--sp-rule-hairline) solid var(--sp-color-rule);
+  background: var(--sp-color-surface);
+  font-size: var(--sp-text-xs);
+}
+
+.lm-timeline-pill--active {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.lm-timeline-pill__info {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-space-xs);
+  min-width: 0;
+}
+
+.lm-timeline-pill__num {
+  font-weight: 700;
+  color: var(--sp-color-muted);
+}
+
+.lm-timeline-pill__time {
+  font-family: var(--sp-font-mono, monospace);
+  font-weight: 600;
+  color: var(--sp-color-ink);
+}
+
+.lm-timeline-pill__site {
+  color: var(--sp-color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+.lm-timeline-pill__dur {
+  font-family: var(--sp-font-mono, monospace);
+  font-weight: 700;
+  color: var(--sp-color-accent);
+  white-space: nowrap;
+}
+
 .lm-empty {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

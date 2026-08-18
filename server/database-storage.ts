@@ -594,8 +594,17 @@ export class DatabaseStorage implements IStorage {
   // Get authentic pay rate from database - Mandatory Rule #2: DATA INTEGRITY
   async getContractorPayRate(contractorName: string): Promise<number> {
     try {
+      const clean = (contractorName || "").trim();
+      const dotVariant = clean.replace(/\s+/g, ".");
+      const spaceVariant = clean.replace(/\./g, " ");
+
       const [contractor] = await db.select().from(contractorApplications)
-        .where(sql`CONCAT(${contractorApplications.firstName}, ' ', ${contractorApplications.lastName}) = ${contractorName}`)
+        .where(
+          sql`${contractorApplications.username} ILIKE ${clean}
+           OR ${contractorApplications.username} ILIKE ${dotVariant}
+           OR CONCAT(${contractorApplications.firstName}, ' ', ${contractorApplications.lastName}) ILIKE ${clean}
+           OR CONCAT(${contractorApplications.firstName}, ' ', ${contractorApplications.lastName}) ILIKE ${spaceVariant}`
+        )
         .limit(1);
       
       if (contractor?.adminPayRate) {
@@ -604,11 +613,11 @@ export class DatabaseStorage implements IStorage {
         return rate;
       }
       
-      console.log(`⚠️ No pay rate found for ${contractorName} - using system default`);
-      return 25.00;
+      console.log(`⚠️ No pay rate found for ${contractorName}`);
+      return 0;
     } catch (error) {
       console.error(`❌ Error getting pay rate for ${contractorName}:`, error);
-      return 25.00;
+      return 0;
     }
   }
 
