@@ -123,7 +123,7 @@ export async function initializeDatabase() {
           timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
           latitude TEXT,
           longitude TEXT,
-          gps_accuracy INTEGER,
+          gps_accuracy DOUBLE PRECISION,
           job_id VARCHAR REFERENCES jobs(id),
           site_name TEXT,
           source TEXT NOT NULL DEFAULT 'worker',
@@ -175,6 +175,14 @@ export async function initializeDatabase() {
     } catch {}
     try {
       await db.execute(sql`ALTER TABLE site_checkin_attempt DROP CONSTRAINT IF EXISTS site_checkin_attempt_reason_check;`);
+    } catch {}
+
+    // Ensure GPS accuracy columns accept decimal/double precision
+    try {
+      await db.execute(sql`ALTER TABLE attendance_events ALTER COLUMN gps_accuracy TYPE DOUBLE PRECISION USING gps_accuracy::double precision;`);
+    } catch {}
+    try {
+      await db.execute(sql`ALTER TABLE site_checkin_attempt ALTER COLUMN gps_accuracy_metres TYPE DOUBLE PRECISION USING gps_accuracy_metres::double precision;`);
     } catch {}
 
     // Ensure session_status enum supports 'on_break'

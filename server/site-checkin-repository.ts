@@ -152,7 +152,7 @@ function eventFromRow(row: EventDbRow): AttendanceEventRecord {
     timestamp: row.timestamp,
     latitude: row.latitude,
     longitude: row.longitude,
-    gpsAccuracy: row.gps_accuracy,
+    gpsAccuracy: row.gps_accuracy != null ? Number(row.gps_accuracy) : null,
     jobId: row.job_id,
     siteName: row.site_name,
     source: (row.source as "worker" | "admin" | "system") || "worker",

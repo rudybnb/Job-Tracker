@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, date, pgEnum, boolean, uuid, integer, numeric, jsonb, bigint, index, uniqueIndex, check, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, date, pgEnum, boolean, uuid, integer, numeric, jsonb, bigint, index, uniqueIndex, check, doublePrecision, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1321,7 +1321,7 @@ export const attendanceEvents = pgTable("attendance_events", {
   timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
   latitude: text("latitude"),
   longitude: text("longitude"),
-  gpsAccuracy: integer("gps_accuracy"),
+  gpsAccuracy: doublePrecision("gps_accuracy"),
   jobId: varchar("job_id").references(() => jobs.id),
   siteName: text("site_name"),
   source: text("source").notNull().default("worker"), // 'worker' | 'admin' | 'system'
