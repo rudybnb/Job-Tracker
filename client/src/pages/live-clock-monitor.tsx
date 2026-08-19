@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import "./live-clock-monitor.css";
 
 function LogoutButton() {
@@ -25,13 +25,121 @@ function LogoutButton() {
 }
 
 export default function LiveClockMonitor() {
+  const queryClient = useQueryClient();
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
+
+  // Correction Modal State
+  const [editingSession, setEditingSession] = useState<any | null>(null);
+  const [corrDate, setCorrDate] = useState("");
+  const [corrClockIn, setCorrClockIn] = useState("");
+  const [corrBreakOut, setCorrBreakOut] = useState("");
+  const [corrBreakReturn, setCorrBreakReturn] = useState("");
+  const [corrClockOut, setCorrClockOut] = useState("");
+  const [corrStatus, setCorrStatus] = useState("completed");
+  const [corrReason, setCorrReason] = useState("");
+  const [corrAuditLogs, setCorrAuditLogs] = useState<any[]>([]);
+  const [isSavingCorr, setIsSavingCorr] = useState(false);
+  const [corrError, setCorrError] = useState("");
 
   // Fetch active work sessions
   const { data: activeSessions = [], isLoading: activeLoading } = useQuery<any[]>({
     queryKey: ['/api/admin/active-sessions'],
     refetchInterval: 10000 // Refresh every 10 seconds
   });
+
+  const handleOpenCorrection = async (session: any) => {
+    setEditingSession(session);
+    setCorrError("");
+
+    // Base date
+    const baseDateStr = session.clockInTime
+      ? new Date(session.clockInTime).toISOString().slice(0, 10)
+      : (session.startTime ? new Date(session.startTime).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setCorrDate(baseDateStr);
+
+    const toTimeInput = (iso?: string | null) => {
+      if (!iso) return "";
+      try {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      } catch {
+        return "";
+      }
+    };
+
+    setCorrClockIn(toTimeInput(session.clockInTime || session.startTime));
+    setCorrBreakOut(toTimeInput(session.breakOutTime || session.breakStartTime));
+    setCorrBreakReturn(toTimeInput(session.breakReturnTime || session.breakEndTime));
+    setCorrClockOut(toTimeInput(session.clockOutTime || session.endTime));
+    setCorrStatus(session.clockOutTime || session.endTime ? "completed" : (session.status === 'on_break' ? "on_break" : "active"));
+    setCorrReason(session.attendanceFlag === 'ATTENDANCE REVIEW REQUIRED' ? 'Attendance review & correction by Admin' : '');
+
+    // Fetch existing audit corrections
+    try {
+      const resp = await fetch(`/api/admin/attendance-corrections/${session.id}`);
+      if (resp.ok) {
+        const logs = await resp.json();
+        setCorrAuditLogs(logs);
+      } else {
+        setCorrAuditLogs([]);
+      }
+    } catch {
+      setCorrAuditLogs([]);
+    }
+  };
+
+  const handleSaveCorrection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSession) return;
+    if (!corrReason.trim()) {
+      setCorrError("Please enter a reason for this attendance correction.");
+      return;
+    }
+    if (!corrClockIn) {
+      setCorrError("Clock In time is required.");
+      return;
+    }
+
+    setIsSavingCorr(true);
+    setCorrError("");
+
+    try {
+      const buildIso = (timeStr: string) => {
+        if (!timeStr) return null;
+        return new Date(`${corrDate}T${timeStr}:00`).toISOString();
+      };
+
+      const payload = {
+        workSessionId: editingSession.id,
+        clockInTime: buildIso(corrClockIn),
+        breakStartTime: corrBreakOut ? buildIso(corrBreakOut) : null,
+        breakEndTime: corrBreakReturn ? buildIso(corrBreakReturn) : null,
+        clockOutTime: corrClockOut ? buildIso(corrClockOut) : null,
+        status: corrClockOut ? "completed" : corrStatus,
+        reason: corrReason.trim(),
+        adminUser: localStorage.getItem('adminName') || 'Admin',
+      };
+
+      const resp = await fetch("/api/admin/attendance-corrections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok) {
+        const errJson = await resp.json();
+        throw new Error(errJson.error || "Failed to save correction.");
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/admin/active-sessions'] });
+      setEditingSession(null);
+    } catch (err: any) {
+      setCorrError(err.message || "Failed to save correction.");
+    } finally {
+      setIsSavingCorr(false);
+    }
+  };
 
 
 
@@ -333,6 +441,18 @@ export default function LiveClockMonitor() {
                           </span>
                         </div>
                       )}
+
+                      {/* Admin Attendance Review & Correction Action */}
+                      <div className="lm-card-actions">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCorrection(session)}
+                          className={`lm-btn-correct ${isReviewRequired ? 'lm-btn-correct--warn' : ''}`}
+                        >
+                          <i className="fas fa-edit" aria-hidden="true"></i>
+                          <span>{isReviewRequired ? 'Review & Correct Shift' : 'Admin Edit Shift'}</span>
+                        </button>
+                      </div>
                     </article>
                 );
               })}
@@ -376,6 +496,183 @@ export default function LiveClockMonitor() {
           </button>
         </div>
       </nav>
+
+      {/* Admin Correction Modal */}
+      {editingSession && (
+        <div className="lm-modal-backdrop" onClick={() => setEditingSession(null)}>
+          <div className="lm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="lm-modal__head">
+              <div>
+                <h2>Admin Attendance Review & Correction</h2>
+                <p>{editingSession.contractorName} • {editingSession.jobSiteLocation || 'Job Site'}</p>
+              </div>
+              <button
+                type="button"
+                className="lm-modal__close"
+                onClick={() => setEditingSession(null)}
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCorrection}>
+              <div className="lm-modal__body">
+                {corrError && (
+                  <div style={{ padding: '0.75rem', background: '#451a1a', border: '1px solid #7f1d1d', borderRadius: '0.5rem', color: '#fca5a5', fontSize: '0.875rem' }}>
+                    {corrError}
+                  </div>
+                )}
+
+                <div className="lm-form-group">
+                  <label>Shift Date</label>
+                  <input
+                    type="date"
+                    className="lm-input"
+                    value={corrDate}
+                    onChange={(e) => setCorrDate(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="lm-form-grid">
+                  <div className="lm-form-group">
+                    <label>Clock In Time (Required)</label>
+                    <input
+                      type="time"
+                      className="lm-input"
+                      value={corrClockIn}
+                      onChange={(e) => setCorrClockIn(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="lm-form-group">
+                    <label>Clock Out Time (Optional)</label>
+                    <input
+                      type="time"
+                      className="lm-input"
+                      value={corrClockOut}
+                      onChange={(e) => setCorrClockOut(e.target.value)}
+                      placeholder="Leave blank if active"
+                    />
+                  </div>
+                </div>
+
+                <div className="lm-form-grid">
+                  <div className="lm-form-group">
+                    <label>Break Out Time (Optional)</label>
+                    <input
+                      type="time"
+                      className="lm-input"
+                      value={corrBreakOut}
+                      onChange={(e) => setCorrBreakOut(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="lm-form-group">
+                    <label>Break Return Time (Optional)</label>
+                    <input
+                      type="time"
+                      className="lm-input"
+                      value={corrBreakReturn}
+                      onChange={(e) => setCorrBreakReturn(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="lm-form-group">
+                  <label>Session Status</label>
+                  <select
+                    className="lm-input"
+                    value={corrStatus}
+                    onChange={(e) => setCorrStatus(e.target.value)}
+                  >
+                    <option value="completed">Completed (Shift Closed)</option>
+                    <option value="active">Active (On Site)</option>
+                    <option value="on_break">On Break</option>
+                  </select>
+                </div>
+
+                <div className="lm-form-group">
+                  <label>Reason for Correction (Audit Requirement)</label>
+                  <textarea
+                    className="lm-textarea"
+                    rows={3}
+                    placeholder="e.g. Corrected legacy 18:00 auto-logout. Worker finished at 16:30."
+                    value={corrReason}
+                    onChange={(e) => setCorrReason(e.target.value)}
+                    required
+                  ></textarea>
+                </div>
+
+                {/* Audit History */}
+                {corrAuditLogs.length > 0 && (
+                  <div className="lm-audit-section">
+                    <h4>Audit History ({corrAuditLogs.length} previous correction{corrAuditLogs.length > 1 ? 's' : ''})</h4>
+                    {corrAuditLogs.map((log: any) => {
+                      let oldV: any = {};
+                      let newV: any = {};
+                      try {
+                        oldV = typeof log.oldValues === 'string' ? JSON.parse(log.oldValues) : log.oldValues;
+                      } catch {}
+                      try {
+                        newV = typeof log.newValues === 'string' ? JSON.parse(log.newValues) : log.newValues;
+                      } catch {}
+
+                      const fmtTime = (iso?: string | null) => {
+                        if (!iso) return '—';
+                        try {
+                          return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                        } catch {
+                          return '—';
+                        }
+                      };
+
+                      return (
+                        <div key={log.id} className="lm-audit-item">
+                          <div className="lm-audit-item__meta">
+                            <strong style={{ color: '#60a5fa' }}>Admin: {log.adminUser}</strong>
+                            <span>{new Date(log.createdAt).toLocaleString('en-GB')}</span>
+                          </div>
+                          <div style={{ marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <div style={{ color: '#ef4444' }}>
+                              <strong>Original:</strong> In: {fmtTime(oldV.startTime)} | Out: {fmtTime(oldV.endTime)} ({oldV.totalHours ? `${oldV.totalHours}h` : oldV.status})
+                            </div>
+                            <div style={{ color: '#10b981' }}>
+                              <strong>Corrected:</strong> In: {fmtTime(newV.startTime)} | Out: {fmtTime(newV.endTime)} ({newV.totalHours ? `${newV.totalHours}h` : newV.status})
+                            </div>
+                            <div>
+                              <strong>Reason:</strong> {log.reason}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="lm-modal__foot">
+                <button
+                  type="button"
+                  className="lm-btn-cancel"
+                  onClick={() => setEditingSession(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="lm-btn-save"
+                  disabled={isSavingCorr}
+                >
+                  {isSavingCorr ? "Saving..." : "Apply & Clear Review Warning"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

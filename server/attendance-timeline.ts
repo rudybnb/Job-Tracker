@@ -175,8 +175,44 @@ export function buildAttendanceTimeline(
     let firstBreakStart: string | null = null;
     let lastBreakEnd: string | null = null;
 
-    // Process linked events if available
-    if (session.events && session.events.length > 0) {
+    // Process breaks: if session is ADMIN_CORRECTED and has explicit break fields, use them as authoritative effective breaks
+    if (session.attendanceFlag?.includes("ADMIN_CORRECTED") && session.breakStartTime) {
+      const bStartMs = new Date(session.breakStartTime).getTime();
+      const bStartIso = new Date(session.breakStartTime).toISOString();
+      firstBreakStart = bStartIso;
+
+      if (session.breakEndTime) {
+        const bEndMs = new Date(session.breakEndTime).getTime();
+        const bEndIso = new Date(session.breakEndTime).toISOString();
+        lastBreakEnd = bEndIso;
+        const bDur = Math.max(0, Math.round((bEndMs - bStartMs) / 1000));
+        breaks.push({
+          start: bStartIso,
+          end: bEndIso,
+          durationSeconds: bDur,
+        });
+        sessionBreakSeconds += bDur;
+      } else if (!hasEndTime) {
+        const bDur = Math.max(0, Math.round((nowMs - bStartMs) / 1000));
+        breaks.push({
+          start: bStartIso,
+          end: null,
+          durationSeconds: bDur,
+        });
+        sessionBreakSeconds += bDur;
+      }
+
+      // Check if location signal lost from events
+      if (session.events && session.events.length > 0) {
+        for (const evt of session.events) {
+          if (evt.eventType === "LOCATION_SIGNAL_LOST") {
+            locationSignalLost = true;
+          } else if (evt.eventType === "LOCATION_SIGNAL_RESTORED") {
+            locationSignalLost = false;
+          }
+        }
+      }
+    } else if (session.events && session.events.length > 0) {
       const sortedEvents = [...session.events].sort(
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );

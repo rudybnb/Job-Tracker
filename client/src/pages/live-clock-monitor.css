@@ -925,3 +925,216 @@ body {
     transition-duration: var(--sp-dur-reduced) !important;
   }
 }
+
+/* Admin Correction Action Button & Modal */
+.lm-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: var(--sp-rule-hairline) solid var(--sp-color-rule);
+}
+
+.lm-btn-correct {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--sp-color-accent-soft, #fef3c7);
+  color: var(--sp-color-accent-strong, #92400e);
+  border: 1px solid var(--sp-color-accent-rule, #fde68a);
+  border-radius: var(--sp-radius-md, 0.5rem);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lm-btn-correct:hover {
+  background: #fde68a;
+  transform: translateY(-1px);
+}
+
+.lm-btn-correct--warn {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.lm-btn-correct--warn:hover {
+  background: #fee2e2;
+}
+
+.lm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.lm-modal {
+  background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid #334155;
+  border-radius: 1rem;
+  max-width: 38rem;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.lm-modal__head {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.lm-modal__head h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: #f8fafc;
+}
+
+.lm-modal__head p {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+.lm-modal__close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+}
+
+.lm-modal__close:hover {
+  color: #ffffff;
+}
+
+.lm-modal__body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.lm-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.lm-form-group label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.lm-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.lm-input,
+.lm-textarea {
+  background: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  color: #f8fafc;
+  font-size: 0.9375rem;
+  font-family: inherit;
+}
+
+.lm-input:focus,
+.lm-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.lm-audit-section {
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #334155;
+}
+
+.lm-audit-section h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+.lm-audit-item {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font-size: 0.8125rem;
+  margin-bottom: 0.5rem;
+}
+
+.lm-audit-item__meta {
+  display: flex;
+  justify-content: space-between;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.lm-modal__foot {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #334155;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background: #182234;
+}
+
+.lm-btn-cancel {
+  padding: 0.5rem 1rem;
+  background: #334155;
+  color: #cbd5e1;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lm-btn-save {
+  padding: 0.5rem 1.25rem;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.lm-btn-save:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.lm-btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

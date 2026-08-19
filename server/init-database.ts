@@ -133,6 +133,31 @@ export async function initializeDatabase() {
       
       console.log('✅ attendance_events table created successfully');
     }
+
+    // Ensure attendance_corrections table exists for audit history
+    const correctionsTableCheck = await db.execute(sql`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name = 'attendance_corrections'
+    `);
+    
+    if (!Array.isArray(correctionsTableCheck) || correctionsTableCheck.length === 0) {
+      console.log('📋 Creating attendance_corrections table...');
+      await db.execute(sql`
+        CREATE TABLE attendance_corrections (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          work_session_id VARCHAR NOT NULL REFERENCES work_sessions(id) ON DELETE CASCADE,
+          contractor_name TEXT NOT NULL,
+          old_values TEXT NOT NULL,
+          new_values TEXT NOT NULL,
+          admin_user TEXT NOT NULL,
+          reason TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+      `);
+      console.log('✅ attendance_corrections table created successfully');
+    }
     
     // Ensure workers table has is_deleted column
     try {

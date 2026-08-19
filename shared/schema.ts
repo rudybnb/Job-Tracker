@@ -1331,6 +1331,21 @@ export const attendanceEvents = pgTable("attendance_events", {
 export type AttendanceEvent = typeof attendanceEvents.$inferSelect;
 export type InsertAttendanceEvent = typeof attendanceEvents.$inferInsert;
 
+// Audit history for admin attendance corrections
+export const attendanceCorrections = pgTable("attendance_corrections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workSessionId: varchar("work_session_id").notNull().references(() => workSessions.id, { onDelete: "cascade" }),
+  contractorName: text("contractor_name").notNull(),
+  oldValues: text("old_values").notNull(), // JSON string of previous timestamps/status
+  newValues: text("new_values").notNull(), // JSON string of corrected timestamps/status
+  adminUser: text("admin_user").notNull(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AttendanceCorrection = typeof attendanceCorrections.$inferSelect;
+export type InsertAttendanceCorrection = typeof attendanceCorrections.$inferInsert;
+
 export const siteCheckinConfigs = pgTable("site_checkin_config", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "restrict" }),

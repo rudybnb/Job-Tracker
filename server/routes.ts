@@ -23,11 +23,11 @@ import type { Request as ExpressRequest } from "express";
 import * as fs from "fs";
 import * as path from "path";
 import * as XLSX from "xlsx";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { eq, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, workSessions, attendanceEvents } from "@shared/schema";
+import { csvUploads, jobs as jobsTable, workSessions, attendanceEvents, attendanceCorrections } from "@shared/schema";
 import { normalizeUploadCsvContent, parseJobUploadCsv, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
 import { buildAttendanceTimeline, getLondonDateString } from "./attendance-timeline.ts";
 
@@ -2952,6 +2952,214 @@ app.delete("/api/csv-uploads/:id", async (req, res) => {
     } catch (error) {
       console.error("Error fetching active sessions:", error);
       res.status(500).json({ error: "Failed to fetch active sessions" });
+    }
+  });
+
+  // Admin Review & Correction of Attendance
+  app.post("/api/admin/attendance-corrections", async (req, res) => {
+    try {
+      const {
+        workSessionId,
+        clockInTime,
+        breakStartTime,
+        breakEndTime,
+        clockOutTime,
+        status: requestedStatus,
+        reason,
+        adminUser: bodyAdminUser,
+      } = req.body;
+
+      if (!workSessionId) {
+        return res.status(400).json({ error: "workSessionId is required." });
+      }
+      if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
+        return res.status(400).json({ error: "A correction reason is required for audit history." });
+      }
+
+      const [session] = await db
+        .select()
+        .from(workSessions)
+        .where(eq(workSessions.id, workSessionId))
+        .limit(1);
+
+      if (!session) {
+        return res.status(404).json({ error: "Work session not found." });
+      }
+
+      // Fetch existing events
+      const existingEvents = await db
+        .select()
+        .from(attendanceEvents)
+        .where(eq(attendanceEvents.workSessionId, workSessionId))
+        .orderBy(sql`timestamp ASC`);
+
+      // Record old state snapshot for audit
+      const oldValues = {
+        startTime: session.startTime ? new Date(session.startTime).toISOString() : null,
+        endTime: session.endTime ? new Date(session.endTime).toISOString() : null,
+        status: session.status,
+        totalHours: session.totalHours,
+        attendanceFlag: session.attendanceFlag,
+        events: existingEvents.map((e) => ({
+          id: e.id,
+          eventType: e.eventType,
+          timestamp: new Date(e.timestamp).toISOString(),
+          source: e.source,
+        })),
+      };
+
+      // Parse dates
+      const clockInDate = clockInTime ? new Date(clockInTime) : (session.startTime ? new Date(session.startTime) : new Date());
+      const breakStartDate = breakStartTime ? new Date(breakStartTime) : null;
+      const breakEndDate = breakEndTime ? new Date(breakEndTime) : null;
+      const clockOutDate = clockOutTime ? new Date(clockOutTime) : null;
+
+      if (Number.isNaN(clockInDate.getTime())) {
+        return res.status(400).json({ error: "Invalid Clock In timestamp." });
+      }
+      if (breakStartDate && Number.isNaN(breakStartDate.getTime())) {
+        return res.status(400).json({ error: "Invalid Break Start timestamp." });
+      }
+      if (breakEndDate && Number.isNaN(breakEndDate.getTime())) {
+        return res.status(400).json({ error: "Invalid Break End timestamp." });
+      }
+      if (clockOutDate && Number.isNaN(clockOutDate.getTime())) {
+        return res.status(400).json({ error: "Invalid Clock Out timestamp." });
+      }
+
+      // Logical order validations
+      if (clockOutDate && clockOutDate.getTime() < clockInDate.getTime()) {
+        return res.status(400).json({ error: "Clock Out time cannot be before Clock In time." });
+      }
+      if (breakStartDate && breakStartDate.getTime() < clockInDate.getTime()) {
+        return res.status(400).json({ error: "Break Start cannot be before Clock In time." });
+      }
+      if (breakEndDate && breakStartDate && breakEndDate.getTime() < breakStartDate.getTime()) {
+        return res.status(400).json({ error: "Break Return cannot be before Break Start time." });
+      }
+      if (clockOutDate && breakEndDate && clockOutDate.getTime() < breakEndDate.getTime()) {
+        return res.status(400).json({ error: "Clock Out cannot be before Break Return time." });
+      }
+
+      // Determine new status
+      let finalStatus = requestedStatus;
+      if (!finalStatus) {
+        if (clockOutDate) {
+          finalStatus = "completed";
+        } else if (breakStartDate && !breakEndDate) {
+          finalStatus = "on_break";
+        } else {
+          finalStatus = "active";
+        }
+      }
+
+      // Calculate total worked hours
+      let breakDurationMs = 0;
+      if (breakStartDate && breakEndDate) {
+        breakDurationMs = Math.max(0, breakEndDate.getTime() - breakStartDate.getTime());
+      }
+      let calculatedHours: string | null = null;
+      if (clockOutDate) {
+        const grossMs = Math.max(0, clockOutDate.getTime() - clockInDate.getTime());
+        const netMs = Math.max(0, grossMs - breakDurationMs);
+        calculatedHours = (netMs / (1000 * 60 * 60)).toFixed(2);
+      }
+
+      const adminUser = bodyAdminUser || (req as any).session?.adminName || "Admin";
+
+      const newValues = {
+        startTime: clockInDate.toISOString(),
+        breakStartTime: breakStartDate ? breakStartDate.toISOString() : null,
+        breakEndTime: breakEndDate ? breakEndDate.toISOString() : null,
+        endTime: clockOutDate ? clockOutDate.toISOString() : null,
+        status: finalStatus,
+        totalHours: calculatedHours,
+        attendanceFlag: "ADMIN_CORRECTED",
+        adminUser,
+        reason: reason.trim(),
+      };
+
+      // Perform update and audit recording
+      const correctionId = randomUUID();
+      await db.insert(attendanceCorrections).values({
+        id: correctionId,
+        workSessionId,
+        contractorName: session.contractorName,
+        oldValues: JSON.stringify(oldValues),
+        newValues: JSON.stringify(newValues),
+        adminUser,
+        reason: reason.trim(),
+        createdAt: new Date(),
+      });
+
+      // Update work session with effective corrected values
+      await db
+        .update(workSessions)
+        .set({
+          startTime: clockInDate,
+          endTime: clockOutDate,
+          breakStartTime: breakStartDate,
+          breakEndTime: breakEndDate,
+          status: finalStatus,
+          totalHours: calculatedHours,
+          attendanceFlag: "ADMIN_CORRECTED",
+        })
+        .where(eq(workSessions.id, workSessionId));
+
+      // Append ADMIN_CORRECTION audit event (original worker events are NEVER deleted or overwritten)
+      await db.insert(attendanceEvents).values({
+        id: randomUUID(),
+        workSessionId,
+        eventType: "ADMIN_CORRECTION",
+        timestamp: new Date(),
+        jobId: session.jobId,
+        siteName: session.jobSiteLocation,
+        source: "admin",
+        createdAt: new Date(),
+      });
+
+      // If clockOutDate was supplied and no CLOCK_OUT event existed, append an admin-source CLOCK_OUT event
+      const hasExistingClockOut = existingEvents.some((e) => e.eventType === "CLOCK_OUT");
+      if (clockOutDate && !hasExistingClockOut) {
+        await db.insert(attendanceEvents).values({
+          id: randomUUID(),
+          workSessionId,
+          eventType: "CLOCK_OUT",
+          timestamp: clockOutDate,
+          jobId: session.jobId,
+          siteName: session.jobSiteLocation,
+          source: "admin",
+          createdAt: new Date(),
+        });
+      }
+
+      console.log(`✅ Admin ${adminUser} corrected attendance for session ${workSessionId} (${session.contractorName}): ${reason}`);
+
+      return res.status(200).json({
+        success: true,
+        correctionId,
+        workSessionId,
+        newValues,
+      });
+    } catch (error: any) {
+      console.error("Error saving attendance correction:", error);
+      return res.status(500).json({ error: error?.message || "Failed to save attendance correction." });
+    }
+  });
+
+  // Get audit corrections for a session
+  app.get("/api/admin/attendance-corrections/:sessionId", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const corrections = await db
+        .select()
+        .from(attendanceCorrections)
+        .where(eq(attendanceCorrections.workSessionId, sessionId))
+        .orderBy(sql`created_at DESC`);
+      res.json(corrections);
+    } catch (error: any) {
+      console.error("Error fetching attendance corrections:", error);
+      res.status(500).json({ error: "Failed to fetch corrections." });
     }
   });
 
