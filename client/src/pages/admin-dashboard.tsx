@@ -194,7 +194,7 @@ export default function AdminDashboard() {
   }, [isTracking, startTime]);
 
   const adminName = localStorage.getItem("adminName") || "Admin";
-  const adminEmail = localStorage.getItem("adminEmail") || "admin@erbuildanddesign.co.uk";
+  const adminEmail = localStorage.getItem("adminEmail");
   const adminInitials = adminName
     .split(" ")
     .map((name) => name[0])
@@ -399,7 +399,7 @@ export default function AdminDashboard() {
             <div className="sculpt-mega__identity">
               <div>
                 <p>{adminName}</p>
-                <span>{adminEmail}</span>
+                <span>{adminEmail || "Administrator Account"}</span>
               </div>
               <Badge className="sculpt-status sculpt-status--bad">Admin Access</Badge>
             </div>

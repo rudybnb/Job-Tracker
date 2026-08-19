@@ -9,6 +9,7 @@ interface Worker {
   firstName: string;
   lastName: string;
   fullName: string;
+  username?: string | null;
   phone: string | null;
   email: string | null;
   workerType: string;
@@ -16,6 +17,7 @@ interface Worker {
   assignedJobId?: string | null;
   assignedJobTitle?: string | null;
   assignedJobLocation?: string | null;
+  currentAttendanceStatus?: string | null;
 }
 
 interface JobOption {
@@ -63,7 +65,7 @@ export default function AdminWorkers() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const adminName = localStorage.getItem("adminName") || "Admin";
-  const adminEmail = localStorage.getItem("adminEmail") || "admin@erbuildanddesign.co.uk";
+  const adminEmail = localStorage.getItem("adminEmail");
   const adminInitials = adminName
     .split(" ")
     .map((name) => name[0])
@@ -306,7 +308,7 @@ export default function AdminWorkers() {
             <div className="sculpt-mega__identity">
               <div>
                 <p>{adminName}</p>
-                <span>{adminEmail}</span>
+                <span>{adminEmail || "Administrator Account"}</span>
               </div>
               <span className="sculpt-status sculpt-status--bad" style={{ padding: "0.25rem 0.5rem", borderRadius: "4px" }}>
                 Admin Access
@@ -524,6 +526,42 @@ export default function AdminWorkers() {
                             )}
                           </span>
                         </div>
+
+                        {worker.currentAttendanceStatus && (
+                          <div>
+                            <strong style={{ color: "var(--sp-color-muted, #9ca3af)", fontSize: "0.75rem", display: "block" }}>LIVE ATTENDANCE</strong>
+                            <span
+                              style={{
+                                display: "inline-block",
+                                padding: "0.15rem 0.5rem",
+                                borderRadius: "4px",
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
+                                background:
+                                  worker.currentAttendanceStatus === "CLOCKED IN"
+                                    ? "rgba(16, 185, 129, 0.15)"
+                                    : worker.currentAttendanceStatus === "ON BREAK"
+                                    ? "rgba(245, 158, 11, 0.15)"
+                                    : "rgba(107, 114, 128, 0.15)",
+                                color:
+                                  worker.currentAttendanceStatus === "CLOCKED IN"
+                                    ? "#10b981"
+                                    : worker.currentAttendanceStatus === "ON BREAK"
+                                    ? "#f59e0b"
+                                    : "#9ca3af",
+                                border: `1px solid ${
+                                  worker.currentAttendanceStatus === "CLOCKED IN"
+                                    ? "rgba(16, 185, 129, 0.3)"
+                                    : worker.currentAttendanceStatus === "ON BREAK"
+                                    ? "rgba(245, 158, 11, 0.3)"
+                                    : "rgba(107, 114, 128, 0.3)"
+                                }`,
+                              }}
+                            >
+                              {worker.currentAttendanceStatus}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

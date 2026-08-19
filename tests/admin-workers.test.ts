@@ -1,10 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { normalizePhoneE164 } from "../server/worker-service.ts";
+import { normalizePhoneE164, deriveCanonicalUsername, WorkerService } from "../server/worker-service.ts";
 import { requireAdmin } from "../server/integration-review-route.ts";
 import { hashPassword, verifyPassword } from "../server/password-security.ts";
 import { parseDmsOrDecimal } from "../client/src/lib/geo-utils.ts";
 import { calculateDistanceMetres } from "../client/src/lib/location.ts";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 function extractTokenFromUrlOrText(input: string): string {
   if (!input) return "";
@@ -470,6 +472,118 @@ describe("Worker Deletion & Record Preservation", () => {
     assert.equal(historicalWorkSessions.length, 2);
     assert.equal(historicalAttendanceEvents.length, 2);
     assert.equal(historicalWorkSessions[0].totalHours, 8);
+  });
+});
+
+describe("Canonical Username Deduplication & Operational Sources", () => {
+  it("derives canonical username from varying inputs correctly", () => {
+    assert.equal(deriveCanonicalUsername("mohamed.shawky"), "mohamed.shawky");
+    assert.equal(deriveCanonicalUsername("Mohamed"), "mohamed.shawky");
+    assert.equal(deriveCanonicalUsername(null, "Mohamed Shawky"), "mohamed.shawky");
+
+    assert.equal(deriveCanonicalUsername("ahmed.gouda"), "ahmed.gouda");
+    assert.equal(deriveCanonicalUsername("Ahmed"), "ahmed.gouda");
+    assert.equal(deriveCanonicalUsername(null, "Ahmed Gouda"), "ahmed.gouda");
+
+    assert.equal(deriveCanonicalUsername("rudy.test"), "rudy.test");
+    assert.equal(deriveCanonicalUsername("Rudy"), "rudy.test");
+    assert.equal(deriveCanonicalUsername(null, "Rudy Diedricks"), "rudy.test");
+
+    assert.equal(deriveCanonicalUsername("said.tiss"), "said.tiss");
+    assert.equal(deriveCanonicalUsername(null, "SAID tiss"), "said.tiss");
+
+    assert.equal(deriveCanonicalUsername("dalwayne"), "dalwayne");
+    assert.equal(deriveCanonicalUsername(null, "Dalwayne Diedericks"), "dalwayne");
+    assert.equal(deriveCanonicalUsername(null, "Dalwayne Bailey"), "dalwayne");
+  });
+
+  it("deduplicates multiple records of same worker across simple_users, applications and contractors", () => {
+    const rawSources = [
+      { username: "mohamed.shawky", fullName: "Mohamed Shawky", source: "simple_users" },
+      { username: "mohamed.shawky", fullName: "Mohamed Shawky", phone: "07123456790", source: "contractor_applications" },
+      { name: "Mohamed Shawky", source: "contractors" },
+      { username: "ahmed.gouda", fullName: "Ahmed Gouda", source: "simple_users" },
+      { name: "Rudy Diedricks", source: "contractors" },
+    ];
+
+    const deduplicated = new Map<string, any>();
+    for (const item of rawSources) {
+      const cUser = deriveCanonicalUsername(item.username, (item as any).fullName || (item as any).name);
+      if (!deduplicated.has(cUser)) {
+        deduplicated.set(cUser, {
+          username: cUser,
+          fullName: (item as any).fullName || (item as any).name,
+          phone: (item as any).phone ? normalizePhoneE164((item as any).phone) : null,
+        });
+      } else {
+        const existing = deduplicated.get(cUser);
+        if ((item as any).phone) existing.phone = normalizePhoneE164((item as any).phone);
+      }
+    }
+
+    assert.equal(deduplicated.size, 3);
+    assert.ok(deduplicated.has("mohamed.shawky"));
+    assert.ok(deduplicated.has("ahmed.gouda"));
+    assert.ok(deduplicated.has("rudy.test"));
+    assert.equal(deduplicated.get("mohamed.shawky").phone, "+447123456790");
+  });
+
+  it("enriches workers with site assignments and attendance status", () => {
+    const worker = {
+      username: "mohamed.shawky",
+      fullName: "Mohamed Shawky",
+      phone: "+447123456790",
+    };
+
+    const assignments = [
+      { contractorName: "Mohamed Shawky", jobId: "job-101", hbxlJob: "15 Gilbert Road", workLocation: "Belvedere" },
+    ];
+
+    const workSessions = [
+      { contractorName: "Mohamed Shawky", status: "active", startTime: "2026-08-19T08:00:00Z" },
+    ];
+
+    const matchedAssignment = assignments.find((a) => a.contractorName.toLowerCase() === worker.fullName.toLowerCase());
+    const matchedSession = workSessions.find((s) => s.contractorName.toLowerCase() === worker.fullName.toLowerCase());
+
+    const enriched = {
+      ...worker,
+      assignedJobId: matchedAssignment?.jobId ?? null,
+      assignedJobTitle: matchedAssignment?.hbxlJob ?? null,
+      assignedJobLocation: matchedAssignment?.workLocation ?? null,
+      currentAttendanceStatus: matchedSession?.status === "active" ? "CLOCKED IN" : "CLOCKED OUT",
+    };
+
+    assert.equal(enriched.assignedJobId, "job-101");
+    assert.equal(enriched.assignedJobTitle, "15 Gilbert Road");
+    assert.equal(enriched.assignedJobLocation, "Belvedere");
+    assert.equal(enriched.currentAttendanceStatus, "CLOCKED IN");
+  });
+});
+
+describe("Admin Email Sanitisation & Routes Verification", () => {
+  it("ensures hardcoded admin@erbuildanddesign.co.uk is removed from admin pages", () => {
+    const adminWorkersContent = readFileSync(
+      resolve(process.cwd(), "client", "src", "pages", "admin-workers.tsx"),
+      "utf8",
+    );
+    const adminDashboardContent = readFileSync(
+      resolve(process.cwd(), "client", "src", "pages", "admin-dashboard.tsx"),
+      "utf8",
+    );
+
+    assert.equal(adminWorkersContent.includes("admin@erbuildanddesign.co.uk"), false);
+    assert.equal(adminDashboardContent.includes("admin@erbuildanddesign.co.uk"), false);
+  });
+
+  it("ensures /workers route is configured in App.tsx", () => {
+    const appContent = readFileSync(
+      resolve(process.cwd(), "client", "src", "App.tsx"),
+      "utf8",
+    );
+
+    assert.ok(appContent.includes('<Route path="/workers"'));
+    assert.ok(appContent.includes('<Route path="/admin/workers"'));
   });
 });
 

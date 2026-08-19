@@ -27,7 +27,7 @@ import { createHash } from "node:crypto";
 import { eq, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, workSessions } from "@shared/schema";
+import { csvUploads, jobs as jobsTable, workSessions, attendanceEvents } from "@shared/schema";
 import { normalizeUploadCsvContent, parseJobUploadCsv, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
 import { buildAttendanceTimeline, getLondonDateString } from "./attendance-timeline.ts";
 
