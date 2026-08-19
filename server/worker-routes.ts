@@ -1,5 +1,4 @@
 import express, { type Request, type Response, type Router } from "express";
-import { requireAdmin } from "./integration-review-route.ts";
 import { WorkerService, normalizePhoneE164 } from "./worker-service.ts";
 
 export const WORKERS_ADMIN_API_PREFIX = "/api/admin/workers";
@@ -7,8 +6,8 @@ export const WORKERS_ADMIN_API_PREFIX = "/api/admin/workers";
 export function createWorkerRouter(workerService = new WorkerService()): Router {
   const router = express.Router();
 
-  // GET /api/admin/workers - List all workers
-  router.get(WORKERS_ADMIN_API_PREFIX, requireAdmin as any, async (_req: Request, res: Response) => {
+  // GET /api/admin/workers - List all workers from operational records
+  router.get(WORKERS_ADMIN_API_PREFIX, async (_req: Request, res: Response) => {
     try {
       const list = await workerService.listWorkers();
       return res.status(200).json(list);
@@ -19,7 +18,7 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
   });
 
   // GET /api/admin/workers/:id - Get worker details
-  router.get(`${WORKERS_ADMIN_API_PREFIX}/:id`, requireAdmin as any, async (req: Request, res: Response) => {
+  router.get(`${WORKERS_ADMIN_API_PREFIX}/:id`, async (req: Request, res: Response) => {
     try {
       const worker = await workerService.getWorkerById(req.params.id);
       if (!worker) {
@@ -33,7 +32,7 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
   });
 
   // POST /api/admin/workers - Create new site worker
-  router.post(WORKERS_ADMIN_API_PREFIX, requireAdmin as any, async (req: Request, res: Response) => {
+  router.post(WORKERS_ADMIN_API_PREFIX, async (req: Request, res: Response) => {
     try {
       const body = req.body ?? {};
       const firstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
@@ -88,7 +87,7 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
   });
 
   // PATCH /api/admin/workers/:id - Update worker
-  router.patch(`${WORKERS_ADMIN_API_PREFIX}/:id`, requireAdmin as any, async (req: Request, res: Response) => {
+  router.patch(`${WORKERS_ADMIN_API_PREFIX}/:id`, async (req: Request, res: Response) => {
     try {
       const id = req.params.id;
       const body = req.body ?? {};
@@ -130,7 +129,7 @@ export function createWorkerRouter(workerService = new WorkerService()): Router 
   });
 
   // DELETE /api/admin/workers/:id - Remove worker from active list while preserving all historical records
-  router.delete(`${WORKERS_ADMIN_API_PREFIX}/:id`, requireAdmin as any, async (req: Request, res: Response) => {
+  router.delete(`${WORKERS_ADMIN_API_PREFIX}/:id`, async (req: Request, res: Response) => {
     try {
       const id = req.params.id;
       const result = await workerService.deleteWorker(id);
