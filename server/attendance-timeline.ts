@@ -179,27 +179,38 @@ export function buildAttendanceTimeline(
     if (session.attendanceFlag?.includes("ADMIN_CORRECTED") && session.breakStartTime) {
       const bStartMs = new Date(session.breakStartTime).getTime();
       const bStartIso = new Date(session.breakStartTime).toISOString();
-      firstBreakStart = bStartIso;
+      if (!endMs || bStartMs < endMs) {
+        firstBreakStart = bStartIso;
 
-      if (session.breakEndTime) {
-        const bEndMs = new Date(session.breakEndTime).getTime();
-        const bEndIso = new Date(session.breakEndTime).toISOString();
-        lastBreakEnd = bEndIso;
-        const bDur = Math.max(0, Math.round((bEndMs - bStartMs) / 1000));
-        breaks.push({
-          start: bStartIso,
-          end: bEndIso,
-          durationSeconds: bDur,
-        });
-        sessionBreakSeconds += bDur;
-      } else if (!hasEndTime) {
-        const bDur = Math.max(0, Math.round((nowMs - bStartMs) / 1000));
-        breaks.push({
-          start: bStartIso,
-          end: null,
-          durationSeconds: bDur,
-        });
-        sessionBreakSeconds += bDur;
+        if (session.breakEndTime) {
+          const bEndMs = new Date(session.breakEndTime).getTime();
+          const effectiveEndMs = endMs ? Math.min(bEndMs, endMs) : bEndMs;
+          const bDur = Math.max(0, Math.round((effectiveEndMs - bStartMs) / 1000));
+          breaks.push({
+            start: bStartIso,
+            end: new Date(session.breakEndTime).toISOString(),
+            durationSeconds: bDur,
+          });
+          sessionBreakSeconds += bDur;
+          lastBreakEnd = new Date(session.breakEndTime).toISOString();
+        } else if (!hasEndTime) {
+          const bDur = Math.max(0, Math.round((nowMs - bStartMs) / 1000));
+          breaks.push({
+            start: bStartIso,
+            end: null,
+            durationSeconds: bDur,
+          });
+          sessionBreakSeconds += bDur;
+        } else if (endMs && bStartMs < endMs) {
+          const bDur = Math.max(0, Math.round((endMs - bStartMs) / 1000));
+          breaks.push({
+            start: bStartIso,
+            end: endDate!.toISOString(),
+            durationSeconds: bDur,
+          });
+          sessionBreakSeconds += bDur;
+          lastBreakEnd = endDate!.toISOString();
+        }
       }
 
       // Check if location signal lost from events
@@ -229,18 +240,23 @@ export function buildAttendanceTimeline(
         } else if (evt.eventType === "LOCATION_SIGNAL_RESTORED") {
           locationSignalLost = false;
         } else if (evt.eventType === "BREAK_START") {
+          // If session is completed and this break start is at or after endMs, IGNORE IT
+          if (endMs && evtMs >= endMs) {
+            continue;
+          }
           currentBreakStartMs = evtMs;
           currentBreakStartIso = evtIso;
           if (!firstBreakStart) firstBreakStart = evtIso;
         } else if (evt.eventType === "BREAK_END" && currentBreakStartMs !== null) {
-          const bDur = Math.max(0, Math.round((evtMs - currentBreakStartMs) / 1000));
+          const effectiveEndMs = endMs ? Math.min(evtMs, endMs) : evtMs;
+          const bDur = Math.max(0, Math.round((effectiveEndMs - currentBreakStartMs) / 1000));
           breaks.push({
             start: currentBreakStartIso!,
-            end: evtIso,
+            end: endMs && evtMs > endMs ? endDate!.toISOString() : evtIso,
             durationSeconds: bDur,
           });
           sessionBreakSeconds += bDur;
-          lastBreakEnd = evtIso;
+          lastBreakEnd = endMs && evtMs > endMs ? endDate!.toISOString() : evtIso;
           currentBreakStartMs = null;
           currentBreakStartIso = null;
         }
@@ -248,40 +264,66 @@ export function buildAttendanceTimeline(
 
       // If currently on an open break
       if (currentBreakStartMs !== null) {
-        const ongoingBreakSecs = Math.max(0, Math.round((nowMs - currentBreakStartMs) / 1000));
-        breaks.push({
-          start: currentBreakStartIso!,
-          end: null,
-          durationSeconds: ongoingBreakSecs,
-        });
-        sessionBreakSeconds += ongoingBreakSecs;
+        if (endDate && endMs) {
+          // For completed sessions: Cap open break at endMs, NEVER calculate against nowMs
+          if (currentBreakStartMs < endMs) {
+            const cappedBreakSecs = Math.max(0, Math.round((endMs - currentBreakStartMs) / 1000));
+            breaks.push({
+              start: currentBreakStartIso!,
+              end: endDate.toISOString(),
+              durationSeconds: cappedBreakSecs,
+            });
+            sessionBreakSeconds += cappedBreakSecs;
+            lastBreakEnd = endDate.toISOString();
+          }
+        } else {
+          // For active sessions: Live ongoing break up to nowMs
+          const ongoingBreakSecs = Math.max(0, Math.round((nowMs - currentBreakStartMs) / 1000));
+          breaks.push({
+            start: currentBreakStartIso!,
+            end: null,
+            durationSeconds: ongoingBreakSecs,
+          });
+          sessionBreakSeconds += ongoingBreakSecs;
+        }
       }
     } else {
       // Fallback to top-level breakStartTime/breakEndTime fields
       if (session.breakStartTime) {
         const bStartMs = new Date(session.breakStartTime).getTime();
         const bStartIso = new Date(session.breakStartTime).toISOString();
-        firstBreakStart = bStartIso;
+        if (!endMs || bStartMs < endMs) {
+          firstBreakStart = bStartIso;
 
-        if (session.breakEndTime) {
-          const bEndMs = new Date(session.breakEndTime).getTime();
-          const bEndIso = new Date(session.breakEndTime).toISOString();
-          lastBreakEnd = bEndIso;
-          const bDur = Math.max(0, Math.round((bEndMs - bStartMs) / 1000));
-          breaks.push({
-            start: bStartIso,
-            end: bEndIso,
-            durationSeconds: bDur,
-          });
-          sessionBreakSeconds += bDur;
-        } else if (!hasEndTime) {
-          const bDur = Math.max(0, Math.round((nowMs - bStartMs) / 1000));
-          breaks.push({
-            start: bStartIso,
-            end: null,
-            durationSeconds: bDur,
-          });
-          sessionBreakSeconds += bDur;
+          if (session.breakEndTime) {
+            const bEndMs = new Date(session.breakEndTime).getTime();
+            const effectiveEndMs = endMs ? Math.min(bEndMs, endMs) : bEndMs;
+            const bDur = Math.max(0, Math.round((effectiveEndMs - bStartMs) / 1000));
+            breaks.push({
+              start: bStartIso,
+              end: new Date(session.breakEndTime).toISOString(),
+              durationSeconds: bDur,
+            });
+            sessionBreakSeconds += bDur;
+            lastBreakEnd = new Date(session.breakEndTime).toISOString();
+          } else if (!hasEndTime) {
+            const bDur = Math.max(0, Math.round((nowMs - bStartMs) / 1000));
+            breaks.push({
+              start: bStartIso,
+              end: null,
+              durationSeconds: bDur,
+            });
+            sessionBreakSeconds += bDur;
+          } else if (endMs && bStartMs < endMs) {
+            const bDur = Math.max(0, Math.round((endMs - bStartMs) / 1000));
+            breaks.push({
+              start: bStartIso,
+              end: endDate!.toISOString(),
+              durationSeconds: bDur,
+            });
+            sessionBreakSeconds += bDur;
+            lastBreakEnd = endDate!.toISOString();
+          }
         }
       }
     }
