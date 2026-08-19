@@ -297,6 +297,18 @@ export function buildAttendanceTimeline(
       dayAttendanceFlag = "LOCATION SIGNAL LOST";
     }
 
+    // Safety check: If a session is marked completed but has events with NO CLOCK_OUT event and NO admin correction
+    if (endDate && session.events && session.events.length > 0) {
+      const hasClockOut = session.events.some((e) => e.eventType === "CLOCK_OUT");
+      const hasAdminSource = session.events.some((e) => e.source === "admin") || (session.attendanceFlag && session.attendanceFlag.includes("ADMIN_CORRECTED"));
+      if (!hasClockOut && !hasAdminSource) {
+        sessionAttendanceFlag = sessionAttendanceFlag
+          ? `${sessionAttendanceFlag} | ATTENDANCE REVIEW REQUIRED`
+          : "ATTENDANCE REVIEW REQUIRED";
+        dayAttendanceFlag = "ATTENDANCE REVIEW REQUIRED";
+      }
+    }
+
     if (isValid) {
       totalWorkedSeconds += workedDurationSeconds;
       totalBreakSeconds += sessionBreakSeconds;

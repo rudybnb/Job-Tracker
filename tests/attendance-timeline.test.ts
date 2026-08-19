@@ -139,3 +139,114 @@ test("buildAttendanceTimeline: excludes invalid/corrupt sessions from worked tot
   assert.equal(timeline.totalWorkedSeconds, 14400);
   assert.equal(timeline.totalWorkedHours, 4.0);
 });
+
+test("buildAttendanceTimeline: safety check flags completed session missing CLOCK_OUT and admin correction", () => {
+  const sessions: RawWorkSession[] = [
+    {
+      id: "sess-auto-closed",
+      contractorName: "Ahmed Gouda",
+      jobSiteLocation: "Mary G",
+      startTime: "2026-08-19T06:06:58.000Z",
+      endTime: "2026-08-19T16:00:00.000Z", // Completed
+      status: "completed",
+      events: [
+        {
+          id: "evt-in",
+          workSessionId: "sess-auto-closed",
+          eventType: "CLOCK_IN",
+          timestamp: "2026-08-19T06:06:58.000Z",
+          source: "worker",
+        },
+        {
+          id: "evt-break-start",
+          workSessionId: "sess-auto-closed",
+          eventType: "BREAK_START",
+          timestamp: "2026-08-19T11:12:00.000Z",
+          source: "worker",
+        },
+        {
+          id: "evt-break-end",
+          workSessionId: "sess-auto-closed",
+          eventType: "BREAK_END",
+          timestamp: "2026-08-19T12:16:00.000Z",
+          source: "worker",
+        },
+        // NO CLOCK_OUT EVENT!
+      ],
+    },
+  ];
+
+  const timeline = buildAttendanceTimeline(sessions, "Ahmed Gouda", new Date("2026-08-19T17:00:00.000Z"), "2026-08-19");
+  assert.equal(timeline.sessions.length, 1);
+  assert.equal(timeline.attendanceFlag, "ATTENDANCE REVIEW REQUIRED");
+  assert.ok(timeline.sessions[0].attendanceFlag?.includes("ATTENDANCE REVIEW REQUIRED"));
+});
+
+test("buildAttendanceTimeline: completed session WITH CLOCK_OUT event has normal status", () => {
+  const sessions: RawWorkSession[] = [
+    {
+      id: "sess-normal-clockout",
+      contractorName: "Ahmed Gouda",
+      jobSiteLocation: "Mary G",
+      startTime: "2026-08-19T06:06:58.000Z",
+      endTime: "2026-08-19T16:30:00.000Z",
+      status: "completed",
+      events: [
+        {
+          id: "evt-in",
+          workSessionId: "sess-normal-clockout",
+          eventType: "CLOCK_IN",
+          timestamp: "2026-08-19T06:06:58.000Z",
+          source: "worker",
+        },
+        {
+          id: "evt-out",
+          workSessionId: "sess-normal-clockout",
+          eventType: "CLOCK_OUT",
+          timestamp: "2026-08-19T16:30:00.000Z",
+          source: "worker",
+        },
+      ],
+    },
+  ];
+
+  const timeline = buildAttendanceTimeline(sessions, "Ahmed Gouda", new Date("2026-08-19T17:00:00.000Z"), "2026-08-19");
+  assert.equal(timeline.sessions.length, 1);
+  assert.equal(timeline.attendanceFlag, null);
+  assert.equal(timeline.sessions[0].attendanceFlag, null);
+});
+
+test("buildAttendanceTimeline: admin corrected completed session does NOT flag review", () => {
+  const sessions: RawWorkSession[] = [
+    {
+      id: "sess-admin-corrected",
+      contractorName: "Ahmed Gouda",
+      jobSiteLocation: "Mary G",
+      startTime: "2026-08-19T06:06:58.000Z",
+      endTime: "2026-08-19T16:30:00.000Z",
+      status: "completed",
+      attendanceFlag: "ADMIN_CORRECTED",
+      events: [
+        {
+          id: "evt-in",
+          workSessionId: "sess-admin-corrected",
+          eventType: "CLOCK_IN",
+          timestamp: "2026-08-19T06:06:58.000Z",
+          source: "worker",
+        },
+        {
+          id: "evt-admin-fix",
+          workSessionId: "sess-admin-corrected",
+          eventType: "CLOCK_OUT",
+          timestamp: "2026-08-19T16:30:00.000Z",
+          source: "admin",
+        },
+      ],
+    },
+  ];
+
+  const timeline = buildAttendanceTimeline(sessions, "Ahmed Gouda", new Date("2026-08-19T17:00:00.000Z"), "2026-08-19");
+  assert.equal(timeline.sessions.length, 1);
+  assert.ok(!timeline.attendanceFlag?.includes("ATTENDANCE REVIEW REQUIRED"));
+});
+

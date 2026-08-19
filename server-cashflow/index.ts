@@ -39,10 +39,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Automatic logout service - handles both time-based (5 PM) and GPS proximity-based logout
-async function startAutomaticLogoutService() {
+// Attendance monitoring service - informational only, NEVER closes or completes work sessions
+async function startAttendanceMonitoringService() {
   const { storage } = await import('./storage');
-  console.log("🕐 Starting automatic logout service (time + GPS proximity)...");
+  console.log("🕐 Starting attendance monitoring service (read-only flags/alerts)...");
   
   // GPS distance calculation function
   function calculateGPSDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -96,219 +96,131 @@ async function startAutomaticLogoutService() {
       
       const allSessions = await storage.getAllActiveSessions();
       
-      // Force logout at 5:00 PM exactly
+      // After-hours monitoring: Flag for review, NEVER force logout or write completed state
       if (currentHour >= 17) {
         for (const session of allSessions) {
-          // Calculate end time as 5:00 PM sharp
-          const endTime = new Date(session.startTime);
-          endTime.setHours(17, 0, 0, 0);
-          
-          // Update session to completed
-          await storage.updateWorkSession(session.id, {
-            endTime,
-            status: 'completed' as const
-          });
-          
-          console.log(`🕐 AUTO-LOGOUT (5PM): ${session.contractorName} clocked out at 5:00 PM`);
+          console.log(`🕐 [LATE CLOCKOUT / REVIEW REQUIRED] ${session.contractorName} still clocked in after 17:00 (${now.toLocaleTimeString('en-GB')}). Session remains active.`);
         }
-      } else {
-        // GPS proximity check during working hours (before 5 PM)
-        const { getContractorLocation } = await import('./location-tracker');
-        
-        for (const session of allSessions) {
-          try {
-            // Get real-time location from location tracker
-            const currentLocation = getContractorLocation(session.contractorName.trim());
-            console.log(`🔍 Checking GPS for ${session.contractorName.trim()}: ${currentLocation ? 'LOCATION FOUND' : 'NO LOCATION DATA'}`);
+      }
+
+      // GPS proximity monitoring
+      const { getContractorLocation } = await import('./location-tracker');
+      
+      for (const session of allSessions) {
+        try {
+          // Get real-time location from location tracker
+          const currentLocation = getContractorLocation(session.contractorName.trim());
+          
+          if (currentLocation) {
+            // Multi-site detection: Check proximity to ALL job sites
+            const allJobs = await storage.getJobs();
+            let nearestJobSite = null;
+            let nearestDistance = Infinity;
+            let isNearAnyJobSite = false;
             
-            if (currentLocation) {
-              console.log(`📍 Location found for ${session.contractorName}: ${currentLocation.latitude}, ${currentLocation.longitude}`);
-              // Multi-site detection: Check proximity to ALL job sites
-              const allJobs = await storage.getJobs();
-              let nearestJobSite = null;
-              let nearestDistance = Infinity;
-              let isNearAnyJobSite = false;
-              
-              // Check distance to all job sites
-              for (const job of allJobs) {
-                if (job.location) {
-                  const jobSiteCoords = getPostcodeCoordinates(job.location);
-                  if (jobSiteCoords) {
-                    const jobSiteLat = parseFloat(jobSiteCoords.latitude);
-                    const jobSiteLon = parseFloat(jobSiteCoords.longitude);
-                    
-                    const distance = calculateGPSDistance(
-                      currentLocation.latitude, 
-                      currentLocation.longitude, 
-                      jobSiteLat, 
-                      jobSiteLon
-                    );
-                    
-                    // Track nearest job site
-                    if (distance < nearestDistance) {
-                      nearestDistance = distance;
-                      nearestJobSite = {
-                        location: job.location,
-                        distance: distance,
-                        jobTitle: job.title
-                      };
-                    }
-                    
-                    // Check if within working range of ANY job site (3.5km threshold = 3500m)
-                    if (distance <= 3500) {
-                      isNearAnyJobSite = true;
-                    }
-                  }
-                }
-              }
-              
-              // Debug GPS proximity logic
-              console.log(`🔍 GPS DEBUG for ${session.contractorName}:`);
-              console.log(`   📍 Current GPS: ${currentLocation.latitude}, ${currentLocation.longitude}`);
-              console.log(`   🏗️ Nearest site: ${nearestJobSite ? nearestJobSite.location : 'NONE FOUND'}`);
-              console.log(`   📏 Distance: ${Math.round(nearestDistance)}m`);
-              console.log(`   ✅ Within range (3500m = 3.5km)? ${isNearAnyJobSite}`);
-              
-              // Check for temporary departure during work hours (between 8 AM and 5 PM)
-              const currentHour = now.getHours();
-              const isWorkingHours = currentHour >= 8 && currentHour < 17;
-              console.log(`   🕐 Working hours (8-17)? ${isWorkingHours} (current: ${currentHour})`);
-              
-              if (!isNearAnyJobSite) {
-                if (isWorkingHours) {
-                  // During work hours: Mark as temporarily away but keep session active
-                  console.log(`🟡 TEMPORARILY AWAY: ${session.contractorName} - outside job site during work hours (timer continues)`);
-                  
-                  // Check if we already have an active departure record
-                  const existingDeparture = await storage.getActiveDeparture(session.contractorName, session.id);
-                  
-                  if (!existingDeparture) {
-                    // Create new temporary departure record
-                    await storage.createTemporaryDeparture({
-                      contractorName: session.contractorName,
-                      workSessionId: session.id,
-                      departureTime: new Date(),
-                      status: 'away',
-                      distanceFromSite: nearestJobSite ? Math.round(nearestDistance).toString() : null,
-                      nearestJobSite: nearestJobSite ? nearestJobSite.location : null
-                    });
-                    
-                    console.log(`📍 DEPARTURE LOGGED: ${session.contractorName} marked as temporarily away`);
-                  }
-                  
-                  const nearestInfo = nearestJobSite ? 
-                    `${Math.round(nearestDistance)}m from nearest site (${nearestJobSite.location})` :
-                    'no job sites found';
-                    
-                  console.log(`📍 DEPARTURE TRACKING: ${session.contractorName} - ${nearestInfo}`);
-                } else {
-                  // Outside work hours: Complete auto-logout
-                  const endTime = new Date();
-                  
-                  await storage.updateWorkSession(session.id, {
-                    endTime,
-                    status: 'completed' as const
-                  });
-                  
-                  const nearestInfo = nearestJobSite ? 
-                    `${Math.round(nearestDistance)}m from nearest site (${nearestJobSite.location})` :
-                    'no job sites found';
-                  
-                  console.log(`📍 AUTO-LOGOUT (AFTER-HOURS): ${session.contractorName} auto-logged out - ${nearestInfo}`);
-                }
-              } else {
-                // Contractor is back on site - check if they were previously away
-                const activeDeparture = await storage.getActiveDeparture(session.contractorName, session.id);
-                
-                if (activeDeparture) {
-                  // Mark return time
-                  await storage.updateTemporaryDeparture(activeDeparture.id, {
-                    returnTime: new Date(),
-                    status: 'returned'
-                  });
-                  
-                  console.log(`🟢 RETURNED TO SITE: ${session.contractorName} back on job site (timer continuous)`);
-                }
-                
-                // Update active assignment if moved to different job site
-                if (nearestJobSite && nearestDistance <= 3500) {
-                  // Contractor is very close to a specific job site - could update assignment
-                  const currentAssignments = await storage.getContractorAssignments(session.contractorName.trim());
-                  
-                  if (currentAssignments.length === 0 || currentAssignments[0].workLocation !== nearestJobSite.location) {
-                    console.log(`🔄 AUTO-ASSIGNMENT DETECTED: ${session.contractorName} near ${nearestJobSite.location} (${nearestJobSite.jobTitle})`);
-                  }
-                }
-                
-                // Log multi-site tracking status
-                const statusInfo = nearestJobSite ? 
-                  `${Math.round(nearestDistance)}m from ${nearestJobSite.location}` :
-                  'monitoring all sites';
-                
-                console.log(`📍 MULTI-SITE TRACKING: ${session.contractorName} - ${statusInfo} ✅`);
-              }
-            } else {
-              // No current location available - use start coordinates as fallback
-              const assignments = await storage.getContractorAssignments(session.contractorName.trim());
-              
-              if (assignments.length > 0 && session.startLatitude && session.startLongitude) {
-                const assignment = assignments[0];
-                const workLocation = assignment.workLocation;
-                const jobSiteCoords = getPostcodeCoordinates(workLocation);
-                
+            // Check distance to all job sites
+            for (const job of allJobs) {
+              if (job.location) {
+                const jobSiteCoords = getPostcodeCoordinates(job.location);
                 if (jobSiteCoords) {
                   const jobSiteLat = parseFloat(jobSiteCoords.latitude);
                   const jobSiteLon = parseFloat(jobSiteCoords.longitude);
-                  const contractorLat = parseFloat(session.startLatitude);
-                  const contractorLon = parseFloat(session.startLongitude);
                   
-                  const distance = calculateGPSDistance(contractorLat, contractorLon, jobSiteLat, jobSiteLon);
-                  const currentHour = now.getHours();
-                  const isWorkingHours = currentHour >= 8 && currentHour < 17;
+                  const distance = calculateGPSDistance(
+                    currentLocation.latitude, 
+                    currentLocation.longitude, 
+                    jobSiteLat, 
+                    jobSiteLon
+                  );
                   
-                  console.log(`🔍 FALLBACK GPS CHECK for ${session.contractorName}:`);
-                  console.log(`   📍 Start GPS: ${session.startLatitude}, ${session.startLongitude}`);
-                  console.log(`   🏗️ Job site: ${workLocation}`);
-                  console.log(`   📏 Distance: ${Math.round(distance)}m`);
-                  console.log(`   🕐 Working hours (8-17)? ${isWorkingHours} (current: ${currentHour})`);
+                  if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestJobSite = {
+                      location: job.location,
+                      distance: distance,
+                      jobTitle: job.title
+                    };
+                  }
                   
-                  if (distance > 500) {
-                    if (isWorkingHours) {
-                      // During work hours: Allow temporary departure - don't auto-logout
-                      console.log(`🟡 TEMPORARILY AWAY (FALLBACK): ${session.contractorName} - ${Math.round(distance)}m from job site during work hours (timer continues)`);
-                    } else {
-                      // After hours: Auto-logout
-                      const endTime = new Date();
-                      
-                      await storage.updateWorkSession(session.id, {
-                        endTime,
-                        status: 'completed' as const
-                      });
-                      
-                      console.log(`📍 AUTO-LOGOUT (GPS-FALLBACK): ${session.contractorName} auto-logged out - ${Math.round(distance)}m from job site (${workLocation})`);
-                    }
-                  } else {
-                    console.log(`✅ CONTRACTOR ON SITE (FALLBACK): ${session.contractorName} within ${Math.round(distance)}m of ${workLocation} - session continues`);
+                  // Check if within working range of ANY job site (3.5km threshold = 3500m)
+                  if (distance <= 3500) {
+                    isNearAnyJobSite = true;
                   }
                 }
               }
             }
-          } catch (gpsError) {
-            console.error(`❌ GPS proximity check error for ${session.contractorName}:`, gpsError);
+            
+            const isWorkingHours = currentHour >= 8 && currentHour < 17;
+            
+            if (!isNearAnyJobSite) {
+              const nearestInfo = nearestJobSite ? 
+                `${Math.round(nearestDistance)}m from nearest site (${nearestJobSite.location})` :
+                'no job sites found';
+
+              // Outside site radius: Flag for review, NEVER auto-logout
+              console.log(`📍 [ATTENDANCE REVIEW REQUIRED] ${session.contractorName} outside site range - ${nearestInfo} (working hours: ${isWorkingHours}). Session remains active.`);
+              
+              // Record departure for informational logs only if during working hours
+              if (isWorkingHours) {
+                const existingDeparture = await storage.getActiveDeparture(session.contractorName, session.id);
+                if (!existingDeparture) {
+                  await storage.createTemporaryDeparture({
+                    contractorName: session.contractorName,
+                    workSessionId: session.id,
+                    departureTime: new Date(),
+                    status: 'away',
+                    distanceFromSite: nearestJobSite ? Math.round(nearestDistance).toString() : null,
+                    nearestJobSite: nearestJobSite ? nearestJobSite.location : null
+                  });
+                }
+              }
+            } else {
+              // Contractor is on site - check if they were previously away
+              const activeDeparture = await storage.getActiveDeparture(session.contractorName, session.id);
+              if (activeDeparture) {
+                await storage.updateTemporaryDeparture(activeDeparture.id, {
+                  returnTime: new Date(),
+                  status: 'returned'
+                });
+                console.log(`🟢 RETURNED TO SITE: ${session.contractorName} back on job site (session continuous)`);
+              }
+            }
+          } else {
+            // No real-time GPS available: informational warning only
+            const assignments = await storage.getContractorAssignments(session.contractorName.trim());
+            if (assignments.length > 0 && session.startLatitude && session.startLongitude) {
+              const assignment = assignments[0];
+              const workLocation = assignment.workLocation;
+              const jobSiteCoords = getPostcodeCoordinates(workLocation);
+              
+              if (jobSiteCoords) {
+                const jobSiteLat = parseFloat(jobSiteCoords.latitude);
+                const jobSiteLon = parseFloat(jobSiteCoords.longitude);
+                const contractorLat = parseFloat(session.startLatitude);
+                const contractorLon = parseFloat(session.startLongitude);
+                const distance = calculateGPSDistance(contractorLat, contractorLon, jobSiteLat, jobSiteLon);
+                
+                if (distance > 500) {
+                  console.log(`📍 [ATTENDANCE REVIEW REQUIRED - FALLBACK] ${session.contractorName} start location is ${Math.round(distance)}m from ${workLocation}. Session remains active.`);
+                }
+              }
+            }
           }
+        } catch (gpsError) {
+          console.error(`❌ GPS proximity check error for ${session.contractorName}:`, gpsError);
         }
       }
       
-      // Show progress monitoring
+      // Progress monitoring log
       if (currentMinute % 5 === 0 && currentHour < 17) {
         const activeSessions = await storage.getAllActiveSessions();
         if (activeSessions.length > 0) {
-          console.log(`🕐 MULTI-SITE MONITORING: ${activeSessions.length} active contractors, auto-logout at 5:00 PM or if >500m from ALL sites`);
+          console.log(`🕐 MULTI-SITE MONITORING: ${activeSessions.length} active contractors being monitored.`);
         }
       }
       
     } catch (error) {
-      console.error("❌ Error in automatic logout service:", error);
+      console.error("❌ Error in attendance monitoring service:", error);
     }
   }, 30000); // Check every 30 seconds
 }
@@ -316,8 +228,8 @@ async function startAutomaticLogoutService() {
 (async () => {
   const server = await registerRoutes(app);
   
-  // Start automatic logout service
-  await startAutomaticLogoutService();
+  // Start attendance monitoring service (informational alerts only)
+  await startAttendanceMonitoringService();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
