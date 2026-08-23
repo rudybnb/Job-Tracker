@@ -28,8 +28,18 @@ import { createHash, randomUUID } from "node:crypto";
 import { eq, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments } from "@shared/schema";
-import { normalizeUploadCsvContent, parseJobUploadCsv, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
+import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments, projectSourceImports } from "@shared/schema";
+import { normalizeUploadCsvContent, parseJobUploadCsv, suggestJobNameFromSource, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
+import {
+  SMART_SCHEDULE_PARSER_VERSION,
+  SMART_SCHEDULE_SOURCE_TYPE,
+  SMART_SCHEDULE_STREAM_KEY,
+  buildSmartScheduleAttachPatch,
+  decideSmartScheduleMatch,
+  formatWordJobCandidateLabel,
+  resolveSmartScheduleImportAction,
+  type WordJobCandidate,
+} from "@shared/job-match";
 import { parseHbxlWordQuote } from "../shared/hbxl-word-parser";
 import { ensureJobLocationTables } from "./job-location-tables-core.ts";
 import { buildAttendanceTimeline, getLondonDateString } from "./attendance-timeline.ts";
@@ -301,6 +311,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Structured Word job candidates for Smart Schedule attachment.
+  // A structured Word job has BOTH job_locations and job_location_tasks (HBXL Word import).
+  async function listStructuredWordJobCandidates(): Promise<Array<WordJobCandidate & { label: string }>> {
+    const rows = await db
+      .select({
+        jobId: jobsTable.id,
+        title: jobsTable.title,
+        clientName: jobsTable.clientName,
+        address: jobsTable.address,
+        postcode: jobsTable.postcode,
+      })
+      .from(jobsTable)
+      .where(
+        sql`EXISTS (SELECT 1 FROM job_locations l WHERE l.job_id = ${jobsTable.id}) AND EXISTS (SELECT 1 FROM job_location_tasks t WHERE t.job_id = ${jobsTable.id})`,
+      )
+      .orderBy(jobsTable.title);
+
+    return rows.map((row) => ({ ...row, label: formatWordJobCandidateLabel(row, rows) }));
+  }
+
+  // Extract only what genuinely came from the schedule file (no invented identity metadata).
+  function summarizeSmartScheduleFile(validation: ReturnType<typeof parseJobUploadCsv>, filename: string) {
+    const firstJobPreview = validation.jobPreview[0];
+    const phases = Array.from(new Set(validation.jobs.flatMap((job) => job.phases)));
+
+    let resourceRows = 0;
+    const totalsByResourceType: Record<string, number> = {};
+    let parsedTaskData: any = {};
+    try {
+      parsedTaskData = validation.jobs[0]?.phaseTaskData ? JSON.parse(validation.jobs[0].phaseTaskData) : {};
+    } catch {
+      parsedTaskData = {};
+    }
+
+    if (Array.isArray(parsedTaskData.resources)) {
+      for (const resource of parsedTaskData.resources) {
+        resourceRows++;
+        const typeKey = String(resource.resourceType ?? "other").toLowerCase() || "other";
+        totalsByResourceType[typeKey] = (totalsByResourceType[typeKey] ?? 0) + (Number(resource.totalCost) || 0);
+      }
+    }
+
+    const financials = parsedTaskData.financials ?? null;
+    const csvProjectName = firstJobPreview?.name?.trim() ? firstJobPreview.name.trim() : null;
+    // Client/address/postcode are ONLY reported when genuinely present in the file.
+    const csvIdentityPresent = {
+      clientName: false,
+      address: Boolean(firstJobPreview?.address?.trim()),
+      postcode: Boolean(firstJobPreview?.postcode?.trim()),
+      projectName: Boolean(csvProjectName),
+      projectType: Boolean(firstJobPreview?.projectType?.trim()),
+    };
+
+    return {
+      filename,
+      detectedFormat: validation.format,
+      isValid: validation.valid,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      stats: validation.stats,
+      phases,
+      phaseCount: phases.length,
+      taskRowCount: validation.stats.taskRows,
+      resourceRowCount: resourceRows,
+      totalsByResourceType,
+      financials,
+      csvIdentity: {
+        projectName: csvProjectName,
+        address: firstJobPreview?.address?.trim() || null,
+        postcode: firstJobPreview?.postcode?.trim() || null,
+        projectType: firstJobPreview?.projectType?.trim() || null,
+        present: csvIdentityPresent,
+      },
+      filenameProjectHint: suggestJobNameFromSource(filename) || null,
+    };
+  }
+
+  // Smart Schedule PREVIEW mode: parse only. No jobs are created or modified here.
+  app.post("/api/upload-csv/preview", upload.single("csvFile"), async (req: MulterRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      let csvContent: string;
+      if (req.file.originalname.toLowerCase().endsWith(".xlsx")) {
+        const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        csvContent = XLSX.utils.sheet_to_csv(worksheet);
+      } else {
+        csvContent = req.file.buffer.toString();
+      }
+
+      const normalizedContent = normalizeUploadCsvContent(csvContent);
+      const fingerprint = createHash("sha256").update(normalizedContent).digest("hex");
+      const validation = parseJobUploadCsv(normalizedContent);
+
+      let candidates: Array<WordJobCandidate & { label: string }> = [];
+      try {
+        candidates = await listStructuredWordJobCandidates();
+      } catch (candidateError) {
+        console.error("Error listing structured Word job candidates:", candidateError);
+      }
+
+      const summary = summarizeSmartScheduleFile(validation, req.file.originalname);
+      const match = decideSmartScheduleMatch(
+        { csvProjectName: summary.csvIdentity.projectName, filenameProjectHint: summary.filenameProjectHint },
+        candidates,
+      );
+
+      res.json({
+        preview: true,
+        ...summary,
+        fingerprint,
+        candidates,
+        match,
+      });
+    } catch (error) {
+      console.error("Error previewing Smart Schedule:", error);
+      res.status(500).json({ error: "Failed to preview Smart Schedule file" });
+    }
+  });
+
   // CSV Upload endpoint
   app.post("/api/upload-csv", upload.single('csvFile'), async (req: MulterRequest, res) => {
     try {
@@ -330,6 +463,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedContent = normalizeUploadCsvContent(csvContent);
       const fingerprint = createHash("sha256").update(normalizedContent).digest("hex");
       const validation = parseJobUploadCsv(normalizedContent);
+
+      // ------------------------------------------------------------------
+      // ATTACH TO EXISTING STRUCTURED WORD JOB (Word-first / schedule-second).
+      // Never creates a jobs row and never touches commercial Word values:
+      // updates ONLY jobs.phases / jobs.phaseTaskData on the chosen job.
+      // ------------------------------------------------------------------
+      const attachJobId = typeof req.body.attachJobId === "string" ? req.body.attachJobId.trim() : "";
+      if (attachJobId) {
+        if (!validation.valid) {
+          return res.status(400).json({
+            error: "Upload validation failed. Nothing was attached.",
+            validation,
+          });
+        }
+
+        const [targetJob] = await db
+          .select({ id: jobsTable.id, title: jobsTable.title })
+          .from(jobsTable)
+          .where(eq(jobsTable.id, attachJobId))
+          .limit(1);
+
+        if (!targetJob) {
+          return res.status(404).json({ error: "Selected job not found. No changes were made." });
+        }
+
+        const [locationCount] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(jobLocations)
+          .where(eq(jobLocations.jobId, attachJobId));
+        const [taskCount] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(jobLocationTasks)
+          .where(eq(jobLocationTasks.jobId, attachJobId));
+
+        if (!locationCount || !taskCount || locationCount.count === 0 || taskCount.count === 0) {
+          return res.status(400).json({
+            error:
+              "Smart Schedules can only be attached to structured Word quote jobs (jobs with imported locations and tasks). Use the legacy CSV workflow instead.",
+          });
+        }
+
+        const confirmedBy = ((req as SessionRequest).session?.adminName || "admin").trim() || "admin";
+
+        const attachResult = await db.transaction(async (tx) => {
+          await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${fingerprint + attachJobId}))`);
+
+          const priorImports = await tx
+            .select({
+              id: projectSourceImports.id,
+              sourceHash: projectSourceImports.sourceHash,
+              revisionNumber: projectSourceImports.revisionNumber,
+              status: projectSourceImports.status,
+            })
+            .from(projectSourceImports)
+            .where(
+              sql`${projectSourceImports.jobId} = ${attachJobId} AND ${projectSourceImports.sourceStreamKey} = ${SMART_SCHEDULE_STREAM_KEY}`,
+            )
+            .orderBy(projectSourceImports.revisionNumber);
+
+          const importAction = resolveSmartScheduleImportAction(priorImports, fingerprint);
+          if (importAction.action === "DUPLICATE_NOOP") {
+            return { duplicate: true as const, revisionNumber: importAction.duplicateOfRevisionNumber };
+          }
+
+          // Supersede prior IMPORTED Smart Schedule revisions for this job.
+          for (const supersededId of importAction.supersedeImportIds) {
+            await tx
+              .update(projectSourceImports)
+              .set({ status: "SUPERSEDED", isCurrentRevision: false })
+              .where(eq(projectSourceImports.id, supersededId));
+          }
+
+          const summary = summarizeSmartScheduleFile(validation, req.file!.originalname);
+          const [sourceImport] = await tx
+            .insert(projectSourceImports)
+            .values({
+              jobId: attachJobId,
+              sourceType: SMART_SCHEDULE_SOURCE_TYPE,
+              sourceStreamKey: SMART_SCHEDULE_STREAM_KEY,
+              originalFilename: req.file!.originalname,
+              sourceHash: fingerprint,
+              revisionNumber: importAction.revisionNumber,
+              supersedesImportId: importAction.supersedesImportId,
+              isCurrentRevision: true,
+              parserVersion: SMART_SCHEDULE_PARSER_VERSION,
+              status: "IMPORTED",
+              reviewStatus: "USER_CONFIRMED",
+              confirmedBy,
+              confirmedAt: new Date(),
+              reasonCode: null,
+              reviewReason: "Admin explicitly attached this Smart Schedule to the selected structured Word job.",
+              sourceMetadata: {
+                detectedFormat: summary.detectedFormat,
+                phases: summary.phases,
+                phaseCount: summary.phaseCount,
+                taskRowCount: summary.taskRowCount,
+                resourceRowCount: summary.resourceRowCount,
+                totalsByResourceType: summary.totalsByResourceType,
+                csvIdentity: summary.csvIdentity,
+                filenameProjectHint: summary.filenameProjectHint,
+                note: "Operational CSV totals live here only; Word commercial values are untouched.",
+              },
+            })
+            .returning();
+
+          // Operational update ONLY: phases + phaseTaskData.
+          const firstParsedPhases = validation.jobs[0]?.phases ?? [];
+          const patch = buildSmartScheduleAttachPatch(firstParsedPhases, validation.jobs[0].phaseTaskData);
+          const [updatedJob] = await tx
+            .update(jobsTable)
+            .set({ phases: patch.phases, phaseTaskData: patch.phaseTaskData })
+            .where(eq(jobsTable.id, attachJobId))
+            .returning({ id: jobsTable.id, title: jobsTable.title, phases: jobsTable.phases });
+
+          // Recent-uploads lineage record (not linked to the job's upload_id).
+          await tx.insert(csvUploads).values({
+            filename: `${req.file!.originalname} → attached to ${updatedJob.title}`,
+            status: "processed",
+            jobsCount: "0",
+          });
+
+          return {
+            duplicate: false as const,
+            jobId: updatedJob.id,
+            jobTitle: updatedJob.title,
+            sourceImportId: sourceImport.id,
+            revisionNumber: sourceImport.revisionNumber,
+            supersedesImportId: sourceImport.supersedesImportId,
+            phaseCount: firstParsedPhases.length,
+            taskRows: validation.stats.taskRows,
+          };
+        });
+
+        if (attachResult.duplicate) {
+          return res.status(409).json({
+            error: `Duplicate Smart Schedule blocked: this exact file content is already attached to the selected job (revision ${attachResult.revisionNumber}).`,
+            duplicate: true,
+            attached: false,
+            jobId: attachJobId,
+            existingRevisionNumber: attachResult.revisionNumber,
+          });
+        }
+
+        return res.json({
+          attached: true,
+          uploadId: null,
+          ...attachResult,
+          message: `Smart Schedule attached to "${attachResult.jobTitle}". No new job was created and Word quote values are unchanged.`,
+        });
+      }
+
       const projectMetadata = parseProjectMetadata(req.body.projectMetadata);
       const metadataErrors = validateProjectMetadata(projectMetadata);
 

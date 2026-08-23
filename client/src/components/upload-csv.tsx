@@ -16,6 +16,7 @@ import {
   type ProjectMetadata,
   type UploadValidationIssue,
 } from "@shared/job-upload-import";
+import { formatWordJobCandidateLabel, type SmartScheduleMatchDecision } from "@shared/job-match";
 
 interface CsvUpload {
   id: string;
@@ -124,6 +125,64 @@ class UploadRequestError extends Error {
   }
 }
 
+interface SmartScheduleCandidate {
+  jobId: string;
+  title: string;
+  clientName?: string | null;
+  address?: string | null;
+  postcode?: string | null;
+  label: string;
+}
+
+interface SmartSchedulePreviewResponse {
+  preview: boolean;
+  filename: string;
+  detectedFormat: string;
+  isValid: boolean;
+  errors: UploadValidationIssue[];
+  warnings: UploadValidationIssue[];
+  stats: JobUploadParseResult["stats"];
+  phases: string[];
+  phaseCount: number;
+  taskRowCount: number;
+  resourceRowCount: number;
+  totalsByResourceType: Record<string, number>;
+  csvIdentity: {
+    projectName: string | null;
+    address: string | null;
+    postcode: string | null;
+    projectType: string | null;
+    present: {
+      clientName: boolean;
+      address: boolean;
+      postcode: boolean;
+      projectName: boolean;
+      projectType: boolean;
+    };
+  };
+  filenameProjectHint: string | null;
+  fingerprint: string;
+  candidates: SmartScheduleCandidate[];
+  match: {
+    decision: SmartScheduleMatchDecision;
+    suggestedJobId: string | null;
+    matchedCandidateIds: string[];
+    reason: string;
+  };
+}
+
+interface SmartScheduleAttachResponse {
+  attached: boolean;
+  duplicate: boolean;
+  jobId: string;
+  jobTitle: string;
+  sourceImportId: string;
+  revisionNumber: number;
+  phaseCount: number;
+  taskRows: number;
+  message: string;
+}
+
 export default function UploadCsv() {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -160,6 +219,10 @@ export default function UploadCsv() {
     postcode: "",
     projectType: "",
   });
+  const [smartSchedulePreview, setSmartSchedulePreview] = useState<SmartSchedulePreviewResponse | null>(null);
+  const [selectedAttachJobId, setSelectedAttachJobId] = useState<string | null>(null);
+  const [csvPathChoice, setCsvPathChoice] = useState<"undecided" | "attach" | "legacy">("undecided");
+  const [lastAttachSummary, setLastAttachSummary] = useState<SmartScheduleAttachResponse | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -167,8 +230,27 @@ export default function UploadCsv() {
   const workflowHelp = useWorkflowHelp(WORKFLOW_CONFIGS.csvUpload);
 
   const metadataErrors = validateProjectMetadata(projectMetadata);
+
+  // Word-first / Smart-Schedule-second: decide between attaching to an existing
+  // structured Word job and the legacy CSV job creation workflow.
+  const csvCandidates = smartSchedulePreview?.candidates ?? [];
+  const matchDecision = smartSchedulePreview?.match.decision ?? null;
+  const suggestedAttachJobId =
+    matchDecision === "SUGGEST_MATCH" ? smartSchedulePreview?.match.suggestedJobId ?? null : null;
+  const effectiveCsvChoice: "attach" | "legacy" | "undecided" =
+    csvCandidates.length === 0 || csvPathChoice === "legacy"
+      ? "legacy"
+      : csvPathChoice === "attach" && !!selectedAttachJobId
+        ? "attach"
+        : csvCandidates.length > 0
+          ? "undecided"
+          : "legacy";
+  const selectedCandidate = csvCandidates.find((candidate) => candidate.jobId === selectedAttachJobId) ?? null;
+
   const canApproveUpload = !!selectedFile && (
-    (fileType === "csv" && !!csvPreview?.validation.valid && metadataErrors.length === 0) ||
+    (fileType === "csv" && !!csvPreview?.validation.valid &&
+      ((effectiveCsvChoice === "attach" && !!selectedAttachJobId) ||
+       (effectiveCsvChoice === "legacy" && metadataErrors.length === 0))) ||
     (fileType === "docx" && !!wordPreview && wordPreview.locations.length > 0)
   );
 
@@ -215,6 +297,9 @@ export default function UploadCsv() {
       setSelectedFile(null);
       setCsvPreview(null);
       setShowPreview(false);
+      setSmartSchedulePreview(null);
+      setSelectedAttachJobId(null);
+      setCsvPathChoice("undecided");
       const fileInput = document.getElementById('csv-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     },
@@ -242,6 +327,58 @@ export default function UploadCsv() {
         });
         setShowPreview(true);
       }
+    },
+  });
+
+  // Smart Schedule ATTACH mutation: attaches to an existing structured Word job.
+  // No new job row is created; Word quote values remain untouched.
+  const attachCsvMutation = useMutation<SmartScheduleAttachResponse, Error, File>({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('csvFile', file);
+      formData.append('attachJobId', selectedAttachJobId ?? "");
+
+      const response = await fetch('/api/upload-csv', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => ({ error: `Attach failed with status ${response.status}` }));
+        throw new Error(errorJson.error || 'Failed to attach Smart Schedule');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      workflowHelp.markStepCompleted('file-validation');
+      workflowHelp.markStepCompleted('data-processing');
+      workflowHelp.markStepCompleted('job-creation');
+
+      toast({
+        title: "Smart Schedule Attached",
+        description: `Attached to "${data.jobTitle}" (revision ${data.revisionNumber}). No new job was created.`,
+      });
+      setLastAttachSummary(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/csv-uploads'] });
+
+      setSelectedFile(null);
+      setCsvPreview(null);
+      setSmartSchedulePreview(null);
+      setSelectedAttachJobId(null);
+      setCsvPathChoice("undecided");
+      setShowPreview(false);
+      const fileInput = document.getElementById('csv-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+    },
+    onError: (error) => {
+      toast({
+        title: "Smart Schedule Attach Failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -310,7 +447,7 @@ export default function UploadCsv() {
     },
   });
 
-  const isPending = uploadCsvMutation.isPending || uploadWordMutation.isPending;
+  const isPending = uploadCsvMutation.isPending || uploadWordMutation.isPending || attachCsvMutation.isPending;
   const isWordReviewRequired = wordPreview?.metadata.clientMatch?.status === "REVIEW_REQUIRED";
   const hasWordReviewDecision = selectedClientAction !== null;
   const canApproveWordUpload = !isWordReviewRequired || hasWordReviewDecision;
@@ -365,13 +502,18 @@ export default function UploadCsv() {
         return;
       }
       uploadWordMutation.mutate(selectedFile);
+    } else if (effectiveCsvChoice === "attach" && selectedAttachJobId) {
+      attachCsvMutation.mutate(selectedFile);
     } else {
       if (canApproveUpload) {
         uploadCsvMutation.mutate(selectedFile);
       } else {
         toast({
           title: "Validation Required",
-          description: "Fix the listed upload validation errors before creating jobs.",
+          description:
+            effectiveCsvChoice === "undecided"
+              ? "Choose the exact job to attach this Smart Schedule to, or select 'Create Legacy CSV Job'."
+              : "Fix the listed upload validation errors before creating jobs.",
           variant: "destructive",
         });
       }
@@ -401,6 +543,30 @@ export default function UploadCsv() {
       toast({
         title: "Word Quote Parse Error",
         description: error instanceof Error ? error.message : "Failed to parse Word document",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const fetchSmartSchedulePreview = async (file: File): Promise<SmartSchedulePreviewResponse | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('csvFile', file);
+      const res = await fetch('/api/upload-csv/preview', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({ error: 'Failed to preview Smart Schedule' }));
+        throw new Error(errorJson.error || 'Failed to preview Smart Schedule');
+      }
+      return (await res.json()) as SmartSchedulePreviewResponse;
+    } catch (error) {
+      toast({
+        title: "Smart Schedule Preview Error",
+        description: error instanceof Error ? error.message : "Failed to preview schedule file",
         variant: "destructive",
       });
       return null;
@@ -467,6 +633,7 @@ export default function UploadCsv() {
     setSelectedFile(file);
     setLastImportSummary(null);
     setWordImportSuccess(null);
+    setLastAttachSummary(null);
 
     if (file.name.toLowerCase().endsWith('.docx')) {
       setFileType("docx");
@@ -497,8 +664,18 @@ export default function UploadCsv() {
     } else {
       setFileType("csv");
       setProjectMetadata({ clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" });
-      const preview = await parseCSVPreview(file);
+      const [preview, schedulePreview] = await Promise.all([parseCSVPreview(file), fetchSmartSchedulePreview(file)]);
       setCsvPreview(preview);
+      setSmartSchedulePreview(schedulePreview);
+      setSelectedAttachJobId(null);
+      setCsvPathChoice("undecided");
+      if (schedulePreview) {
+        // Auto-suggest only when exactly one strong structured Word candidate exists.
+        if (schedulePreview.match.decision === "SUGGEST_MATCH" && schedulePreview.match.suggestedJobId) {
+          setSelectedAttachJobId(schedulePreview.match.suggestedJobId);
+          setCsvPathChoice("attach");
+        }
+      }
       if (preview) {
         setShowPreview(true);
         workflowHelp.markStepCompleted('file-selection');
@@ -528,6 +705,10 @@ export default function UploadCsv() {
     setShowPreview(false);
     setLastImportSummary(null);
     setWordImportSuccess(null);
+    setSmartSchedulePreview(null);
+    setSelectedAttachJobId(null);
+    setCsvPathChoice("undecided");
+    setLastAttachSummary(null);
     setProjectMetadata({ clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" });
     const fileInput = document.getElementById('csv-upload') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
@@ -732,6 +913,18 @@ export default function UploadCsv() {
           </div>
           <div className="text-xs text-green-300/80 mt-1">
             Upload reference: {lastImportSummary.upload.id}
+          </div>
+        </div>
+      )}
+
+      {lastAttachSummary && (
+        <div className="mt-4 text-sm text-green-200 bg-green-900/20 border border-green-700/30 p-3 rounded-lg">
+          <div className="font-semibold text-green-300">Smart Schedule Attached to Existing Word Job</div>
+          <div>
+            {lastAttachSummary.jobTitle} · revision {lastAttachSummary.revisionNumber} · {lastAttachSummary.phaseCount} phase(s) · {lastAttachSummary.taskRows} task row(s). No new job created.
+          </div>
+          <div className="text-xs text-green-300/80 mt-1">
+            Word quote details (client, address, postcode, quote values) remain untouched. Import reference: {lastAttachSummary.sourceImportId}
           </div>
         </div>
       )}
@@ -1192,13 +1385,16 @@ export default function UploadCsv() {
         </div>
       )}
 
-      {/* Detailed CSV Preview Modal (Existing CSV logic unchanged) */}
+      {/* Detailed CSV Preview Modal */}
       {showPreview && fileType === "csv" && csvPreview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="bg-yellow-600 text-white p-4 text-center">
-              <h3 className="text-lg font-semibold">Upload & Detect Job Info</h3>
+              <h3 className="text-lg font-semibold">Smart Schedule Review</h3>
+              <p className="text-xs text-yellow-100 mt-0.5">
+                Word-first linking: attach to an existing structured Word job, or create a legacy CSV job.
+              </p>
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[70vh]">
@@ -1220,6 +1416,138 @@ export default function UploadCsv() {
                 )}
               </div>
 
+              {/* What genuinely came from the file (no invented identity metadata) */}
+              {smartSchedulePreview && (
+                <div className="mb-4 rounded-lg border p-4 bg-slate-50 border-slate-200">
+                  <div className="text-slate-800 font-semibold mb-2">What came from this file</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm text-slate-700">
+                    <div><span className="text-slate-500">Filename:</span> {smartSchedulePreview.filename}</div>
+                    <div><span className="text-slate-500">Detected format:</span> {smartSchedulePreview.detectedFormat}</div>
+                    <div><span className="text-slate-500">Schedule rows:</span> {smartSchedulePreview.taskRowCount}</div>
+                    <div><span className="text-slate-500">Phases:</span> {smartSchedulePreview.phaseCount}</div>
+                    <div><span className="text-slate-500">Resource rows:</span> {smartSchedulePreview.resourceRowCount}</div>
+                    {Object.entries(smartSchedulePreview.totalsByResourceType).map(([type, total]) => (
+                      <div key={type}><span className="text-slate-500">{type} total:</span> GBP {total.toFixed(2)}</div>
+                    ))}
+                  </div>
+                  {smartSchedulePreview.phases.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {smartSchedulePreview.phases.map((phase, index) => (
+                        <span key={index} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">{phase}</span>
+                      ))}
+                    </div>
+                  )}
+                  {(smartSchedulePreview.csvIdentity.projectName || smartSchedulePreview.csvIdentity.address || smartSchedulePreview.csvIdentity.postcode || smartSchedulePreview.csvIdentity.projectType) && (
+                    <div className="mt-2 pt-2 border-t border-slate-200 text-sm text-slate-700">
+                      <span className="text-slate-500">Identity present in file: </span>
+                      {[
+                        smartSchedulePreview.csvIdentity.projectName,
+                        smartSchedulePreview.csvIdentity.address,
+                        smartSchedulePreview.csvIdentity.postcode,
+                        smartSchedulePreview.csvIdentity.projectType,
+                      ].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+                  {!smartSchedulePreview.csvIdentity.projectName && !smartSchedulePreview.csvIdentity.address && !smartSchedulePreview.csvIdentity.postcode && (
+                    <p className="mt-2 pt-2 border-t border-slate-200 text-xs text-slate-500">
+                      No client name, site address or postcode was found in this file. Those details come from the existing Word job when attaching.
+                    </p>
+                  )}
+                  {smartSchedulePreview.filenameProjectHint && (
+                    <p className="mt-1 text-xs text-slate-500">Filename-derived hint: "{smartSchedulePreview.filenameProjectHint}" (hint only — confirm before attaching).</p>
+                  )}
+                </div>
+              )}
+
+              {/* Existing structured Word job matching / selection */}
+              {csvCandidates.length > 0 && (
+                <div className={`mb-4 rounded-lg border p-4 ${
+                  effectiveCsvChoice === "attach" ? "bg-emerald-50 border-emerald-300" :
+                  matchDecision === "SUGGEST_MATCH" ? "bg-blue-50 border-blue-200" :
+                  "bg-amber-50 border-amber-200"
+                }`}>
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-slate-800 font-semibold">Existing Word Job Matching</span>
+                    {matchDecision === "SUGGEST_MATCH" && (
+                      <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs">Suggested match found</Badge>
+                    )}
+                    {matchDecision === "REVIEW_REQUIRED" && (
+                      <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-xs">Choose exact job</Badge>
+                    )}
+                  </div>
+                  {smartSchedulePreview?.match.reason && (
+                    <p className="text-xs text-slate-600 mb-3">{smartSchedulePreview.match.reason}</p>
+                  )}
+
+                  {/* Suggested candidate card — details come from the EXISTING WORD JOB */}
+                  {suggestedAttachJobId && (() => {
+                    const suggested = csvCandidates.find((c) => c.jobId === suggestedAttachJobId);
+                    if (!suggested) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => { setCsvPathChoice("attach"); setSelectedAttachJobId(suggested.jobId); }}
+                        disabled={isPending}
+                        className={`w-full text-left rounded-lg border p-3 mb-3 transition-all ${
+                          selectedAttachJobId === suggested.jobId
+                            ? "border-emerald-500 bg-white ring-2 ring-emerald-300"
+                            : "border-slate-300 bg-white hover:border-emerald-400"
+                        }`}
+                      >
+                        <div className="text-sm font-bold text-slate-900 mb-1">Attach Smart Schedule to existing job</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 text-xs text-slate-700">
+                          <div><span className="text-slate-500 block">Job</span><strong>{suggested.title}</strong></div>
+                          <div><span className="text-slate-500 block">Client</span><strong>{suggested.clientName || "—"}</strong></div>
+                          <div><span className="text-slate-500 block">Postcode</span><strong>{suggested.postcode || "—"}</strong></div>
+                        </div>
+                        <div className="mt-2 text-[11px] text-slate-500">Source: Structured Word Quote · client/address shown from the existing Word job, not from the CSV.</div>
+                      </button>
+                    );
+                  })()}
+
+                  {/* Explicit picker — value is always the job ID */}
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    {suggestedAttachJobId ? "Or choose a different existing Word job" : "Select the exact job to attach to"}
+                  </label>
+                  <select
+                    value={selectedAttachJobId ?? ""}
+                    onChange={(e) => {
+                      const jobId = e.target.value || null;
+                      setSelectedAttachJobId(jobId);
+                      setCsvPathChoice(jobId ? "attach" : "undecided");
+                    }}
+                    disabled={isPending}
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="">— Select an existing structured Word job —</option>
+                    {csvCandidates.map((candidate) => (
+                      <option key={candidate.jobId} value={candidate.jobId}>
+                        {candidate.label || formatWordJobCandidateLabel(candidate)}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="mt-3 flex items-center gap-3 text-xs">
+                    <span className="text-slate-400">or</span>
+                    <button
+                      type="button"
+                      onClick={() => { setCsvPathChoice("legacy"); setSelectedAttachJobId(null); }}
+                      disabled={isPending}
+                      className={`px-3 py-1.5 rounded font-semibold border transition-colors ${
+                        csvPathChoice === "legacy"
+                          ? "bg-yellow-600 border-yellow-500 text-white"
+                          : "bg-white border-slate-300 text-slate-700 hover:border-yellow-500"
+                      }`}
+                    >
+                      Create Legacy CSV Job instead
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Manual five-field form — ONLY for the legacy CSV workflow.
+                  Attaching to a Word job reuses the canonical Word job values. */}
+              {effectiveCsvChoice === "legacy" && (
               <div className={`mb-4 rounded-lg border p-4 ${metadataErrors.length === 0 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
                 <div className="text-slate-800 font-semibold mb-1">Required Project Information</div>
                 <p className="text-slate-600 text-sm mb-4">
@@ -1249,9 +1577,10 @@ export default function UploadCsv() {
                   })}
                 </div>
               </div>
+              )}
 
-              {/* Dynamic Job Preview - Show actual CSV data */}
-              {csvPreview.jobPreview.length > 0 && (
+              {/* Dynamic Job Preview - Show actual CSV data (legacy workflow only) */}
+              {effectiveCsvChoice === "legacy" && csvPreview.jobPreview.length > 0 && (
                 <div className="mb-6">
                   {/* Detected Job Information Header */}
                   <div className="bg-slate-100 rounded-t-lg p-3">
@@ -1347,36 +1676,47 @@ export default function UploadCsv() {
             </div>
 
             {/* Footer Buttons */}
-            <div className="p-4 border-t border-slate-200 flex space-x-4">
-              <Button 
-                onClick={handleCancelPreview}
-                variant="outline"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={() => {
-                  if (canApproveUpload) {
-                    setShowPreview(false);
-                    handleUpload();
-                  }
-                }}
-                disabled={isPending || !canApproveUpload}
-                className="bg-green-600 hover:bg-green-700 text-white flex-1"
-              >
-                {uploadCsvMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Creating Jobs...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    {canApproveUpload ? 'Approve & Create Jobs' : 'Complete Required Fields'}
-                  </>
-                )}
-              </Button>
+            <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center gap-3">
+              {effectiveCsvChoice === "undecided" && (
+                <div className="text-xs text-amber-700 font-medium order-2 sm:order-1 sm:mr-auto">
+                  Select the exact job to attach to, or choose "Create Legacy CSV Job".
+                </div>
+              )}
+              <div className="flex space-x-4 w-full sm:w-auto order-1 sm:order-2 ml-auto">
+                <Button
+                  onClick={handleCancelPreview}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (canApproveUpload) {
+                      setShowPreview(false);
+                      handleUpload();
+                    }
+                  }}
+                  disabled={isPending || !canApproveUpload}
+                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                >
+                  {(uploadCsvMutation.isPending || attachCsvMutation.isPending) ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      {effectiveCsvChoice === "attach" ? "Attaching..." : "Creating Jobs..."}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      {effectiveCsvChoice === "attach" && selectedCandidate
+                        ? `Attach to ${selectedCandidate.title}`
+                        : canApproveUpload
+                          ? 'Approve & Create Jobs'
+                          : 'Complete Required Fields'}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
