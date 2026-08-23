@@ -7,7 +7,9 @@ import {
   calculateLevenshteinDistance,
   isSpellingVariant,
   extractParagraphsFromDocumentXml,
+  extractDocumentElements,
   isBannedTaskOrCategory,
+  traceHbxlDocumentRoles,
 } from "../shared/hbxl-word-parser.ts";
 
 /**
@@ -633,6 +635,64 @@ test("Spencer House Word quote parser: extracts metadata, locations, categories 
   assert.equal(dining.reviewStatus, "REVIEW_REQUIRED");
   assert.equal(dinning.reviewStatus, "REVIEW_REQUIRED");
   assert.equal(living.reviewStatus, "CONFIRMED");
+});
+
+test("EstimatorXpress generated styles define package, resource, action, and header roles", async () => {
+  const body = `
+    <w:p><w:pPr><w:pStyle w:val="P3"/></w:pPr><w:r><w:t>Spencer House</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P3"/></w:pPr><w:r><w:t>for</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P3"/></w:pPr><w:r><w:t>Promise</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P3"/></w:pPr><w:r><w:t>at</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P3"/></w:pPr><w:r><w:t>Spencer House</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P3"/></w:pPr><w:r><w:t>Spencer Road</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P3"/></w:pPr><w:r><w:t>Birchington</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P3"/></w:pPr><w:r><w:t>CT7 9EZ</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Site address:</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Spencer House</w:t></w:r></w:p>
+    <w:p><w:r><w:t>23 August 2026</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Dear Promise</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Subject: #2: Spencer House</w:t></w:r></w:p>
+    <w:tbl><w:tr>
+      <w:tc><w:p><w:r><w:t>Total cost</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p/></w:tc>
+      <w:tc><w:p><w:r><w:t>£17,350.46</w:t></w:r></w:p></w:tc>
+    </w:tr></w:tbl>
+    <w:p><w:pPr><w:pStyle w:val="P7"/></w:pPr><w:r><w:t>Carry out work in Dining Room comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P11"/></w:pPr><w:r><w:t>Vinyl Flooring</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P12"/></w:pPr><w:r><w:t>Vinyl Floor</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:r><w:t>General Works</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Material</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Labour</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Total</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Vinyl flooring</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Vinyl Flooring</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>2nd layer of levelling compound</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Self Levelling Compound</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Vinyl adhesive</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Vinyl Floor Adhesive</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
+    <w:p><w:r><w:t>Acceptance of Estimate</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Reference: Refurbishment (Estimated dated 23 August 2026)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Promise Igbinedion</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Site address:</w:t></w:r></w:p>`;
+  const buffer = await createMockDocxBuffer(body);
+  const result = await parseHbxlWordQuote(buffer, "structural.docx");
+
+  assert.equal(result.metadata.clientName, "Promise Igbinedion");
+  assert.equal(result.metadata.projectSiteName, "Spencer House");
+  assert.equal(result.metadata.address, "Spencer House\nSpencer Road\nBirchington\nCT7 9EZ");
+  assert.equal(result.metadata.quoteDate, "23 August 2026");
+  assert.equal(result.metadata.totalQuotePrice, 17350.46);
+  assert.deepEqual(result.locations[0].categories.map((category) => category.name), ["Vinyl Flooring"]);
+  assert.deepEqual(result.locations[0].categories[0].resources, [
+    "Vinyl Floor",
+    "Vinyl flooring",
+    "2nd layer of levelling compound",
+    "Vinyl adhesive",
+  ]);
+  assert.equal(result.stats.taskCount, 0);
+
+  const documentXml = await (await JSZip.loadAsync(buffer)).file("word/document.xml")!.async("text");
+  const trace = traceHbxlDocumentRoles(extractDocumentElements(documentXml));
+  assert.equal(trace.find((row) => row.text === "Vinyl Flooring")?.role, "WORK_PACKAGE");
+  assert.equal(trace.find((row) => row.text === "Vinyl Floor")?.role, "RESOURCE");
+  assert.equal(trace.find((row) => row.text.startsWith("General Works |"))?.role, "TABLE_HEADER");
+  assert.equal(trace.find((row) => row.text.startsWith("Vinyl flooring |"))?.role, "RESOURCE");
 });
 
 test("Table-based fallback extracts rooms and tasks when no carry-out anchors exist", async () => {

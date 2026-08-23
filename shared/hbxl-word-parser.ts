@@ -610,6 +610,8 @@ function formatAmount(val: number): string {
 function isAddressTerminator(text: string): boolean {
   const norm = text.trim().toLowerCase();
   if (!norm) return false;
+  if (/^(?:dear\b|yours\s+sincerely\b|subject\s*:)/i.test(norm)) return true;
+  if (/^\d{1,2}\s+[a-z]+\s+\d{4}$/i.test(norm)) return true;
   if (norm.includes("£") || /^(?:total|sub-?total|grand\s+total|net\s+total|vat)\b/i.test(norm)) return true;
   if (/^(?:summary\s+of\s+(?:estimate|quotation)|acceptance|terms\s*(?:&|and)\s*conditions|date|reference|ref:)/i.test(norm)) return true;
   if (/^carry\s+out\s+work\s+in/i.test(norm)) return true;
@@ -638,6 +640,47 @@ export function extractMetadataFromElements(elements: DocElement[]) {
   let formattedTotalPrice = "";
 
   const postcodePattern = /\b([A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2})\b/i;
+  const longDatePattern = /^\d{1,2}\s+[A-Za-z]+\s+\d{4}$/;
+  const isPlaceholder = (text: string) => /^\s*\[[^\]]*not provided[^\]]*\]\s*$/i.test(text);
+
+  // EstimatorXpress title pages use a styled sequence: project/type, "for", client,
+  // "at", then the actual project address. The later letter block is correspondence
+  // text and can contain placeholders, the quote date, and a salutation.
+  const leadingParagraphs: RawDocParagraph[] = [];
+  for (const element of elements) {
+    if (element.type !== "paragraph" || element.paragraph.styleName !== "P3") break;
+    leadingParagraphs.push(element.paragraph);
+  }
+  const forIndex = leadingParagraphs.findIndex((paragraph) => /^for$/i.test(paragraph.text.trim()));
+  const atIndex = leadingParagraphs.findIndex((paragraph) => /^at$/i.test(paragraph.text.trim()));
+  if (forIndex >= 0 && forIndex + 1 < leadingParagraphs.length) {
+    const value = leadingParagraphs[forIndex + 1].text.trim();
+    if (value && !isPlaceholder(value)) clientName = value;
+  }
+  if (atIndex >= 0) {
+    for (const paragraph of leadingParagraphs.slice(atIndex + 1)) {
+      const line = paragraph.text.trim();
+      if (!line || isPlaceholder(line) || longDatePattern.test(line) || /^dear\b/i.test(line)) continue;
+      addressLines.push(line);
+      const match = line.match(postcodePattern);
+      if (match?.[1] && !postcode) postcode = match[1].toUpperCase().trim();
+    }
+  }
+
+  for (let index = 0; index + 2 < elements.length; index++) {
+    const reference = elements[index];
+    const name = elements[index + 1];
+    const siteLabel = elements[index + 2];
+    if (
+      reference.type === "paragraph" && /^reference\s*:/i.test(reference.paragraph.text.trim()) &&
+      name.type === "paragraph" &&
+      siteLabel.type === "paragraph" && /^site\s+address\s*:/i.test(siteLabel.paragraph.text.trim())
+    ) {
+      const fullName = name.paragraph.text.trim();
+      if (fullName.split(/\s+/).length >= 2 && !isPlaceholder(fullName)) clientName = fullName;
+      break;
+    }
+  }
 
   const CLIENT_LABELS = new Set([
     "client", "client name", "customer", "customer name", "prepared for", "quotation for", "quote for", "for", "to"
@@ -675,7 +718,7 @@ export function extractMetadataFromElements(elements: DocElement[]) {
   ]);
 
   const GENERIC_TOTAL_LABELS = new Set([
-    "total quote", "total quotation", "total price", "estimated cost", "total amount", "total"
+    "total quote", "total quotation", "total price", "estimated cost", "total amount", "total cost", "total"
   ]);
 
   let inAddressParagraphBlock = false;
@@ -685,6 +728,34 @@ export function extractMetadataFromElements(elements: DocElement[]) {
     if (el.type === "table") {
       inAddressParagraphBlock = false;
       for (const row of el.table.rows) {
+        const rowLabel = cleanLabel(row.cells[0]?.text ?? "");
+        const rowValue = row.cells[row.cells.length - 1]?.text.trim() ?? "";
+        if (rowValue && totalExclVat === null && EXCL_VAT_LABELS.has(rowLabel)) {
+          const amount = parseAmount(rowValue);
+          if (amount !== null && amount > 0) {
+            totalExclVat = amount;
+            formattedTotalExclVat = formatAmount(amount);
+          }
+        } else if (rowValue && vatAmount === null && (VAT_LABELS.has(rowLabel) || /^total\s+vat(?:\s*\([^)]*\))?$/.test(rowLabel))) {
+          const amount = parseAmount(rowValue);
+          if (amount !== null && amount > 0) {
+            vatAmount = amount;
+            formattedVatAmount = formatAmount(amount);
+          }
+        } else if (rowValue && totalIncVat === null && INC_VAT_LABELS.has(rowLabel)) {
+          const amount = parseAmount(rowValue);
+          if (amount !== null && amount > 0) {
+            totalIncVat = amount;
+            formattedTotalIncVat = formatAmount(amount);
+          }
+        } else if (rowValue && totalQuotePrice === null && GENERIC_TOTAL_LABELS.has(rowLabel)) {
+          const amount = parseAmount(rowValue);
+          if (amount !== null && amount > 0) {
+            totalQuotePrice = amount;
+            formattedTotalPrice = formatAmount(amount);
+          }
+        }
+
         if (row.cells.length >= 2) {
           for (let c = 0; c + 1 < row.cells.length; c += 2) {
             const label = cleanLabel(row.cells[c].text);
@@ -698,7 +769,7 @@ export function extractMetadataFromElements(elements: DocElement[]) {
             } else if (addressLines.length === 0 && ADDRESS_LABELS.has(label)) {
               const lines = val.split("\n").map(l => l.trim()).filter(Boolean);
               for (const line of lines) {
-                if (isAddressTerminator(line)) break;
+                if (isAddressTerminator(line) || isPlaceholder(line)) break;
                 addressLines.push(line);
                 const pm = line.match(postcodePattern);
                 if (pm && pm[1] && !postcode) postcode = pm[1].toUpperCase().trim();
@@ -757,6 +828,8 @@ export function extractMetadataFromElements(elements: DocElement[]) {
       if (!projectSiteName) {
         const m = t.match(/^(?:Project\/Site|Project\s*Site|Project\s*Name|Site\s*Name|Job\s*Title|Site|Project):\s*(.+)$/i);
         if (m && m[1].trim()) projectSiteName = m[1].trim();
+        const subject = t.match(/^Subject:\s*(?:#\d+:\s*)?(.+)$/i);
+        if (subject?.[1].trim()) projectSiteName = subject[1].trim();
       }
       if (!quoteDate) {
         const m = t.match(/^(?:Quote\s+Date|Quotation\s+Date|Date|Issue\s+Date):\s*(.+)$/i);
@@ -764,6 +837,7 @@ export function extractMetadataFromElements(elements: DocElement[]) {
           const cleanDate = m[1].trim().replace(/^[\._\-\s]+$/, "");
           if (cleanDate) quoteDate = cleanDate;
         }
+        if (!quoteDate && longDatePattern.test(t)) quoteDate = t;
       }
       if (!quoteReference) {
         const m = t.match(/^(?:Reference|Ref|Job\s+Ref|Quote\s+Ref(?:erence)?):\s*(.+)$/i);
@@ -814,7 +888,7 @@ export function extractMetadataFromElements(elements: DocElement[]) {
           inAddressParagraphBlock = true;
           addressParagraphCount = 0;
           const firstLine = am[1].trim();
-          if (firstLine && !isAddressTerminator(firstLine)) {
+          if (firstLine && !isAddressTerminator(firstLine) && !isPlaceholder(firstLine)) {
             addressLines.push(firstLine);
             addressParagraphCount++;
             const pm = firstLine.match(postcodePattern);
@@ -823,7 +897,7 @@ export function extractMetadataFromElements(elements: DocElement[]) {
         }
       } else if (inAddressParagraphBlock) {
         const isLabel = /^[A-Za-z\s]{2,25}:\s/.test(t);
-        if (isLabel || addressParagraphCount >= 6 || isAddressTerminator(t)) {
+        if (isLabel || addressParagraphCount >= 6 || isAddressTerminator(t) || isPlaceholder(t)) {
           inAddressParagraphBlock = false;
         } else {
           addressLines.push(t);
@@ -897,6 +971,52 @@ function extractLocationAnchorFromText(text: string): string | null {
   return null;
 }
 
+export type HbxlRowRole = "LOCATION" | "WORK_PACKAGE" | "ACTION_TASK" | "RESOURCE" | "TABLE_HEADER" | "IGNORE";
+
+export interface HbxlDiagnosticRow {
+  text: string;
+  role: HbxlRowRole;
+}
+
+/** Returns the structural role trace used by the EstimatorXpress parser. */
+export function traceHbxlDocumentRoles(elements: DocElement[]): HbxlDiagnosticRow[] {
+  const trace: HbxlDiagnosticRow[] = [];
+  let insideDetailedSection = false;
+
+  for (const element of elements) {
+    if (element.type === "paragraph") {
+      const paragraph = element.paragraph;
+      const text = paragraph.text.trim();
+      const location = extractLocationAnchorFromText(text);
+      if (location) insideDetailedSection = true;
+      if (!insideDetailedSection || !text) continue;
+
+      let role: HbxlRowRole = "IGNORE";
+      if (location) role = "LOCATION";
+      else if (paragraph.styleName === "P11") role = "WORK_PACKAGE";
+      else if (paragraph.styleName === "P12") role = "RESOURCE";
+      else if (paragraph.headingLevel === 2 || paragraph.headingLevel === 3) role = "WORK_PACKAGE";
+      trace.push({ text, role });
+      continue;
+    }
+
+    if (!insideDetailedSection) continue;
+    for (const row of element.table.rows) {
+      const text = row.text.trim();
+      if (!text) continue;
+      const styles = row.cells.flatMap((cell) => cell.paragraphs.map((paragraph) => paragraph.styleName));
+      let role: HbxlRowRole = "IGNORE";
+      if (styles.includes("P6")) role = "LOCATION";
+      else if (styles.includes("P21") || /^(?:general\s+works\s*\|\s*)?(?:description|material)\b/i.test(text)) role = "TABLE_HEADER";
+      else if (styles.includes("P22")) role = "ACTION_TASK";
+      else if (styles.includes("P13")) role = "RESOURCE";
+      trace.push({ text, role });
+    }
+  }
+
+  return trace;
+}
+
 /**
  * Parses document elements into location hierarchy, work packages (categories), actionable tasks, and resource metadata.
  * 
@@ -936,7 +1056,24 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
   let currentCategory: ParsedWordCategory | null = null;
   let lastActionableTask: ParsedWordTask | null = null;
   let insideDetailedSection = !hasCarryOutAnchors;
-  let totalResourceCount = 0;
+
+  function addResource(resourceText: string) {
+    const cleanText = resourceText.trim().replace(/[:\.\-_]+$/, "").trim();
+    if (!cleanText || !currentCategory) return;
+    const target = lastActionableTask
+      ? (lastActionableTask.resources = lastActionableTask.resources || [])
+      : (currentCategory.resources = currentCategory.resources || []);
+    if (!target.includes(cleanText)) target.push(cleanText);
+  }
+
+  function addActionTask(taskText: string, resources: string[] = []) {
+    const cleanText = taskText.trim().replace(/[:\.\-_]+$/, "").trim();
+    if (!cleanText || !currentCategory) return;
+    const task: ParsedWordTask = { name: cleanText, resources: [] };
+    currentCategory.tasks.push(task);
+    lastActionableTask = task;
+    for (const resource of resources) addResource(resource);
+  }
 
   function handleItemLine(itemText: string, description?: string) {
     const cleanText = itemText.trim().replace(/[:\.\-_]+$/, "").trim();
@@ -952,28 +1089,10 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
     }
 
     if (hasExplicitActionVerb(cleanText)) {
-      // Explicit actionable construction task
-      const newTask: ParsedWordTask = {
-        name: cleanText,
-        description: description?.trim() || undefined,
-        resources: [],
-      };
-      currentCategory.tasks.push(newTask);
-      lastActionableTask = newTask;
+      addActionTask(cleanText);
+      if (description?.trim() && lastActionableTask) lastActionableTask.description = description.trim();
     } else {
-      // Pure product, material, component, or specification
-      totalResourceCount++;
-      if (lastActionableTask) {
-        lastActionableTask.resources = lastActionableTask.resources || [];
-        if (!lastActionableTask.resources.includes(cleanText)) {
-          lastActionableTask.resources.push(cleanText);
-        }
-      } else {
-        currentCategory.resources = currentCategory.resources || [];
-        if (!currentCategory.resources.includes(cleanText)) {
-          currentCategory.resources.push(cleanText);
-        }
-      }
+      addResource(cleanText);
     }
   }
 
@@ -1036,6 +1155,19 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
         continue;
       }
 
+      // EstimatorXpress emits stable paragraph roles even though their generated
+      // style IDs are not Word Heading styles.
+      if (p.styleName === "P11") {
+        currentCategory = { name: text, tasks: [], resources: [] };
+        currentLocation.categories.push(currentCategory);
+        lastActionableTask = null;
+        continue;
+      }
+      if (p.styleName === "P12") {
+        addResource(text);
+        continue;
+      }
+
       if (isBannedTaskOrCategory(text)) {
         continue;
       }
@@ -1061,6 +1193,12 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
         const rowText = row.text.trim();
         if (!rowText || isBannedTaskOrCategory(rowText)) continue;
 
+        const rowStyles = row.cells.flatMap((cell) => cell.paragraphs.map((paragraph) => paragraph.styleName));
+
+        if (rowStyles.includes("P6") || rowStyles.includes("P8") || rowStyles.includes("P21") || rowStyles.includes("P24") || rowStyles.includes("P25")) {
+          continue;
+        }
+
         // Check if table row contains location anchor
         const anchorName = extractLocationAnchorFromText(rowText);
         if (anchorName) {
@@ -1073,6 +1211,22 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
         }
 
         if (!insideDetailedSection || !currentLocation) {
+          continue;
+        }
+
+        if (rowStyles.includes("P13")) {
+          addResource(row.cells[0]?.text ?? "");
+          continue;
+        }
+
+        if (rowStyles.includes("P22")) {
+          const paragraphs = row.cells[0]?.paragraphs ?? [];
+          const action = paragraphs[0]?.text.trim() ?? "";
+          const resourceLabelIndex = paragraphs.findIndex((paragraph) => /^resources?\s+to\s+include:?$/i.test(paragraph.text.trim()));
+          const resources = resourceLabelIndex >= 0
+            ? paragraphs.slice(resourceLabelIndex + 1).map((paragraph) => paragraph.text.trim()).filter(Boolean)
+            : [];
+          addActionTask(action, resources);
           continue;
         }
 
@@ -1189,6 +1343,16 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
     (sum, l) => sum + l.categories.reduce((cSum, c) => cSum + c.tasks.length, 0),
     0
   );
+  const resourceCount = finalLocations.reduce(
+    (locationSum, location) => locationSum + location.categories.reduce(
+      (categorySum, category) => categorySum + (category.resources?.length ?? 0) + category.tasks.reduce(
+        (taskSum, task) => taskSum + (task.resources?.length ?? 0),
+        0,
+      ),
+      0,
+    ),
+    0,
+  );
   const flaggedLocationCount = finalLocations.filter((l) => l.reviewStatus === "REVIEW_REQUIRED").length;
 
   return {
@@ -1198,7 +1362,7 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
       locationCount: finalLocations.length,
       categoryCount,
       taskCount,
-      resourceCount: totalResourceCount,
+      resourceCount,
       flaggedLocationCount,
     },
   };

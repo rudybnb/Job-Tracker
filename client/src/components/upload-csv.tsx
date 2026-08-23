@@ -63,6 +63,7 @@ interface WordQuoteTask {
 interface WordQuoteCategory {
   name: string;
   tasks: WordQuoteTask[];
+  resources?: string[];
 }
 
 interface WordQuoteLocation {
@@ -109,6 +110,7 @@ interface WordQuotePreviewData {
     locationCount: number;
     categoryCount: number;
     taskCount: number;
+    resourceCount: number;
     flaggedLocationCount: number;
   };
 }
