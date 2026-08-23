@@ -335,19 +335,32 @@ export default function CreateAssignment() {
       return;
     }
 
-    // Selected location and task details (additive)
+    const hasLocations = jobLocations.length > 0;
+
+    // For location-based jobs: require Location and Work Item
+    if (hasLocations) {
+      if (!selectedLocationId || !selectedTaskId) {
+        toast({
+          title: "Missing Information",
+          description: "Please select both a Location / Room and a Specific Work Item",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else {
+      // For legacy CSV jobs without location records: require at least one build phase
+      if (availablePhases.length > 0 && selectedPhases.length === 0) {
+        toast({
+          title: "No Phases Selected",
+          description: "Please select at least one build phase",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     const selectedLoc = jobLocations.find(l => l.id === selectedLocationId);
     const selectedTask = locationTasks.find(t => t.id === selectedTaskId);
-
-    // If job has phases and no specific task is selected, require phase selection
-    if (availablePhases.length > 0 && selectedPhases.length === 0 && !selectedTaskId) {
-      toast({
-        title: "No Phases Selected",
-        description: "Please select at least one build phase or a specific work item",
-        variant: "destructive"
-      });
-      return;
-    }
 
     try {
       const assignments = [];
@@ -687,59 +700,70 @@ export default function CreateAssignment() {
               )}
             </div>
 
-            {/* Location / Room Selection (ADDITIVE) */}
+            {/* Location & Task Selectors for Location-Based Jobs (Primary Operational Flow) */}
             {selectedJobId && jobLocations.length > 0 && (
-              <div>
-                <label className="block text-yellow-400 text-sm font-medium mb-2">
-                  Location / Room <span className="text-slate-400 text-xs">(Optional — from Quote structure)</span>
-                </label>
-                <select
-                  value={selectedLocationId}
-                  onChange={(e) => {
-                    setSelectedLocationId(e.target.value);
-                    setSelectedTaskId("");
-                  }}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                >
-                  <option value="">All Locations / Entire Job</option>
-                  {jobLocations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name} {loc.reviewStatus === "REVIEW_REQUIRED" ? "⚠️ (Review)" : ""}
-                    </option>
-                  ))}
-                </select>
+              <div className="space-y-4 bg-slate-800/60 border border-slate-700 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                    Operational Location & Work Item Assignment
+                  </span>
+                  <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
+                    {jobLocations.length} Room(s) available
+                  </span>
+                </div>
+
+                {/* Location / Room Selection */}
+                <div>
+                  <label className="block text-yellow-400 text-sm font-medium mb-2">
+                    Location / Room *
+                  </label>
+                  <select
+                    value={selectedLocationId}
+                    onChange={(e) => {
+                      setSelectedLocationId(e.target.value);
+                      setSelectedTaskId("");
+                    }}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                  >
+                    <option value="">Select Location / Room...</option>
+                    {jobLocations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name} {loc.reviewStatus === "REVIEW_REQUIRED" ? "⚠️ (Needs Review)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Specific Work Item Selection */}
+                {selectedLocationId && (
+                  <div>
+                    <label className="block text-yellow-400 text-sm font-medium mb-2">
+                      Specific Work Item *
+                    </label>
+                    <select
+                      value={selectedTaskId}
+                      onChange={(e) => setSelectedTaskId(e.target.value)}
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                    >
+                      <option value="">Select Work Item...</option>
+                      {locationTasks.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          [{t.workCategory}] {t.taskName} {t.status === "assigned" ? "(Already Assigned)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Specific Work Item Selection (ADDITIVE) */}
-            {selectedLocationId && locationTasks.length > 0 && (
+            {/* Legacy Build Phases (Fallback ONLY for jobs without Location/Task records) */}
+            {selectedHbxlJob && availablePhases.length > 0 && jobLocations.length === 0 && (
               <div>
-                <label className="block text-yellow-400 text-sm font-medium mb-2">
-                  Specific Work Item <span className="text-slate-400 text-xs">(Optional — assign worker to specific task)</span>
-                </label>
-                <select
-                  value={selectedTaskId}
-                  onChange={(e) => setSelectedTaskId(e.target.value)}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                >
-                  <option value="">All Tasks in this Location</option>
-                  {locationTasks.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      [{t.workCategory}] {t.taskName} {t.status === "assigned" ? "(Assigned)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Build Phases */}
-            {selectedHbxlJob && availablePhases.length > 0 && (
-              <div>
-                <label className="block text-yellow-400 text-sm font-medium mb-2">
-                  Build Phases
-                </label>
-                
-                <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-yellow-400 text-sm font-medium">
+                    Build Phases * <span className="text-slate-400 text-xs">(Legacy CSV assignment mode)</span>
+                  </label>
                   <div className="flex space-x-4">
                     <button
                       type="button"

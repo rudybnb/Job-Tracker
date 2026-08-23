@@ -28,8 +28,17 @@ const REAL_MAUREEN = {
   postcode: "SE1 1AA",
   totalQuotePrice: 28450,
   formattedTotalPrice: "£28,450.00",
-  locationNames: ["2nd bathroom", "2nd floor bedroom 4", "Bathroom Wall"],
-  taskCount: 6,
+  locationNames: [
+    "2nd bathroom",
+    "2nd floor bedroom 4",
+    "2nd main bedroom",
+    "2nd Passage",
+    "Bathroom Wall",
+    "Bathrooms",
+  ],
+  locationCount: 6,
+  categoryCount: 10,
+  taskCount: 15,
 } as const;
 
 // Invented values that must NEVER appear in any output
@@ -336,15 +345,15 @@ test("Maureen Orubebe 2nd Floor Quote: clean preview & import without summary du
     assert.equal(importRes.status, 200);
     assert.equal(importRes.body.success, true);
 
-    // Assert exact 3 locations (Summary did NOT create duplicate locations)
-    assert.equal(storage.locations.length, 3, "Must have exactly 3 locations");
+    // Assert exact 6 locations (Summary did NOT create duplicate locations)
+    assert.equal(storage.locations.length, REAL_MAUREEN.locationCount, "Must have exactly 6 locations");
     assert.deepEqual(
       storage.locations.map(l => l.name),
       REAL_MAUREEN.locationNames as unknown as string[]
     );
 
-    // Assert total tasks = 6
-    assert.equal(storage.tasks.length, REAL_MAUREEN.taskCount, "Must have exactly 6 tasks");
+    // Assert total tasks = 15
+    assert.equal(storage.tasks.length, REAL_MAUREEN.taskCount, "Must have exactly 15 tasks");
 
     // Check no table header or currency is stored as task
     for (const t of storage.tasks) {

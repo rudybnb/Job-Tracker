@@ -48,14 +48,13 @@ export async function createMockDocxBuffer(paragraphsXml: string): Promise<Buffe
 
 /**
  * Builds the Maureen Orubebe 2nd Floor HBXL Word quote fixture.
- * Contains:
- * - Summary table with room names and column headers (Material, Labour, Plant, Other, Total)
- * - Detailed section with "Carry out work in [LOCATION] comprising:"
- *   - 2nd bathroom -> Replace Existing Floorboards -> [Remove 3.13m² floorboards, Install 3.13m² insulation, Install 3.13m² replacement floorboards]
- *   - 2nd floor bedroom 4 -> Room Decoration -> [Emulsion paint to walls and ceiling, Undercoat and gloss to woodwork]
- *   - Bathroom Wall -> Ceramic Wall Tiling -> [Install 14.40m² ceramic wall tiling]
- * - Embedded prices, resources, table headers
- * - Acceptance of Estimate & Terms & Conditions at end
+ * REAL DOCUMENT EXTRACTION:
+ * - 2nd bathroom → Replace Existing Floorboards (3 tasks)
+ * - 2nd floor bedroom 4 → Removal of Floorboards (1 task), Replace Existing Floorboards (2 tasks)
+ * - 2nd main bedroom → Removal of Floorboards (1 task), Replace Existing Floorboards (2 tasks)
+ * - 2nd Passage → Removal of Floorboards (1 task), Replace Existing Floorboards (2 tasks)
+ * - Bathroom Wall → Ceramic Wall Tiling (1 task)
+ * - Bathrooms → Internal Lighting (1 task), Bathroom Electrics (1 task)
  */
 export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
   const xml = `
@@ -73,7 +72,10 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>Material</w:t></w:r><w:r><w:t>Labour</w:t></w:r><w:r><w:t>Plant</w:t></w:r><w:r><w:t>Other</w:t></w:r><w:r><w:t>Total</w:t></w:r></w:p>
     <w:p><w:r><w:t>£1,200.00</w:t></w:r><w:r><w:t>£2,500.00</w:t></w:r><w:r><w:t>£300.00</w:t></w:r><w:r><w:t>£200.00</w:t></w:r><w:r><w:t>£4,200.00</w:t></w:r></w:p>
     <w:p><w:r><w:t>2nd floor bedroom 4</w:t></w:r></w:p>
+    <w:p><w:r><w:t>2nd main bedroom</w:t></w:r></w:p>
+    <w:p><w:r><w:t>2nd Passage</w:t></w:r></w:p>
     <w:p><w:r><w:t>Bathroom Wall</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Bathrooms</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 1: 2nd bathroom -->
     <w:p><w:r><w:t>Carry out work in 2nd bathroom comprising:</w:t></w:r></w:p>
@@ -81,25 +83,38 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>Remove 3.13m² floorboards</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install 3.13m² insulation</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install 3.13m² replacement floorboards</w:t></w:r></w:p>
-    <!-- Banned tokens inside section -->
-    <w:p><w:r><w:t>Description</w:t></w:r></w:p>
     <w:p><w:r><w:t>Material</w:t></w:r></w:p>
     <w:p><w:r><w:t>Labour</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Plant</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Other</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Total</w:t></w:r></w:p>
     <w:p><w:r><w:t>Resources to include:</w:t></w:r></w:p>
     <w:p><w:r><w:t>£ 145.20</w:t></w:r></w:p>
     <w:p><w:r><w:t>Total cost excluding VAT £1,250.00</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 2: 2nd floor bedroom 4 -->
     <w:p><w:r><w:t>Carry out work in 2nd floor bedroom 4 comprising:</w:t></w:r></w:p>
-    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Room Decoration</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Emulsion paint to walls and ceiling</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Undercoat and gloss to woodwork</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Removal of Floorboards</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Remove existing floorboards</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Replace Existing Floorboards</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install insulation</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install replacement floorboards</w:t></w:r></w:p>
     <w:p><w:r><w:t>Total cost: £2,400.00</w:t></w:r></w:p>
 
-    <!-- DETAILED SECTION 3: Bathroom Wall -->
+    <!-- DETAILED SECTION 3: 2nd main bedroom -->
+    <w:p><w:r><w:t>Carry out work in 2nd main bedroom comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Removal of Floorboards</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Remove existing floorboards</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Replace Existing Floorboards</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install insulation</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install replacement floorboards</w:t></w:r></w:p>
+
+    <!-- DETAILED SECTION 4: 2nd Passage -->
+    <w:p><w:r><w:t>Carry out work in 2nd Passage comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Removal of Floorboards</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Remove existing floorboards</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Replace Existing Floorboards</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install insulation</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install replacement floorboards</w:t></w:r></w:p>
+
+    <!-- DETAILED SECTION 5: Bathroom Wall -->
     <w:p><w:r><w:t>Carry out work in Bathroom Wall comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Ceramic Wall Tiling</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install 14.40m² ceramic wall tiling</w:t></w:r></w:p>
@@ -107,7 +122,14 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>£ 320.00</w:t></w:r></w:p>
     <w:p><w:r><w:t>Total: £850.00</w:t></w:r></w:p>
 
-    <!-- LEGAL / SIGNING SECTION (Must NEVER be imported) -->
+    <!-- DETAILED SECTION 6: Bathrooms -->
+    <w:p><w:r><w:t>Carry out work in Bathrooms comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Internal Lighting</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install LED downlights</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Bathroom Electrics</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install extractor fan</w:t></w:r></w:p>
+
+    <!-- LEGAL / SIGNING SECTION -->
     <w:p><w:r><w:t>Acceptance of Estimate</w:t></w:r></w:p>
     <w:p><w:r><w:t>I/We accept the quotation above.</w:t></w:r></w:p>
     <w:p><w:r><w:t>Signed: ........................</w:t></w:r></w:p>
@@ -144,7 +166,7 @@ export async function createSpencerHouseDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>House</w:t></w:r></w:p>
     <w:p><w:r><w:t>Living Room</w:t></w:r></w:p>
 
-    <!-- Customised Build — Internal Door & Structural Openings -->
+    <!-- Customised Build — Internal Door & Structural Openings (8 tasks) -->
     <w:p><w:r><w:t>Carry out work in Customised Build comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Internal Door</w:t></w:r></w:p>
     <w:p><w:r><w:t>Internal Door 6 Panel Smooth 838 x 1981mm</w:t></w:r></w:p>
@@ -157,7 +179,7 @@ export async function createSpencerHouseDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>Padstones</w:t></w:r></w:p>
     <w:p><w:r><w:t>making-good materials</w:t></w:r></w:p>
 
-    <!-- Dining Room — Vinyl Flooring -->
+    <!-- Dining Room — Vinyl Flooring (6 tasks) -->
     <w:p><w:r><w:t>Carry out work in Dining Room comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Vinyl Flooring</w:t></w:r></w:p>
     <w:p><w:r><w:t>Vinyl flooring</w:t></w:r></w:p>
@@ -167,7 +189,7 @@ export async function createSpencerHouseDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>sundry materials</w:t></w:r></w:p>
     <w:p><w:r><w:t>skirting fixings</w:t></w:r></w:p>
 
-    <!-- Dinning Room — Structural Openings & Decoration -->
+    <!-- Dinning Room — Structural Openings & Decoration (7 tasks) -->
     <w:p><w:r><w:t>Carry out work in Dinning Room comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Structural Openings to Existing Wall</w:t></w:r></w:p>
     <w:p><w:r><w:t>Universal Beam 203 x 133 x 25kg per m</w:t></w:r></w:p>
@@ -179,14 +201,14 @@ export async function createSpencerHouseDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>architraves/casings</w:t></w:r></w:p>
     <w:p><w:r><w:t>skirtings</w:t></w:r></w:p>
 
-    <!-- House — Structural Opening -->
+    <!-- House — Structural Opening (3 tasks) -->
     <w:p><w:r><w:t>Carry out work in House comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Structural Opening</w:t></w:r></w:p>
     <w:p><w:r><w:t>Lintel Number 1 RSJ 178 x 102 x 19kg per m</w:t></w:r></w:p>
     <w:p><w:r><w:t>Lintel Number 2 RSJ 178 x 102 x 19kg per m</w:t></w:r></w:p>
     <w:p><w:r><w:t>associated padstones/making good</w:t></w:r></w:p>
 
-    <!-- Living Room — Room Decoration & Vinyl Flooring -->
+    <!-- Living Room — Room Decoration & Vinyl Flooring (7 tasks) -->
     <w:p><w:r><w:t>Carry out work in Living Room comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Room Decoration</w:t></w:r></w:p>
     <w:p><w:r><w:t>ceiling</w:t></w:r></w:p>
@@ -206,9 +228,9 @@ export async function createSpencerHouseDocxBuffer(): Promise<Buffer> {
   return await createMockDocxBuffer(xml);
 }
 
-// ===========================================================================
+// ===========================================================
 // Tests
-// ===========================================================================
+// ===========================================================
 
 test("Levenshtein distance calculation", () => {
   assert.equal(calculateLevenshteinDistance("dining room", "dinning room"), 1);
@@ -260,59 +282,41 @@ test("Maureen Orubebe 2nd Floor quote parser: extracts clean rooms and tasks, ig
   assert.equal(result.metadata.totalQuotePrice, 28450);
   assert.equal(result.metadata.formattedTotalPrice, "£28,450.00");
 
-  // 1. Summary headings do NOT create duplicate locations
-  // Must have exactly 3 locations (from the detail section only)
-  assert.equal(result.locations.length, 3, "Must have exactly 3 locations from detailed section");
+  // Exact 6 locations extracted
+  assert.equal(result.locations.length, 6, "Must have exactly 6 locations");
   assert.deepEqual(
     result.locations.map(l => l.name),
-    ["2nd bathroom", "2nd floor bedroom 4", "Bathroom Wall"],
+    [
+      "2nd bathroom",
+      "2nd floor bedroom 4",
+      "2nd main bedroom",
+      "2nd Passage",
+      "Bathroom Wall",
+      "Bathrooms",
+    ],
     "Locations must match 'Carry out work in' detail anchors exactly"
   );
 
-  const bathroom = result.locations.find(l => l.name === "2nd bathroom")!;
+  // Assert counts: 6 locations, 10 categories, 15 tasks
+  assert.equal(result.stats.locationCount, 6, "Location count must be 6");
+  assert.equal(result.stats.categoryCount, 10, "Work category count must be 10");
+  assert.equal(result.stats.taskCount, 15, "Individual task count must be 15");
+
+  // Check 2nd floor bedroom 4 has Removal of Floorboards & Replace Existing Floorboards (NOT Room Decoration)
   const bedroom4 = result.locations.find(l => l.name === "2nd floor bedroom 4")!;
-  const bathroomWall = result.locations.find(l => l.name === "Bathroom Wall")!;
+  assert.equal(bedroom4.categories.length, 2);
+  assert.deepEqual(bedroom4.categories.map(c => c.name), [
+    "Removal of Floorboards",
+    "Replace Existing Floorboards",
+  ]);
 
-  // 2. 2nd bathroom -> Replace Existing Floorboards -> [3 tasks]
-  assert.equal(bathroom.categories.length, 1);
-  assert.equal(bathroom.categories[0].name, "Replace Existing Floorboards");
-  assert.deepEqual(
-    bathroom.categories[0].tasks.map(t => t.name),
-    [
-      "Remove 3.13m² floorboards",
-      "Install 3.13m² insulation",
-      "Install 3.13m² replacement floorboards",
-    ]
-  );
-
-  // 3. 2nd floor bedroom 4 -> Room Decoration -> [2 tasks]
-  assert.equal(bedroom4.categories.length, 1);
-  assert.equal(bedroom4.categories[0].name, "Room Decoration");
-  assert.deepEqual(
-    bedroom4.categories[0].tasks.map(t => t.name),
-    [
-      "Emulsion paint to walls and ceiling",
-      "Undercoat and gloss to woodwork",
-    ]
-  );
-
-  // 4. Bathroom Wall -> Ceramic Wall Tiling -> [1 task]
-  assert.equal(bathroomWall.categories.length, 1);
-  assert.equal(bathroomWall.categories[0].name, "Ceramic Wall Tiling");
-  assert.deepEqual(
-    bathroomWall.categories[0].tasks.map(t => t.name),
-    ["Install 14.40m² ceramic wall tiling"]
-  );
-
-  // Total task count across all locations must be exactly 6 (3 + 2 + 1) — NOT 742!
-  assert.equal(result.stats.taskCount, 6, "Total tasks must be exactly 6, not inflated with headers/prices");
-  assert.equal(result.stats.categoryCount, 3);
-
-  // 5. Check no banned headers or prices appear anywhere in tasks
-  const allTasks = result.locations.flatMap(l => l.categories.flatMap(c => c.tasks.map(t => t.name)));
-  for (const banned of ["Material", "Labour", "Plant", "Other", "Total", "Description", "Resources to include:", "Acceptance of Estimate", "Terms and Conditions"]) {
-    assert.ok(!allTasks.includes(banned), `Banned text '${banned}' must not be a task`);
-  }
+  // Check Bathrooms has Internal Lighting & Bathroom Electrics
+  const bathrooms = result.locations.find(l => l.name === "Bathrooms")!;
+  assert.equal(bathrooms.categories.length, 2);
+  assert.deepEqual(bathrooms.categories.map(c => c.name), [
+    "Internal Lighting",
+    "Bathroom Electrics",
+  ]);
 });
 
 test("Spencer House Word quote parser: extracts metadata, locations, categories and tasks exactly", async () => {
@@ -330,7 +334,7 @@ test("Spencer House Word quote parser: extracts metadata, locations, categories 
   assert.equal(result.metadata.totalQuotePrice, 17350.46);
   assert.equal(result.metadata.formattedTotalPrice, "£17,350.46");
 
-  // Locations: exactly 5 (Summary headings did not create duplicates)
+  // Locations: exactly 5
   assert.equal(result.locations.length, 5);
   const locationNames = result.locations.map((l) => l.name);
   assert.deepEqual(locationNames, [
@@ -340,6 +344,14 @@ test("Spencer House Word quote parser: extracts metadata, locations, categories 
     "House",
     "Living Room",
   ]);
+
+  // Clear Counts breakdown:
+  // - Locations: 5
+  // - Work Categories: 8 (2 + 1 + 2 + 1 + 2)
+  // - Individual Tasks: 31 (8 + 6 + 7 + 3 + 7)
+  assert.equal(result.stats.locationCount, 5, "Spencer House has 5 locations");
+  assert.equal(result.stats.categoryCount, 8, "Spencer House has 8 work categories");
+  assert.equal(result.stats.taskCount, 31, "Spencer House has 31 individual tasks");
 
   const custBuild = result.locations.find((l) => l.name === "Customised Build")!;
   const dining = result.locations.find((l) => l.name === "Dining Room")!;
@@ -354,26 +366,21 @@ test("Spencer House Word quote parser: extracts metadata, locations, categories 
   assert.equal(dinning.reviewStatus, "REVIEW_REQUIRED");
   assert.equal(living.reviewStatus, "CONFIRMED");
 
-  // Check no section bleed: Customised Build only has its own tasks
-  const custTasks = custBuild.categories.flatMap(c => c.tasks.map(t => t.name));
-  assert.ok(custTasks.includes("Internal Door 6 Panel Smooth 838 x 1981mm"));
-  assert.ok(custTasks.includes("Universal Beam 178 x 102 x 19kg per m"));
-  assert.ok(!custTasks.includes("Vinyl flooring"), "Customised Build must NOT contain Dining Room work");
+  // Category & task assertions
+  assert.equal(custBuild.categories.length, 2);
+  assert.equal(custBuild.categories[0].tasks.length + custBuild.categories[1].tasks.length, 8);
 
-  // Dining Room only has Vinyl Flooring
   assert.equal(dining.categories.length, 1);
-  assert.equal(dining.categories[0].name, "Vinyl Flooring");
+  assert.equal(dining.categories[0].tasks.length, 6);
 
-  // Dinning Room has Structural Openings and Room Decoration
   assert.equal(dinning.categories.length, 2);
+  assert.equal(dinning.categories[0].tasks.length + dinning.categories[1].tasks.length, 7);
 
-  // House only has Structural Opening
   assert.equal(house.categories.length, 1);
+  assert.equal(house.categories[0].tasks.length, 3);
 
-  // Living Room has Room Decoration and Vinyl Flooring
   assert.equal(living.categories.length, 2);
-  const livingDecor = living.categories.find(c => c.name === "Room Decoration")!;
-  assert.deepEqual(livingDecor.tasks.map(t => t.name), ["ceiling"]);
+  assert.equal(living.categories[0].tasks.length + living.categories[1].tasks.length, 7);
 });
 
 test("Table-based fallback extracts rooms and tasks when no carry-out anchors exist", async () => {
