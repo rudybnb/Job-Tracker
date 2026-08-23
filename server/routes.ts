@@ -717,12 +717,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Assign worker to Job + Location + Task (Phase 3 assignment flow)
+  // Assign worker to Job + Location + (Work Package OR Child Task)
   app.post("/api/assign-worker-task", async (req, res) => {
     try {
       const {
         jobId,
         locationId,
         taskId,
+        workCategory,
         contractorId,
         startDate,
         endDate,
@@ -730,9 +732,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sendTelegramNotification = false,
       } = req.body;
 
-      if (!jobId || !locationId || !taskId || !contractorId) {
+      const isWholePackage = (!taskId || String(taskId).startsWith("package:")) && (workCategory || (taskId && String(taskId).startsWith("package:")));
+      const targetCategory = (workCategory || (taskId && String(taskId).startsWith("package:") ? String(taskId).replace(/^package:/, "") : undefined))?.trim();
+
+      if (!jobId || !locationId || (!taskId && !targetCategory) || !contractorId) {
         return res.status(400).json({
-          error: "Missing required assignment fields: jobId, locationId, taskId, contractorId are required.",
+          error: "Missing required assignment fields: jobId, locationId, (taskId or workCategory), contractorId are required.",
         });
       }
 
@@ -744,9 +749,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [location] = await db.select().from(jobLocations).where(eq(jobLocations.id, locationId));
       if (!location) return res.status(404).json({ error: "Location not found" });
 
-      const [task] = await db.select().from(jobLocationTasks).where(eq(jobLocationTasks.id, taskId));
-      if (!task) return res.status(404).json({ error: "Task not found" });
-
       const [contractor] = await db.select().from(contractors).where(eq(contractors.id, contractorId));
       if (!contractor) return res.status(404).json({ error: "Contractor not found" });
 
@@ -754,7 +756,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const start = startDate || new Date().toISOString().split("T")[0];
       const end = endDate || start;
 
-      // Create job assignment record with exact location and task metadata
+      if (isWholePackage && targetCategory) {
+        // Whole Work Package Assignment: locationTaskId = null, workCategory = targetCategory, taskName = targetCategory
+        const categoryTasks = await db
+          .select()
+          .from(jobLocationTasks)
+          .where(
+            and(
+              eq(jobLocationTasks.jobId, jobId),
+              eq(jobLocationTasks.locationId, locationId),
+              eq(jobLocationTasks.workCategory, targetCategory)
+            )
+          );
+
+        const [assignment] = await db
+          .insert(jobAssignments)
+          .values({
+            jobId: job.id,
+            contractorName: contractorDisplayName,
+            email: contractor.email,
+            phone: (contractor as any).phone || "0000000000",
+            workLocation: location.name,
+            hbxlJob: job.title,
+            locationId: location.id,
+            locationName: location.name,
+            locationTaskId: null,
+            workCategory: targetCategory,
+            taskName: targetCategory,
+            buildPhases: [],
+            startDate: start,
+            endDate: end,
+            specialInstructions: specialInstructions || `Assigned to whole package: ${location.name} → ${targetCategory}`,
+            status: "assigned",
+            sendTelegramNotification: Boolean(sendTelegramNotification),
+          })
+          .returning();
+
+        if (categoryTasks.length > 0) {
+          await db
+            .update(jobLocationTasks)
+            .set({
+              status: "assigned",
+              assignedContractorId: contractor.id,
+              assignedContractorName: contractorDisplayName,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(jobLocationTasks.jobId, jobId),
+                eq(jobLocationTasks.locationId, locationId),
+                eq(jobLocationTasks.workCategory, targetCategory)
+              )
+            );
+        }
+
+        console.log(`✅ Worker ${contractorDisplayName} assigned to whole package ${job.title} → ${location.name} → ${targetCategory}`);
+
+        return res.json({
+          success: true,
+          assignment,
+          tasks: categoryTasks,
+          jobTitle: job.title,
+          locationName: location.name,
+          workCategory: targetCategory,
+          taskName: targetCategory,
+          contractorName: contractorDisplayName,
+        });
+      }
+
+      // Explicit Child Task Assignment: locationTaskId = task.id
+      const [task] = await db.select().from(jobLocationTasks).where(eq(jobLocationTasks.id, taskId));
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
       const [assignment] = await db
         .insert(jobAssignments)
         .values({
@@ -769,7 +842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           locationTaskId: task.id,
           workCategory: task.workCategory,
           taskName: task.taskName,
-          buildPhases: [], // Build phases NOT required for worker assignment
+          buildPhases: [],
           startDate: start,
           endDate: end,
           specialInstructions: specialInstructions || `Assigned to ${location.name} → ${task.workCategory} (${task.taskName})`,
@@ -778,7 +851,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .returning();
 
-      // Update task status and assigned worker
       const [updatedTask] = await db
         .update(jobLocationTasks)
         .set({

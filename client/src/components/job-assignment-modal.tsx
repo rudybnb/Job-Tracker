@@ -88,13 +88,15 @@ export default function JobAssignmentModal({
       locationId?: string;
       locationTaskId?: string;
     }) => {
-      // If location and task are selected, also assign worker to specific task
+      // If location and task are selected, also assign worker to specific task or whole package
       if (data.locationId && data.locationTaskId) {
         try {
+          const isPackage = data.locationTaskId.startsWith("package:");
           await apiRequest('POST', '/api/assign-worker-task', {
             jobId: data.jobId,
             locationId: data.locationId,
-            taskId: data.locationTaskId,
+            taskId: isPackage ? undefined : data.locationTaskId,
+            workCategory: isPackage ? data.locationTaskId.replace(/^package:/, "") : undefined,
             contractorId: data.contractorId,
             startDate: new Date().toISOString().split("T")[0],
             endDate: data.dueDate,
@@ -251,19 +253,48 @@ export default function JobAssignmentModal({
           {selectedLocationId && locationTasks.length > 0 && (
             <div>
               <Label className="text-sm font-medium text-slate-700">
-                Specific Work Item (Optional)
+                Work Package / Specific Task (Optional)
               </Label>
               <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
                 <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="All tasks in this location" />
+                  <SelectValue placeholder="All tasks / packages in this location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Tasks</SelectItem>
-                  {locationTasks.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      [{t.workCategory}] {t.taskName}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="">All Tasks in Location</SelectItem>
+                  {(() => {
+                    const grouped = new Map<string, JobLocationTask[]>();
+                    for (const t of locationTasks) {
+                      const list = grouped.get(t.workCategory) || [];
+                      list.push(t);
+                      grouped.set(t.workCategory, list);
+                    }
+
+                    return Array.from(grouped.entries()).map(([catName, tasks]) => {
+                      const isPurePackage = tasks.length === 1 && tasks[0].taskName === tasks[0].workCategory;
+
+                      if (isPurePackage) {
+                        const t = tasks[0];
+                        return (
+                          <SelectItem key={t.id} value={t.id}>
+                            📁 {catName} (Work Package)
+                          </SelectItem>
+                        );
+                      }
+
+                      return (
+                        <div key={catName}>
+                          <SelectItem value={`package:${catName}`}>
+                            📦 Whole Package: {catName} ({tasks.length} tasks)
+                          </SelectItem>
+                          {tasks.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              &nbsp;&nbsp;• {t.taskName}
+                            </SelectItem>
+                          ))}
+                        </div>
+                      );
+                    });
+                  })()}
                 </SelectContent>
               </Select>
             </div>

@@ -338,17 +338,48 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
 
   // POST /api/assign-worker-task
   app.post("/api/assign-worker-task", async (req, res) => {
-    const { jobId, locationId, taskId, contractorId } = req.body;
-    if (!jobId || !locationId || !taskId || !contractorId) return res.status(400).json({ error: "Missing fields" });
+    const { jobId, locationId, taskId, workCategory, contractorId } = req.body;
+    const isWholePackage = (!taskId || String(taskId).startsWith("package:")) && (workCategory || (taskId && String(taskId).startsWith("package:")));
+    const targetCategory = workCategory || (taskId && String(taskId).startsWith("package:") ? String(taskId).replace(/^package:/, "") : undefined);
+
+    if (!jobId || !locationId || (!taskId && !targetCategory) || !contractorId) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
 
     const job = storage.jobs.find((j) => j.id === jobId);
     const location = storage.locations.find((l) => l.id === locationId);
-    const task = storage.tasks.find((t) => t.id === taskId);
     const contractor = storage.contractors.find((c) => c.id === contractorId);
 
-    if (!job || !location || !task || !contractor) return res.status(404).json({ error: "Not found" });
+    if (!job || !location || !contractor) return res.status(404).json({ error: "Not found" });
 
     const quotedAmountBeforeAssignment = job.quotedAmount;
+
+    if (isWholePackage && targetCategory) {
+      const categoryTasks = storage.tasks.filter((t) => t.jobId === jobId && t.locationId === locationId && t.workCategory === targetCategory);
+      const assignment: MockAssignment = {
+        id: `assign-${Date.now()}`,
+        jobId: job.id,
+        contractorName: contractor.name,
+        locationId: location.id,
+        locationName: location.name,
+        locationTaskId: null,
+        workCategory: targetCategory,
+        taskName: targetCategory,
+        buildPhases: [],
+        quotedAmountAtAssignment: job.quotedAmount,
+      };
+      storage.assignments.push(assignment);
+      for (const t of categoryTasks) {
+        t.status = "assigned";
+        t.assignedContractorId = contractor.id;
+        t.assignedContractorName = contractor.name;
+      }
+      assert.equal(job.quotedAmount, quotedAmountBeforeAssignment, "COMMERCIAL SAFETY: quotedAmount must not change on assignment");
+      return res.json({ success: true, assignment, jobTitle: job.title, locationName: location.name, workCategory: targetCategory, taskName: targetCategory, contractorName: contractor.name });
+    }
+
+    const task = storage.tasks.find((t) => t.id === taskId);
+    if (!task) return res.status(404).json({ error: "Task not found" });
 
     const assignment: MockAssignment = {
       id: `assign-${Date.now()}`,
@@ -363,13 +394,11 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
       quotedAmountAtAssignment: job.quotedAmount,
     };
     storage.assignments.push(assignment);
-
     task.status = "assigned";
     task.assignedContractorId = contractor.id;
     task.assignedContractorName = contractor.name;
 
     assert.equal(job.quotedAmount, quotedAmountBeforeAssignment, "COMMERCIAL SAFETY: quotedAmount must not change on assignment");
-
     res.json({ success: true, assignment, task, jobTitle: job.title, locationName: location.name, taskName: task.taskName, contractorName: contractor.name });
   });
 
@@ -458,13 +487,13 @@ test("Maureen Orubebe 2nd Floor Quote: clean preview & import with client auto-f
     assert.equal(storage.jobs[0].clientName, "Maureen Orubebe");
     assert.equal(storage.jobs[0].title, "2nd Floor");
 
-    // Assert exact 13 locations and 47 tasks
+    // Assert exact 13 locations and 43 tasks
     assert.equal(storage.locations.length, REAL_MAUREEN.locationCount, "Must have exactly 13 locations");
     assert.deepEqual(
       storage.locations.map(l => l.name),
       REAL_MAUREEN.locationNames as unknown as string[]
     );
-    assert.equal(storage.tasks.length, REAL_MAUREEN.taskCount, "Must have exactly 47 tasks");
+    assert.equal(storage.tasks.length, REAL_MAUREEN.taskCount, "Must have exactly 43 tasks");
 
     // Check no table header or currency is stored as task
     for (const t of storage.tasks) {
@@ -474,7 +503,7 @@ test("Maureen Orubebe 2nd Floor Quote: clean preview & import with client auto-f
       assert.ok(!t.taskName.includes("£"), "Task must not be a price line");
     }
 
-    // 3. Worker assignment to 2nd bathroom -> Replace Existing Floorboards task
+    // 3. Worker assignment to 2nd bathroom -> Specific Child Task
     const bathLoc = storage.locations.find(l => l.name === "2nd bathroom")!;
     const bathTasks = await getTasks(storage.jobs[0].id, bathLoc.id);
     assert.equal(bathTasks.body.length, 3);
@@ -482,16 +511,35 @@ test("Maureen Orubebe 2nd Floor Quote: clean preview & import with client auto-f
     const floorboardTask = bathTasks.body.find(t => t.taskName === "Remove 3.13m² of floorboards")!;
     assert.ok(floorboardTask);
 
-    const assignRes = await assignWorkerTask({
+    const assignChildRes = await assignWorkerTask({
       jobId: storage.jobs[0].id,
       locationId: bathLoc.id,
       taskId: floorboardTask.id,
       contractorId: "c-ahmed",
     });
-    assert.equal(assignRes.status, 200);
-    assert.equal(assignRes.body.locationName, "2nd bathroom");
-    assert.equal(assignRes.body.taskName, "Remove 3.13m² of floorboards");
-    assert.equal(assignRes.body.contractorName, "Ahmed Gouda");
+    assert.equal(assignChildRes.status, 200);
+    assert.equal(assignChildRes.body.locationName, "2nd bathroom");
+    assert.equal(assignChildRes.body.taskName, "Remove 3.13m² of floorboards");
+    assert.equal(assignChildRes.body.contractorName, "Ahmed Gouda");
+    const childAssignment = storage.assignments.find(a => a.locationTaskId === floorboardTask.id)!;
+    assert.ok(childAssignment, "Explicit child assignment must store locationTaskId");
+    assert.equal(childAssignment.workCategory, "Replace Existing Floorboards");
+
+    // 4. Worker assignment to 2nd floor bedroom 4 -> Whole Work Package
+    const bed4Loc = storage.locations.find(l => l.name === "2nd floor bedroom 4")!;
+    const assignPackageRes = await assignWorkerTask({
+      jobId: storage.jobs[0].id,
+      locationId: bed4Loc.id,
+      taskId: "package:Removal of Floorboards",
+      workCategory: "Removal of Floorboards",
+      contractorId: "c-ahmed",
+    });
+    assert.equal(assignPackageRes.status, 200);
+    assert.equal(assignPackageRes.body.locationName, "2nd floor bedroom 4");
+    assert.equal(assignPackageRes.body.workCategory, "Removal of Floorboards");
+    const packageAssignment = storage.assignments.find(a => a.workCategory === "Removal of Floorboards" && a.locationId === bed4Loc.id)!;
+    assert.ok(packageAssignment, "Whole package assignment must be recorded");
+    assert.equal(packageAssignment.locationTaskId, null, "Whole package assignment has locationTaskId null");
   });
 });
 

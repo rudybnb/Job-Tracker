@@ -360,7 +360,12 @@ export default function CreateAssignment() {
     }
 
     const selectedLoc = jobLocations.find(l => l.id === selectedLocationId);
-    const selectedTask = locationTasks.find(t => t.id === selectedTaskId);
+    const isWholePackage = selectedTaskId.startsWith("package:");
+    const packageCategoryName = isWholePackage ? selectedTaskId.replace(/^package:/, "") : undefined;
+    const selectedTask = !isWholePackage ? locationTasks.find(t => t.id === selectedTaskId) : undefined;
+    const workCategory = packageCategoryName || selectedTask?.workCategory || undefined;
+    const taskName = packageCategoryName || selectedTask?.taskName || undefined;
+    const locationTaskId = isWholePackage ? undefined : (selectedTaskId || undefined);
 
     try {
       const assignments = [];
@@ -380,9 +385,9 @@ export default function CreateAssignment() {
           buildPhases: selectedPhases,
           locationId: selectedLocationId || undefined,
           locationName: selectedLoc?.name || undefined,
-          locationTaskId: selectedTaskId || undefined,
-          workCategory: selectedTask?.workCategory || undefined,
-          taskName: selectedTask?.taskName || undefined,
+          locationTaskId: locationTaskId,
+          workCategory: workCategory,
+          taskName: taskName,
           startDate: startDate || new Date().toISOString().split("T")[0],
           endDate: endDate || startDate || new Date().toISOString().split("T")[0],
           specialInstructions: selectedContractors.length > 1 
@@ -410,6 +415,28 @@ export default function CreateAssignment() {
         const savedAssignment = await response.json();
         assignments.push(savedAssignment);
         console.log(`✅ Assignment saved for ${contractor.firstName} ${contractor.lastName}`);
+
+        // Update task/category status in location tasks
+        if (selectedJobId && selectedLocationId && (locationTaskId || workCategory)) {
+          try {
+            await fetch('/api/assign-worker-task', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jobId: selectedJobId,
+                locationId: selectedLocationId,
+                taskId: locationTaskId,
+                workCategory: workCategory,
+                contractorId: contractor.id,
+                startDate: assignment.startDate,
+                endDate: assignment.endDate,
+                specialInstructions: assignment.specialInstructions,
+              }),
+            });
+          } catch (taskErr) {
+            console.warn("Could not sync location task assignment status:", taskErr);
+          }
+        }
       }
 
       const contractorNames = selectedContractors.map(id => {
@@ -734,23 +761,55 @@ export default function CreateAssignment() {
                   </select>
                 </div>
 
-                {/* Specific Work Item Selection */}
+                {/* Work Package / Specific Task Selection */}
                 {selectedLocationId && (
                   <div>
                     <label className="block text-yellow-400 text-sm font-medium mb-2">
-                      Specific Work Item *
+                      Work Package / Specific Task *
                     </label>
                     <select
                       value={selectedTaskId}
                       onChange={(e) => setSelectedTaskId(e.target.value)}
                       className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
                     >
-                      <option value="">Select Work Item...</option>
-                      {locationTasks.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          [{t.workCategory}] {t.taskName} {t.status === "assigned" ? "(Already Assigned)" : ""}
-                        </option>
-                      ))}
+                      <option value="">Select Work Package or Specific Task...</option>
+                      {(() => {
+                        const grouped = new Map<string, JobLocationTask[]>();
+                        for (const t of locationTasks) {
+                          const list = grouped.get(t.workCategory) || [];
+                          list.push(t);
+                          grouped.set(t.workCategory, list);
+                        }
+
+                        return Array.from(grouped.entries()).map(([catName, tasks]) => {
+                          const isPurePackage = tasks.length === 1 && tasks[0].taskName === tasks[0].workCategory;
+
+                          if (isPurePackage) {
+                            // Pure Work Package without child tasks (e.g. Spencer)
+                            const t = tasks[0];
+                            return (
+                              <option key={t.id} value={t.id}>
+                                📁 {catName} (Assignable Work Package) {t.status === "assigned" ? "✓ Assigned" : ""}
+                              </option>
+                            );
+                          }
+
+                          // Work Package with explicit child tasks (e.g. Maureen)
+                          const allAssigned = tasks.every((t) => t.status === "assigned");
+                          return (
+                            <optgroup key={catName} label={`📂 Work Package: ${catName}`}>
+                              <option value={`package:${catName}`}>
+                                📦 Assign Whole Package: {catName} ({tasks.length} tasks) {allAssigned ? "✓ All Assigned" : ""}
+                              </option>
+                              {tasks.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  &nbsp;&nbsp;• {t.taskName} {t.status === "assigned" ? "(Already Assigned)" : ""}
+                                </option>
+                              ))}
+                            </optgroup>
+                          );
+                        });
+                      })()}
                     </select>
                   </div>
                 )}
