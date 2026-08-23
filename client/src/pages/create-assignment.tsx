@@ -3,6 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  findAssignmentJobById,
+  formatAssignmentJobLabel,
+  hasStructuredJobData,
+} from "@/lib/assignment-job-mode";
 import "./hallmark-sweep.css";
 
 function LogoutButton() {
@@ -32,6 +37,9 @@ interface UploadedJob {
   id: string;
   name: string;
   location: string;
+  clientName?: string;
+  postcode?: string;
+  notes?: string;
   phases?: string[];
   phaseData?: Record<string, any[]>;
   resources?: any[];
@@ -169,7 +177,6 @@ export default function CreateAssignment() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [workLocation, setWorkLocation] = useState("");
-  const [selectedHbxlJob, setSelectedHbxlJob] = useState("");
   const [selectedJobId, setSelectedJobId] = useState("");
   const [selectedLocationId, setSelectedLocationId] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState("");
@@ -199,28 +206,45 @@ export default function CreateAssignment() {
   });
 
   // Fetch locations for selected job (additive)
-  const { data: jobLocations = [] } = useQuery<JobLocation[]>({
+  const {
+    data: jobLocations = [],
+    isPending: areJobLocationsLoading,
+    isError: didJobLocationsFail,
+  } = useQuery<JobLocation[]>({
     queryKey: ["/api/jobs", selectedJobId, "locations"],
     queryFn: async () => {
       if (!selectedJobId) return [];
       const res = await fetch(`/api/jobs/${selectedJobId}/locations`);
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error("Failed to load job locations");
       return res.json();
     },
     enabled: Boolean(selectedJobId),
   });
 
-  // Fetch tasks for selected location (additive)
-  const { data: locationTasks = [] } = useQuery<JobLocationTask[]>({
-    queryKey: ["/api/jobs", selectedJobId, "location-tasks", selectedLocationId],
+  // Fetch all tasks so mode is known before presenting structured or legacy controls.
+  const {
+    data: allJobLocationTasks = [],
+    isPending: areJobLocationTasksLoading,
+    isError: didJobLocationTasksFail,
+  } = useQuery<JobLocationTask[]>({
+    queryKey: ["/api/jobs", selectedJobId, "location-tasks"],
     queryFn: async () => {
-      if (!selectedJobId || !selectedLocationId) return [];
-      const res = await fetch(`/api/jobs/${selectedJobId}/location-tasks?locationId=${selectedLocationId}`);
-      if (!res.ok) return [];
+      if (!selectedJobId) return [];
+      const res = await fetch(`/api/jobs/${selectedJobId}/location-tasks`);
+      if (!res.ok) throw new Error("Failed to load job location tasks");
       return res.json();
     },
-    enabled: Boolean(selectedJobId && selectedLocationId),
+    enabled: Boolean(selectedJobId),
   });
+
+  const selectedJob = findAssignmentJobById(uploadedJobs, selectedJobId);
+  const selectedHbxlJob = selectedJob?.name ?? "";
+  const locationTasks = allJobLocationTasks.filter((task) => task.locationId === selectedLocationId);
+  const isJobStructureLoading = Boolean(selectedJobId) && (areJobLocationsLoading || areJobLocationTasksLoading);
+  const didJobStructureFail = Boolean(selectedJobId) && (didJobLocationsFail || didJobLocationTasksFail);
+  const isStructuredWordJob = !isJobStructureLoading
+    && !didJobStructureFail
+    && hasStructuredJobData(jobLocations, allJobLocationTasks);
 
   useEffect(() => {
     // Load jobs from database
@@ -243,6 +267,9 @@ export default function CreateAssignment() {
             id: job.id,
             name: job.title,
             location: job.location,
+            clientName: job.clientName,
+            postcode: job.postcode,
+            notes: job.notes,
             status: job.status,
             phases,
             phaseData: storedTaskData.phaseData,
@@ -265,12 +292,11 @@ export default function CreateAssignment() {
   }, []);
 
   useEffect(() => {
-    // When HBXL job is selected, load available phases from CSV data
-    if (selectedHbxlJob) {
-      const selectedJob = uploadedJobs.find(job => job.name === selectedHbxlJob);
-      
+    // When a job ID is selected, load any legacy phase data for that exact record.
+    if (selectedJobId) {
+      const selectedJob = findAssignmentJobById(uploadedJobs, selectedJobId);
+
       if (selectedJob) {
-        setSelectedJobId(selectedJob.id);
         if (selectedJob.phases && selectedJob.phases.length > 0) {
           setAvailablePhases(selectedJob.phases);
         } else if (selectedJob.phaseData && typeof selectedJob.phaseData === 'object' && selectedJob.phaseData !== null) {
@@ -280,24 +306,21 @@ export default function CreateAssignment() {
           setAvailablePhases([]);
         }
       } else {
-        setSelectedJobId("");
         setAvailablePhases([]);
       }
     } else {
-      setSelectedJobId("");
       setSelectedLocationId("");
       setSelectedTaskId("");
       setAvailablePhases([]);
     }
-  }, [selectedHbxlJob, uploadedJobs]);
+  }, [selectedJobId, uploadedJobs]);
 
   useEffect(() => {
-    const selectedJob = uploadedJobs.find(job => job.name === selectedHbxlJob);
     const dateRange = calculateSelectedPhaseDateRange(selectedJob, selectedPhases);
 
     if (dateRange.startDate) setStartDate(dateRange.startDate);
     if (dateRange.endDate) setEndDate(dateRange.endDate);
-  }, [selectedHbxlJob, selectedPhaseKey]);
+  }, [selectedJob, selectedPhaseKey]);
 
   const handlePhaseToggle = (phase: string) => {
     setSelectedPhases(prev => 
@@ -326,7 +349,7 @@ export default function CreateAssignment() {
       return;
     }
 
-    if (!workLocation || !selectedHbxlJob) {
+    if (!workLocation || !selectedJobId) {
       toast({
         title: "Missing Information",
         description: "Please fill in work location and select an HBXL job",
@@ -335,10 +358,19 @@ export default function CreateAssignment() {
       return;
     }
 
-    const hasLocations = jobLocations.length > 0;
+    if (isJobStructureLoading || didJobStructureFail) {
+      toast({
+        title: "Job Structure Unavailable",
+        description: isJobStructureLoading
+          ? "Please wait for the selected job structure to finish loading."
+          : "Could not load the selected job structure. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // For location-based jobs: require Location and Work Item
-    if (hasLocations) {
+    if (isStructuredWordJob) {
       if (!selectedLocationId || !selectedTaskId) {
         toast({
           title: "Missing Information",
@@ -685,17 +717,17 @@ export default function CreateAssignment() {
                 HBXL Job *
               </label>
               <select
-                value={selectedHbxlJob}
+                value={selectedJobId}
                 onChange={(e) => {
-                  const jobName = e.target.value;
-                  console.log('Job selection changed to:', jobName);
-                  setSelectedHbxlJob(jobName);
+                  const jobId = e.target.value;
+                  console.log('Job selection changed to ID:', jobId);
+                  setSelectedJobId(jobId);
                   setSelectedPhases([]);
                   setSelectedLocationId("");
                   setSelectedTaskId("");
                   
-                  if (jobName) {
-                    const selectedJob = uploadedJobs.find(job => job.name === jobName);
+                  if (jobId) {
+                    const selectedJob = findAssignmentJobById(uploadedJobs, jobId);
                     if (selectedJob && selectedJob.location) {
                       const locationParts = selectedJob.location.split(', ');
                       const postcode = locationParts[locationParts.length - 1];
@@ -710,8 +742,8 @@ export default function CreateAssignment() {
               >
                 <option value="">Select HBXL job</option>
                 {uploadedJobs.map((job) => (
-                  <option key={job.id} value={job.name}>
-                    {job.name} {job.phaseData ? `(${Object.keys(job.phaseData).length} phases)` : '(No phases)'}
+                  <option key={job.id} value={job.id}>
+                    {formatAssignmentJobLabel(job)}
                   </option>
                 ))}
               </select>
@@ -727,8 +759,16 @@ export default function CreateAssignment() {
               )}
             </div>
 
-            {/* Location & Task Selectors for Location-Based Jobs (Primary Operational Flow) */}
-            {selectedJobId && jobLocations.length > 0 && (
+            {isJobStructureLoading && (
+              <div className="text-slate-300 text-sm">Loading job structure...</div>
+            )}
+
+            {didJobStructureFail && !isJobStructureLoading && (
+              <div className="text-red-400 text-sm">Could not load job structure. Please select the job again.</div>
+            )}
+
+            {/* Location & Task Selectors for structured Word jobs. */}
+            {isStructuredWordJob && (
               <div className="space-y-4 bg-slate-800/60 border border-slate-700 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
@@ -816,8 +856,8 @@ export default function CreateAssignment() {
               </div>
             )}
 
-            {/* Legacy Build Phases (Fallback ONLY for jobs without Location/Task records) */}
-            {selectedHbxlJob && availablePhases.length > 0 && jobLocations.length === 0 && (
+            {/* Legacy phase controls appear only after both structure queries complete. */}
+            {selectedJobId && !isJobStructureLoading && !didJobStructureFail && !isStructuredWordJob && availablePhases.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-yellow-400 text-sm font-medium">

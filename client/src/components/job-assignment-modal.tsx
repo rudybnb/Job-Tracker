@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { hasStructuredJobData } from "@/lib/assignment-job-mode";
 import type { JobWithContractor, Contractor } from "@shared/schema";
 
 interface JobAssignmentModalProps {
@@ -56,28 +57,43 @@ export default function JobAssignmentModal({
   });
 
   // Fetch locations for selected job (additive)
-  const { data: jobLocations = [] } = useQuery<JobLocation[]>({
+  const {
+    data: jobLocations = [],
+    isPending: areJobLocationsLoading,
+    isError: didJobLocationsFail,
+  } = useQuery<JobLocation[]>({
     queryKey: ['/api/jobs', activeJobId, 'locations'],
     queryFn: async () => {
       if (!activeJobId) return [];
       const res = await fetch(`/api/jobs/${activeJobId}/locations`);
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error("Failed to load job locations");
       return res.json();
     },
     enabled: isOpen && Boolean(activeJobId),
   });
 
-  // Fetch tasks for selected location (additive)
-  const { data: locationTasks = [] } = useQuery<JobLocationTask[]>({
-    queryKey: ['/api/jobs', activeJobId, 'location-tasks', selectedLocationId],
+  // Fetch all tasks so structured mode is resolved before controls are shown.
+  const {
+    data: allJobLocationTasks = [],
+    isPending: areJobLocationTasksLoading,
+    isError: didJobLocationTasksFail,
+  } = useQuery<JobLocationTask[]>({
+    queryKey: ['/api/jobs', activeJobId, 'location-tasks'],
     queryFn: async () => {
-      if (!activeJobId || !selectedLocationId) return [];
-      const res = await fetch(`/api/jobs/${activeJobId}/location-tasks?locationId=${selectedLocationId}`);
-      if (!res.ok) return [];
+      if (!activeJobId) return [];
+      const res = await fetch(`/api/jobs/${activeJobId}/location-tasks`);
+      if (!res.ok) throw new Error("Failed to load job location tasks");
       return res.json();
     },
-    enabled: isOpen && Boolean(activeJobId && selectedLocationId),
+    enabled: isOpen && Boolean(activeJobId),
   });
+
+  const locationTasks = allJobLocationTasks.filter((task) => task.locationId === selectedLocationId);
+  const isJobStructureLoading = isOpen && Boolean(activeJobId) && (areJobLocationsLoading || areJobLocationTasksLoading);
+  const didJobStructureFail = isOpen && Boolean(activeJobId) && (didJobLocationsFail || didJobLocationTasksFail);
+  const isStructuredWordJob = !isJobStructureLoading
+    && !didJobStructureFail
+    && hasStructuredJobData(jobLocations, allJobLocationTasks);
 
   const assignJobMutation = useMutation({
     mutationFn: async (data: {
@@ -221,8 +237,16 @@ export default function JobAssignmentModal({
             )}
           </div>
 
-          {/* Location / Room Selection (ADDITIVE) */}
-          {activeJobId && jobLocations.length > 0 && (
+          {isJobStructureLoading && (
+            <div className="text-sm text-slate-500">Loading job structure...</div>
+          )}
+
+          {didJobStructureFail && !isJobStructureLoading && (
+            <div className="text-sm text-red-600">Could not load job structure. Please try again.</div>
+          )}
+
+          {/* Location / Room Selection for structured Word jobs. */}
+          {isStructuredWordJob && (
             <div>
               <Label className="text-sm font-medium text-slate-700">
                 Location / Room (Optional)
@@ -250,7 +274,7 @@ export default function JobAssignmentModal({
           )}
 
           {/* Work Item Selection (ADDITIVE) */}
-          {selectedLocationId && locationTasks.length > 0 && (
+          {isStructuredWordJob && selectedLocationId && locationTasks.length > 0 && (
             <div>
               <Label className="text-sm font-medium text-slate-700">
                 Work Package / Specific Task (Optional)
