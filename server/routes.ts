@@ -28,7 +28,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { eq, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments } from "@shared/schema";
+import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments } from "@shared/schema";
 import { normalizeUploadCsvContent, parseJobUploadCsv, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
 import { parseHbxlWordQuote } from "../shared/hbxl-word-parser";
 import { ensureJobLocationTables } from "./job-location-tables-core.ts";
@@ -316,30 +316,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+
+      // Client matching lookup
+      const clientNameToMatch = (req.body.clientName || parsed.metadata.clientName || "").trim();
+      let clientMatch: {
+        status: "MATCHED_EXISTING" | "CREATE_NEW" | "MISSING";
+        clientId?: string;
+        clientName: string;
+        isNew: boolean;
+        message: string;
+      };
+
+      if (clientNameToMatch) {
+        try {
+          const existingClients = await db
+            .select()
+            .from(clients)
+            .where(sql`LOWER(TRIM(${clients.name})) = LOWER(TRIM(${clientNameToMatch}))`)
+            .limit(1);
+
+          if (existingClients.length > 0) {
+            clientMatch = {
+              status: "MATCHED_EXISTING",
+              clientId: existingClients[0].id,
+              clientName: existingClients[0].name,
+              isNew: false,
+              message: `Matches existing client: "${existingClients[0].name}"`,
+            };
+          } else {
+            clientMatch = {
+              status: "CREATE_NEW",
+              clientName: clientNameToMatch,
+              isNew: true,
+              message: `Will create new client: "${clientNameToMatch}"`,
+            };
+          }
+        } catch {
+          clientMatch = {
+            status: "CREATE_NEW",
+            clientName: clientNameToMatch,
+            isNew: true,
+            message: `Will create new client: "${clientNameToMatch}"`,
+          };
+        }
+      } else {
+        clientMatch = {
+          status: "MISSING",
+          clientName: "",
+          isNew: false,
+          message: "Client name not found in Word quote. Please review and enter a client name.",
+        };
+      }
+
       // Check if preview mode requested
       const isPreview = req.query.preview === "true" || req.body.preview === "true";
       if (isPreview) {
         return res.json({
           success: true,
           preview: true,
-          metadata: parsed.metadata,
+          metadata: {
+            ...parsed.metadata,
+            clientMatch,
+          },
           locations: parsed.locations,
           stats: parsed.stats,
         });
       }
 
-      // Commit import to database
-      await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
-
-      // Metadata overrides from form if supplied by admin
-      let clientName = req.body.clientName || parsed.metadata.clientName || "Promise Igbinedion";
-      let projectSiteName = req.body.projectSiteName || parsed.metadata.projectSiteName || "Spencer House";
-      let address = req.body.address || parsed.metadata.address || projectSiteName;
-      let postcode = req.body.postcode || parsed.metadata.postcode || "";
-      let projectType = req.body.projectType || parsed.metadata.projectType || "Refurbishment";
-      let quotedAmount = parsed.metadata.formattedTotalPrice || (parsed.metadata.totalQuotePrice ? `£${parsed.metadata.totalQuotePrice.toFixed(2)}` : null);
+      // Metadata overrides from form if supplied by admin, else exact parsed values (ZERO hardcoded fallback names)
+      const finalClientName = (req.body.clientName !== undefined ? req.body.clientName : parsed.metadata.clientName || "").trim();
+      const finalProjectSiteName = (req.body.projectSiteName !== undefined ? req.body.projectSiteName : parsed.metadata.projectSiteName || "").trim();
+      const finalAddress = (req.body.address !== undefined ? req.body.address : parsed.metadata.address || "").trim();
+      const finalPostcode = (req.body.postcode !== undefined ? req.body.postcode : parsed.metadata.postcode || "").trim();
+      const finalProjectType = (req.body.projectType !== undefined ? req.body.projectType : parsed.metadata.projectType || "Refurbishment").trim();
+      const finalQuotedAmount = req.body.quotedAmount || parsed.metadata.formattedTotalPrice || null;
 
       const importResult = await db.transaction(async (tx) => {
+        let clientId: string | null = null;
+        let createdClientRecord: any = null;
+
+        if (finalClientName) {
+          const existingClients = await tx
+            .select()
+            .from(clients)
+            .where(sql`LOWER(TRIM(${clients.name})) = LOWER(TRIM(${finalClientName}))`)
+            .limit(1);
+
+          if (existingClients.length > 0) {
+            clientId = existingClients[0].id;
+          } else {
+            const [newClient] = await tx
+              .insert(clients)
+              .values({
+                name: finalClientName,
+                address: finalAddress || null,
+                notes: `Created automatically from HBXL Word quote: ${req.file!.originalname}`,
+              })
+              .returning();
+            clientId = newClient.id;
+            createdClientRecord = newClient;
+          }
+        }
+
         // Create upload record
         const [uploadRecord] = await tx
           .insert(csvUploads)
@@ -350,21 +429,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .returning();
 
-        // Create job record (preserving quotedAmount as commercial reference)
+        // Create job record linking to client
         const [job] = await tx
           .insert(jobsTable)
           .values({
-            title: projectSiteName,
-            clientName: clientName,
-            location: address,
-            address: address,
-            postcode: postcode,
-            projectType: projectType,
-            quotedAmount: quotedAmount,
+            title: finalProjectSiteName || req.file!.originalname.replace(/\.docx$/i, ""),
+            clientName: finalClientName || null,
+            clientId: clientId,
+            location: finalAddress || finalProjectSiteName || "TBD",
+            address: finalAddress || null,
+            postcode: finalPostcode || null,
+            projectType: finalProjectType || null,
+            quotedAmount: finalQuotedAmount,
             status: "pending",
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
             uploadId: uploadRecord.id,
-            notes: `Imported from HBXL Word Quote: ${req.file!.originalname}\nClient: ${clientName}\nQuote Total: ${quotedAmount || "N/A"}\nRooms Extracted: ${parsed.stats.locationCount}\nWork Items Extracted: ${parsed.stats.taskCount}`,
+            notes: `Imported from HBXL Word Quote: ${req.file!.originalname}\nClient: ${finalClientName || "N/A"}\nNet: ${parsed.metadata.formattedTotalExclVat || "N/A"}\nVAT: ${parsed.metadata.formattedVatAmount || "N/A"}\nGross: ${parsed.metadata.formattedTotalIncVat || "N/A"}\nRooms Extracted: ${parsed.stats.locationCount}\nWork Items Extracted: ${parsed.stats.taskCount}`,
           })
           .returning();
 
@@ -408,6 +488,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return {
           upload: uploadRecord,
           job,
+          clientId,
+          createdClientRecord,
           locations: createdLocations,
           totalTasksCount,
         };
@@ -417,6 +499,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         upload: importResult.upload,
         job: importResult.job,
+        clientId: importResult.clientId,
+        clientCreated: !!importResult.createdClientRecord,
         locationsCount: importResult.locations.length,
         tasksCount: importResult.totalTasksCount,
         stats: parsed.stats,

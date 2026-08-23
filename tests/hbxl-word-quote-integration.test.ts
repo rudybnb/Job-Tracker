@@ -82,10 +82,17 @@ const INVENTED_BANNED = {
 // Test infrastructure
 // ============================================================
 
+interface MockClient {
+  id: string;
+  name: string;
+  address?: string | null;
+}
+
 interface MockJob {
   id: string;
   title: string;
   clientName?: string | null;
+  clientId?: string | null;
   location: string;
   address?: string | null;
   postcode?: string | null;
@@ -137,6 +144,7 @@ interface MockAssignment {
 }
 
 class MockWordQuoteStorage {
+  clients: MockClient[] = [];
   jobs: MockJob[] = [];
   locations: MockLocation[] = [];
   tasks: MockTask[] = [];
@@ -147,7 +155,7 @@ class MockWordQuoteStorage {
 
 interface TestServerContext {
   readonly storage: MockWordQuoteStorage;
-  postWordQuote(params: { buffer: Buffer; filename: string; preview?: boolean }): Promise<{ status: number; body: Record<string, unknown> }>;
+  postWordQuote(params: { buffer: Buffer; filename: string; preview?: boolean; metadataOverrides?: Record<string, string> }): Promise<{ status: number; body: Record<string, unknown> }>;
   getLocations(jobId: string): Promise<{ status: number; body: MockLocation[] }>;
   patchLocation(jobId: string, locationId: string, body: Record<string, unknown>): Promise<{ status: number; body: Record<string, unknown> }>;
   getTasks(jobId: string, locationId?: string): Promise<{ status: number; body: MockTask[] }>;
@@ -172,8 +180,53 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
       return res.status(400).json({ error: "Invalid document" });
     }
 
+    const clientNameToMatch = (req.body.clientName || parsed.metadata.clientName || "").trim();
+    let clientMatch: { status: string; clientId?: string; clientName: string; isNew: boolean; message: string };
+
+    if (clientNameToMatch) {
+      const existing = storage.clients.find(c => c.name.trim().toLowerCase() === clientNameToMatch.toLowerCase());
+      if (existing) {
+        clientMatch = { status: "MATCHED_EXISTING", clientId: existing.id, clientName: existing.name, isNew: false, message: `Matches existing client: "${existing.name}"` };
+      } else {
+        clientMatch = { status: "CREATE_NEW", clientName: clientNameToMatch, isNew: true, message: `Will create new client: "${clientNameToMatch}"` };
+      }
+    } else {
+      clientMatch = { status: "MISSING", clientName: "", isNew: false, message: "Client name not found in Word quote" };
+    }
+
     if (req.query.preview === "true" || req.body.preview === "true") {
-      return res.json({ success: true, preview: true, metadata: parsed.metadata, locations: parsed.locations, stats: parsed.stats });
+      return res.json({
+        success: true,
+        preview: true,
+        metadata: {
+          ...parsed.metadata,
+          clientMatch,
+        },
+        locations: parsed.locations,
+        stats: parsed.stats,
+      });
+    }
+
+    // Import mode — metadata overrides or parsed
+    const finalClientName = (req.body.clientName !== undefined ? req.body.clientName : parsed.metadata.clientName || "").trim();
+    const finalProjectSiteName = (req.body.projectSiteName !== undefined ? req.body.projectSiteName : parsed.metadata.projectSiteName || "").trim();
+    const finalAddress = (req.body.address !== undefined ? req.body.address : parsed.metadata.address || "").trim();
+    const finalPostcode = (req.body.postcode !== undefined ? req.body.postcode : parsed.metadata.postcode || "").trim();
+    const finalQuotedAmount = req.body.quotedAmount || parsed.metadata.formattedTotalPrice || null;
+
+    let clientId: string | null = null;
+    let clientCreated = false;
+
+    if (finalClientName) {
+      const existing = storage.clients.find(c => c.name.trim().toLowerCase() === finalClientName.toLowerCase());
+      if (existing) {
+        clientId = existing.id;
+      } else {
+        const newClient: MockClient = { id: `client-${Date.now()}`, name: finalClientName, address: finalAddress || null };
+        storage.clients.push(newClient);
+        clientId = newClient.id;
+        clientCreated = true;
+      }
     }
 
     const uploadRecord = { id: `upload-${Date.now()}`, filename: req.file.originalname, status: "processed" };
@@ -181,12 +234,13 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
 
     const jobRecord: MockJob = {
       id: `job-${Date.now()}`,
-      title: parsed.metadata.projectSiteName,
-      clientName: parsed.metadata.clientName,
-      location: parsed.metadata.address,
-      address: parsed.metadata.address,
-      postcode: parsed.metadata.postcode,
-      quotedAmount: parsed.metadata.formattedTotalPrice || null,
+      title: finalProjectSiteName || req.file.originalname.replace(/\.docx$/i, ""),
+      clientName: finalClientName || null,
+      clientId: clientId,
+      location: finalAddress || finalProjectSiteName || "TBD",
+      address: finalAddress || null,
+      postcode: finalPostcode || null,
+      quotedAmount: finalQuotedAmount,
       status: "pending",
       dueDate: "2026-10-31",
       uploadId: uploadRecord.id,
@@ -222,7 +276,14 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
       }
     }
 
-    res.json({ success: true, job: jobRecord, locations: storage.locations, tasksCount: taskSeq });
+    res.json({
+      success: true,
+      job: jobRecord,
+      clientId,
+      clientCreated,
+      locations: storage.locations,
+      tasksCount: taskSeq,
+    });
   });
 
   // GET /api/jobs/:jobId/locations
@@ -269,7 +330,7 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
       locationTaskId: task.id,
       workCategory: task.workCategory,
       taskName: task.taskName,
-      buildPhases: [], // NOT used for worker assignment
+      buildPhases: [],
       quotedAmountAtAssignment: job.quotedAmount,
     };
     storage.assignments.push(assignment);
@@ -278,7 +339,6 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
     task.assignedContractorId = contractor.id;
     task.assignedContractorName = contractor.name;
 
-    // CRITICAL: job.quotedAmount must remain completely unchanged after assignment
     assert.equal(job.quotedAmount, quotedAmountBeforeAssignment, "COMMERCIAL SAFETY: quotedAmount must not change on assignment");
 
     res.json({ success: true, assignment, task, jobTitle: job.title, locationName: location.name, taskName: task.taskName, contractorName: contractor.name });
@@ -292,10 +352,15 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
   try {
     await run({
       storage,
-      async postWordQuote({ buffer, filename, preview }) {
+      async postWordQuote({ buffer, filename, preview, metadataOverrides }) {
         const fd = new FormData();
         fd.append("quoteFile", new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }), filename);
         if (preview) fd.append("preview", "true");
+        if (metadataOverrides) {
+          for (const [k, v] of Object.entries(metadataOverrides)) {
+            fd.append(k, v);
+          }
+        }
         const url = preview ? `${base}/api/upload-word-quote?preview=true` : `${base}/api/upload-word-quote`;
         const res = await fetch(url, { method: "POST", body: fd });
         return { status: res.status, body: (await res.json()) as Record<string, unknown> };
@@ -330,37 +395,47 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
 // ============================================================
 // Test 1 — Maureen Orubebe 2nd Floor Quote: Preview & Full Import
 // ============================================================
-test("Maureen Orubebe 2nd Floor Quote: clean preview & import without summary duplicates or table headers", async () => {
+test("Maureen Orubebe 2nd Floor Quote: clean preview & import with client auto-fill and dynamic client creation", async () => {
   await withWordQuoteServer(async ({ postWordQuote, storage, getTasks, assignWorkerTask }) => {
     const buf = await createMaureenOrubebeDocxBuffer();
 
-    // 1. Preview mode — no DB writes
+    // 1. Preview mode — extracts all metadata and indicates new client creation
     const previewRes = await postWordQuote({ buffer: buf, filename: "Maureen Orubebe 2nd Floor Quote.docx", preview: true });
     assert.equal(previewRes.status, 200);
     assert.equal(previewRes.body.preview, true);
     assert.equal(storage.jobs.length, 0, "Preview must not create jobs");
     assert.equal(storage.locations.length, 0, "Preview must not create locations");
 
-    const meta = previewRes.body.metadata as Record<string, unknown>;
-    assert.equal(meta.clientName, REAL_MAUREEN.clientName);
-    assert.equal(meta.projectSiteName, REAL_MAUREEN.projectSiteName);
-    assert.equal(meta.totalQuotePrice, REAL_MAUREEN.totalQuotePrice);
-    assert.equal(meta.formattedTotalPrice, REAL_MAUREEN.formattedTotalPrice);
+    const meta = previewRes.body.metadata as Record<string, any>;
+    assert.equal(meta.clientName, REAL_MAUREEN.clientName, "Client name must be Maureen Orubebe");
+    assert.equal(meta.projectSiteName, REAL_MAUREEN.projectSiteName, "Site name must be 2nd Floor");
+    assert.ok(meta.address.includes("3 Lingard Avenue"), "Address must include 3 Lingard Avenue");
+    assert.equal(meta.postcode, REAL_MAUREEN.postcode, "Postcode must be NW9 5YZ");
+    assert.equal(meta.totalExclVat, 38822.47, "Net total must be £38,822.47");
+    assert.equal(meta.vatAmount, 7764.49, "VAT must be £7,764.49");
+    assert.equal(meta.totalIncVat, 46586.96, "Gross total must be £46,586.96");
+    assert.equal(meta.clientMatch.status, "CREATE_NEW", "Must indicate new client will be created");
 
-    // 2. Full import
+    // 2. Full import — creates job, creates client Maureen Orubebe, and links them
     const importRes = await postWordQuote({ buffer: buf, filename: "Maureen Orubebe 2nd Floor Quote.docx", preview: false });
     assert.equal(importRes.status, 200);
     assert.equal(importRes.body.success, true);
+    assert.equal(importRes.body.clientCreated, true, "Must have created client record");
 
-    // Assert exact 6 locations (Summary did NOT create duplicate locations)
-    assert.equal(storage.locations.length, REAL_MAUREEN.locationCount, "Must have exactly 6 locations");
+    // Assert client in storage
+    assert.equal(storage.clients.length, 1, "Must have created 1 client");
+    assert.equal(storage.clients[0].name, "Maureen Orubebe");
+    assert.equal(storage.jobs[0].clientId, storage.clients[0].id, "Job must link to created client");
+    assert.equal(storage.jobs[0].clientName, "Maureen Orubebe");
+    assert.equal(storage.jobs[0].title, "2nd Floor");
+
+    // Assert exact 13 locations and 47 tasks
+    assert.equal(storage.locations.length, REAL_MAUREEN.locationCount, "Must have exactly 13 locations");
     assert.deepEqual(
       storage.locations.map(l => l.name),
       REAL_MAUREEN.locationNames as unknown as string[]
     );
-
-    // Assert total tasks = 15
-    assert.equal(storage.tasks.length, REAL_MAUREEN.taskCount, "Must have exactly 15 tasks");
+    assert.equal(storage.tasks.length, REAL_MAUREEN.taskCount, "Must have exactly 47 tasks");
 
     // Check no table header or currency is stored as task
     for (const t of storage.tasks) {
@@ -392,22 +467,31 @@ test("Maureen Orubebe 2nd Floor Quote: clean preview & import without summary du
 });
 
 // ============================================================
-// Test 2 — Spencer House Quote: Preview Mode
+// Test 2 — Spencer House Quote: Preview Mode & Existing Client Linking
 // ============================================================
-test("Spencer House — Preview mode returns REAL Spencer House structure without committing records", async () => {
+test("Spencer House — Preview mode extracts real quote details and links existing client", async () => {
   await withWordQuoteServer(async ({ postWordQuote, storage }) => {
+    // Pre-create existing client in Job Tracker
+    storage.clients.push({ id: "client-promise-1", name: "Promise Igbinedion", address: "Spencer House" });
+
     const buf = await createSpencerHouseDocxBuffer();
     const res = await postWordQuote({ buffer: buf, filename: "Job 2 Spencer House - Quote(1).docx", preview: true });
 
     assert.equal(res.status, 200, "Preview must return 200");
     assert.equal(res.body.preview, true);
 
-    const meta = res.body.metadata as Record<string, unknown>;
+    const meta = res.body.metadata as Record<string, any>;
+    assert.equal(meta.clientName, REAL_SPENCER.clientName, `Client must be ${REAL_SPENCER.clientName}`);
     assert.equal(meta.projectSiteName, REAL_SPENCER.projectSiteName);
     assert.equal(meta.postcode, REAL_SPENCER.postcode, `Postcode must be ${REAL_SPENCER.postcode}`);
-    assert.equal(meta.totalQuotePrice, REAL_SPENCER.totalQuotePrice);
-    assert.equal(meta.formattedTotalPrice, REAL_SPENCER.formattedTotalPrice);
+    assert.equal(meta.totalExclVat, REAL_SPENCER.totalQuotePrice);
+    assert.equal(meta.formattedTotalExclVat, REAL_SPENCER.formattedTotalPrice);
     assert.notEqual(meta.totalQuotePrice, INVENTED_BANNED.prices[0], "Must not use invented £45,250");
+
+    // Client match assertion
+    assert.equal(meta.clientMatch.status, "MATCHED_EXISTING", "Must match existing client");
+    assert.equal(meta.clientMatch.clientId, "client-promise-1", "Must link to client-promise-1");
+    assert.equal(meta.clientMatch.isNew, false);
 
     assert.equal(storage.jobs.length, 0, "Preview must not create any jobs");
     assert.equal(storage.locations.length, 0, "Preview must not create any locations");
@@ -420,13 +504,20 @@ test("Spencer House — Preview mode returns REAL Spencer House structure withou
 // ============================================================
 test("Spencer House — Full import: real data, review flags, worker assignment, commercial safety", async () => {
   await withWordQuoteServer(async ({ postWordQuote, storage, getLocations, patchLocation, getTasks, assignWorkerTask }) => {
+    // Pre-populate existing client
+    storage.clients.push({ id: "client-promise-1", name: "Promise Igbinedion", address: "Spencer House" });
+
     const buf = await createSpencerHouseDocxBuffer();
     const res = await postWordQuote({ buffer: buf, filename: "Job 2 Spencer House - Quote(1).docx", preview: false });
 
     assert.equal(res.status, 200, "Import must return 200");
     assert.equal(res.body.success, true);
+    assert.equal(res.body.clientCreated, false, "Must NOT create duplicate client record");
+    assert.equal(storage.clients.length, 1, "Must retain exactly 1 client");
 
     const job = res.body.job as MockJob;
+    assert.equal(job.clientId, "client-promise-1", "Job must link to existing client-promise-1");
+    assert.equal(job.clientName, "Promise Igbinedion");
 
     assert.equal(job.title, REAL_SPENCER.projectSiteName);
     assert.equal(job.clientName, REAL_SPENCER.clientName);
@@ -513,3 +604,39 @@ test("Spencer House — Full import: real data, review flags, worker assignment,
     assert.equal(storedJob.quotedAmount, REAL_SPENCER.formattedTotalPrice, "quotedAmount must remain unchanged after location rename");
   });
 });
+
+// ============================================================
+// Test 4 — Admin Preview Correction & Metadata Override
+// ============================================================
+test("Admin preview correction: custom client & job metadata overrides parsed defaults on import", async () => {
+  await withWordQuoteServer(async ({ postWordQuote, storage }) => {
+    const buf = await createMaureenOrubebeDocxBuffer();
+
+    // Admin corrects client name and site name before approving import
+    const res = await postWordQuote({
+      buffer: buf,
+      filename: "Maureen Orubebe 2nd Floor Quote.docx",
+      preview: false,
+      metadataOverrides: {
+        clientName: "Maureen Orubebe (Commercial Account)",
+        projectSiteName: "2nd Floor Apartment Renovation",
+        address: "3 Lingard Avenue, Flat 2B, London",
+        postcode: "NW9 5YZ",
+        projectType: "Full Refurbishment",
+      },
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.success, true);
+    assert.equal(storage.jobs.length, 1);
+
+    const job = storage.jobs[0];
+    assert.equal(job.clientName, "Maureen Orubebe (Commercial Account)", "Must use admin-corrected client name");
+    assert.equal(job.title, "2nd Floor Apartment Renovation", "Must use admin-corrected job title");
+    assert.equal(job.address, "3 Lingard Avenue, Flat 2B, London", "Must use admin-corrected address");
+    assert.equal(storage.clients.length, 1);
+    assert.equal(storage.clients[0].name, "Maureen Orubebe (Commercial Account)");
+    assert.equal(job.clientId, storage.clients[0].id);
+  });
+});
+

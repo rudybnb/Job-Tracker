@@ -48,6 +48,7 @@ export interface ParsedWordQuoteResult {
     formattedVatAmount: string;
     totalIncVat: number | null;
     formattedTotalIncVat: string;
+    missingFields?: string[];
   };
   locations: ParsedWordLocation[];
   stats: {
@@ -691,9 +692,18 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
     }
   }
 
+  const resolvedSiteName = projectSiteName || fallbackProjectSiteName;
+  const missingFields: string[] = [];
+  if (!clientName) missingFields.push("Client Name");
+  if (!resolvedSiteName) missingFields.push("Project / Site Name");
+  if (!address) missingFields.push("Site Address");
+  if (!postcode) missingFields.push("Postcode");
+  if (!quoteDate) missingFields.push("Quote Date");
+  if (totalExclVat === null && totalIncVat === null && totalQuotePrice === null) missingFields.push("Quote Price");
+
   return {
     clientName,
-    projectSiteName: projectSiteName || fallbackProjectSiteName,
+    projectSiteName: resolvedSiteName,
     address,
     postcode,
     projectType,
@@ -707,6 +717,7 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
     formattedVatAmount,
     totalIncVat,
     formattedTotalIncVat,
+    missingFields,
   };
 }
 

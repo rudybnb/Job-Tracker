@@ -85,6 +85,20 @@ interface WordQuotePreviewData {
     quoteDate: string;
     totalQuotePrice: number | null;
     formattedTotalPrice: string;
+    totalExclVat: number | null;
+    formattedTotalExclVat: string;
+    vatAmount: number | null;
+    formattedVatAmount: string;
+    totalIncVat: number | null;
+    formattedTotalIncVat: string;
+    missingFields?: string[];
+    clientMatch?: {
+      status: "MATCHED_EXISTING" | "CREATE_NEW" | "MISSING";
+      clientId?: string;
+      clientName: string;
+      isNew: boolean;
+      message: string;
+    };
   };
   locations: WordQuoteLocation[];
   stats: {
@@ -113,12 +127,23 @@ export default function UploadCsv() {
   const [showPreview, setShowPreview] = useState(false);
   const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
   const [editedLocationName, setEditedLocationName] = useState("");
+  const [editingQuoteMetadata, setEditingQuoteMetadata] = useState(false);
+  const [editedQuoteMetadata, setEditedQuoteMetadata] = useState({
+    clientName: "",
+    projectSiteName: "",
+    address: "",
+    postcode: "",
+    quoteDate: "",
+    projectType: "Refurbishment",
+  });
   const [lastImportSummary, setLastImportSummary] = useState<UploadResponse | null>(null);
   const [wordImportSuccess, setWordImportSuccess] = useState<{
     jobTitle: string;
     locationsCount: number;
     tasksCount: number;
     quotedAmount: string;
+    clientName?: string;
+    clientStatus?: string;
   } | null>(null);
 
   const [projectMetadata, setProjectMetadata] = useState<ProjectMetadata>({
@@ -219,11 +244,12 @@ export default function UploadCsv() {
       const formData = new FormData();
       formData.append('quoteFile', file);
       if (wordPreview) {
-        formData.append('clientName', wordPreview.metadata.clientName);
-        formData.append('projectSiteName', wordPreview.metadata.projectSiteName);
-        formData.append('address', wordPreview.metadata.address);
-        formData.append('postcode', wordPreview.metadata.postcode);
-        formData.append('projectType', wordPreview.metadata.projectType);
+        formData.append('clientName', editedQuoteMetadata.clientName);
+        formData.append('projectSiteName', editedQuoteMetadata.projectSiteName);
+        formData.append('address', editedQuoteMetadata.address);
+        formData.append('postcode', editedQuoteMetadata.postcode);
+        formData.append('quoteDate', editedQuoteMetadata.quoteDate);
+        formData.append('projectType', editedQuoteMetadata.projectType);
       }
       
       const response = await fetch('/api/upload-word-quote', {
@@ -249,6 +275,8 @@ export default function UploadCsv() {
         locationsCount: data.locationsCount || 0,
         tasksCount: data.tasksCount || 0,
         quotedAmount: data.job?.quotedAmount || "N/A",
+        clientName: data.job?.clientName || undefined,
+        clientStatus: data.clientCreated ? "New Client Created" : data.clientId ? "Linked to Existing Client" : undefined,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/csv-uploads'] });
@@ -256,6 +284,7 @@ export default function UploadCsv() {
       setSelectedFile(null);
       setWordPreview(null);
       setShowPreview(false);
+      setEditingQuoteMetadata(false);
       const fileInput = document.getElementById('csv-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     },
@@ -401,6 +430,15 @@ export default function UploadCsv() {
       const preview = await parseWordPreview(file);
       if (preview) {
         setWordPreview(preview);
+        setEditedQuoteMetadata({
+          clientName: preview.metadata.clientName || "",
+          projectSiteName: preview.metadata.projectSiteName || "",
+          address: preview.metadata.address || "",
+          postcode: preview.metadata.postcode || "",
+          quoteDate: preview.metadata.quoteDate || "",
+          projectType: preview.metadata.projectType || "Refurbishment",
+        });
+        setEditingQuoteMetadata(false);
         setShowPreview(true);
         workflowHelp.markStepCompleted('file-selection');
         workflowHelp.markStepCompleted('file-validation');
@@ -671,7 +709,7 @@ export default function UploadCsv() {
             <CheckCircle2 className="h-5 w-5 text-green-400" />
             HBXL Word Quote Import Complete: {wordImportSuccess.jobTitle}
           </div>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+          <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
             <div className="bg-slate-800/80 p-2 rounded">
               <span className="text-slate-400 block">Rooms / Locations:</span>
               <strong className="text-white text-sm">{wordImportSuccess.locationsCount}</strong>
@@ -683,6 +721,15 @@ export default function UploadCsv() {
             <div className="bg-slate-800/80 p-2 rounded">
               <span className="text-slate-400 block">Client Quote Value:</span>
               <strong className="text-amber-400 text-sm">{wordImportSuccess.quotedAmount}</strong>
+            </div>
+            <div className="bg-slate-800/80 p-2 rounded">
+              <span className="text-slate-400 block">Client:</span>
+              <strong className="text-emerald-400 text-xs truncate block" title={wordImportSuccess.clientName || "—"}>
+                {wordImportSuccess.clientName || "—"}
+              </strong>
+              {wordImportSuccess.clientStatus && (
+                <span className="text-[10px] text-slate-400 block">{wordImportSuccess.clientStatus}</span>
+              )}
             </div>
           </div>
           <p className="text-xs text-slate-300 mt-2">
@@ -710,28 +757,165 @@ export default function UploadCsv() {
             </div>
 
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              {/* Project & Client Metadata */}
-              <div className="bg-slate-800/80 border border-slate-700 rounded-lg p-4">
-                <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3">Quote Information</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                  <div>
-                    <span className="text-xs text-slate-400 block">Project / Site</span>
-                    <strong className="text-slate-200">{wordPreview.metadata.projectSiteName || "—"}</strong>
+              {/* Project & Client Metadata Card */}
+              <div className="bg-slate-800/90 border border-slate-700 rounded-lg p-5">
+                <div className="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Extracted Client &amp; Job Details</h4>
+                    {wordPreview.metadata.clientMatch?.status === "MATCHED_EXISTING" && (
+                      <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs">
+                        ✓ Matches existing client
+                      </Badge>
+                    )}
+                    {wordPreview.metadata.clientMatch?.status === "CREATE_NEW" && (
+                      <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/40 text-xs">
+                        + Will create new client
+                      </Badge>
+                    )}
+                    {(!editedQuoteMetadata.clientName || wordPreview.metadata.clientMatch?.status === "MISSING") && (
+                      <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs">
+                        ⚠ Client review required
+                      </Badge>
+                    )}
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block">Client</span>
-                    <strong className="text-slate-200">{wordPreview.metadata.clientName || "—"}</strong>
+                  <button
+                    onClick={() => setEditingQuoteMetadata(!editingQuoteMetadata)}
+                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium bg-amber-950/40 hover:bg-amber-900/50 px-2.5 py-1 rounded border border-amber-700/50 transition-colors"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                    {editingQuoteMetadata ? "Close Editor" : "Edit Details"}
+                  </button>
+                </div>
+
+                {editingQuoteMetadata ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <label className="text-xs font-medium text-slate-300 block mb-1">Client Name</label>
+                      <input
+                        type="text"
+                        value={editedQuoteMetadata.clientName}
+                        onChange={(e) => setEditedQuoteMetadata({ ...editedQuoteMetadata, clientName: e.target.value })}
+                        placeholder="e.g. Maureen Orubebe"
+                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-300 block mb-1">Project / Site Name</label>
+                      <input
+                        type="text"
+                        value={editedQuoteMetadata.projectSiteName}
+                        onChange={(e) => setEditedQuoteMetadata({ ...editedQuoteMetadata, projectSiteName: e.target.value })}
+                        placeholder="e.g. 2nd Floor / Spencer House"
+                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-xs font-medium text-slate-300 block mb-1">Site Address</label>
+                      <textarea
+                        rows={2}
+                        value={editedQuoteMetadata.address}
+                        onChange={(e) => setEditedQuoteMetadata({ ...editedQuoteMetadata, address: e.target.value })}
+                        placeholder="e.g. 3 Lingard Avenue, Colindale"
+                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-300 block mb-1">Postcode</label>
+                      <input
+                        type="text"
+                        value={editedQuoteMetadata.postcode}
+                        onChange={(e) => setEditedQuoteMetadata({ ...editedQuoteMetadata, postcode: e.target.value })}
+                        placeholder="e.g. NW9 5YZ"
+                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-300 block mb-1">Quote Date</label>
+                      <input
+                        type="text"
+                        value={editedQuoteMetadata.quoteDate}
+                        onChange={(e) => setEditedQuoteMetadata({ ...editedQuoteMetadata, quoteDate: e.target.value })}
+                        placeholder="e.g. 15/08/2026"
+                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block">Address</span>
-                    <span className="text-slate-300 truncate block">{wordPreview.metadata.address || "—"}</span>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-xs text-slate-400 block mb-0.5">Client</span>
+                      {editedQuoteMetadata.clientName ? (
+                        <strong className="text-slate-100 text-sm">{editedQuoteMetadata.clientName}</strong>
+                      ) : (
+                        <span className="text-amber-400 text-xs italic">Review Required (Blank)</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-400 block mb-0.5">Project / Site</span>
+                      {editedQuoteMetadata.projectSiteName ? (
+                        <strong className="text-slate-100 text-sm">{editedQuoteMetadata.projectSiteName}</strong>
+                      ) : (
+                        <span className="text-amber-400 text-xs italic">Review Required (Blank)</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-400 block mb-0.5">Postcode</span>
+                      {editedQuoteMetadata.postcode ? (
+                        <span className="text-slate-200 font-medium">{editedQuoteMetadata.postcode}</span>
+                      ) : (
+                        <span className="text-slate-400 text-xs italic">—</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-400 block mb-0.5">Quote Date</span>
+                      {editedQuoteMetadata.quoteDate ? (
+                        <span className="text-slate-200">{editedQuoteMetadata.quoteDate}</span>
+                      ) : (
+                        <span className="text-slate-400 text-xs italic">—</span>
+                      )}
+                    </div>
+                    <div className="sm:col-span-4">
+                      <span className="text-xs text-slate-400 block mb-0.5">Site Address</span>
+                      {editedQuoteMetadata.address ? (
+                        <span className="text-slate-300 text-xs whitespace-pre-line">{editedQuoteMetadata.address}</span>
+                      ) : (
+                        <span className="text-amber-400 text-xs italic">Review Required (Blank)</span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block">Postcode</span>
-                    <span className="text-slate-300">{wordPreview.metadata.postcode || "—"}</span>
+                )}
+              </div>
+
+              {/* Commercial Figures Breakdown */}
+              {(wordPreview.metadata.formattedTotalExclVat || wordPreview.metadata.formattedVatAmount || wordPreview.metadata.formattedTotalIncVat) && (
+                <div className="bg-slate-800/60 border border-slate-700/80 rounded-lg p-4">
+                  <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5">Commercial Values (Document Truth)</h4>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-slate-900/80 p-2.5 rounded border border-slate-700/60">
+                      <span className="text-xs text-slate-400 block">Net (excl. VAT)</span>
+                      <strong className="text-sm text-slate-100">{wordPreview.metadata.formattedTotalExclVat || "—"}</strong>
+                    </div>
+                    <div className="bg-slate-900/80 p-2.5 rounded border border-slate-700/60">
+                      <span className="text-xs text-slate-400 block">VAT Amount (20%)</span>
+                      <strong className="text-sm text-slate-100">{wordPreview.metadata.formattedVatAmount || "—"}</strong>
+                    </div>
+                    <div className="bg-slate-900/80 p-2.5 rounded border border-slate-700/60">
+                      <span className="text-xs text-slate-400 block">Gross (inc. VAT)</span>
+                      <strong className="text-sm text-amber-400">{wordPreview.metadata.formattedTotalIncVat || "—"}</strong>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Missing Fields Banner if any */}
+              {wordPreview.metadata.missingFields && wordPreview.metadata.missingFields.length > 0 && (
+                <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg p-3 flex items-center gap-2.5 text-xs text-slate-300">
+                  <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+                  <span>
+                    <strong>Missing from quote:</strong> {wordPreview.metadata.missingFields.join(", ")} (you can fill them above before importing).
+                  </span>
+                </div>
+              )}
 
               {/* Review Alerts Banner if any location needs review */}
               {wordPreview.stats.flaggedLocationCount > 0 && (
