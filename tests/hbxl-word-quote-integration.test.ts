@@ -25,7 +25,7 @@ const REAL_SPENCER = {
 const REAL_MAUREEN = {
   projectSiteName: "2nd Floor",
   clientName: "Maureen Orubebe",
-  postcode: "SE1 1AA",
+  postcode: "NW9 5YZ",
   totalQuotePrice: 28450,
   formattedTotalPrice: "£28,450.00",
   locationNames: [
@@ -35,10 +35,17 @@ const REAL_MAUREEN = {
     "2nd Passage",
     "Bathroom Wall",
     "Bathrooms",
+    "Downstairs",
+    "External Walls",
+    "Floor",
+    "Ground Floor",
+    "House",
+    "Internal Walls",
+    "Upstairs",
   ],
-  locationCount: 6,
-  categoryCount: 10,
-  taskCount: 19,
+  locationCount: 13,
+  categoryCount: 17,
+  taskCount: 26,
 } as const;
 
 // Invented values that must NEVER appear in any output
@@ -368,7 +375,7 @@ test("Maureen Orubebe 2nd Floor Quote: clean preview & import without summary du
     const bathTasks = await getTasks(storage.jobs[0].id, bathLoc.id);
     assert.equal(bathTasks.body.length, 3);
 
-    const floorboardTask = bathTasks.body.find(t => t.taskName === "Remove 3.13m² floorboards")!;
+    const floorboardTask = bathTasks.body.find(t => t.taskName === "Remove 3.13m² of floorboards")!;
     assert.ok(floorboardTask);
 
     const assignRes = await assignWorkerTask({
@@ -379,7 +386,7 @@ test("Maureen Orubebe 2nd Floor Quote: clean preview & import without summary du
     });
     assert.equal(assignRes.status, 200);
     assert.equal(assignRes.body.locationName, "2nd bathroom");
-    assert.equal(assignRes.body.taskName, "Remove 3.13m² floorboards");
+    assert.equal(assignRes.body.taskName, "Remove 3.13m² of floorboards");
     assert.equal(assignRes.body.contractorName, "Ahmed Gouda");
   });
 });

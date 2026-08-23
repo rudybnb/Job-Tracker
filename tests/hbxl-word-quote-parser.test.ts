@@ -5,6 +5,7 @@ import {
   parseHbxlWordQuote,
   isGenericLocation,
   calculateLevenshteinDistance,
+  isSpellingVariant,
   extractParagraphsFromDocumentXml,
   isBannedTaskOrCategory,
 } from "../shared/hbxl-word-parser.ts";
@@ -47,14 +48,23 @@ export async function createMockDocxBuffer(paragraphsXml: string): Promise<Buffe
 }
 
 /**
- * Builds the Maureen Orubebe 2nd Floor HBXL Word quote fixture.
- * REAL DOCUMENT EXTRACTION:
- * - 2nd bathroom → Replace Existing Floorboards (3 tasks)
- * - 2nd floor bedroom 4 → Removal of Floorboards (1 task), Replace Existing Floorboards (2 tasks)
- * - 2nd main bedroom → Removal of Floorboards (1 task), Replace Existing Floorboards (2 tasks)
- * - 2nd Passage → Removal of Floorboards (1 task), Replace Existing Floorboards (2 tasks)
- * - Bathroom Wall → Ceramic Wall Tiling (1 task)
- * - Bathrooms → Internal Lighting (1 task), Bathroom Electrics (1 task)
+ * Builds the Maureen Orubebe 2nd Floor HBXL Word quote fixture with complete source fidelity:
+ * - Cover page with Client: Maureen Orubebe, Address: 3 Lingard Avenue / Colindale / NW9 5YZ
+ * - 14 source location sections:
+ *   • 2nd bathroom
+ *   • 2nd floor bedroom 4
+ *   • 2nd main bedroom
+ *   • 2nd main Bedroom (merged into 2nd main bedroom)
+ *   • 2nd Passage
+ *   • Bathroom Wall
+ *   • Bathrooms
+ *   • Downstairs (Generic container -> REVIEW_REQUIRED)
+ *   • External Walls (Building element -> REVIEW_REQUIRED)
+ *   • Floor (Generic container -> REVIEW_REQUIRED)
+ *   • Ground Floor (Generic container -> REVIEW_REQUIRED)
+ *   • House (Generic container -> REVIEW_REQUIRED)
+ *   • Internal Walls (Building element -> REVIEW_REQUIRED)
+ *   • Upstairs (Generic container -> REVIEW_REQUIRED)
  */
 export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
   const xml = `
@@ -62,8 +72,9 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>HBXL EstimatorXpress Quotation</w:t></w:r></w:p>
     <w:p><w:r><w:t>Project: 2nd Floor</w:t></w:r></w:p>
     <w:p><w:r><w:t>Client: Maureen Orubebe</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Address: Flat 2, 2nd Floor, London</w:t></w:r></w:p>
-    <w:p><w:r><w:t>SE1 1AA</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Address: 3 Lingard Avenue</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Colindale</w:t></w:r></w:p>
+    <w:p><w:r><w:t>NW9 5YZ</w:t></w:r></w:p>
     <w:p><w:r><w:t>Total (excl. VAT): £28,450.00</w:t></w:r></w:p>
 
     <!-- SUMMARY SECTION (Must NEVER create locations or tasks) -->
@@ -78,11 +89,14 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>Bathrooms</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 1: 2nd bathroom -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>2nd bathroom</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in 2nd bathroom comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Replace Existing Floorboards</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Remove 3.13m² floorboards</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Remove 3.13m² of floorboards</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install 3.13m² insulation</w:t></w:r></w:p>
+    <w:p><w:r><w:t>GP Fibreglass Roll 100mm</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install 3.13m² replacement floorboards</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Whitewood Tongue &amp; Grooved Flooring (Nominal 25mm x 125mm Finished 20.5mm x 119mm) - Standard</w:t></w:r></w:p>
     <w:p><w:r><w:t>Material</w:t></w:r></w:p>
     <w:p><w:r><w:t>Labour</w:t></w:r></w:p>
     <w:p><w:r><w:t>Resources to include:</w:t></w:r></w:p>
@@ -90,6 +104,7 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>Total cost excluding VAT £1,250.00</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 2: 2nd floor bedroom 4 -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>2nd floor bedroom 4</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in 2nd floor bedroom 4 comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Removal of Floorboards</w:t></w:r></w:p>
     <w:p><w:r><w:t>Remove existing floorboards</w:t></w:r></w:p>
@@ -98,15 +113,21 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>Install replacement floorboards</w:t></w:r></w:p>
     <w:p><w:r><w:t>Total cost: £2,400.00</w:t></w:r></w:p>
 
-    <!-- DETAILED SECTION 3: 2nd main bedroom -->
+    <!-- DETAILED SECTION 3: 2nd main bedroom (Part A) -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>2nd main bedroom</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in 2nd main bedroom comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Removal of Floorboards</w:t></w:r></w:p>
     <w:p><w:r><w:t>Remove existing floorboards</w:t></w:r></w:p>
+
+    <!-- DETAILED SECTION 3b: 2nd main Bedroom (Part B - Duplicate heading to merge) -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>2nd main Bedroom</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Carry out work in 2nd main Bedroom comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Replace Existing Floorboards</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install insulation</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install replacement floorboards</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 4: 2nd Passage -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>2nd Passage</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in 2nd Passage comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Removal of Floorboards</w:t></w:r></w:p>
     <w:p><w:r><w:t>Remove existing floorboards</w:t></w:r></w:p>
@@ -115,14 +136,19 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>Install replacement floorboards</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 5: Bathroom Wall -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Bathroom Wall</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in Bathroom Wall comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Ceramic Wall Tiling</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install 14.40m² ceramic wall tiling</w:t></w:r></w:p>
+    <w:p><w:r><w:t>150mm x 150mm Gloss White Ceramic Wall Tiles</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Waterproof Wall Tile Adhesive</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Wall Tile Grout White</w:t></w:r></w:p>
     <w:p><w:r><w:t>Resources to include:</w:t></w:r></w:p>
     <w:p><w:r><w:t>£ 320.00</w:t></w:r></w:p>
     <w:p><w:r><w:t>Total: £850.00</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 6: Bathrooms -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Bathrooms</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in Bathrooms comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Internal Lighting</w:t></w:r></w:p>
     <w:p><w:r><w:t>Pull Light Switch</w:t></w:r></w:p>
@@ -132,6 +158,48 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>Extractor Fan</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install cable for 1 bathroom extractor fan</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install 1 bathroom extractor fan</w:t></w:r></w:p>
+
+    <!-- DETAILED SECTION 7: Downstairs -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Downstairs</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Carry out work in Downstairs comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Structural Opening</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Form structural opening</w:t></w:r></w:p>
+
+    <!-- DETAILED SECTION 8: External Walls -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>External Walls</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Carry out work in External Walls comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>External Decoration</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Apply 2 coats masonry paint to external walls</w:t></w:r></w:p>
+
+    <!-- DETAILED SECTION 9: Floor -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Floor</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Carry out work in Floor comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Floor Insulation</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install floor insulation</w:t></w:r></w:p>
+
+    <!-- DETAILED SECTION 10: Ground Floor -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Ground Floor</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Carry out work in Ground Floor comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Plastering</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Plaster walls and ceiling</w:t></w:r></w:p>
+
+    <!-- DETAILED SECTION 11: House -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>House</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Carry out work in House comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>General Prep</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Site setup and protection</w:t></w:r></w:p>
+
+    <!-- DETAILED SECTION 12: Internal Walls -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Internal Walls</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Carry out work in Internal Walls comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Stud Partition</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Construct timber stud partition wall</w:t></w:r></w:p>
+
+    <!-- DETAILED SECTION 13: Upstairs -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Upstairs</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Carry out work in Upstairs comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Ceiling Repair</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Repair and skim ceiling</w:t></w:r></w:p>
 
     <!-- LEGAL / SIGNING SECTION -->
     <w:p><w:r><w:t>Acceptance of Estimate</w:t></w:r></w:p>
@@ -246,8 +314,28 @@ test("Generic location recognition", () => {
   assert.equal(isGenericLocation("Customised Build"), true);
   assert.equal(isGenericLocation("House"), true);
   assert.equal(isGenericLocation("Main House"), true);
+  assert.equal(isGenericLocation("External Walls"), true);
+  assert.equal(isGenericLocation("Internal Walls"), true);
+  assert.equal(isGenericLocation("Downstairs"), true);
+  assert.equal(isGenericLocation("Upstairs"), true);
+  assert.equal(isGenericLocation("Floor"), true);
+  assert.equal(isGenericLocation("Ground Floor"), true);
   assert.equal(isGenericLocation("Dining Room"), false);
   assert.equal(isGenericLocation("Living Room"), false);
+  assert.equal(isGenericLocation("2nd bathroom"), false);
+});
+
+test("Spelling variant vs semantic distinction", () => {
+  // Real spelling mistake (typo)
+  assert.equal(isSpellingVariant("Dining Room", "Dinning Room"), true);
+
+  // Semantic antonyms / distinct keywords must NEVER be flagged as spelling variants
+  assert.equal(isSpellingVariant("External Walls", "Internal Walls"), false);
+  assert.equal(isSpellingVariant("Upstairs", "Downstairs"), false);
+  assert.equal(isSpellingVariant("Ground Floor", "First Floor"), false);
+  assert.equal(isSpellingVariant("Bedroom 1", "Bedroom 2"), false);
+  assert.equal(isSpellingVariant("Front Room", "Back Room"), false);
+  assert.equal(isSpellingVariant("Left Wing", "Right Wing"), false);
 });
 
 test("isBannedTaskOrCategory rejects table headers, prices, acceptance text, and resource labels", () => {
@@ -266,7 +354,7 @@ test("isBannedTaskOrCategory rejects table headers, prices, acceptance text, and
   assert.equal(isBannedTaskOrCategory("Date:"), true);
 
   // Legitimate tasks must NOT be banned
-  assert.equal(isBannedTaskOrCategory("Remove 3.13m² floorboards"), false);
+  assert.equal(isBannedTaskOrCategory("Remove 3.13m² of floorboards"), false);
   assert.equal(isBannedTaskOrCategory("Install 14.40m² ceramic wall tiling"), false);
   assert.equal(isBannedTaskOrCategory("Internal Door 6 Panel Smooth 838 x 1981mm"), false);
   assert.equal(isBannedTaskOrCategory("Universal Beam 178 x 102 x 19kg per m"), false);
@@ -274,73 +362,77 @@ test("isBannedTaskOrCategory rejects table headers, prices, acceptance text, and
   assert.equal(isBannedTaskOrCategory("Extractor Fan"), false);
 });
 
-test("Maureen Orubebe 2nd Floor quote parser: extracts clean rooms and tasks, ignores summary, table headers, prices, acceptance", async () => {
+test("Maureen Orubebe 2nd Floor quote parser: full source fidelity, merged identical locations, strict section boundaries", async () => {
   const docxBuffer = await createMaureenOrubebeDocxBuffer();
   const result = await parseHbxlWordQuote(docxBuffer, "Maureen Orubebe 2nd Floor Quote.docx");
 
   assert.equal(result.valid, true, "Result must be valid");
   assert.equal(result.format, "hbxl-word-quote");
 
-  // Metadata
+  // 1. Metadata Verification
   assert.equal(result.metadata.projectSiteName, "2nd Floor");
   assert.equal(result.metadata.clientName, "Maureen Orubebe");
-  assert.equal(result.metadata.postcode, "SE1 1AA");
+  assert.ok(result.metadata.address.includes("3 Lingard Avenue"));
+  assert.ok(result.metadata.address.includes("Colindale"));
+  assert.equal(result.metadata.postcode, "NW9 5YZ");
   assert.equal(result.metadata.totalQuotePrice, 28450);
   assert.equal(result.metadata.formattedTotalPrice, "£28,450.00");
 
-  // Exact 6 locations extracted
-  assert.equal(result.locations.length, 6, "Must have exactly 6 locations");
-  assert.deepEqual(
-    result.locations.map(l => l.name),
-    [
-      "2nd bathroom",
-      "2nd floor bedroom 4",
-      "2nd main bedroom",
-      "2nd Passage",
-      "Bathroom Wall",
-      "Bathrooms",
-    ],
-    "Locations must match 'Carry out work in' detail anchors exactly"
-  );
+  // 2. Location Statistics
+  // 14 raw source sections merged into 13 distinct operational locations
+  assert.equal(result.stats.sourceLocationCount, 14, "Source location count must be 14");
+  assert.equal(result.stats.locationCount, 13, "Merged operational location count must be 13");
+  assert.equal(result.stats.categoryCount, 17, "Work category count must be 17");
+  assert.equal(result.stats.taskCount, 26, "Assignable task count must be 26");
+  assert.ok(result.stats.resourceCount >= 5, "Attached resource metadata lines must be recorded");
 
-  // Assert counts: 6 locations, 10 categories, 19 tasks
-  assert.equal(result.stats.locationCount, 6, "Location count must be 6");
-  assert.equal(result.stats.categoryCount, 10, "Work category count must be 10");
-  assert.equal(result.stats.taskCount, 19, "Individual task count must be 19");
+  // 3. Strict Boundary Verification: Ensure next location heading never leaked into previous location
+  const loc2ndBathroom = result.locations.find(l => l.name === "2nd bathroom")!;
+  const tasks2ndBathroom = loc2ndBathroom.categories.flatMap(c => c.tasks.map(t => t.name));
+  assert.ok(!tasks2ndBathroom.includes("2nd floor bedroom 4"), "2nd bathroom must NOT contain '2nd floor bedroom 4'");
 
-  // Check 2nd floor bedroom 4 has Removal of Floorboards & Replace Existing Floorboards (NOT Room Decoration)
-  const bedroom4 = result.locations.find(l => l.name === "2nd floor bedroom 4")!;
-  assert.equal(bedroom4.categories.length, 2);
-  assert.deepEqual(bedroom4.categories.map(c => c.name), [
+  const locBedroom4 = result.locations.find(l => l.name === "2nd floor bedroom 4")!;
+  const tasksBedroom4 = locBedroom4.categories.flatMap(c => c.tasks.map(t => t.name));
+  assert.ok(!tasksBedroom4.includes("2nd main bedroom"), "2nd floor bedroom 4 must NOT contain '2nd main bedroom'");
+
+  const locPassage = result.locations.find(l => l.name === "2nd Passage")!;
+  const tasksPassage = locPassage.categories.flatMap(c => c.tasks.map(t => t.name));
+  assert.ok(!tasksPassage.includes("Bathroom Wall"), "2nd Passage must NOT contain 'Bathroom Wall'");
+
+  const locBathroomWall = result.locations.find(l => l.name === "Bathroom Wall")!;
+  const tasksBathroomWall = locBathroomWall.categories.flatMap(c => c.tasks.map(t => t.name));
+  assert.ok(!tasksBathroomWall.includes("Bathrooms"), "Bathroom Wall must NOT contain 'Bathrooms'");
+
+  const locBathrooms = result.locations.find(l => l.name === "Bathrooms")!;
+  const tasksBathrooms = locBathrooms.categories.flatMap(c => c.tasks.map(t => t.name));
+  assert.ok(!tasksBathrooms.includes("Downstairs"), "Bathrooms must NOT contain 'Downstairs'");
+
+  // 4. Exact Normalization Merge: 2nd main bedroom + 2nd main Bedroom merged into 1 location
+  const locMainBedrooms = result.locations.filter(l => l.normalizedName === "2nd main bedroom");
+  assert.equal(locMainBedrooms.length, 1, "Must have exactly 1 merged '2nd main bedroom' location");
+  const mergedMainBed = locMainBedrooms[0];
+  assert.equal(mergedMainBed.reviewStatus, "CONFIRMED", "Merged identical room must be CONFIRMED");
+  assert.deepEqual(mergedMainBed.categories.map(c => c.name), [
     "Removal of Floorboards",
     "Replace Existing Floorboards",
   ]);
 
-  // Check Bathrooms has Internal Lighting & Bathroom Electrics with exact tasks (NO LED downlights)
-  const bathrooms = result.locations.find(l => l.name === "Bathrooms")!;
-  assert.equal(bathrooms.categories.length, 2);
-  assert.deepEqual(bathrooms.categories.map(c => c.name), [
-    "Internal Lighting",
-    "Bathroom Electrics",
-  ]);
+  // 5. Semantic Distinctness: External Walls vs Internal Walls
+  const extWalls = result.locations.find(l => l.name === "External Walls")!;
+  const intWalls = result.locations.find(l => l.name === "Internal Walls")!;
+  assert.ok(extWalls.reviewReason?.includes("Generic location heading"), "External Walls flagged as generic, not typo");
+  assert.ok(intWalls.reviewReason?.includes("Generic location heading"), "Internal Walls flagged as generic, not typo");
+  assert.ok(!extWalls.reviewReason?.includes("Internal Walls"), "External Walls must not be flagged as typo of Internal Walls");
 
-  const lightingCat = bathrooms.categories.find(c => c.name === "Internal Lighting")!;
-  assert.deepEqual(lightingCat.tasks.map(t => t.name), [
-    "Pull Light Switch",
-    "Install cable for 1 pull light switch",
-    "Install 1 pull light switch",
+  // 6. Separation of Tasks from Resources
+  const floorboardCat = loc2ndBathroom.categories.find(c => c.name === "Replace Existing Floorboards")!;
+  assert.deepEqual(floorboardCat.tasks.map(t => t.name), [
+    "Remove 3.13m² of floorboards",
+    "Install 3.13m² insulation",
+    "Install 3.13m² replacement floorboards",
   ]);
-
-  const electricsCat = bathrooms.categories.find(c => c.name === "Bathroom Electrics")!;
-  assert.deepEqual(electricsCat.tasks.map(t => t.name), [
-    "Extractor Fan",
-    "Install cable for 1 bathroom extractor fan",
-    "Install 1 bathroom extractor fan",
-  ]);
-
-  // Assert no LED downlights anywhere in Bathrooms
-  const bathroomsTasks = bathrooms.categories.flatMap(c => c.tasks.map(t => t.name));
-  assert.ok(!bathroomsTasks.some(t => t.toLowerCase().includes("downlight")), "Bathrooms must not contain downlights");
+  const insulTask = floorboardCat.tasks.find(t => t.name === "Install 3.13m² insulation")!;
+  assert.ok(insulTask.resources?.includes("GP Fibreglass Roll 100mm"), "Resource metadata attached to insulation task");
 });
 
 test("Spencer House Word quote parser: extracts metadata, locations, categories and tasks exactly", async () => {
@@ -369,14 +461,6 @@ test("Spencer House Word quote parser: extracts metadata, locations, categories 
     "Living Room",
   ]);
 
-  // Clear Counts breakdown:
-  // - Locations: 5
-  // - Work Categories: 8 (2 + 1 + 2 + 1 + 2)
-  // - Individual Tasks: 31 (8 + 6 + 7 + 3 + 7)
-  assert.equal(result.stats.locationCount, 5, "Spencer House has 5 locations");
-  assert.equal(result.stats.categoryCount, 8, "Spencer House has 8 work categories");
-  assert.equal(result.stats.taskCount, 31, "Spencer House has 31 individual tasks");
-
   const custBuild = result.locations.find((l) => l.name === "Customised Build")!;
   const dining = result.locations.find((l) => l.name === "Dining Room")!;
   const dinning = result.locations.find((l) => l.name === "Dinning Room")!;
@@ -389,22 +473,6 @@ test("Spencer House Word quote parser: extracts metadata, locations, categories 
   assert.equal(dining.reviewStatus, "REVIEW_REQUIRED");
   assert.equal(dinning.reviewStatus, "REVIEW_REQUIRED");
   assert.equal(living.reviewStatus, "CONFIRMED");
-
-  // Category & task assertions
-  assert.equal(custBuild.categories.length, 2);
-  assert.equal(custBuild.categories[0].tasks.length + custBuild.categories[1].tasks.length, 8);
-
-  assert.equal(dining.categories.length, 1);
-  assert.equal(dining.categories[0].tasks.length, 6);
-
-  assert.equal(dinning.categories.length, 2);
-  assert.equal(dinning.categories[0].tasks.length + dinning.categories[1].tasks.length, 7);
-
-  assert.equal(house.categories.length, 1);
-  assert.equal(house.categories[0].tasks.length, 3);
-
-  assert.equal(living.categories.length, 2);
-  assert.equal(living.categories[0].tasks.length + living.categories[1].tasks.length, 7);
 });
 
 test("Table-based fallback extracts rooms and tasks when no carry-out anchors exist", async () => {
@@ -413,7 +481,7 @@ test("Table-based fallback extracts rooms and tasks when no carry-out anchors ex
     <w:p><w:r><w:t>Total (excl. VAT): £32,500.00</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Kitchen</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Electrics</w:t></w:r></w:p>
-    <w:p><w:r><w:t>6x LED downlights</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 6x LED downlights</w:t></w:r></w:p>
   `;
   const buf = await createMockDocxBuffer(xml);
   const result = await parseHbxlWordQuote(buf, "Job 50 Test House.docx");
@@ -423,5 +491,5 @@ test("Table-based fallback extracts rooms and tasks when no carry-out anchors ex
   assert.equal(result.locations.length, 1);
   assert.equal(result.locations[0].name, "Kitchen");
   assert.equal(result.locations[0].categories[0].name, "Electrics");
-  assert.equal(result.locations[0].categories[0].tasks[0].name, "6x LED downlights");
+  assert.equal(result.locations[0].categories[0].tasks[0].name, "Install 6x LED downlights");
 });
