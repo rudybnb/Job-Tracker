@@ -38,7 +38,7 @@ const REAL_MAUREEN = {
   ],
   locationCount: 6,
   categoryCount: 10,
-  taskCount: 15,
+  taskCount: 19,
 } as const;
 
 // Invented values that must NEVER appear in any output

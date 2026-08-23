@@ -125,9 +125,13 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <!-- DETAILED SECTION 6: Bathrooms -->
     <w:p><w:r><w:t>Carry out work in Bathrooms comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Internal Lighting</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Install LED downlights</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Pull Light Switch</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install cable for 1 pull light switch</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 1 pull light switch</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Bathroom Electrics</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Install extractor fan</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Extractor Fan</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install cable for 1 bathroom extractor fan</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 1 bathroom extractor fan</w:t></w:r></w:p>
 
     <!-- LEGAL / SIGNING SECTION -->
     <w:p><w:r><w:t>Acceptance of Estimate</w:t></w:r></w:p>
@@ -266,6 +270,8 @@ test("isBannedTaskOrCategory rejects table headers, prices, acceptance text, and
   assert.equal(isBannedTaskOrCategory("Install 14.40m² ceramic wall tiling"), false);
   assert.equal(isBannedTaskOrCategory("Internal Door 6 Panel Smooth 838 x 1981mm"), false);
   assert.equal(isBannedTaskOrCategory("Universal Beam 178 x 102 x 19kg per m"), false);
+  assert.equal(isBannedTaskOrCategory("Pull Light Switch"), false);
+  assert.equal(isBannedTaskOrCategory("Extractor Fan"), false);
 });
 
 test("Maureen Orubebe 2nd Floor quote parser: extracts clean rooms and tasks, ignores summary, table headers, prices, acceptance", async () => {
@@ -297,10 +303,10 @@ test("Maureen Orubebe 2nd Floor quote parser: extracts clean rooms and tasks, ig
     "Locations must match 'Carry out work in' detail anchors exactly"
   );
 
-  // Assert counts: 6 locations, 10 categories, 15 tasks
+  // Assert counts: 6 locations, 10 categories, 19 tasks
   assert.equal(result.stats.locationCount, 6, "Location count must be 6");
   assert.equal(result.stats.categoryCount, 10, "Work category count must be 10");
-  assert.equal(result.stats.taskCount, 15, "Individual task count must be 15");
+  assert.equal(result.stats.taskCount, 19, "Individual task count must be 19");
 
   // Check 2nd floor bedroom 4 has Removal of Floorboards & Replace Existing Floorboards (NOT Room Decoration)
   const bedroom4 = result.locations.find(l => l.name === "2nd floor bedroom 4")!;
@@ -310,13 +316,31 @@ test("Maureen Orubebe 2nd Floor quote parser: extracts clean rooms and tasks, ig
     "Replace Existing Floorboards",
   ]);
 
-  // Check Bathrooms has Internal Lighting & Bathroom Electrics
+  // Check Bathrooms has Internal Lighting & Bathroom Electrics with exact tasks (NO LED downlights)
   const bathrooms = result.locations.find(l => l.name === "Bathrooms")!;
   assert.equal(bathrooms.categories.length, 2);
   assert.deepEqual(bathrooms.categories.map(c => c.name), [
     "Internal Lighting",
     "Bathroom Electrics",
   ]);
+
+  const lightingCat = bathrooms.categories.find(c => c.name === "Internal Lighting")!;
+  assert.deepEqual(lightingCat.tasks.map(t => t.name), [
+    "Pull Light Switch",
+    "Install cable for 1 pull light switch",
+    "Install 1 pull light switch",
+  ]);
+
+  const electricsCat = bathrooms.categories.find(c => c.name === "Bathroom Electrics")!;
+  assert.deepEqual(electricsCat.tasks.map(t => t.name), [
+    "Extractor Fan",
+    "Install cable for 1 bathroom extractor fan",
+    "Install 1 bathroom extractor fan",
+  ]);
+
+  // Assert no LED downlights anywhere in Bathrooms
+  const bathroomsTasks = bathrooms.categories.flatMap(c => c.tasks.map(t => t.name));
+  assert.ok(!bathroomsTasks.some(t => t.toLowerCase().includes("downlight")), "Bathrooms must not contain downlights");
 });
 
 test("Spencer House Word quote parser: extracts metadata, locations, categories and tasks exactly", async () => {
