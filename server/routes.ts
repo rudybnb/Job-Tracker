@@ -488,9 +488,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const finalProjectType = (req.body.projectType !== undefined ? req.body.projectType : parsed.metadata.projectType || "Refurbishment").trim();
       const finalQuotedAmount = req.body.quotedAmount || parsed.metadata.formattedTotalPrice || null;
 
+      // Re-evaluate matching on final client data
+      const existingClientsForImport = finalClientName ? await db
+        .select()
+        .from(clients)
+        .where(sql`LOWER(TRIM(${clients.name})) = LOWER(TRIM(${finalClientName}))`) : [];
+
+      const finalClientMatch = evaluateClientMatch(finalClientName, finalAddress, finalPostcode, existingClientsForImport);
+
       // Explicit admin choices
       const confirmClientLinkId = req.body.confirmClientLinkId ? String(req.body.confirmClientLinkId).trim() : null;
       const forceCreateNewClient = req.body.forceCreateNewClient === true || req.body.forceCreateNewClient === "true";
+
+      // BACKEND ENFORCEMENT: When REVIEW_REQUIRED, an explicit decision is REQUIRED before importing!
+      if (finalClientMatch.status === "REVIEW_REQUIRED" && !confirmClientLinkId && !forceCreateNewClient) {
+        return res.status(400).json({
+          error: "Please confirm whether this is the existing client or a new client before importing.",
+          clientMatch: finalClientMatch,
+        });
+      }
 
       const importResult = await db.transaction(async (tx) => {
         let clientId: string | null = null;
@@ -519,31 +535,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (existing) {
               clientId = existing.id;
             }
+          } else if (finalClientMatch.status === "MATCHED_EXISTING" && finalClientMatch.clientId) {
+            // Rule A: Exact name + matching address/postcode
+            clientId = finalClientMatch.clientId;
           } else {
-            // Automatic matching safety evaluation
-            const existingClients = await tx
-              .select()
-              .from(clients)
-              .where(sql`LOWER(TRIM(${clients.name})) = LOWER(TRIM(${finalClientName}))`);
-
-            const matchEval = evaluateClientMatch(finalClientName, finalAddress, finalPostcode, existingClients);
-
-            if (matchEval.status === "MATCHED_EXISTING" && matchEval.clientId) {
-              // Rule A: Exact name + matching address/postcode
-              clientId = matchEval.clientId;
-            } else {
-              // Rule B, C, D: REVIEW_REQUIRED or CREATE_NEW -> Never silently link! Create distinct new client.
-              const [newClient] = await tx
-                .insert(clients)
-                .values({
-                  name: finalClientName,
-                  address: finalAddress || null,
-                  notes: `Created automatically from HBXL Word quote: ${req.file!.originalname}`,
-                })
-                .returning();
-              clientId = newClient.id;
-              createdClientRecord = newClient;
-            }
+            // Rule D: CREATE_NEW
+            const [newClient] = await tx
+              .insert(clients)
+              .values({
+                name: finalClientName,
+                address: finalAddress || null,
+                notes: `Created automatically from HBXL Word quote: ${req.file!.originalname}`,
+              })
+              .returning();
+            clientId = newClient.id;
+            createdClientRecord = newClient;
           }
         }
 

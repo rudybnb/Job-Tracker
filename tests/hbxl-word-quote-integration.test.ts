@@ -210,6 +210,16 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
     const confirmClientLinkId = req.body.confirmClientLinkId ? String(req.body.confirmClientLinkId).trim() : null;
     const forceCreateNewClient = req.body.forceCreateNewClient === true || req.body.forceCreateNewClient === "true";
 
+    const matchEval = evaluateClientMatch(finalClientName, finalAddress, finalPostcode, storage.clients);
+
+    // BACKEND ENFORCEMENT: When REVIEW_REQUIRED, an explicit decision is REQUIRED!
+    if (matchEval.status === "REVIEW_REQUIRED" && !confirmClientLinkId && !forceCreateNewClient) {
+      return res.status(400).json({
+        error: "Please confirm whether this is the existing client or a new client before importing.",
+        clientMatch: matchEval,
+      });
+    }
+
     let clientId: string | null = null;
     let clientCreated = false;
 
@@ -224,17 +234,14 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
         if (existing) {
           clientId = existing.id;
         }
+      } else if (matchEval.status === "MATCHED_EXISTING" && matchEval.clientId) {
+        clientId = matchEval.clientId;
       } else {
-        const matchEval = evaluateClientMatch(finalClientName, finalAddress, finalPostcode, storage.clients);
-        if (matchEval.status === "MATCHED_EXISTING" && matchEval.clientId) {
-          clientId = matchEval.clientId;
-        } else {
-          // REVIEW_REQUIRED or CREATE_NEW -> Never silently link! Create distinct new client.
-          const newClient: MockClient = { id: `client-${Date.now()}`, name: finalClientName, address: finalAddress || null };
-          storage.clients.push(newClient);
-          clientId = newClient.id;
-          clientCreated = true;
-        }
+        // CREATE_NEW
+        const newClient: MockClient = { id: `client-${Date.now()}`, name: finalClientName, address: finalAddress || null };
+        storage.clients.push(newClient);
+        clientId = newClient.id;
+        clientCreated = true;
       }
     }
 
@@ -650,9 +657,9 @@ test("Admin preview correction: custom client & job metadata overrides parsed de
 });
 
 // ============================================================
-// Test 5 — Client Matching Rule B: Different address/postcode requires review, never silently links
+// Test 5 — Client Matching Rule B: Different address/postcode requires explicit decision and blocks unconfirmed import
 // ============================================================
-test("Client Matching Rule B: Exact name with conflicting address flags REVIEW_REQUIRED and never silently links", async () => {
+test("Client Matching Rule B: Exact name with conflicting address flags REVIEW_REQUIRED and blocks import until explicit decision", async () => {
   await withWordQuoteServer(async ({ postWordQuote, storage }) => {
     // Pre-create existing client with different address/postcode
     storage.clients.push({
@@ -673,22 +680,32 @@ test("Client Matching Rule B: Exact name with conflicting address flags REVIEW_R
     assert.equal(meta.clientMatch.matchReason, "DIFFERENT_ADDRESS");
     assert.equal(meta.clientMatch.message, "Possible existing client — review required");
 
-    // 2. Unconfirmed import -> Must NOT silently link! Creates a distinct new client record.
-    const importRes = await postWordQuote({ buffer: buf, filename: "Job 2 Spencer House - Quote(1).docx", preview: false });
-    assert.equal(importRes.status, 200);
-    assert.equal(storage.clients.length, 2, "Must create a distinct 2nd client record instead of silently linking");
+    // 2. Unconfirmed import attempt -> MUST BE BLOCKED! Returns 400 Bad Request
+    const unconfirmedRes = await postWordQuote({ buffer: buf, filename: "Job 2 Spencer House - Quote(1).docx", preview: false });
+    assert.equal(unconfirmedRes.status, 400, "Must reject import when REVIEW_REQUIRED has no explicit admin decision");
+    assert.equal(unconfirmedRes.body.error, "Please confirm whether this is the existing client or a new client before importing.");
+    assert.equal(storage.jobs.length, 0, "No job must be created on unconfirmed import");
+    assert.equal(storage.clients.length, 1, "No new client must be created on unconfirmed import");
 
+    // 3. Explicit decision A: Admin confirms forceCreateNewClient -> Creates distinct new client
+    const createNewRes = await postWordQuote({
+      buffer: buf,
+      filename: "Job 2 Spencer House - Quote(1).docx",
+      preview: false,
+      metadataOverrides: { forceCreateNewClient: "true" },
+    });
+    assert.equal(createNewRes.status, 200, "Import succeeds when explicit decision is sent");
+    assert.equal(storage.clients.length, 2, "Must create distinct 2nd client record");
     const newClient = storage.clients.find(c => c.id !== "client-promise-london")!;
     assert.ok(newClient);
-    assert.equal(storage.jobs[0].clientId, newClient.id, "Job must link to new distinct client, not conflicting existing client");
-    assert.notEqual(storage.jobs[0].clientId, "client-promise-london");
+    assert.equal(storage.jobs[0].clientId, newClient.id);
   });
 });
 
 // ============================================================
-// Test 6 — Client Matching Rule C: Existing client with no address on file requires review
+// Test 6 — Client Matching Rule C: Existing client with no address on file requires explicit decision
 // ============================================================
-test("Client Matching Rule C: Existing client with no address on file flags REVIEW_REQUIRED and allows confirmed linking", async () => {
+test("Client Matching Rule C: Existing client with no address on file flags REVIEW_REQUIRED and blocks unconfirmed import", async () => {
   await withWordQuoteServer(async ({ postWordQuote, storage }) => {
     // Pre-create existing client without an address on file
     storage.clients.push({
@@ -708,7 +725,13 @@ test("Client Matching Rule C: Existing client with no address on file flags REVI
     assert.equal(meta.clientMatch.reviewRequired, true);
     assert.equal(meta.clientMatch.matchReason, "MISSING_ADDRESS_ON_FILE");
 
-    // 2. Confirmed import with explicit confirmClientLinkId -> Links to confirmed existing client
+    // 2. Unconfirmed import attempt -> MUST BE BLOCKED! Returns 400 Bad Request
+    const unconfirmedRes = await postWordQuote({ buffer: buf, filename: "Maureen Orubebe 2nd Floor Quote.docx", preview: false });
+    assert.equal(unconfirmedRes.status, 400, "Must reject import without explicit decision");
+    assert.equal(unconfirmedRes.body.error, "Please confirm whether this is the existing client or a new client before importing.");
+    assert.equal(storage.jobs.length, 0);
+
+    // 3. Confirmed import with explicit confirmClientLinkId -> Links to confirmed existing client
     const importRes = await postWordQuote({
       buffer: buf,
       filename: "Maureen Orubebe 2nd Floor Quote.docx",

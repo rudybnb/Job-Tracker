@@ -132,7 +132,7 @@ export default function UploadCsv() {
   const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
   const [editedLocationName, setEditedLocationName] = useState("");
   const [editingQuoteMetadata, setEditingQuoteMetadata] = useState(false);
-  const [selectedClientAction, setSelectedClientAction] = useState<"link" | "create_new">("create_new");
+  const [selectedClientAction, setSelectedClientAction] = useState<"link" | "create_new" | null>(null);
   const [editedQuoteMetadata, setEditedQuoteMetadata] = useState({
     clientName: "",
     projectSiteName: "",
@@ -309,6 +309,9 @@ export default function UploadCsv() {
   });
 
   const isPending = uploadCsvMutation.isPending || uploadWordMutation.isPending;
+  const isWordReviewRequired = wordPreview?.metadata.clientMatch?.status === "REVIEW_REQUIRED";
+  const hasWordReviewDecision = selectedClientAction !== null;
+  const canApproveWordUpload = !isWordReviewRequired || hasWordReviewDecision;
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -328,22 +331,49 @@ export default function UploadCsv() {
     if (!isCsvOrExcel && !isDocx) {
       toast({
         title: "Invalid File Type",
-        description: "Please select an HBXL CSV (.csv), Excel (.xlsx), or HBXL Word Quote (.docx) file.",
+        description: "Please upload an HBXL Schedule (.csv, .xlsx) or HBXL Quote (.docx) file.",
         variant: "destructive",
       });
       return false;
     }
-    
-    if (file.size > 25 * 1024 * 1024) { // 25MB limit
+
+    const maxSize = 25 * 1024 * 1024;
+    if (file.size > maxSize) {
       toast({
         title: "File Too Large",
-        description: "File size must be less than 25MB",
+        description: "File size exceeds 25MB limit.",
         variant: "destructive",
       });
       return false;
     }
     
     return true;
+  };
+
+  const handleUpload = () => {
+    if (!selectedFile) return;
+
+    if (fileType === "docx") {
+      if (isWordReviewRequired && !hasWordReviewDecision) {
+        toast({
+          title: "Confirmation Required",
+          description: "Please confirm whether this is the existing client or a new client before importing.",
+          variant: "destructive",
+        });
+        return;
+      }
+      uploadWordMutation.mutate(selectedFile);
+    } else {
+      if (canApproveUpload) {
+        uploadCsvMutation.mutate(selectedFile);
+      } else {
+        toast({
+          title: "Validation Required",
+          description: "Fix the listed upload validation errors before creating jobs.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const parseWordPreview = async (file: File): Promise<WordQuotePreviewData | null> => {
@@ -452,8 +482,11 @@ export default function UploadCsv() {
         setEditingQuoteMetadata(false);
         if (preview.metadata.clientMatch?.status === "MATCHED_EXISTING") {
           setSelectedClientAction("link");
-        } else {
+        } else if (preview.metadata.clientMatch?.status === "CREATE_NEW") {
           setSelectedClientAction("create_new");
+        } else {
+          // REVIEW_REQUIRED or MISSING requires explicit Admin decision
+          setSelectedClientAction(null);
         }
         setShowPreview(true);
         workflowHelp.markStepCompleted('file-selection');
@@ -504,24 +537,6 @@ export default function UploadCsv() {
 
   const handleCancelPreview = () => {
     setShowPreview(false);
-  };
-
-  const handleUpload = () => {
-    if (!selectedFile) return;
-
-    if (fileType === "docx") {
-      uploadWordMutation.mutate(selectedFile);
-    } else {
-      if (canApproveUpload) {
-        uploadCsvMutation.mutate(selectedFile);
-      } else {
-        toast({
-          title: "Validation Required",
-          description: "Fix the listed upload validation errors before creating jobs.",
-          variant: "destructive",
-        });
-      }
-    }
   };
 
   const updateProjectMetadata = (field: keyof ProjectMetadata, value: string) => {
@@ -815,29 +830,35 @@ export default function UploadCsv() {
                       <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
                       <span>Possible Existing Client Match Found: {wordPreview.metadata.clientMatch.clientName}</span>
                     </div>
-                    <p className="text-slate-300 mb-3 leading-relaxed">
+                    <p className="text-slate-300 mb-2.5 leading-relaxed">
                       {wordPreview.metadata.clientMatch.matchReason === "DIFFERENT_ADDRESS"
-                        ? `Address on file differs: "${wordPreview.metadata.clientMatch.existingAddress || 'None'}" vs quote "${wordPreview.metadata.clientMatch.quoteAddress || editedQuoteMetadata.address || 'None'}". To prevent incorrect linkage, confirm your intent below.`
-                        : "An existing client with this name was found, but lacks a verified address. Confirm whether this job belongs to that client or is a new account."}
+                        ? `Address on file differs: "${wordPreview.metadata.clientMatch.existingAddress || 'None'}" vs quote "${wordPreview.metadata.clientMatch.quoteAddress || editedQuoteMetadata.address || 'None'}". To prevent incorrect linkage, an explicit decision is required before importing.`
+                        : "An existing client with this name was found, but lacks a verified address. To prevent incorrect linkage, an explicit decision is required before importing."}
                     </p>
+                    {!hasWordReviewDecision && (
+                      <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded px-2.5 py-1.5 mb-3 font-medium flex items-center gap-2">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        <span>Please confirm whether this is the existing client or a new client before importing.</span>
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-2.5">
                       <button
                         type="button"
                         onClick={() => setSelectedClientAction("create_new")}
                         className={`px-3 py-1.5 rounded text-xs font-semibold border transition-all ${
                           selectedClientAction === "create_new"
-                            ? "bg-blue-600 border-blue-400 text-white shadow-md ring-1 ring-blue-300"
+                            ? "bg-blue-600 border-blue-400 text-white shadow-md ring-2 ring-blue-300"
                             : "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800"
                         }`}
                       >
-                        + Create as Distinct New Client (Safe Default)
+                        + Create as Distinct New Client
                       </button>
                       <button
                         type="button"
                         onClick={() => setSelectedClientAction("link")}
                         className={`px-3 py-1.5 rounded text-xs font-semibold border transition-all ${
                           selectedClientAction === "link"
-                            ? "bg-amber-600 border-amber-400 text-white shadow-md ring-1 ring-amber-300"
+                            ? "bg-amber-600 border-amber-400 text-white shadow-md ring-2 ring-amber-300"
                             : "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800"
                         }`}
                       >
@@ -1109,32 +1130,40 @@ export default function UploadCsv() {
             </div>
 
             {/* Footer Buttons */}
-            <div className="p-4 px-6 border-t border-slate-800 bg-slate-950/80 flex space-x-4">
-              <Button 
-                onClick={handleCancelPreview}
-                variant="outline"
-                className="flex-1 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
-                disabled={isPending}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleUpload}
-                disabled={isPending || !canApproveUpload}
-                className="bg-amber-600 hover:bg-amber-700 text-white flex-1 font-semibold"
-              >
-                {uploadWordMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Importing Word Quote...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Approve & Import Word Quote
-                  </>
-                )}
-              </Button>
+            <div className="p-4 px-6 border-t border-slate-800 bg-slate-950/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+              {isWordReviewRequired && !hasWordReviewDecision && (
+                <div className="text-xs text-amber-400 font-medium flex items-center gap-1.5 order-2 sm:order-1">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>Please confirm whether this is the existing client or a new client before importing.</span>
+                </div>
+              )}
+              <div className="flex space-x-3 w-full sm:w-auto order-1 sm:order-2 ml-auto">
+                <Button 
+                  onClick={handleCancelPreview}
+                  variant="outline"
+                  className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
+                  disabled={isPending}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleUpload}
+                  disabled={isPending || !canApproveWordUpload}
+                  className={`${!canApproveWordUpload ? "bg-slate-700 text-slate-400 cursor-not-allowed opacity-60" : "bg-amber-600 hover:bg-amber-700 text-white"} font-semibold`}
+                >
+                  {uploadWordMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Importing Word Quote...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Approve &amp; Import Word Quote
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
