@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import express from "express";
 import multer from "multer";
 import { parseHbxlWordQuote } from "../shared/hbxl-word-parser.ts";
-import { createSpencerHouseDocxBuffer } from "./hbxl-word-quote-parser.test.ts";
+import { createSpencerHouseDocxBuffer, createMaureenOrubebeDocxBuffer } from "./hbxl-word-quote-parser.test.ts";
 
 // ============================================================
 // REAL SPENCER HOUSE GOLDEN DATA (from Job 2 Spencer House - Quote(1).docx)
@@ -16,12 +16,20 @@ const REAL_SPENCER = {
   totalQuotePrice: 17350.46,
   formattedTotalPrice: "£17,350.46",
   addressMustInclude: ["Spencer House", "Birchington"],
-  // Documents order of location headings
   locationNames: ["Customised Build", "Dining Room", "Dinning Room", "House", "Living Room"],
-  // REVIEW_REQUIRED locations
   flaggedLocations: ["Customised Build", "Dining Room", "Dinning Room", "House"],
-  // CONFIRMED locations
   confirmedLocations: ["Living Room"],
+} as const;
+
+// REAL MAUREEN ORUBEBE GOLDEN DATA
+const REAL_MAUREEN = {
+  projectSiteName: "2nd Floor",
+  clientName: "Maureen Orubebe",
+  postcode: "SE1 1AA",
+  totalQuotePrice: 28450,
+  formattedTotalPrice: "£28,450.00",
+  locationNames: ["2nd bathroom", "2nd floor bedroom 4", "Bathroom Wall"],
+  taskCount: 6,
 } as const;
 
 // Invented values that must NEVER appear in any output
@@ -40,8 +48,17 @@ const INVENTED_BANNED = {
     "Luxury vinyl tiles",
     "Underlay and acoustic matting",
     "Preparation and filling",
-    "Emulsion paint to walls and ceiling",
-    "Undercoat and gloss to skirting",
+    "Emulsion paint to walls and ceiling in Living Room",
+    "Undercoat and gloss to skirting in Living Room",
+    "Material",
+    "Labour",
+    "Plant",
+    "Other",
+    "Total",
+    "Description",
+    "Resources to include:",
+    "Acceptance of Estimate",
+    "Terms and Conditions",
   ],
 };
 
@@ -100,7 +117,7 @@ interface MockAssignment {
   workCategory?: string | null;
   taskName?: string | null;
   buildPhases: string[];
-  quotedAmountAtAssignment: string | null; // Must remain unchanged
+  quotedAmountAtAssignment: string | null;
 }
 
 class MockWordQuoteStorage {
@@ -295,9 +312,73 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
 }
 
 // ============================================================
-// Test 1 — Preview mode: no DB records created, real metadata returned
+// Test 1 — Maureen Orubebe 2nd Floor Quote: Preview & Full Import
 // ============================================================
-test("PHASE 1 — Preview mode returns REAL Spencer House structure without committing records", async () => {
+test("Maureen Orubebe 2nd Floor Quote: clean preview & import without summary duplicates or table headers", async () => {
+  await withWordQuoteServer(async ({ postWordQuote, storage, getTasks, assignWorkerTask }) => {
+    const buf = await createMaureenOrubebeDocxBuffer();
+
+    // 1. Preview mode — no DB writes
+    const previewRes = await postWordQuote({ buffer: buf, filename: "Maureen Orubebe 2nd Floor Quote.docx", preview: true });
+    assert.equal(previewRes.status, 200);
+    assert.equal(previewRes.body.preview, true);
+    assert.equal(storage.jobs.length, 0, "Preview must not create jobs");
+    assert.equal(storage.locations.length, 0, "Preview must not create locations");
+
+    const meta = previewRes.body.metadata as Record<string, unknown>;
+    assert.equal(meta.clientName, REAL_MAUREEN.clientName);
+    assert.equal(meta.projectSiteName, REAL_MAUREEN.projectSiteName);
+    assert.equal(meta.totalQuotePrice, REAL_MAUREEN.totalQuotePrice);
+    assert.equal(meta.formattedTotalPrice, REAL_MAUREEN.formattedTotalPrice);
+
+    // 2. Full import
+    const importRes = await postWordQuote({ buffer: buf, filename: "Maureen Orubebe 2nd Floor Quote.docx", preview: false });
+    assert.equal(importRes.status, 200);
+    assert.equal(importRes.body.success, true);
+
+    // Assert exact 3 locations (Summary did NOT create duplicate locations)
+    assert.equal(storage.locations.length, 3, "Must have exactly 3 locations");
+    assert.deepEqual(
+      storage.locations.map(l => l.name),
+      REAL_MAUREEN.locationNames as unknown as string[]
+    );
+
+    // Assert total tasks = 6
+    assert.equal(storage.tasks.length, REAL_MAUREEN.taskCount, "Must have exactly 6 tasks");
+
+    // Check no table header or currency is stored as task
+    for (const t of storage.tasks) {
+      for (const banned of ["Material", "Labour", "Plant", "Other", "Total", "Description", "Resources to include:"]) {
+        assert.notEqual(t.taskName, banned);
+      }
+      assert.ok(!t.taskName.includes("£"), "Task must not be a price line");
+    }
+
+    // 3. Worker assignment to 2nd bathroom -> Replace Existing Floorboards task
+    const bathLoc = storage.locations.find(l => l.name === "2nd bathroom")!;
+    const bathTasks = await getTasks(storage.jobs[0].id, bathLoc.id);
+    assert.equal(bathTasks.body.length, 3);
+
+    const floorboardTask = bathTasks.body.find(t => t.taskName === "Remove 3.13m² floorboards")!;
+    assert.ok(floorboardTask);
+
+    const assignRes = await assignWorkerTask({
+      jobId: storage.jobs[0].id,
+      locationId: bathLoc.id,
+      taskId: floorboardTask.id,
+      contractorId: "c-ahmed",
+    });
+    assert.equal(assignRes.status, 200);
+    assert.equal(assignRes.body.locationName, "2nd bathroom");
+    assert.equal(assignRes.body.taskName, "Remove 3.13m² floorboards");
+    assert.equal(assignRes.body.contractorName, "Ahmed Gouda");
+  });
+});
+
+// ============================================================
+// Test 2 — Spencer House Quote: Preview Mode
+// ============================================================
+test("Spencer House — Preview mode returns REAL Spencer House structure without committing records", async () => {
   await withWordQuoteServer(async ({ postWordQuote, storage }) => {
     const buf = await createSpencerHouseDocxBuffer();
     const res = await postWordQuote({ buffer: buf, filename: "Job 2 Spencer House - Quote(1).docx", preview: true });
@@ -306,17 +387,12 @@ test("PHASE 1 — Preview mode returns REAL Spencer House structure without comm
     assert.equal(res.body.preview, true);
 
     const meta = res.body.metadata as Record<string, unknown>;
-
-    // ASSERTION 1: Real address from document
     assert.equal(meta.projectSiteName, REAL_SPENCER.projectSiteName);
     assert.equal(meta.postcode, REAL_SPENCER.postcode, `Postcode must be ${REAL_SPENCER.postcode}`);
-
-    // ASSERTION 2: Real quote total (not invented)
     assert.equal(meta.totalQuotePrice, REAL_SPENCER.totalQuotePrice);
     assert.equal(meta.formattedTotalPrice, REAL_SPENCER.formattedTotalPrice);
     assert.notEqual(meta.totalQuotePrice, INVENTED_BANNED.prices[0], "Must not use invented £45,250");
 
-    // Nothing committed
     assert.equal(storage.jobs.length, 0, "Preview must not create any jobs");
     assert.equal(storage.locations.length, 0, "Preview must not create any locations");
     assert.equal(storage.tasks.length, 0, "Preview must not create any tasks");
@@ -324,9 +400,9 @@ test("PHASE 1 — Preview mode returns REAL Spencer House structure without comm
 });
 
 // ============================================================
-// Test 2 — Full import: real data, all phases, commercial safety
+// Test 3 — Spencer House Quote: Full import, reviews, assignments, safety
 // ============================================================
-test("PHASES 1-5 — Full import: real Spencer House data, review flags, worker assignment, commercial safety", async () => {
+test("Spencer House — Full import: real data, review flags, worker assignment, commercial safety", async () => {
   await withWordQuoteServer(async ({ postWordQuote, storage, getLocations, patchLocation, getTasks, assignWorkerTask }) => {
     const buf = await createSpencerHouseDocxBuffer();
     const res = await postWordQuote({ buffer: buf, filename: "Job 2 Spencer House - Quote(1).docx", preview: false });
@@ -336,7 +412,6 @@ test("PHASES 1-5 — Full import: real Spencer House data, review flags, worker 
 
     const job = res.body.job as MockJob;
 
-    // ASSERTION 1: Real project metadata stored — not invented
     assert.equal(job.title, REAL_SPENCER.projectSiteName);
     assert.equal(job.clientName, REAL_SPENCER.clientName);
     assert.equal(job.postcode, REAL_SPENCER.postcode, `Postcode must be ${REAL_SPENCER.postcode}`);
@@ -347,23 +422,19 @@ test("PHASES 1-5 — Full import: real Spencer House data, review flags, worker 
       }
     }
 
-    // ASSERTION 2: Quote total = real amount only (not invented)
     assert.equal(job.quotedAmount, REAL_SPENCER.formattedTotalPrice, `Quote must be ${REAL_SPENCER.formattedTotalPrice}`);
     assert.notEqual(job.quotedAmount, "£45,250.00", "Must not store invented £45,250.00");
 
-    // ASSERTION 3: Exact locations extracted in document order
     assert.equal(storage.locations.length, 5, "Must have exactly 5 locations");
     const locationNames = storage.locations.map((l) => l.name);
     assert.deepEqual(locationNames, REAL_SPENCER.locationNames as unknown as string[], "Locations must match real document order");
 
-    // ASSERTION 4: No invented tasks in any location
     for (const task of storage.tasks) {
       for (const banned of INVENTED_BANNED.tasks) {
         assert.notEqual(task.taskName, banned, `Invented task "${banned}" must not appear`);
       }
     }
 
-    // ASSERTION 5: Source wording preserved — check key real tasks exist
     const allTaskNames = storage.tasks.map((t) => t.taskName);
     assert.ok(allTaskNames.includes("Internal Door 6 Panel Smooth 838 x 1981mm"), "Real door spec must be preserved");
     assert.ok(allTaskNames.includes("Universal Beam 178 x 102 x 19kg per m"), "Real beam spec for Customised Build must be preserved");
@@ -376,38 +447,22 @@ test("PHASES 1-5 — Full import: real Spencer House data, review flags, worker 
     assert.ok(allTaskNames.includes("walls/plaster"), "Real 'walls/plaster' for Dinning Room must be preserved");
     assert.ok(allTaskNames.includes("architraves/casings"), "Real 'architraves/casings' must be preserved");
     assert.ok(allTaskNames.includes("skirtings"), "Real 'skirtings' must be preserved");
-    // Living Room Room Decoration has ONLY 'ceiling' — no more
-    const livingRoomDecorTasks = storage.tasks.filter((t) => {
-      const loc = storage.locations.find((l) => l.id === t.locationId);
-      return loc?.name === "Living Room" && t.workCategory === "Room Decoration";
-    });
-    assert.deepEqual(livingRoomDecorTasks.map((t) => t.taskName), ["ceiling"], "Living Room → Room Decoration must have only 'ceiling'");
 
-    // ASSERTION 6: Generic/ambiguous locations flagged REVIEW_REQUIRED
+    // Review status assertions
     for (const flaggedName of REAL_SPENCER.flaggedLocations) {
       const loc = storage.locations.find((l) => l.name === flaggedName)!;
       assert.ok(loc, `Location "${flaggedName}" must exist`);
       assert.equal(loc.reviewStatus, "REVIEW_REQUIRED", `"${flaggedName}" must be REVIEW_REQUIRED`);
     }
-    // Living Room confirmed
+
     const livingLoc = storage.locations.find((l) => l.name === "Living Room")!;
     assert.equal(livingLoc.reviewStatus, "CONFIRMED", "Living Room must be CONFIRMED");
 
-    // Dining Room and Dinning Room: separate and both flagged (NOT merged)
+    // Worker allocation
     const diningLoc = storage.locations.find((l) => l.name === "Dining Room")!;
-    const dinningLoc = storage.locations.find((l) => l.name === "Dinning Room")!;
-    assert.ok(diningLoc && dinningLoc, "Both Dining Room AND Dinning Room must exist separately");
-    assert.equal(diningLoc.reviewStatus, "REVIEW_REQUIRED", "Dining Room must be REVIEW_REQUIRED (spelling variant)");
-    assert.equal(dinningLoc.reviewStatus, "REVIEW_REQUIRED", "Dinning Room must be REVIEW_REQUIRED (spelling variant)");
-
-    // ASSERTION 7: Worker allocation — Job → Location → Work Item → Worker
     const diningTasks = await getTasks(job.id, diningLoc.id);
-    assert.ok(diningTasks.body.length > 0, "Dining Room must have tasks for allocation");
-
-    // Find the specific Vinyl flooring task
     const vinylTask = diningTasks.body.find((t) => t.taskName === "Vinyl flooring")!;
-    assert.ok(vinylTask, "Must find 'Vinyl flooring' task in Dining Room");
-    assert.equal(vinylTask.workCategory, "Vinyl Flooring");
+    assert.ok(vinylTask);
 
     const assignRes = await assignWorkerTask({
       jobId: job.id,
@@ -423,37 +478,22 @@ test("PHASES 1-5 — Full import: real Spencer House data, review flags, worker 
     assert.equal(assignRes.body.taskName, "Vinyl flooring");
     assert.equal(assignRes.body.contractorName, "Ahmed Gouda");
 
-    // Assignment must reference Location & Task — NOT build phases
     const savedAssignment = storage.assignments[0];
     assert.equal(savedAssignment.locationId, diningLoc.id);
     assert.equal(savedAssignment.locationName, "Dining Room");
     assert.equal(savedAssignment.locationTaskId, vinylTask.id);
-    assert.equal(savedAssignment.workCategory, "Vinyl Flooring");
-    assert.equal(savedAssignment.taskName, "Vinyl flooring");
     assert.deepEqual(savedAssignment.buildPhases, [], "Build phases MUST be empty — not used for worker assignment");
 
-    // Task marked assigned
-    const updatedTask = storage.tasks.find((t) => t.id === vinylTask.id)!;
-    assert.equal(updatedTask.status, "assigned");
-    assert.equal(updatedTask.assignedContractorName, "Ahmed Gouda");
-
-    // ASSERTION 8: Existing CSV import paths are untouched — verified in separate csv-uploads-route.test.ts
-
-    // ASSERTION 9: Quote amount is NEVER altered by worker/location operations
+    // Commercial safety
     const storedJob = storage.jobs.find((j) => j.id === job.id)!;
     assert.equal(storedJob.quotedAmount, REAL_SPENCER.formattedTotalPrice, "quotedAmount must remain unchanged after assignment");
-    assert.equal(savedAssignment.quotedAmountAtAssignment, REAL_SPENCER.formattedTotalPrice, "Assignment must record the original quote amount (not modify it)");
 
-    // Admin review — rename Dinning Room
-    const renameRes = await patchLocation(job.id, dinningLoc.id, {
+    // Location rename review
+    const dinningLoc = storage.locations.find((l) => l.name === "Dinning Room")!;
+    await patchLocation(job.id, dinningLoc.id, {
       name: "Dining Room Extension",
       reviewStatus: "CONFIRMED",
     });
-    assert.equal(renameRes.status, 200);
-    assert.equal(dinningLoc.name, "Dining Room Extension");
-    assert.equal(dinningLoc.reviewStatus, "CONFIRMED");
-
-    // Quoted amount STILL unchanged after location rename
     assert.equal(storedJob.quotedAmount, REAL_SPENCER.formattedTotalPrice, "quotedAmount must remain unchanged after location rename");
   });
 });

@@ -17,6 +17,22 @@ interface JobAssignmentModalProps {
   contractors: Contractor[];
 }
 
+interface JobLocation {
+  id: string;
+  jobId: string;
+  name: string;
+  reviewStatus: string;
+}
+
+interface JobLocationTask {
+  id: string;
+  jobId: string;
+  locationId: string;
+  workCategory: string;
+  taskName: string;
+  status: string;
+}
+
 export default function JobAssignmentModal({ 
   isOpen, 
   onClose, 
@@ -32,56 +48,75 @@ export default function JobAssignmentModal({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const currentJobId = selectedJob?.id || selectedJobId;
+  const activeJobId = selectedJob?.id || selectedJobId;
 
   const { data: jobs = [] } = useQuery<JobWithContractor[]>({
     queryKey: ['/api/jobs', { status: 'pending' }],
     enabled: isOpen && !selectedJob,
   });
 
-  const { data: locations = [] } = useQuery<any[]>({
-    queryKey: ['/api/jobs', currentJobId, 'locations'],
+  // Fetch locations for selected job (additive)
+  const { data: jobLocations = [] } = useQuery<JobLocation[]>({
+    queryKey: ['/api/jobs', activeJobId, 'locations'],
     queryFn: async () => {
-      if (!currentJobId) return [];
-      const res = await fetch(`/api/jobs/${currentJobId}/locations`);
+      if (!activeJobId) return [];
+      const res = await fetch(`/api/jobs/${activeJobId}/locations`);
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: isOpen && !!currentJobId,
+    enabled: isOpen && Boolean(activeJobId),
   });
 
-  const { data: locationTasks = [] } = useQuery<any[]>({
-    queryKey: ['/api/jobs', currentJobId, 'location-tasks', selectedLocationId],
+  // Fetch tasks for selected location (additive)
+  const { data: locationTasks = [] } = useQuery<JobLocationTask[]>({
+    queryKey: ['/api/jobs', activeJobId, 'location-tasks', selectedLocationId],
     queryFn: async () => {
-      if (!currentJobId || !selectedLocationId) return [];
-      const res = await fetch(`/api/jobs/${currentJobId}/location-tasks?locationId=${selectedLocationId}`);
+      if (!activeJobId || !selectedLocationId) return [];
+      const res = await fetch(`/api/jobs/${activeJobId}/location-tasks?locationId=${selectedLocationId}`);
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: isOpen && !!currentJobId && !!selectedLocationId,
+    enabled: isOpen && Boolean(activeJobId && selectedLocationId),
   });
 
   const assignJobMutation = useMutation({
-    mutationFn: async (data: { jobId: string; contractorId: string; dueDate: string; notes?: string; locationId?: string; taskId?: string }) => {
-      if (data.locationId && data.taskId) {
-        const response = await apiRequest('POST', '/api/assign-worker-task', {
-          jobId: data.jobId,
-          locationId: data.locationId,
-          taskId: data.taskId,
-          contractorId: data.contractorId,
-          startDate: data.dueDate,
-          endDate: data.dueDate,
-          specialInstructions: data.notes,
-        });
-        return response.json();
+    mutationFn: async (data: {
+      jobId: string;
+      contractorId: string;
+      dueDate: string;
+      notes?: string;
+      locationId?: string;
+      locationTaskId?: string;
+    }) => {
+      // If location and task are selected, also assign worker to specific task
+      if (data.locationId && data.locationTaskId) {
+        try {
+          await apiRequest('POST', '/api/assign-worker-task', {
+            jobId: data.jobId,
+            locationId: data.locationId,
+            taskId: data.locationTaskId,
+            contractorId: data.contractorId,
+            startDate: new Date().toISOString().split("T")[0],
+            endDate: data.dueDate,
+            specialInstructions: data.notes,
+          });
+        } catch (e) {
+          console.warn("Could not record location task assignment:", e);
+        }
       }
-      const response = await apiRequest('POST', '/api/assign-job', data);
+
+      const response = await apiRequest('POST', '/api/assign-job', {
+        jobId: data.jobId,
+        contractorId: data.contractorId,
+        dueDate: data.dueDate,
+        notes: data.notes,
+      });
       return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Job Assigned Successfully",
-        description: "The job task has been assigned to the contractor.",
+        description: "The job has been assigned to the contractor.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
@@ -110,7 +145,7 @@ export default function JobAssignmentModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const jobId = selectedJob?.id || selectedJobId;
+    const jobId = activeJobId;
     if (!jobId || !selectedContractorId || !dueDate) {
       toast({
         title: "Missing Information",
@@ -122,11 +157,11 @@ export default function JobAssignmentModal({
 
     assignJobMutation.mutate({
       jobId,
-      locationId: selectedLocationId || undefined,
-      taskId: selectedTaskId || undefined,
       contractorId: selectedContractorId,
       dueDate,
       notes,
+      locationId: selectedLocationId || undefined,
+      locationTaskId: selectedTaskId || undefined,
     });
   };
 
@@ -151,9 +186,10 @@ export default function JobAssignmentModal({
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Job Selection */}
           <div>
             <Label htmlFor="job-select" className="text-sm font-medium text-slate-700">
-              Select Job
+              Select Job *
             </Label>
             {selectedJob ? (
               <div className="mt-2 p-3 bg-slate-50 rounded-lg">
@@ -161,7 +197,14 @@ export default function JobAssignmentModal({
                 <div className="text-sm text-slate-500">{selectedJob.location}</div>
               </div>
             ) : (
-              <Select value={selectedJobId} onValueChange={setSelectedJobId}>
+              <Select 
+                value={selectedJobId} 
+                onValueChange={(val) => {
+                  setSelectedJobId(val);
+                  setSelectedLocationId("");
+                  setSelectedTaskId("");
+                }}
+              >
                 <SelectTrigger className="mt-2">
                   <SelectValue placeholder="Choose a job..." />
                 </SelectTrigger>
@@ -176,22 +219,27 @@ export default function JobAssignmentModal({
             )}
           </div>
 
-          {locations.length > 0 && (
+          {/* Location / Room Selection (ADDITIVE) */}
+          {activeJobId && jobLocations.length > 0 && (
             <div>
-              <Label htmlFor="location-select" className="text-sm font-medium text-slate-700">
-                Select Location / Room
+              <Label className="text-sm font-medium text-slate-700">
+                Location / Room (Optional)
               </Label>
-              <Select value={selectedLocationId} onValueChange={(val) => {
-                setSelectedLocationId(val);
-                setSelectedTaskId("");
-              }}>
+              <Select 
+                value={selectedLocationId} 
+                onValueChange={(val) => {
+                  setSelectedLocationId(val);
+                  setSelectedTaskId("");
+                }}
+              >
                 <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Choose a room or location..." />
+                  <SelectValue placeholder="All locations / entire job" />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.map((loc: any) => (
+                  <SelectItem value="">All Locations</SelectItem>
+                  {jobLocations.map((loc) => (
                     <SelectItem key={loc.id} value={loc.id}>
-                      {loc.name} {loc.reviewStatus === "REVIEW_REQUIRED" ? "(⚠️ Needs Review)" : ""}
+                      {loc.name} {loc.reviewStatus === "REVIEW_REQUIRED" ? "⚠️" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -199,19 +247,21 @@ export default function JobAssignmentModal({
             </div>
           )}
 
+          {/* Work Item Selection (ADDITIVE) */}
           {selectedLocationId && locationTasks.length > 0 && (
             <div>
-              <Label htmlFor="task-select" className="text-sm font-medium text-slate-700">
-                Select Specific Work Item / Task
+              <Label className="text-sm font-medium text-slate-700">
+                Specific Work Item (Optional)
               </Label>
               <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
                 <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Choose a task to assign..." />
+                  <SelectValue placeholder="All tasks in this location" />
                 </SelectTrigger>
                 <SelectContent>
-                  {locationTasks.map((t: any) => (
+                  <SelectItem value="">All Tasks</SelectItem>
+                  {locationTasks.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
-                      {t.workCategory}: {t.taskName} {t.status === "assigned" ? `(Assigned: ${t.assignedContractorName})` : ""}
+                      [{t.workCategory}] {t.taskName}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -219,8 +269,9 @@ export default function JobAssignmentModal({
             </div>
           )}
 
+          {/* Contractor Selection */}
           <div>
-            <Label className="text-sm font-medium text-slate-700">Select Contractor</Label>
+            <Label className="text-sm font-medium text-slate-700">Select Contractor *</Label>
             <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
               {availableContractors.length > 0 ? availableContractors.map((contractor, index) => (
                 <div
@@ -265,9 +316,10 @@ export default function JobAssignmentModal({
             </div>
           </div>
 
+          {/* Due Date */}
           <div>
             <Label htmlFor="due-date" className="text-sm font-medium text-slate-700">
-              Due Date
+              Due Date *
             </Label>
             <Input
               id="due-date"
@@ -279,6 +331,7 @@ export default function JobAssignmentModal({
             />
           </div>
 
+          {/* Notes */}
           <div>
             <Label htmlFor="notes" className="text-sm font-medium text-slate-700">
               Notes (Optional)

@@ -716,19 +716,19 @@ export default function UploadCsv() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                   <div>
                     <span className="text-xs text-slate-400 block">Project / Site</span>
-                    <strong className="text-slate-200">{wordPreview.metadata.projectSiteName || "Spencer House"}</strong>
+                    <strong className="text-slate-200">{wordPreview.metadata.projectSiteName || "—"}</strong>
                   </div>
                   <div>
                     <span className="text-xs text-slate-400 block">Client</span>
-                    <strong className="text-slate-200">{wordPreview.metadata.clientName || "Promise Igbinedion"}</strong>
+                    <strong className="text-slate-200">{wordPreview.metadata.clientName || "—"}</strong>
                   </div>
                   <div>
                     <span className="text-xs text-slate-400 block">Address</span>
-                    <span className="text-slate-300 truncate block">{wordPreview.metadata.address || "10 High Street"}</span>
+                    <span className="text-slate-300 truncate block">{wordPreview.metadata.address || "—"}</span>
                   </div>
                   <div>
                     <span className="text-xs text-slate-400 block">Postcode</span>
-                    <span className="text-slate-300">{wordPreview.metadata.postcode || "SG1 1EH"}</span>
+                    <span className="text-slate-300">{wordPreview.metadata.postcode || "—"}</span>
                   </div>
                 </div>
               </div>

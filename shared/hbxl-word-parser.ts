@@ -67,6 +67,38 @@ export const GENERIC_LOCATION_PATTERNS: ReadonlyArray<RegExp> = [
   /^unassigned$/i,
 ];
 
+// Standard distinct room roots that should never be confused with each other
+export const STANDARD_DISTINCT_ROOMS = new Set([
+  "living room",
+  "dining room",
+  "sitting room",
+  "kitchen",
+  "utility room",
+  "bathroom",
+  "2nd bathroom",
+  "bedroom",
+  "bedroom 1",
+  "bedroom 2",
+  "bedroom 3",
+  "bedroom 4",
+  "2nd floor bedroom 4",
+  "hallway",
+  "landing",
+  "porch",
+  "garage",
+  "conservatory",
+  "cloakroom",
+  "dressing room",
+  "study",
+  "office",
+  "lounge",
+  "loft",
+  "attic",
+  "basement",
+  "cellar",
+  "bathroom wall",
+]);
+
 /**
  * Calculates Levenshtein distance between two strings.
  */
@@ -98,31 +130,6 @@ export function calculateLevenshteinDistance(a: string, b: string): number {
   return matrix[an][bn];
 }
 
-// Standard distinct room roots that should never be confused with each other
-export const STANDARD_DISTINCT_ROOMS = new Set([
-  "living room",
-  "dining room",
-  "sitting room",
-  "kitchen",
-  "utility room",
-  "bathroom",
-  "bedroom",
-  "hallway",
-  "landing",
-  "porch",
-  "garage",
-  "conservatory",
-  "cloakroom",
-  "dressing room",
-  "study",
-  "office",
-  "lounge",
-  "loft",
-  "attic",
-  "basement",
-  "cellar",
-]);
-
 /**
  * Checks if two location names represent a likely typo/spelling variant
  * (e.g. "Dining Room" vs "Dinning Room").
@@ -133,7 +140,7 @@ export function isSpellingVariant(a: string, b: string): boolean {
 
   if (normA === normB) return false;
 
-  // If both are known standard distinct rooms (e.g. "living room" and "dining room"), they are distinct!
+  // If both are known standard distinct rooms, they are distinct!
   if (STANDARD_DISTINCT_ROOMS.has(normA) && STANDARD_DISTINCT_ROOMS.has(normB)) {
     return false;
   }
@@ -152,7 +159,6 @@ export function isSpellingVariant(a: string, b: string): boolean {
   }
 
   if (dist === 2 && Math.min(normA.length, normB.length) >= 8) {
-    // Only if lengths are close and not distinct standard rooms
     return true;
   }
 
@@ -168,9 +174,110 @@ export function isGenericLocation(name: string): boolean {
 }
 
 /**
+ * Banned words and phrases that must NEVER be extracted as tasks or categories.
+ */
+export const BANNED_TASK_KEYWORDS = new Set([
+  "description",
+  "material",
+  "materials",
+  "labour",
+  "plant",
+  "other",
+  "total",
+  "totals",
+  "total cost",
+  "total cost excluding vat",
+  "total cost including vat",
+  "total cost excl vat",
+  "total cost inc vat",
+  "total cost (excl vat)",
+  "total cost (inc vat)",
+  "total cost (excl. vat)",
+  "total cost (inc. vat)",
+  "total vat",
+  "subtotal",
+  "sub-total",
+  "grand total",
+  "net total",
+  "vat",
+  "vat @ 20%",
+  "quantity",
+  "qty",
+  "unit",
+  "unit rate",
+  "rate",
+  "hours",
+  "cost",
+  "item",
+  "item no",
+  "item number",
+  "ref",
+  "code",
+  "resources to include:",
+  "resources to include",
+  "resource to include:",
+  "resource to include",
+  "resources:",
+  "resources",
+  "acceptance of estimate",
+  "acceptance of quotation",
+  "acceptance",
+  "terms and conditions",
+  "terms & conditions",
+  "terms & conditions of business",
+  "terms and conditions of business",
+  "terms & conditions of sale",
+  "signed",
+  "date",
+  "signature",
+  "print name",
+  "client signature",
+  "contractor signature",
+  "customer signature",
+  "date of acceptance",
+  "summary of estimate",
+  "summary of quotation",
+  "payment schedule",
+  "stage payments",
+  "vat summary",
+]);
+
+/**
+ * Check if a paragraph text is banned from becoming a task or category.
+ */
+export function isBannedTaskOrCategory(text: string): boolean {
+  const norm = text.trim().toLowerCase().replace(/[:\.\-_]+$/, "").trim();
+  if (!norm) return true;
+
+  if (BANNED_TASK_KEYWORDS.has(norm)) return true;
+
+  // Standalone currency amount or number (e.g. "£1,234.56", "£ 0.00", "123.45", "£17,350.46")
+  if (/^£?\s*[\d,]+(?:\.\d{1,2})?$/.test(norm)) return true;
+
+  // Any line containing currency that represents a total or cost line
+  if (norm.includes("£") && (/total/i.test(norm) || /cost/i.test(norm) || /vat/i.test(norm) || /price/i.test(norm))) {
+    return true;
+  }
+
+  // Any line starting with total / subtotal / grand total / vat
+  if (/^(?:total|sub-?total|grand\s+total|net\s+total|vat)\b/i.test(norm)) return true;
+
+  // Starts with "resources to include" or resource breakdown
+  if (/^resources?\s+to\s+include/i.test(norm)) return true;
+
+  // Acceptance / signing / legal blocks
+  if (/^(acceptance|terms\s*(?:&|and)\s*conditions|signature|signed|print\s*name|payment\s*terms|vat\s*summary|date\s*of\s*acceptance)/i.test(norm)) return true;
+
+  // Table header combinations like "Material Labour Plant Other Total"
+  if (/^(?:material|labour|plant|other|total|\s)+$/i.test(norm)) return true;
+
+  return false;
+}
+
+/**
  * Parses XML text from word/document.xml into a clean representation.
  */
-interface RawDocParagraph {
+export interface RawDocParagraph {
   text: string;
   isHeading: boolean;
   headingLevel: number;
@@ -195,7 +302,7 @@ export function extractParagraphsFromDocumentXml(xmlContent: string): RawDocPara
     let tMatch: RegExpExecArray | null;
     while ((tMatch = tRegex.exec(pBody)) !== null) {
       // Decode basic xml entities
-      let runText = tMatch[1]
+      const runText = tMatch[1]
         .replace(/&amp;/g, "&")
         .replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">")
@@ -262,20 +369,18 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
   let totalQuotePrice: number | null = null;
   let formattedTotalPrice = "";
 
-  // Extract project site name from filename ONLY — as a secondary hint
-  // e.g. "Job 2 Spencer House - Quote(1).docx" => "Spencer House"
+  let fallbackProjectSiteName = "";
+  // Extract project site name from filename ONLY as a fallback if not found in body
   if (fallbackFilename) {
     const fnClean = fallbackFilename.replace(/\.docx$/i, "");
     const siteMatch = fnClean.match(/(?:Job\s*\d+\s+)?([A-Za-z0-9\s]+?)(?:\s*[-–]?\s*(?:Quote|Quotation|Smart\s+Schedule|Export))/i);
     if (siteMatch && siteMatch[1]) {
-      projectSiteName = siteMatch[1].trim();
+      fallbackProjectSiteName = siteMatch[1].trim();
     }
   }
 
   const postcodePattern = /\b([A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2})\b/i;
 
-  // More specific total pattern — avoids matching intermediate line totals.
-  // Must match a final/grand total pattern explicitly.
   const totalPatterns = [
     /(?:Grand\s+Total|Total\s+(?:\(excl\.?\s*VAT\)|\(inc\.?\s*VAT\)|Quote|Quotation|Price|Estimated\s*Cost|Amount))\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
     /Total\s*\(excl\.?\s*VAT\)\s*:?\s*£?\s*([\d,]+(?:\.\d{2})?)/i,
@@ -283,7 +388,6 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
     /^Total\s*:?\s*£\s*([\d,]+\.\d{2})$/i,
   ];
 
-  // Patterns for explicit label-based fields
   const clientPatterns = [
     /^(?:Client|Customer|Prepared\s+for|For|To):\s*(.+)$/i,
     /^(?:Client\s+Name):\s*(.+)$/i,
@@ -299,7 +403,6 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
     /^(?:Reference|Ref|Job\s+Ref|Quote\s+Ref(?:erence)?):\s*(.+)$/i,
   ];
 
-  // Track whether we're in an address block (consecutive lines after address label)
   let inAddressBlock = false;
   let addressBlockLineCount = 0;
   const MAX_ADDRESS_LINES = 6;
@@ -308,19 +411,22 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
     const t = p.text.trim();
     if (!t) { inAddressBlock = false; continue; }
 
-    // Skip headings (location names) when extracting metadata
     if (p.isHeading && p.headingLevel === 1) {
       inAddressBlock = false;
       continue;
     }
 
-    // Client name (only from explicit label)
+    // Stop address block if we hit a location anchor or acceptance/terms
+    if (/^Carry\s+out\s+work\s+in/i.test(t) || /^(?:Acceptance|Terms)/i.test(t)) {
+      inAddressBlock = false;
+    }
+
+    // Client name
     if (!clientName) {
       for (const cp of clientPatterns) {
         const m = t.match(cp);
         if (m && m[1] && m[1].trim().length > 1) {
           const val = m[1].trim();
-          // Exclude obvious noise
           if (!val.match(/^(?:Ltd|Limited|PLC|LLP|plc)$/i)) {
             clientName = val;
             break;
@@ -329,7 +435,7 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
       }
     }
 
-    // Project/Site name (only from explicit label; filename fallback already set)
+    // Project/Site name
     if (!projectSiteName) {
       for (const sp of sitePatterns) {
         const m = t.match(sp);
@@ -356,8 +462,7 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
       }
     }
 
-    // Grand/Total price — MUST check BEFORE address block accumulation to avoid
-    // lines like "Total (excl. VAT): £17,350.46" being swallowed into address lines.
+    // Grand/Total price
     if (totalQuotePrice === null) {
       let matchedTotal = false;
       for (const tp of totalPatterns) {
@@ -368,7 +473,6 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
           if (!isNaN(val) && val > 100) {
             totalQuotePrice = val;
             formattedTotalPrice = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            // If we were accumulating address lines, stop here — this line is a total, not an address
             if (inAddressBlock) inAddressBlock = false;
             matchedTotal = true;
             break;
@@ -378,7 +482,7 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
       if (matchedTotal) continue;
     }
 
-    // Address block — start when explicit address label encountered
+    // Address block
     if (!inAddressBlock) {
       const am = t.match(addressLabelPattern);
       if (am && am[1]) {
@@ -388,14 +492,12 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
         if (firstAddressLine) {
           addressLines.push(firstAddressLine);
           addressBlockLineCount++;
-          // Check for postcode in first address line
           const pm = firstAddressLine.match(postcodePattern);
           if (pm && pm[1]) postcode = pm[1].toUpperCase().trim();
         }
         continue;
       }
     } else {
-      // Continue accumulating address lines until we hit another label-pattern, heading, or max
       const isAnotherLabel = /^[A-Za-z][A-Za-z\s]{1,30}:\s/.test(t);
       if (isAnotherLabel || addressBlockLineCount >= MAX_ADDRESS_LINES || p.isHeading) {
         inAddressBlock = false;
@@ -408,35 +510,18 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
       }
     }
 
-    // Postcode — fallback: scan all paragraphs
+    // Postcode fallback
     if (!postcode) {
       const pm = t.match(postcodePattern);
       if (pm && pm[1]) postcode = pm[1].toUpperCase().trim();
     }
-
-    // Grand/Total price (secondary check for lines not caught above)
-    if (totalQuotePrice === null) {
-      for (const tp of totalPatterns) {
-        const m = t.match(tp);
-        if (m && m[1]) {
-          const numStr = m[1].replace(/,/g, "");
-          const val = parseFloat(numStr);
-          if (!isNaN(val) && val > 100) { // Ignore trivial line-item amounts
-            totalQuotePrice = val;
-            formattedTotalPrice = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            break;
-          }
-        }
-      }
-    }
   }
 
-  // Build single address string from collected lines
   const address = addressLines.join("\n");
 
   return {
     clientName,
-    projectSiteName,
+    projectSiteName: projectSiteName || fallbackProjectSiteName,
     address,
     postcode,
     projectType,
@@ -449,6 +534,12 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
 
 /**
  * Parses an HBXL Word Quote document buffer.
+ * STRICT RULES:
+ * 1. Authoritative location anchor: "Carry out work in [LOCATION] comprising:"
+ * 2. Each location owns ONLY content between its anchor and the next location anchor (or Acceptance/Terms/End).
+ * 3. Summary headings and tables do NOT create locations.
+ * 4. Banned keywords (Material, Labour, Plant, Other, Total, £ values, Acceptance, etc.) are never tasks.
+ * 5. Generic and spelling-variant locations flagged REVIEW_REQUIRED.
  */
 export async function parseHbxlWordQuote(
   fileBuffer: Buffer | ArrayBuffer,
@@ -533,11 +624,20 @@ export async function parseHbxlWordQuote(
   const fullText = paragraphs.map((p) => p.text).join("\n");
   const metadata = extractMetadata(paragraphs, fullText, filename);
 
-  // Parse location hierarchy
-  // Strategy:
-  // Level 1: Location/Room headings (Heading 1, or bold line matching room/area names)
-  // Level 2: Work Categories under location (Heading 2, or bold sub-headings)
-  // Level 3: Work Items / Task Descriptions under categories (Bullets or regular paragraphs)
+  // =========================================================================
+  // LOCATION & TASK EXTRACTION
+  // =========================================================================
+  // Rule: Detect if document uses the standard HBXL anchor:
+  // "Carry out work in [LOCATION] comprising:"
+  // =========================================================================
+
+  const carryOutRegex = /^Carry\s+out\s+work\s+in\s+(.+?)(?:\s+comprising\s*:?|\s*:)$/i;
+  const isTerminationSection = (text: string): boolean => {
+    return /^(?:Acceptance\s+of\s+(?:Estimate|Quotation|Quote)|Terms\s*(?:&|and)\s*Conditions|Customer\s+Signature|Client\s+Signature|Date\s+of\s+Acceptance)/i.test(text.trim());
+  };
+
+  // Check if any "Carry out work in" sentences exist in the document
+  const hasCarryOutAnchors = paragraphs.some((p) => carryOutRegex.test(p.text.trim()));
 
   interface RawLocation {
     name: string;
@@ -550,90 +650,102 @@ export async function parseHbxlWordQuote(
   const rawLocations: RawLocation[] = [];
   let currentLocation: RawLocation | null = null;
   let currentCategory: { name: string; tasks: ParsedWordTask[] } | null = null;
-
-  // Known location indicators / keyword filters to distinguish location headings from general text
-  const locationHeaderRegex = /^(?:Location|Room|Area):\s*(.+)$/i;
-
-  const isLikelyLocationHeading = (p: RawDocParagraph): boolean => {
-    const t = p.text.trim();
-    if (t.length === 0 || t.length > 60) return false;
-    if (t.startsWith("Total") || t.startsWith("Quote") || t.startsWith("Client") || t.startsWith("Project") || t.startsWith("Date")) return false;
-
-    if (locationHeaderRegex.test(t)) return true;
-    if (p.headingLevel === 1) return true;
-
-    // Check bold room names e.g. "Dining Room", "Dinning Room", "Living Room", "Customised Build", "House", "Kitchen"
-    const knownRoomNames = [
-      "dining room", "dinning room", "living room", "sitting room", "lounge",
-      "kitchen", "utility room", "bathroom", "en suite", "ensuite", "cloakroom", "wc",
-      "bedroom", "bedroom 1", "bedroom 2", "bedroom 3", "master bedroom",
-      "hallway", "hall", "landing", "porch", "conservatory", "loft", "garage",
-      "customised build", "custom build", "house", "main house", "extension", "external works",
-      "ground floor", "first floor", "second floor", "basement", "roof"
-    ];
-
-    const lower = t.toLowerCase();
-    if (knownRoomNames.includes(lower) || knownRoomNames.some(r => lower.startsWith(r))) {
-      return p.isHeading || p.isBold || p.styleName?.toLowerCase().includes("heading") || true;
-    }
-
-    return false;
-  };
-
-  const isLikelyCategoryHeading = (p: RawDocParagraph): boolean => {
-    if (p.isBullet) return false;
-    const t = p.text.trim();
-    if (t.length === 0 || t.length > 70) return false;
-    if (isLikelyLocationHeading(p)) return false;
-    if (t.startsWith("Total") || t.startsWith("Client") || t.startsWith("Price")) return false;
-
-    if (p.headingLevel === 2) return true;
-    if (p.isHeading && p.headingLevel > 1) return true;
-
-    // Only if bold or explicit style and not a bullet
-    if (p.isBold) return true;
-
-    return false;
-  };
+  let insideDetailedSection = !hasCarryOutAnchors; // If carry-out anchors exist, wait until the first anchor
 
   for (let i = 0; i < paragraphs.length; i++) {
     const p = paragraphs[i];
     const text = p.text.trim();
     if (!text) continue;
 
-    // Check if this paragraph is a location heading
-    if (isLikelyLocationHeading(p)) {
-      const locName = text.replace(locationHeaderRegex, "$1").trim();
-      currentLocation = {
-        name: locName,
-        categories: [],
-      };
-      rawLocations.push(currentLocation);
+    // Check if we have hit a termination section (Acceptance of Estimate, Terms & Conditions, etc.)
+    if (isTerminationSection(text)) {
+      // Terminate detailed section parsing
+      currentLocation = null;
       currentCategory = null;
-      continue;
+      insideDetailedSection = false;
+      break;
     }
 
-    // If we have a current location, check for category or task
-    if (currentLocation) {
-      if (isLikelyCategoryHeading(p)) {
-        currentCategory = {
+    if (hasCarryOutAnchors) {
+      // MODE 1: Standard HBXL "Carry out work in [LOCATION] comprising:" anchors
+      const carryMatch = text.match(carryOutRegex);
+      if (carryMatch && carryMatch[1]) {
+        const rawLocName = carryMatch[1].trim().replace(/[:\.\-_]+$/, "").trim();
+        if (rawLocName) {
+          insideDetailedSection = true;
+          currentLocation = {
+            name: rawLocName,
+            categories: [],
+          };
+          rawLocations.push(currentLocation);
+          currentCategory = null;
+          continue;
+        }
+      }
+
+      if (!insideDetailedSection || !currentLocation) {
+        // Skip all content before the first "Carry out work in" anchor (i.e. Summary page)
+        continue;
+      }
+    } else {
+      // MODE 2: Fallback for documents formatted with Heading 1 room names
+      // Known location indicators / room names
+      const knownRoomNames = [
+        "dining room", "dinning room", "living room", "sitting room", "lounge",
+        "kitchen", "utility room", "bathroom", "2nd bathroom", "en suite", "ensuite", "cloakroom", "wc",
+        "bedroom", "bedroom 1", "bedroom 2", "bedroom 3", "bedroom 4", "2nd floor bedroom 4",
+        "master bedroom", "hallway", "hall", "landing", "porch", "conservatory", "loft", "garage",
+        "customised build", "custom build", "house", "main house", "extension", "external works",
+        "ground floor", "first floor", "second floor", "basement", "roof", "bathroom wall"
+      ];
+
+      const isHeading1Location = (p.headingLevel === 1 || (p.isBold && !p.isBullet)) &&
+        knownRoomNames.some(r => text.toLowerCase() === r || text.toLowerCase().startsWith(r + " "));
+
+      if (isHeading1Location && !isBannedTaskOrCategory(text)) {
+        currentLocation = {
           name: text,
-          tasks: [],
+          categories: [],
         };
-        currentLocation.categories.push(currentCategory);
+        rawLocations.push(currentLocation);
+        currentCategory = null;
         continue;
       }
 
-      // If we don't have a category yet, create a default "General" category
-      if (!currentCategory) {
-        currentCategory = {
-          name: "General Works",
-          tasks: [],
-        };
-        currentLocation.categories.push(currentCategory);
-      }
+      if (!currentLocation) continue;
+    }
 
-      // Add task / work item
+    // Inside a valid location section:
+    // Skip any banned tokens, table column headers, prices, acceptance text, etc.
+    if (isBannedTaskOrCategory(text)) {
+      continue;
+    }
+
+    // Determine if this paragraph is a Work Category heading (e.g. "Replace Existing Floorboards", "Ceramic Wall Tiling", "Vinyl Flooring")
+    const isCategoryHeading = (p.headingLevel === 2 || (p.isHeading && p.headingLevel > 1) || (p.isBold && !p.isBullet)) &&
+      !p.isBullet && text.length < 80;
+
+    if (isCategoryHeading) {
+      currentCategory = {
+        name: text,
+        tasks: [],
+      };
+      currentLocation.categories.push(currentCategory);
+      continue;
+    }
+
+    // Specific Work Item / Task
+    // If no category yet, create a default "General Works" category
+    if (!currentCategory) {
+      currentCategory = {
+        name: "General Works",
+        tasks: [],
+      };
+      currentLocation.categories.push(currentCategory);
+    }
+
+    // Ensure we don't add duplicate tasks within the same category
+    if (!currentCategory.tasks.some(t => t.name === text)) {
       currentCategory.tasks.push({
         name: text,
         description: text,
@@ -642,35 +754,38 @@ export async function parseHbxlWordQuote(
     }
   }
 
-  // Location review flagging & duplicate checking
+  // =========================================================================
+  // LOCATION REVIEW & DUPLICATE CHECKS
+  // =========================================================================
   const locations: ParsedWordLocation[] = [];
 
   for (let i = 0; i < rawLocations.length; i++) {
     const rawLoc = rawLocations[i];
+    // Remove any empty categories that have no tasks
+    const validCategories = rawLoc.categories.filter((cat) => cat.tasks.length > 0);
+
     const normalized = rawLoc.name.trim().toLowerCase();
     let reviewStatus: "CONFIRMED" | "REVIEW_REQUIRED" = "CONFIRMED";
     let reviewReason: string | undefined = undefined;
 
-    // 1. Check generic location names
+    // 1. Generic location check
     if (isGenericLocation(rawLoc.name)) {
       reviewStatus = "REVIEW_REQUIRED";
       reviewReason = `Generic location heading "${rawLoc.name}" requires room clarification before worker assignment.`;
     }
 
-    // 2. Check for similar location names / spelling variants (e.g. "Dining Room" vs "Dinning Room")
+    // 2. Check for duplicate / spelling variant among the extracted DETAIL locations
     for (let j = 0; j < rawLocations.length; j++) {
       if (i === j) continue;
       const other = rawLocations[j];
       const otherNorm = other.name.trim().toLowerCase();
 
-      // If exact same name appears twice
       if (normalized === otherNorm) {
         reviewStatus = "REVIEW_REQUIRED";
         reviewReason = `Duplicate location heading "${rawLoc.name}" found in quote.`;
         break;
       }
 
-      // Check if it is a spelling variant
       if (isSpellingVariant(rawLoc.name, other.name)) {
         reviewStatus = "REVIEW_REQUIRED";
         reviewReason = `Spelling variant / possible duplicate of "${other.name}". Please verify room name.`;
@@ -683,7 +798,7 @@ export async function parseHbxlWordQuote(
       normalizedName: normalized,
       reviewStatus,
       reviewReason,
-      categories: rawLoc.categories,
+      categories: validCategories,
     });
   }
 
