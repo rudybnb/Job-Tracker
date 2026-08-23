@@ -234,9 +234,9 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Now delete the CSV upload record
-    const result = await db.delete(csvUploads).where(eq(csvUploads.id, id));
+    const deleted = await db.delete(csvUploads).where(eq(csvUploads.id, id)).returning();
     console.log(`🗑️ Deleted CSV upload record ${id}`);
-    return result.rowCount > 0;
+    return deleted.length > 0;
   }
 
   // Job Assignment

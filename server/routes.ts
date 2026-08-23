@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { DatabaseStorage } from "./database-storage";
 import { authenticateStaffUser } from "./password-security.ts";
+import { requireAdmin } from "./integration-review-route.ts";
 
 // Session interface for type safety
 interface SessionRequest extends Express.Request {
@@ -163,63 +164,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete CSV upload record
-  /*
-app.delete("/api/csv-uploads/:id", async (req, res) => {
+  // Delete CSV upload record (admin-only, safe cleanup of upload and its created jobs only)
+  app.delete("/api/csv-uploads/:id", requireAdmin as unknown as import("express").RequestHandler, async (req, res) => {
     try {
       const uploadId = req.params.id;
-      console.log("🗑️ COMPLETE CLEANUP starting for upload:", uploadId);
-      
-      // MANDATORY RULE 3: CSV DATA SUPREMACY - When CSV deleted, ALL job data must be removed
-      // Only GPS coordinates and contractor rates should persist per user requirement
-      
-      // 1. Delete all jobs created from this CSV upload
-      const jobs = await storage.getJobs();
-      const jobsToDelete = jobs.filter(job => job.uploadId === uploadId);
-      console.log(`🗑️ Found ${jobsToDelete.length} jobs to delete for upload: ${uploadId}`);
-      
-      for (const job of jobsToDelete) {
-        console.log(`🗑️ Deleting job: ${job.id} (${job.title})`);
-        await storage.deleteJob(job.id);
+      if (!uploadId) {
+        return res.status(400).json({ error: "Upload ID is required" });
       }
-      
-      // 2. Delete ALL job assignments (contractor dashboard should be empty)
-      const allAssignments = await storage.getAllJobAssignments();
-      console.log(`🗑️ Found ${allAssignments.length} total assignments to check`);
-      
-      for (const assignment of allAssignments) {
-        console.log(`🗑️ Deleting assignment: ${assignment.id} for contractor: ${assignment.contractorName}`);
-        await storage.deleteJobAssignment(assignment.id);
+
+      console.log(`🗑️ Deleting CSV upload record: ${uploadId}`);
+      const success = await storage.deleteCsvUpload(uploadId);
+      if (!success) {
+        return res.status(404).json({ error: "CSV upload record not found" });
       }
-      
-      // 3. Delete ALL inspection notifications (site inspections should disappear)
-      await storage.deleteAllInspectionNotifications();
-      console.log("🗑️ Deleted all inspection notifications");
-      
-      // 4. Delete ALL contractor reports related to assignments
-      await storage.deleteAllContractorReports();
-      console.log("🗑️ Deleted all contractor reports");
-      
-      // 5. Delete ALL admin inspections
-      await storage.deleteAllAdminInspections();
-      console.log("🗑️ Deleted all admin inspections");
-      
-      // 6. Finally delete the CSV upload record
-      await storage.deleteCsvUpload(uploadId);
-      console.log("🗑️ Deleted CSV upload record");
-      
-      console.log("✅ COMPLETE CLEANUP finished - Only GPS coordinates and contractor rates remain");
-      res.json({ 
-        success: true, 
-        message: "Complete cleanup successful - all job data permanently removed",
-        preserved: "GPS coordinates and contractor rates maintained"
+
+      res.json({
+        success: true,
+        message: "CSV upload record and associated jobs deleted successfully",
+        id: uploadId,
       });
     } catch (error) {
-      console.error("Error in complete cleanup:", error);
-      res.status(500).json({ error: "Failed to complete cleanup" });
+      console.error("Error deleting CSV upload:", error);
+      res.status(500).json({ error: "Failed to delete CSV upload" });
     }
   });
-*/
 
   // CSV Upload endpoint
   app.post("/api/upload-csv", upload.single('csvFile'), async (req: MulterRequest, res) => {

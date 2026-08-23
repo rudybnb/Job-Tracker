@@ -4,6 +4,7 @@ import { FileText, Clock, CheckCircle, XCircle, AlertCircle, Trash2 } from "luci
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import { formatUploadDate } from "@shared/job-upload-import";
 import "./hallmark-sweep.css";
 
 interface CsvUpload {
@@ -11,7 +12,8 @@ interface CsvUpload {
   filename: string;
   status: "processing" | "processed" | "failed";
   jobsCount: string;
-  createdAt: string;
+  uploadedAt?: string | null;
+  createdAt?: string | null;
 }
 
 function getStatusIcon(status: string) {
@@ -154,7 +156,7 @@ export default function UploadJob() {
                           {upload.jobsCount} job(s) created
                         </div>
                         <div className="text-xs text-slate-500">
-                          {new Date(upload.createdAt).toLocaleString()}
+                          {formatUploadDate(upload.uploadedAt || upload.createdAt)}
                         </div>
                       </div>
                     </div>

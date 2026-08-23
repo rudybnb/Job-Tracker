@@ -21,7 +21,8 @@ interface CsvUpload {
   filename: string;
   status: "processing" | "processed" | "failed";
   jobsCount: string;
-  createdAt: string;
+  uploadedAt?: string | null;
+  createdAt?: string | null;
 }
 
 interface UploadResponse {
