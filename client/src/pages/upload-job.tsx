@@ -79,9 +79,21 @@ export default function UploadJob() {
       queryClient.invalidateQueries({ queryKey: ['/api/csv-uploads'] });
     },
     onError: (error) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete upload";
+      if (errorMessage.includes("401") || errorMessage.toLowerCase().includes("unauthorized")) {
+        toast({
+          title: "Session Expired",
+          description: "Admin session has expired. Please log in again to manage uploads.",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 1500);
+        return;
+      }
       toast({
         title: "Delete Failed",
-        description: error instanceof Error ? error.message : "Failed to delete upload",
+        description: errorMessage,
         variant: "destructive",
       });
     },
