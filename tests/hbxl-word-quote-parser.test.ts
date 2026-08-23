@@ -666,6 +666,28 @@ test("EstimatorXpress generated styles define package, resource, action, and hea
       <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>2nd layer of levelling compound</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Self Levelling Compound</w:t></w:r></w:p></w:tc></w:tr>
       <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Vinyl adhesive</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Vinyl Floor Adhesive</w:t></w:r></w:p></w:tc></w:tr>
     </w:tbl>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Material Catalogue</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install text outside a P22 action row</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr>
+        <w:tc>
+          <w:p><w:pPr><w:pStyle w:val="P22"/></w:pPr><w:r><w:t>Install 10m² of vinyl flooring.</w:t></w:r></w:p>
+          <w:p><w:pPr><w:pStyle w:val="P22"/></w:pPr><w:r><w:t>Resources to include:</w:t></w:r></w:p>
+          <w:p><w:pPr><w:pStyle w:val="P22"/></w:pPr><w:r><w:t>Vinyl Flooring Product (Floor finish)</w:t></w:r></w:p>
+        </w:tc>
+        <w:tc><w:p><w:pPr><w:pStyle w:val="P23"/></w:pPr><w:r><w:t>£100.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:pPr><w:pStyle w:val="P23"/></w:pPr><w:r><w:t>£200.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:pPr><w:pStyle w:val="P23"/></w:pPr><w:r><w:t>£0.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:pPr><w:pStyle w:val="P23"/></w:pPr><w:r><w:t>£0.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc>
+          <w:p><w:pPr><w:pStyle w:val="P22"/></w:pPr><w:r><w:t>Resources to include:</w:t></w:r></w:p>
+          <w:p><w:pPr><w:pStyle w:val="P22"/></w:pPr><w:r><w:t>Sundry Materials</w:t></w:r></w:p>
+        </w:tc>
+        <w:tc><w:p><w:pPr><w:pStyle w:val="P23"/></w:pPr><w:r><w:t>£25.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
     <w:p><w:r><w:t>Acceptance of Estimate</w:t></w:r></w:p>
     <w:p><w:r><w:t>Reference: Refurbishment (Estimated dated 23 August 2026)</w:t></w:r></w:p>
     <w:p><w:r><w:t>Promise Igbinedion</w:t></w:r></w:p>
@@ -679,13 +701,22 @@ test("EstimatorXpress generated styles define package, resource, action, and hea
   assert.equal(result.metadata.quoteDate, "23 August 2026");
   assert.equal(result.metadata.totalQuotePrice, 17350.46);
   assert.deepEqual(result.locations[0].categories.map((category) => category.name), ["Vinyl Flooring"]);
-  assert.deepEqual(result.locations[0].categories[0].resources, [
+  assert.deepEqual(result.locations[0].categories[0].resources?.slice(0, 4), [
     "Vinyl Floor",
     "Vinyl flooring",
     "2nd layer of levelling compound",
     "Vinyl adhesive",
   ]);
-  assert.equal(result.stats.taskCount, 0);
+  assert.deepEqual(result.locations[0].categories[0].tasks.map((task) => task.name), [
+    "Install 10m² of vinyl flooring",
+  ]);
+  assert.deepEqual(result.locations[0].categories[0].tasks[0].resources, [
+    "Vinyl Flooring Product (Floor finish)",
+  ]);
+  assert.ok(result.locations[0].categories[0].resources?.includes("Sundry Materials"));
+  assert.equal(result.stats.taskCount, 1);
+  assert.ok(!result.locations[0].categories.some((category) => category.name === "Material Catalogue"));
+  assert.ok(!result.locations[0].categories[0].tasks.some((task) => /outside a P22|Product|£/.test(task.name)));
 
   const documentXml = await (await JSZip.loadAsync(buffer)).file("word/document.xml")!.async("text");
   const trace = traceHbxlDocumentRoles(extractDocumentElements(documentXml));

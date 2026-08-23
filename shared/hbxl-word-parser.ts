@@ -1021,11 +1021,17 @@ export function traceHbxlDocumentRoles(elements: DocElement[]): HbxlDiagnosticRo
  * Parses document elements into location hierarchy, work packages (categories), actionable tasks, and resource metadata.
  * 
  * OPERATIONAL MODEL:
- * Location → Work Package (Category) → Explicit Actionable Task (only if explicit action verb exists in document) → Resources/Specs.
- * If a Work Package contains only materials/product lines and no action sentences, the Work Package itself is the assignable unit.
+ * EstimatorXpress P6/P7 Location → P11 Work Package → optional P22 Action Task.
+ * P12/P13 and embedded product/resource lines are reference metadata only.
  */
 export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
   const carryOutRegex = /^Carry\s+out\s+work\s+in\s+/i;
+  const hasEstimatorXpressRoles = elements.some((element) => {
+    if (element.type === "paragraph") return element.paragraph.styleName === "P11";
+    return element.table.rows.some((row) => row.cells.some((cell) =>
+      cell.paragraphs.some((paragraph) => paragraph.styleName === "P11"),
+    ));
+  });
   
   let hasCarryOutAnchors = false;
   for (const el of elements) {
@@ -1168,6 +1174,10 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
         continue;
       }
 
+      // Generated EstimatorXpress documents may contain other styled or plain
+      // reference text, but only P11 can create an operational package.
+      if (hasEstimatorXpressRoles) continue;
+
       if (isBannedTaskOrCategory(text)) {
         continue;
       }
@@ -1191,7 +1201,7 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
 
       for (const row of el.table.rows) {
         const rowText = row.text.trim();
-        if (!rowText || isBannedTaskOrCategory(rowText)) continue;
+        if (!rowText) continue;
 
         const rowStyles = row.cells.flatMap((cell) => cell.paragraphs.map((paragraph) => paragraph.styleName));
 
@@ -1221,14 +1231,29 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
 
         if (rowStyles.includes("P22")) {
           const paragraphs = row.cells[0]?.paragraphs ?? [];
-          const action = paragraphs[0]?.text.trim() ?? "";
           const resourceLabelIndex = paragraphs.findIndex((paragraph) => /^resources?\s+to\s+include:?$/i.test(paragraph.text.trim()));
+          const descriptionParagraphs = resourceLabelIndex >= 0 ? paragraphs.slice(0, resourceLabelIndex) : paragraphs;
+          const action = descriptionParagraphs.find((paragraph) => {
+            const value = paragraph.text.trim();
+            return paragraph.styleName === "P22" && value && !isBannedTaskOrCategory(value);
+          })?.text.trim() ?? "";
           const resources = resourceLabelIndex >= 0
             ? paragraphs.slice(resourceLabelIndex + 1).map((paragraph) => paragraph.text.trim()).filter(Boolean)
             : [];
-          addActionTask(action, resources);
+          if (action) {
+            addActionTask(action, resources);
+          } else {
+            lastActionableTask = null;
+            for (const resource of resources) addResource(resource);
+          }
           continue;
         }
+
+        // No unstyled table row can create a package or task once the document
+        // has declared the EstimatorXpress structural role set.
+        if (hasEstimatorXpressRoles) continue;
+
+        if (isBannedTaskOrCategory(rowText)) continue;
 
         // Check if row is a category header (e.g. 1 cell spanning or bold)
         if (row.cells.length === 1 && row.cells[0].paragraphs.length > 0) {
