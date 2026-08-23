@@ -28,6 +28,11 @@ import {
   type InsertTaskInspectionResult,
   type ContractorAssignment,
   type InsertContractorAssignment,
+  // Job Locations & Tasks
+  type JobLocation,
+  type InsertJobLocation,
+  type JobLocationTask,
+  type InsertJobLocationTask,
   // B'elanna PA Types
   type CalendarEvent,
   type InsertCalendarEvent,
@@ -39,7 +44,8 @@ import {
   insertMaterialPurchaseSchema,
   insertProjectMasterSchema
 } from "@shared/schema";
-import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults, projectCashflowWeekly, materialPurchases, projectMaster, calendarEvents, emailRecords, meetings } from "@shared/schema";
+import { contractors, jobs, csvUploads, contractorApplications, workSessions, adminSettings, jobAssignments, contractorReports, adminInspections, inspectionNotifications, taskProgress, taskInspectionResults, projectCashflowWeekly, materialPurchases, projectMaster, calendarEvents, emailRecords, meetings, jobLocations, jobLocationTasks } from "@shared/schema";
+import { ensureJobLocationTables } from "./job-location-tables-core.ts";
 import { db } from "./db";
 import { eq, desc, and, or, like, ilike, inArray, sql } from "drizzle-orm";
 import { IStorage, JobAssignment } from "./storage";
@@ -1364,8 +1370,100 @@ export class DatabaseStorage implements IStorage {
     return meeting;
   }
 
+  // Job Locations (HBXL Word Quote)
+  async getJobLocations(jobId: string): Promise<JobLocation[]> {
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    return db
+      .select()
+      .from(jobLocations)
+      .where(eq(jobLocations.jobId, jobId))
+      .orderBy(jobLocations.createdAt);
+  }
+
+  async getJobLocation(id: string): Promise<JobLocation | undefined> {
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    const [location] = await db.select().from(jobLocations).where(eq(jobLocations.id, id));
+    return location;
+  }
+
+  async createJobLocation(location: InsertJobLocation): Promise<JobLocation> {
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    const [created] = await db.insert(jobLocations).values(location).returning();
+    return created;
+  }
+
+  async updateJobLocation(id: string, updates: Partial<JobLocation>): Promise<JobLocation | undefined> {
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    const [updated] = await db
+      .update(jobLocations)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobLocations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteJobLocation(id: string): Promise<boolean> {
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    const deleted = await db.delete(jobLocations).where(eq(jobLocations.id, id)).returning();
+    return deleted.length > 0;
+  }
+
+  // Job Location Tasks (HBXL Word Quote)
+  async getJobLocationTasks(jobId: string, locationId?: string): Promise<JobLocationTask[]> {
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    if (locationId) {
+      return db
+        .select()
+        .from(jobLocationTasks)
+        .where(and(eq(jobLocationTasks.jobId, jobId), eq(jobLocationTasks.locationId, locationId)))
+        .orderBy(jobLocationTasks.createdAt);
+    }
+    return db
+      .select()
+      .from(jobLocationTasks)
+      .where(eq(jobLocationTasks.jobId, jobId))
+      .orderBy(jobLocationTasks.createdAt);
+  }
+
+  async getJobLocationTask(id: string): Promise<JobLocationTask | undefined> {
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    const [task] = await db.select().from(jobLocationTasks).where(eq(jobLocationTasks.id, id));
+    return task;
+  }
+
+  async createJobLocationTask(task: InsertJobLocationTask): Promise<JobLocationTask> {
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    const [created] = await db.insert(jobLocationTasks).values(task).returning();
+    return created;
+  }
+
+  async updateJobLocationTask(id: string, updates: Partial<JobLocationTask>): Promise<JobLocationTask | undefined> {
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    const [updated] = await db
+      .update(jobLocationTasks)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobLocationTasks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteJobLocationTask(id: string): Promise<boolean> {
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    const deleted = await db.delete(jobLocationTasks).where(eq(jobLocationTasks.id, id)).returning();
+    return deleted.length > 0;
+  }
+
   async clearAllData(): Promise<void> {
     console.log("⚠️ Clearing all data from database...");
+    await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+    await db.delete(jobLocationTasks);
+    await db.delete(jobLocations);
     await db.delete(meetings);
     await db.delete(emailRecords);
     await db.delete(calendarEvents);

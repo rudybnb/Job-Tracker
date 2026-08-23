@@ -1653,6 +1653,11 @@ export const jobAssignments = pgTable("job_assignments", {
   assignedPackages: text("assigned_packages").array(),
   jobId: text("job_id"),
   tenderStatus: text("tender_status").default("DRAFT"),
+  locationId: text("location_id"),
+  locationName: text("location_name"),
+  locationTaskId: text("location_task_id"),
+  workCategory: text("work_category"),
+  taskName: text("task_name"),
 });
 
 export const insertJobAssignmentSchema = createInsertSchema(jobAssignments).omit({
@@ -1679,6 +1684,56 @@ export const taskProgress = pgTable("task_progress", {
 });
 
 export const insertTaskProgressSchema = createInsertSchema(taskProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Job Locations table (from HBXL Word quote import)
+export const jobLocations = pgTable("job_locations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  normalizedName: text("normalized_name"),
+  source: text("source").notNull().default("HBXL_WORD"),
+  reviewStatus: text("review_status").notNull().default("CONFIRMED"), // "CONFIRMED" | "REVIEW_REQUIRED"
+  reviewReason: text("review_reason"),
+  suggestedMapping: text("suggested_mapping"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_job_locations_job_id").on(table.jobId),
+  index("idx_job_locations_review_status").on(table.reviewStatus),
+]);
+
+export const insertJobLocationSchema = createInsertSchema(jobLocations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Job Location Tasks table (specific work items under each location)
+export const jobLocationTasks = pgTable("job_location_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  locationId: varchar("location_id").notNull().references(() => jobLocations.id, { onDelete: "cascade" }),
+  workCategory: text("work_category").notNull(),
+  taskName: text("task_name").notNull(),
+  taskDescription: text("task_description"),
+  sourceReference: text("source_reference").default("HBXL_WORD"),
+  hbxlBuildPhase: text("hbxl_build_phase"), // background only metadata
+  status: text("status").notNull().default("pending"), // "pending" | "assigned" | "in_progress" | "completed"
+  assignedContractorId: varchar("assigned_contractor_id").references(() => contractors.id),
+  assignedContractorName: text("assigned_contractor_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_job_location_tasks_job_id").on(table.jobId),
+  index("idx_job_location_tasks_location_id").on(table.locationId),
+  index("idx_job_location_tasks_status").on(table.status),
+]);
+
+export const insertJobLocationTaskSchema = createInsertSchema(jobLocationTasks).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -2678,6 +2733,11 @@ export type InsertEmailRecord = z.infer<typeof insertEmailRecordSchema>;
 export type EmailRecord = typeof emailRecords.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
 export type Meeting = typeof meetings.$inferSelect;
+
+export type InsertJobLocation = z.infer<typeof insertJobLocationSchema>;
+export type JobLocation = typeof jobLocations.$inferSelect;
+export type InsertJobLocationTask = z.infer<typeof insertJobLocationTaskSchema>;
+export type JobLocationTask = typeof jobLocationTasks.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;

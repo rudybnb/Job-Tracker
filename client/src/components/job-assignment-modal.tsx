@@ -24,26 +24,64 @@ export default function JobAssignmentModal({
   contractors 
 }: JobAssignmentModalProps) {
   const [selectedJobId, setSelectedJobId] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState("");
+  const [selectedTaskId, setSelectedTaskId] = useState("");
   const [selectedContractorId, setSelectedContractorId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const currentJobId = selectedJob?.id || selectedJobId;
+
   const { data: jobs = [] } = useQuery<JobWithContractor[]>({
     queryKey: ['/api/jobs', { status: 'pending' }],
     enabled: isOpen && !selectedJob,
   });
 
+  const { data: locations = [] } = useQuery<any[]>({
+    queryKey: ['/api/jobs', currentJobId, 'locations'],
+    queryFn: async () => {
+      if (!currentJobId) return [];
+      const res = await fetch(`/api/jobs/${currentJobId}/locations`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isOpen && !!currentJobId,
+  });
+
+  const { data: locationTasks = [] } = useQuery<any[]>({
+    queryKey: ['/api/jobs', currentJobId, 'location-tasks', selectedLocationId],
+    queryFn: async () => {
+      if (!currentJobId || !selectedLocationId) return [];
+      const res = await fetch(`/api/jobs/${currentJobId}/location-tasks?locationId=${selectedLocationId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isOpen && !!currentJobId && !!selectedLocationId,
+  });
+
   const assignJobMutation = useMutation({
-    mutationFn: async (data: { jobId: string; contractorId: string; dueDate: string; notes?: string }) => {
+    mutationFn: async (data: { jobId: string; contractorId: string; dueDate: string; notes?: string; locationId?: string; taskId?: string }) => {
+      if (data.locationId && data.taskId) {
+        const response = await apiRequest('POST', '/api/assign-worker-task', {
+          jobId: data.jobId,
+          locationId: data.locationId,
+          taskId: data.taskId,
+          contractorId: data.contractorId,
+          startDate: data.dueDate,
+          endDate: data.dueDate,
+          specialInstructions: data.notes,
+        });
+        return response.json();
+      }
       const response = await apiRequest('POST', '/api/assign-job', data);
       return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Job Assigned Successfully",
-        description: "The job has been assigned to the contractor.",
+        description: "The job task has been assigned to the contractor.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
@@ -61,6 +99,8 @@ export default function JobAssignmentModal({
 
   const handleClose = () => {
     setSelectedJobId("");
+    setSelectedLocationId("");
+    setSelectedTaskId("");
     setSelectedContractorId("");
     setDueDate("");
     setNotes("");
@@ -82,6 +122,8 @@ export default function JobAssignmentModal({
 
     assignJobMutation.mutate({
       jobId,
+      locationId: selectedLocationId || undefined,
+      taskId: selectedTaskId || undefined,
       contractorId: selectedContractorId,
       dueDate,
       notes,
@@ -133,6 +175,49 @@ export default function JobAssignmentModal({
               </Select>
             )}
           </div>
+
+          {locations.length > 0 && (
+            <div>
+              <Label htmlFor="location-select" className="text-sm font-medium text-slate-700">
+                Select Location / Room
+              </Label>
+              <Select value={selectedLocationId} onValueChange={(val) => {
+                setSelectedLocationId(val);
+                setSelectedTaskId("");
+              }}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Choose a room or location..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((loc: any) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.name} {loc.reviewStatus === "REVIEW_REQUIRED" ? "(⚠️ Needs Review)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {selectedLocationId && locationTasks.length > 0 && (
+            <div>
+              <Label htmlFor="task-select" className="text-sm font-medium text-slate-700">
+                Select Specific Work Item / Task
+              </Label>
+              <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Choose a task to assign..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {locationTasks.map((t: any) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.workCategory}: {t.taskName} {t.status === "assigned" ? `(Assigned: ${t.assignedContractorName})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
             <Label className="text-sm font-medium text-slate-700">Select Contractor</Label>

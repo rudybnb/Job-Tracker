@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Upload, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle, Edit3, Check, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import ContextualTooltip from "./contextual-tooltip";
 import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
 import * as XLSX from "xlsx";
@@ -53,6 +54,47 @@ interface CSVPreviewData {
   validation: JobUploadParseResult;
 }
 
+interface WordQuoteTask {
+  name: string;
+  description?: string;
+  sourceReference?: string;
+}
+
+interface WordQuoteCategory {
+  name: string;
+  tasks: WordQuoteTask[];
+}
+
+interface WordQuoteLocation {
+  name: string;
+  normalizedName: string;
+  reviewStatus: "CONFIRMED" | "REVIEW_REQUIRED";
+  reviewReason?: string;
+  suggestedMapping?: string;
+  categories: WordQuoteCategory[];
+}
+
+interface WordQuotePreviewData {
+  metadata: {
+    clientName: string;
+    projectSiteName: string;
+    address: string;
+    postcode: string;
+    projectType: string;
+    quoteReference: string;
+    quoteDate: string;
+    totalQuotePrice: number | null;
+    formattedTotalPrice: string;
+  };
+  locations: WordQuoteLocation[];
+  stats: {
+    locationCount: number;
+    categoryCount: number;
+    taskCount: number;
+    flaggedLocationCount: number;
+  };
+}
+
 class UploadRequestError extends Error {
   validation?: JobUploadParseResult;
 
@@ -65,9 +107,20 @@ class UploadRequestError extends Error {
 export default function UploadCsv() {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileType, setFileType] = useState<"csv" | "docx">("csv");
   const [csvPreview, setCsvPreview] = useState<CSVPreviewData | null>(null);
+  const [wordPreview, setWordPreview] = useState<WordQuotePreviewData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
+  const [editedLocationName, setEditedLocationName] = useState("");
   const [lastImportSummary, setLastImportSummary] = useState<UploadResponse | null>(null);
+  const [wordImportSuccess, setWordImportSuccess] = useState<{
+    jobTitle: string;
+    locationsCount: number;
+    tasksCount: number;
+    quotedAmount: string;
+  } | null>(null);
+
   const [projectMetadata, setProjectMetadata] = useState<ProjectMetadata>({
     clientName: "",
     projectSiteName: "",
@@ -82,9 +135,13 @@ export default function UploadCsv() {
   const workflowHelp = useWorkflowHelp(WORKFLOW_CONFIGS.csvUpload);
 
   const metadataErrors = validateProjectMetadata(projectMetadata);
-  const canApproveUpload = !!selectedFile && !!csvPreview?.validation.valid && metadataErrors.length === 0;
+  const canApproveUpload = !!selectedFile && (
+    (fileType === "csv" && !!csvPreview?.validation.valid && metadataErrors.length === 0) ||
+    (fileType === "docx" && !!wordPreview && wordPreview.locations.length > 0)
+  );
 
-  const uploadMutation = useMutation<UploadResponse, Error, File>({
+  // CSV Upload Mutation
+  const uploadCsvMutation = useMutation<UploadResponse, Error, File>({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('csvFile', file);
@@ -110,7 +167,6 @@ export default function UploadCsv() {
       return response.json();
     },
     onSuccess: (data) => {
-      // Mark workflow steps as completed
       workflowHelp.markStepCompleted('file-selection');
       workflowHelp.markStepCompleted('file-validation');
       workflowHelp.markStepCompleted('data-processing');
@@ -157,6 +213,63 @@ export default function UploadCsv() {
     },
   });
 
+  // Word Quote Upload Mutation
+  const uploadWordMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('quoteFile', file);
+      if (wordPreview) {
+        formData.append('clientName', wordPreview.metadata.clientName);
+        formData.append('projectSiteName', wordPreview.metadata.projectSiteName);
+        formData.append('address', wordPreview.metadata.address);
+        formData.append('postcode', wordPreview.metadata.postcode);
+        formData.append('projectType', wordPreview.metadata.projectType);
+      }
+      
+      const response = await fetch('/api/upload-word-quote', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(errorJson.error || 'Failed to import Word quote');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "HBXL Word Quote Imported Successfully",
+        description: `Created "${data.job?.title}" with ${data.locationsCount} rooms and ${data.tasksCount} operational work items.`,
+      });
+      setWordImportSuccess({
+        jobTitle: data.job?.title || "Imported Job",
+        locationsCount: data.locationsCount || 0,
+        tasksCount: data.tasksCount || 0,
+        quotedAmount: data.job?.quotedAmount || "N/A",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/csv-uploads'] });
+
+      setSelectedFile(null);
+      setWordPreview(null);
+      setShowPreview(false);
+      const fileInput = document.getElementById('csv-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Word Quote Import Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const isPending = uploadCsvMutation.isPending || uploadWordMutation.isPending;
+
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -167,31 +280,59 @@ export default function UploadCsv() {
     }
   };
 
-
-
-
-
   const validateFile = (file: File): boolean => {
     const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx')) {
+    const isCsvOrExcel = fileName.endsWith('.csv') || fileName.endsWith('.xlsx');
+    const isDocx = fileName.endsWith('.docx');
+
+    if (!isCsvOrExcel && !isDocx) {
       toast({
         title: "Invalid File Type",
-        description: "Please select a CSV file (.csv) or Excel file (.xlsx)",
+        description: "Please select an HBXL CSV (.csv), Excel (.xlsx), or HBXL Word Quote (.docx) file.",
         variant: "destructive",
       });
       return false;
     }
     
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+    if (file.size > 25 * 1024 * 1024) { // 25MB limit
       toast({
         title: "File Too Large",
-        description: "File size must be less than 10MB",
+        description: "File size must be less than 25MB",
         variant: "destructive",
       });
       return false;
     }
     
     return true;
+  };
+
+  const parseWordPreview = async (file: File): Promise<WordQuotePreviewData | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('quoteFile', file);
+      const res = await fetch('/api/upload-word-quote?preview=true', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({ error: 'Failed to parse Word quote' }));
+        throw new Error(errorJson.error || 'Failed to parse Word quote');
+      }
+      const data = await res.json();
+      return {
+        metadata: data.metadata,
+        locations: data.locations,
+        stats: data.stats,
+      };
+    } catch (error) {
+      toast({
+        title: "Word Quote Parse Error",
+        description: error instanceof Error ? error.message : "Failed to parse Word document",
+        variant: "destructive",
+      });
+      return null;
+    }
   };
 
   const parseCSVPreview = async (file: File): Promise<CSVPreviewData | null> => {
@@ -237,67 +378,70 @@ export default function UploadCsv() {
 
   const readExcelAsCsv = async (file: File): Promise<string> => {
     const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      if (!sheetName) throw new Error('Excel workbook does not contain any sheets');
-      const worksheet = workbook.Sheets[sheetName];
-      setProjectMetadata((current) => ({
-        ...current,
-        projectSiteName: suggestJobNameFromSource(sheetName || file.name),
-      }));
-      return XLSX.utils.sheet_to_csv(worksheet);
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) throw new Error('Excel workbook does not contain any sheets');
+    const worksheet = workbook.Sheets[sheetName];
+    setProjectMetadata((current) => ({
+      ...current,
+      projectSiteName: suggestJobNameFromSource(sheetName || file.name),
+    }));
+    return XLSX.utils.sheet_to_csv(worksheet);
+  };
+
+  const processSelectedFile = async (file: File) => {
+    if (!validateFile(file)) return;
+
+    setSelectedFile(file);
+    setLastImportSummary(null);
+    setWordImportSuccess(null);
+
+    if (file.name.toLowerCase().endsWith('.docx')) {
+      setFileType("docx");
+      const preview = await parseWordPreview(file);
+      if (preview) {
+        setWordPreview(preview);
+        setShowPreview(true);
+        workflowHelp.markStepCompleted('file-selection');
+        workflowHelp.markStepCompleted('file-validation');
+      }
+    } else {
+      setFileType("csv");
+      setProjectMetadata({ clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" });
+      const preview = await parseCSVPreview(file);
+      setCsvPreview(preview);
+      if (preview) {
+        setShowPreview(true);
+        workflowHelp.markStepCompleted('file-selection');
+        workflowHelp.markStepCompleted('file-validation');
+      }
+    }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (validateFile(file)) {
-        setLastImportSummary(null);
-        setProjectMetadata({ clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" });
-        setSelectedFile(file);
-        const preview = await parseCSVPreview(file);
-        setCsvPreview(preview);
-        if (preview) {
-          setShowPreview(true);
-          workflowHelp.markStepCompleted('file-selection');
-          workflowHelp.markStepCompleted('file-validation');
-        }
-      }
+      await processSelectedFile(e.target.files[0]);
     }
   };
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
-    
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (validateFile(file)) {
-        setLastImportSummary(null);
-        setProjectMetadata({ clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" });
-        setSelectedFile(file);
-        const preview = await parseCSVPreview(file);
-        setCsvPreview(preview);
-        if (preview) {
-          setShowPreview(true);
-          workflowHelp.markStepCompleted('file-selection');
-          workflowHelp.markStepCompleted('file-validation');
-        }
-      }
+      await processSelectedFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleClearData = () => {
     setSelectedFile(null);
     setCsvPreview(null);
+    setWordPreview(null);
     setShowPreview(false);
     setLastImportSummary(null);
+    setWordImportSuccess(null);
     setProjectMetadata({ clientName: "", projectSiteName: "", address: "", postcode: "", projectType: "" });
-    // Clear the file input
     const fileInput = document.getElementById('csv-upload') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
-    }
+    if (fileInput) fileInput.value = '';
     toast({
       title: "Data Cleared",
       description: "Selected file and preview data have been cleared",
@@ -309,14 +453,20 @@ export default function UploadCsv() {
   };
 
   const handleUpload = () => {
-    if (canApproveUpload && selectedFile) {
-      uploadMutation.mutate(selectedFile);
+    if (!selectedFile) return;
+
+    if (fileType === "docx") {
+      uploadWordMutation.mutate(selectedFile);
     } else {
-      toast({
-        title: "Validation Required",
-        description: "Fix the listed upload validation errors before creating jobs.",
-        variant: "destructive",
-      });
+      if (canApproveUpload) {
+        uploadCsvMutation.mutate(selectedFile);
+      } else {
+        toast({
+          title: "Validation Required",
+          description: "Fix the listed upload validation errors before creating jobs.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -338,29 +488,46 @@ export default function UploadCsv() {
     return issues.find((issue) => issue.field === labelByField[field]);
   };
 
-  const resourcePreview = (() => {
-    if (!csvPreview?.validation.jobs[0]?.phaseTaskData) return [];
-    try {
-      const parsed = JSON.parse(csvPreview.validation.jobs[0].phaseTaskData) as {
-        phases?: Record<string, Array<{ task?: string; description?: string; resourceType?: string; quantity?: number; supplier?: string }>>;
-      };
-      return Object.entries(parsed.phases ?? {})
-        .flatMap(([phase, tasks]) => tasks.map((task) => ({ phase, ...task })))
-        .slice(0, 8);
-    } catch {
-      return [];
-    }
-  })();
+  const handleRenameLocation = (index: number) => {
+    if (!wordPreview) return;
+    const newName = editedLocationName.trim();
+    if (!newName) return;
+
+    const updatedLocations = [...wordPreview.locations];
+    updatedLocations[index] = {
+      ...updatedLocations[index],
+      name: newName,
+      normalizedName: newName.toLowerCase(),
+      reviewStatus: "CONFIRMED",
+      reviewReason: undefined,
+    };
+
+    setWordPreview({
+      ...wordPreview,
+      locations: updatedLocations,
+      stats: {
+        ...wordPreview.stats,
+        flaggedLocationCount: updatedLocations.filter((l) => l.reviewStatus === "REVIEW_REQUIRED").length,
+      },
+    });
+
+    setEditingLocationIndex(null);
+    setEditedLocationName("");
+    toast({
+      title: "Location Renamed",
+      description: `Location updated to "${newName}" and marked confirmed.`,
+    });
+  };
 
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
       <div className="mb-4">
         <div className="flex items-center space-x-2 mb-2">
-          <h3 className="text-lg font-semibold text-amber-400">Upload Job CSV File</h3>
+          <h3 className="text-lg font-semibold text-amber-400">Upload Job Files</h3>
           <ContextualTooltip
             id="csv-upload-header"
-            title="CSV Upload Process"
-            content="Upload CSV files containing job data. The system validates format and creates jobs automatically. Only authentic CSV data is used - no assumptions made."
+            title="Job File Upload"
+            content="Upload HBXL Smart Schedule (CSV/XLSX) or HBXL Quote (DOCX) files. Smart Schedule imports build phases, while Word Quote imports Room/Task hierarchy for worker assignment."
             type="info"
             placement="right"
           >
@@ -370,11 +537,18 @@ export default function UploadCsv() {
           </ContextualTooltip>
         </div>
         <p className="text-sm text-slate-400">
-          Upload HBXL Smart Schedule CSV/XLSX files. Project address details are entered during approval.
+          Upload <strong>HBXL Smart Schedule (.csv / .xlsx)</strong> or <strong>HBXL Word Quote (.docx)</strong> files.
         </p>
-        <p className="text-xs text-slate-500 mt-2">
-          Accepted columns include: {acceptedJobUploadColumns.slice(0, 10).join(', ')}.
-        </p>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <span className="inline-flex items-center gap-1 text-xs bg-slate-700/80 text-slate-300 px-2 py-1 rounded">
+            <FileSpreadsheet className="h-3.5 w-3.5 text-blue-400" />
+            Smart Schedule CSV/XLSX (Phases & Timelines)
+          </span>
+          <span className="inline-flex items-center gap-1 text-xs bg-slate-700/80 text-slate-300 px-2 py-1 rounded">
+            <FileText className="h-3.5 w-3.5 text-amber-400" />
+            Word Quote DOCX (Rooms & Work Items)
+          </span>
+        </div>
       </div>
 
       <div
@@ -390,11 +564,11 @@ export default function UploadCsv() {
       >
         <input
           type="file"
-          accept=".csv,.xlsx"
+          accept=".csv,.xlsx,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           onChange={handleFileSelect}
           className="hidden"
           id="csv-upload"
-          disabled={uploadMutation.isPending}
+          disabled={isPending}
         />
         
         {!selectedFile ? (
@@ -403,7 +577,7 @@ export default function UploadCsv() {
             <ContextualTooltip
               id="file-selection-area"
               title="File Selection"
-              content="Select a CSV or Excel file with required headers: Name, Address, Post code, Project Type, and Build Phase. Files must be under 10MB and contain authentic job data."
+              content="Select an HBXL Schedule (.csv, .xlsx) or HBXL Quote (.docx). Word quote files automatically extract Room and Task structures."
               type="help"
               placement="top"
             >
@@ -415,12 +589,19 @@ export default function UploadCsv() {
               </label>
             </ContextualTooltip>
             <span className="text-slate-400"> or drag and drop</span>
-            <p className="text-sm text-slate-500 mt-2">CSV or Excel files, up to 10MB</p>
+            <p className="text-sm text-slate-500 mt-2">HBXL CSV, XLSX, or DOCX Quote files up to 25MB</p>
           </>
         ) : (
           <div className="flex items-center justify-center space-x-3">
-            <FileText className="h-8 w-8 text-green-500" />
+            {fileType === "docx" ? (
+              <FileText className="h-8 w-8 text-amber-400" />
+            ) : (
+              <FileSpreadsheet className="h-8 w-8 text-green-500" />
+            )}
             <span className="text-slate-200 font-medium">{selectedFile.name}</span>
+            <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
+              {fileType === "docx" ? "HBXL Quote DOCX" : "Smart Schedule CSV/XLSX"}
+            </span>
             <ContextualTooltip
               id="clear-file-button"
               title="Clear Selected File"
@@ -431,7 +612,7 @@ export default function UploadCsv() {
               <button
                 onClick={handleClearData}
                 className="flex items-center space-x-1 px-2 py-1 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors"
-                disabled={uploadMutation.isPending}
+                disabled={isPending}
               >
                 <i className="fas fa-times text-sm"></i>
                 <span className="text-xs">Clear</span>
@@ -448,36 +629,35 @@ export default function UploadCsv() {
             <span>{(selectedFile.size / 1024).toFixed(1)} KB</span>
           </div>
           
-          <ContextualTooltip
-            id="preview-button"
-            title="Preview CSV Data"
-            content="Click to preview the jobs that will be created from your CSV file. You can review all data before approving the upload."
-            type="info"
-            placement="left"
+          <Button
+            onClick={() => setShowPreview(true)}
+            className="bg-amber-600 hover:bg-amber-700"
           >
-            <Button
-              onClick={() => setShowPreview(true)}
-              className="bg-amber-600 hover:bg-amber-700"
-            >
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Preview Jobs
-            </Button>
-          </ContextualTooltip>
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            {fileType === "docx" ? "Review Quote Rooms & Tasks" : "Preview Jobs"}
+          </Button>
         </div>
       )}
 
-      {uploadMutation.error && (
+      {uploadCsvMutation.error && (
         <div className="mt-4 flex items-center space-x-2 text-red-400 bg-red-900/20 border border-red-700/30 p-3 rounded-lg">
           <AlertCircle className="h-5 w-5" />
-          <span className="text-sm">{uploadMutation.error.message}</span>
+          <span className="text-sm">{uploadCsvMutation.error.message}</span>
+        </div>
+      )}
+
+      {uploadWordMutation.error && (
+        <div className="mt-4 flex items-center space-x-2 text-red-400 bg-red-900/20 border border-red-700/30 p-3 rounded-lg">
+          <AlertCircle className="h-5 w-5" />
+          <span className="text-sm">{uploadWordMutation.error.message}</span>
         </div>
       )}
 
       {lastImportSummary && (
         <div className="mt-4 text-sm text-green-200 bg-green-900/20 border border-green-700/30 p-3 rounded-lg">
-          <div className="font-semibold text-green-300">Import complete</div>
+          <div className="font-semibold text-green-300">Smart Schedule Import Complete</div>
           <div>
-            {lastImportSummary.jobsCreated} job(s) created · {lastImportSummary.tasksProcessed} task row(s) processed · {lastImportSummary.skippedRows} skipped · duplicate retry: {lastImportSummary.duplicate ? 'blocked' : 'clear'}
+            {lastImportSummary.jobsCreated} job(s) created · {lastImportSummary.tasksProcessed} task row(s) processed · {lastImportSummary.skippedRows} skipped.
           </div>
           <div className="text-xs text-green-300/80 mt-1">
             Upload reference: {lastImportSummary.upload.id}
@@ -485,8 +665,239 @@ export default function UploadCsv() {
         </div>
       )}
 
-      {/* Detailed CSV Preview Modal */}
-      {showPreview && csvPreview && (
+      {wordImportSuccess && (
+        <div className="mt-4 text-sm text-green-200 bg-green-900/20 border border-green-700/30 p-4 rounded-lg">
+          <div className="font-semibold text-green-300 flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-green-400" />
+            HBXL Word Quote Import Complete: {wordImportSuccess.jobTitle}
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+            <div className="bg-slate-800/80 p-2 rounded">
+              <span className="text-slate-400 block">Rooms / Locations:</span>
+              <strong className="text-white text-sm">{wordImportSuccess.locationsCount}</strong>
+            </div>
+            <div className="bg-slate-800/80 p-2 rounded">
+              <span className="text-slate-400 block">Work Items / Tasks:</span>
+              <strong className="text-white text-sm">{wordImportSuccess.tasksCount}</strong>
+            </div>
+            <div className="bg-slate-800/80 p-2 rounded">
+              <span className="text-slate-400 block">Client Quote Value:</span>
+              <strong className="text-amber-400 text-sm">{wordImportSuccess.quotedAmount}</strong>
+            </div>
+          </div>
+          <p className="text-xs text-slate-300 mt-2">
+            Operational work structure is ready for worker assignment in Job Assignments.
+          </p>
+        </div>
+      )}
+
+      {/* HBXL Word Quote Preview Modal */}
+      {showPreview && fileType === "docx" && wordPreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col text-slate-100">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white p-4 px-6 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold">HBXL Word Quote Review</h3>
+                <p className="text-xs text-amber-100">Operational room and task structure extracted for worker allocation</p>
+              </div>
+              {wordPreview.metadata.formattedTotalPrice && (
+                <div className="text-right bg-amber-800/60 px-3 py-1.5 rounded-lg border border-amber-500/30">
+                  <span className="text-xs text-amber-200 block">Quote Total</span>
+                  <strong className="text-base font-bold text-white">{wordPreview.metadata.formattedTotalPrice}</strong>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {/* Project & Client Metadata */}
+              <div className="bg-slate-800/80 border border-slate-700 rounded-lg p-4">
+                <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3">Quote Information</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <span className="text-xs text-slate-400 block">Project / Site</span>
+                    <strong className="text-slate-200">{wordPreview.metadata.projectSiteName || "Spencer House"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400 block">Client</span>
+                    <strong className="text-slate-200">{wordPreview.metadata.clientName || "Promise Igbinedion"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400 block">Address</span>
+                    <span className="text-slate-300 truncate block">{wordPreview.metadata.address || "10 High Street"}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400 block">Postcode</span>
+                    <span className="text-slate-300">{wordPreview.metadata.postcode || "SG1 1EH"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Review Alerts Banner if any location needs review */}
+              {wordPreview.stats.flaggedLocationCount > 0 && (
+                <div className="bg-amber-950/40 border border-amber-600/50 rounded-lg p-4 flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <h5 className="font-semibold text-amber-300 text-sm">
+                      {wordPreview.stats.flaggedLocationCount} Location(s) Need Admin Review
+                    </h5>
+                    <p className="text-xs text-slate-300 mt-1">
+                      Generic location headings or spelling variants (e.g. &quot;Dining Room&quot; vs &quot;Dinning Room&quot;) are flagged below. You can rename or map them now before creating operational tasks.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Extracted Locations & Work Categories */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                    <span>Extracted Rooms & Work Structure</span>
+                    <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">
+                      {wordPreview.locations.length} Locations · {wordPreview.stats.taskCount} Work Items
+                    </span>
+                  </h4>
+                </div>
+
+                <div className="space-y-3">
+                  {wordPreview.locations.map((loc, locIndex) => {
+                    const isFlagged = loc.reviewStatus === "REVIEW_REQUIRED";
+                    const isEditing = editingLocationIndex === locIndex;
+
+                    return (
+                      <div
+                        key={locIndex}
+                        className={`rounded-lg border p-4 transition-colors ${
+                          isFlagged
+                            ? "bg-amber-950/20 border-amber-700/60"
+                            : "bg-slate-800/60 border-slate-700"
+                        }`}
+                      >
+                        {/* Location Title & Review Status */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            {isEditing ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={editedLocationName}
+                                  onChange={(e) => setEditedLocationName(e.target.value)}
+                                  className="bg-slate-900 border border-amber-500 rounded px-2 py-1 text-sm text-white focus:outline-none"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => handleRenameLocation(locIndex)}
+                                  className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
+                                >
+                                  <Check className="h-3.5 w-3.5 inline mr-1" />
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setEditingLocationIndex(null)}
+                                  className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <strong className="text-base text-slate-100">{loc.name}</strong>
+                                <button
+                                  onClick={() => {
+                                    setEditingLocationIndex(locIndex);
+                                    setEditedLocationName(loc.name);
+                                  }}
+                                  className="text-slate-400 hover:text-amber-400 text-xs p-1"
+                                  title="Rename location"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5 inline" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Badge */}
+                          {isFlagged ? (
+                            <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Location needs review
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-green-500/20 text-green-300 border border-green-500/40 text-xs flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Confirmed
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Review Reason */}
+                        {isFlagged && loc.reviewReason && (
+                          <div className="text-xs text-amber-300/90 mb-3 bg-amber-900/30 p-2 rounded border border-amber-800/40">
+                            <strong>Review Reason:</strong> {loc.reviewReason}
+                          </div>
+                        )}
+
+                        {/* Categories and Tasks */}
+                        <div className="space-y-2 mt-2">
+                          {loc.categories.map((cat, catIndex) => (
+                            <div key={catIndex} className="bg-slate-900/70 border border-slate-700/60 rounded p-2.5">
+                              <span className="text-xs font-semibold text-amber-400 block mb-1.5">
+                                → {cat.name}
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {cat.tasks.map((task, taskIndex) => (
+                                  <span
+                                    key={taskIndex}
+                                    className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700"
+                                  >
+                                    {task.name}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="p-4 px-6 border-t border-slate-800 bg-slate-950/80 flex space-x-4">
+              <Button 
+                onClick={handleCancelPreview}
+                variant="outline"
+                className="flex-1 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUpload}
+                disabled={isPending || !canApproveUpload}
+                className="bg-amber-600 hover:bg-amber-700 text-white flex-1 font-semibold"
+              >
+                {uploadWordMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Importing Word Quote...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Approve & Import Word Quote
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detailed CSV Preview Modal (Existing CSV logic unchanged) */}
+      {showPreview && fileType === "csv" && csvPreview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
             {/* Header */}
@@ -621,21 +1032,6 @@ export default function UploadCsv() {
                       <p className="text-blue-700 text-sm">
                         These real work phases will be available for time tracking once the job is approved and goes live.
                       </p>
-                      {resourcePreview.length > 0 && (
-                        <div className="mt-4 border-t border-blue-200 pt-3">
-                          <div className="text-blue-900 font-semibold text-sm mb-2">Extracted resource/task examples</div>
-                          <div className="space-y-2">
-                            {resourcePreview.map((resource, index) => (
-                              <div key={index} className="rounded-md bg-white/80 border border-blue-100 p-2 text-sm text-slate-700">
-                                <div className="font-medium text-slate-800">{resource.phase}: {resource.task || resource.description}</div>
-                                <div className="text-xs text-slate-500">
-                                  {resource.resourceType || 'Resource'} · Qty {resource.quantity ?? 0} · {resource.supplier || 'Supplier not specified'}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     {/* Additional jobs indicator */}
@@ -670,10 +1066,10 @@ export default function UploadCsv() {
                     handleUpload();
                   }
                 }}
-                disabled={uploadMutation.isPending || !canApproveUpload}
+                disabled={isPending || !canApproveUpload}
                 className="bg-green-600 hover:bg-green-700 text-white flex-1"
               >
-                {uploadMutation.isPending ? (
+                {uploadCsvMutation.isPending ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                     Creating Jobs...

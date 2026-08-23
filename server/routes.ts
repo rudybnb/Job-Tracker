@@ -28,8 +28,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { eq, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, workSessions, attendanceEvents, attendanceCorrections } from "@shared/schema";
+import { csvUploads, jobs as jobsTable, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments } from "@shared/schema";
 import { normalizeUploadCsvContent, parseJobUploadCsv, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
+import { parseHbxlWordQuote } from "../shared/hbxl-word-parser";
+import { ensureJobLocationTables } from "./job-location-tables-core.ts";
 import { buildAttendanceTimeline, getLondonDateString } from "./attendance-timeline.ts";
 
 interface MulterRequest extends ExpressRequest {
@@ -288,6 +290,284 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error uploading CSV:", error);
       res.status(500).json({ error: "Failed to upload CSV file" });
+    }
+  });
+
+  // HBXL Word Quote (.docx) upload and preview endpoint
+  app.post("/api/upload-word-quote", upload.single("quoteFile"), async (req: MulterRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No Word quote file uploaded" });
+      }
+
+      if (!req.file.originalname.toLowerCase().endsWith(".docx")) {
+        return res.status(400).json({ error: "Invalid file format. Please upload a Word document (.docx)." });
+      }
+
+      console.log("📄 Processing HBXL Word Quote document:", req.file.originalname);
+      const parsed = await parseHbxlWordQuote(req.file.buffer, req.file.originalname);
+
+      if (!parsed.valid || parsed.locations.length === 0) {
+        return res.status(400).json({
+          error: "Could not extract operational work structure from Word document.",
+          details: parsed.errors,
+          warnings: parsed.warnings,
+          parsed,
+        });
+      }
+
+      // Check if preview mode requested
+      const isPreview = req.query.preview === "true" || req.body.preview === "true";
+      if (isPreview) {
+        return res.json({
+          success: true,
+          preview: true,
+          metadata: parsed.metadata,
+          locations: parsed.locations,
+          stats: parsed.stats,
+        });
+      }
+
+      // Commit import to database
+      await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+
+      // Metadata overrides from form if supplied by admin
+      let clientName = req.body.clientName || parsed.metadata.clientName || "Promise Igbinedion";
+      let projectSiteName = req.body.projectSiteName || parsed.metadata.projectSiteName || "Spencer House";
+      let address = req.body.address || parsed.metadata.address || projectSiteName;
+      let postcode = req.body.postcode || parsed.metadata.postcode || "";
+      let projectType = req.body.projectType || parsed.metadata.projectType || "Refurbishment";
+      let quotedAmount = parsed.metadata.formattedTotalPrice || (parsed.metadata.totalQuotePrice ? `£${parsed.metadata.totalQuotePrice.toFixed(2)}` : null);
+
+      const importResult = await db.transaction(async (tx) => {
+        // Create upload record
+        const [uploadRecord] = await tx
+          .insert(csvUploads)
+          .values({
+            filename: req.file!.originalname,
+            status: "processed",
+            jobsCount: "1",
+          })
+          .returning();
+
+        // Create job record (preserving quotedAmount as commercial reference)
+        const [job] = await tx
+          .insert(jobsTable)
+          .values({
+            title: projectSiteName,
+            clientName: clientName,
+            location: address,
+            address: address,
+            postcode: postcode,
+            projectType: projectType,
+            quotedAmount: quotedAmount,
+            status: "pending",
+            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+            uploadId: uploadRecord.id,
+            notes: `Imported from HBXL Word Quote: ${req.file!.originalname}\nClient: ${clientName}\nQuote Total: ${quotedAmount || "N/A"}\nRooms Extracted: ${parsed.stats.locationCount}\nWork Items Extracted: ${parsed.stats.taskCount}`,
+          })
+          .returning();
+
+        // Insert locations and tasks
+        const createdLocations: any[] = [];
+        let totalTasksCount = 0;
+
+        for (const loc of parsed.locations) {
+          const [createdLoc] = await tx
+            .insert(jobLocations)
+            .values({
+              jobId: job.id,
+              name: loc.name,
+              normalizedName: loc.normalizedName,
+              source: "HBXL_WORD",
+              reviewStatus: loc.reviewStatus,
+              reviewReason: loc.reviewReason,
+              suggestedMapping: loc.suggestedMapping,
+            })
+            .returning();
+
+          createdLocations.push(createdLoc);
+
+          for (const cat of loc.categories) {
+            for (const task of cat.tasks) {
+              await tx.insert(jobLocationTasks).values({
+                jobId: job.id,
+                locationId: createdLoc.id,
+                workCategory: cat.name,
+                taskName: task.name,
+                taskDescription: task.description,
+                sourceReference: "HBXL_WORD",
+                hbxlBuildPhase: cat.hbxlBuildPhase || null,
+                status: "pending",
+              });
+              totalTasksCount++;
+            }
+          }
+        }
+
+        return {
+          upload: uploadRecord,
+          job,
+          locations: createdLocations,
+          totalTasksCount,
+        };
+      });
+
+      res.json({
+        success: true,
+        upload: importResult.upload,
+        job: importResult.job,
+        locationsCount: importResult.locations.length,
+        tasksCount: importResult.totalTasksCount,
+        stats: parsed.stats,
+        locations: importResult.locations,
+      });
+    } catch (error) {
+      console.error("Error uploading Word quote:", error);
+      res.status(500).json({ error: "Failed to process Word quote file", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // Get locations for a job
+  app.get("/api/jobs/:jobId/locations", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const locations = await storage.getJobLocations(jobId);
+      res.json(locations);
+    } catch (error) {
+      console.error("Error fetching job locations:", error);
+      res.status(500).json({ error: "Failed to fetch job locations" });
+    }
+  });
+
+  // Update a job location (admin rename or confirm review status)
+  app.patch("/api/jobs/:jobId/locations/:locationId", async (req, res) => {
+    try {
+      const { locationId } = req.params;
+      const { name, reviewStatus, reviewReason, suggestedMapping } = req.body;
+
+      const updates: any = {};
+      if (name) {
+        updates.name = name.trim();
+        updates.normalizedName = name.trim().toLowerCase();
+      }
+      if (reviewStatus) updates.reviewStatus = reviewStatus;
+      if (reviewReason !== undefined) updates.reviewReason = reviewReason;
+      if (suggestedMapping !== undefined) updates.suggestedMapping = suggestedMapping;
+
+      const updated = await storage.updateJobLocation(locationId, updates);
+      if (!updated) {
+        return res.status(404).json({ error: "Job location not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating job location:", error);
+      res.status(500).json({ error: "Failed to update job location" });
+    }
+  });
+
+  // Get location tasks for a job
+  app.get("/api/jobs/:jobId/location-tasks", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const locationId = typeof req.query.locationId === "string" ? req.query.locationId : undefined;
+      const tasks = await storage.getJobLocationTasks(jobId, locationId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching job location tasks:", error);
+      res.status(500).json({ error: "Failed to fetch location tasks" });
+    }
+  });
+
+  // Assign worker to Job + Location + Task (Phase 3 assignment flow)
+  app.post("/api/assign-worker-task", async (req, res) => {
+    try {
+      const {
+        jobId,
+        locationId,
+        taskId,
+        contractorId,
+        startDate,
+        endDate,
+        specialInstructions,
+        sendTelegramNotification = false,
+      } = req.body;
+
+      if (!jobId || !locationId || !taskId || !contractorId) {
+        return res.status(400).json({
+          error: "Missing required assignment fields: jobId, locationId, taskId, contractorId are required.",
+        });
+      }
+
+      await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+
+      const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
+      if (!job) return res.status(404).json({ error: "Job not found" });
+
+      const [location] = await db.select().from(jobLocations).where(eq(jobLocations.id, locationId));
+      if (!location) return res.status(404).json({ error: "Location not found" });
+
+      const [task] = await db.select().from(jobLocationTasks).where(eq(jobLocationTasks.id, taskId));
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
+      const [contractor] = await db.select().from(contractors).where(eq(contractors.id, contractorId));
+      if (!contractor) return res.status(404).json({ error: "Contractor not found" });
+
+      const contractorDisplayName = contractor.name || "Contractor";
+      const start = startDate || new Date().toISOString().split("T")[0];
+      const end = endDate || start;
+
+      // Create job assignment record with exact location and task metadata
+      const [assignment] = await db
+        .insert(jobAssignments)
+        .values({
+          jobId: job.id,
+          contractorName: contractorDisplayName,
+          email: contractor.email,
+          phone: (contractor as any).phone || "0000000000",
+          workLocation: location.name,
+          hbxlJob: job.title,
+          locationId: location.id,
+          locationName: location.name,
+          locationTaskId: task.id,
+          workCategory: task.workCategory,
+          taskName: task.taskName,
+          buildPhases: [], // Build phases NOT required for worker assignment
+          startDate: start,
+          endDate: end,
+          specialInstructions: specialInstructions || `Assigned to ${location.name} → ${task.workCategory} (${task.taskName})`,
+          status: "assigned",
+          sendTelegramNotification: Boolean(sendTelegramNotification),
+        })
+        .returning();
+
+      // Update task status and assigned worker
+      const [updatedTask] = await db
+        .update(jobLocationTasks)
+        .set({
+          status: "assigned",
+          assignedContractorId: contractor.id,
+          assignedContractorName: contractorDisplayName,
+          updatedAt: new Date(),
+        })
+        .where(eq(jobLocationTasks.id, task.id))
+        .returning();
+
+      console.log(`✅ Worker ${contractorDisplayName} assigned to ${job.title} → ${location.name} → ${task.workCategory} (${task.taskName})`);
+
+      res.json({
+        success: true,
+        assignment,
+        task: updatedTask,
+        jobTitle: job.title,
+        locationName: location.name,
+        taskName: task.taskName,
+        contractorName: contractorDisplayName,
+      });
+    } catch (error) {
+      console.error("Error assigning worker to task:", error);
+      res.status(500).json({ error: "Failed to assign worker to task", details: error instanceof Error ? error.message : String(error) });
     }
   });
 

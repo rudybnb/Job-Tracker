@@ -8,7 +8,9 @@ import type {
   ContractorReport, InsertContractorReport,
   AdminInspection, InsertAdminInspection,
   TaskInspectionResult, InsertTaskInspectionResult,
-  ContractorAssignment, InsertContractorAssignment
+  ContractorAssignment, InsertContractorAssignment,
+  JobLocation, InsertJobLocation,
+  JobLocationTask, InsertJobLocationTask
 } from "@shared/schema";
 
 export interface JobAssignment {
@@ -89,6 +91,19 @@ export interface IStorage {
     completedJobs: number;
     activeContractors: number;
   }>;
+
+  // Job Locations & Tasks (HBXL Word Quote)
+  getJobLocations(jobId: string): Promise<JobLocation[]>;
+  getJobLocation(id: string): Promise<JobLocation | undefined>;
+  createJobLocation(location: InsertJobLocation): Promise<JobLocation>;
+  updateJobLocation(id: string, updates: Partial<JobLocation>): Promise<JobLocation | undefined>;
+  deleteJobLocation(id: string): Promise<boolean>;
+
+  getJobLocationTasks(jobId: string, locationId?: string): Promise<JobLocationTask[]>;
+  getJobLocationTask(id: string): Promise<JobLocationTask | undefined>;
+  createJobLocationTask(task: InsertJobLocationTask): Promise<JobLocationTask>;
+  updateJobLocationTask(id: string, updates: Partial<JobLocationTask>): Promise<JobLocationTask | undefined>;
+  deleteJobLocationTask(id: string): Promise<boolean>;
   
   // Cleanup
   clearAllData(): Promise<void>;
