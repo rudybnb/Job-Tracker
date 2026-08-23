@@ -61,6 +61,116 @@ function parseProjectMetadata(rawMetadata: unknown) {
   }
 }
 
+export interface ClientMatchResult {
+  status: "MATCHED_EXISTING" | "REVIEW_REQUIRED" | "CREATE_NEW" | "MISSING";
+  clientId?: string;
+  clientName: string;
+  existingAddress?: string | null;
+  quoteAddress?: string;
+  isNew: boolean;
+  reviewRequired: boolean;
+  matchReason?: "EXACT_NAME_AND_ADDRESS" | "DIFFERENT_ADDRESS" | "MISSING_ADDRESS_ON_FILE" | "NO_MATCH" | "NO_CLIENT_NAME";
+  message: string;
+}
+
+export function evaluateClientMatch(
+  quoteClientName: string,
+  quoteAddress: string,
+  quotePostcode: string,
+  existingClients: Array<{ id: string; name: string; address?: string | null }>
+): ClientMatchResult {
+  const normQuoteName = (quoteClientName || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!normQuoteName) {
+    return {
+      status: "MISSING",
+      clientName: "",
+      isNew: false,
+      reviewRequired: true,
+      matchReason: "NO_CLIENT_NAME",
+      message: "Client name not found in Word quote. Please review and enter a client name.",
+    };
+  }
+
+  // Exact normalized client name matching only (no fuzzy name matching)
+  const matchingClients = existingClients.filter(
+    (c) => (c.name || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "") === normQuoteName
+  );
+
+  if (matchingClients.length === 0) {
+    return {
+      status: "CREATE_NEW",
+      clientName: quoteClientName.trim(),
+      quoteAddress: quoteAddress.trim(),
+      isNew: true,
+      reviewRequired: false,
+      matchReason: "NO_MATCH",
+      message: "Will create new client",
+    };
+  }
+
+  const existingClient = matchingClients[0];
+  const normQuotePc = (quotePostcode || "").toUpperCase().replace(/\s+/g, "").trim();
+  const existingAddressStr = (existingClient.address || "").trim();
+  
+  // Extract postcode from existing address if available
+  const existingPcMatch = existingAddressStr.match(/\b([A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2})\b/i);
+  const normExistingPc = existingPcMatch ? existingPcMatch[1].toUpperCase().replace(/\s+/g, "").trim() : "";
+
+  const normQuoteAddr = (quoteAddress || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+  const normExistingAddr = existingAddressStr.toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+
+  // Rule A: Exact normalized client name + matching postcode/address
+  const postcodesMatch = normQuotePc && normExistingPc && normQuotePc === normExistingPc;
+  const addressesMatch = normQuoteAddr && normExistingAddr && (
+    normQuoteAddr.includes(normExistingAddr) || normExistingAddr.includes(normQuoteAddr)
+  );
+
+  if (postcodesMatch || addressesMatch) {
+    return {
+      status: "MATCHED_EXISTING",
+      clientId: existingClient.id,
+      clientName: existingClient.name,
+      existingAddress: existingClient.address,
+      quoteAddress: quoteAddress.trim(),
+      isNew: false,
+      reviewRequired: false,
+      matchReason: "EXACT_NAME_AND_ADDRESS",
+      message: "Matches existing client",
+    };
+  }
+
+  // Rule B: Exact normalized client name but different postcode/address
+  const bothHavePostcodes = normQuotePc && normExistingPc;
+  const bothHaveAddresses = normQuoteAddr && normExistingAddr;
+
+  if ((bothHavePostcodes && normQuotePc !== normExistingPc) || (bothHaveAddresses && !addressesMatch)) {
+    return {
+      status: "REVIEW_REQUIRED",
+      clientId: existingClient.id,
+      clientName: existingClient.name,
+      existingAddress: existingClient.address,
+      quoteAddress: quoteAddress.trim(),
+      isNew: false,
+      reviewRequired: true,
+      matchReason: "DIFFERENT_ADDRESS",
+      message: "Possible existing client — review required",
+    };
+  }
+
+  // Rule C: Exact normalized client name but existing client has no address/postcode (or quote has none)
+  return {
+    status: "REVIEW_REQUIRED",
+    clientId: existingClient.id,
+    clientName: existingClient.name,
+    existingAddress: existingClient.address,
+    quoteAddress: quoteAddress.trim(),
+    isNew: false,
+    reviewRequired: true,
+    matchReason: "MISSING_ADDRESS_ON_FILE",
+    message: "Possible existing client — review required",
+  };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Stats endpoint
   app.get("/api/stats", async (req, res) => {
@@ -318,46 +428,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
 
-      // Client matching lookup
+      // Client matching lookup with strict safety
       const clientNameToMatch = (req.body.clientName || parsed.metadata.clientName || "").trim();
-      let clientMatch: {
-        status: "MATCHED_EXISTING" | "CREATE_NEW" | "MISSING";
-        clientId?: string;
-        clientName: string;
-        isNew: boolean;
-        message: string;
-      };
+      const addressToMatch = (req.body.address || parsed.metadata.address || "").trim();
+      const postcodeToMatch = (req.body.postcode || parsed.metadata.postcode || "").trim();
+
+      let clientMatch: ClientMatchResult;
 
       if (clientNameToMatch) {
         try {
           const existingClients = await db
             .select()
             .from(clients)
-            .where(sql`LOWER(TRIM(${clients.name})) = LOWER(TRIM(${clientNameToMatch}))`)
-            .limit(1);
+            .where(sql`LOWER(TRIM(${clients.name})) = LOWER(TRIM(${clientNameToMatch}))`);
 
-          if (existingClients.length > 0) {
-            clientMatch = {
-              status: "MATCHED_EXISTING",
-              clientId: existingClients[0].id,
-              clientName: existingClients[0].name,
-              isNew: false,
-              message: `Matches existing client: "${existingClients[0].name}"`,
-            };
-          } else {
-            clientMatch = {
-              status: "CREATE_NEW",
-              clientName: clientNameToMatch,
-              isNew: true,
-              message: `Will create new client: "${clientNameToMatch}"`,
-            };
-          }
+          clientMatch = evaluateClientMatch(clientNameToMatch, addressToMatch, postcodeToMatch, existingClients);
         } catch {
           clientMatch = {
             status: "CREATE_NEW",
             clientName: clientNameToMatch,
+            quoteAddress: addressToMatch,
             isNew: true,
-            message: `Will create new client: "${clientNameToMatch}"`,
+            reviewRequired: false,
+            matchReason: "NO_MATCH",
+            message: "Will create new client",
           };
         }
       } else {
@@ -365,6 +459,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: "MISSING",
           clientName: "",
           isNew: false,
+          reviewRequired: true,
+          matchReason: "NO_CLIENT_NAME",
           message: "Client name not found in Word quote. Please review and enter a client name.",
         };
       }
@@ -392,30 +488,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const finalProjectType = (req.body.projectType !== undefined ? req.body.projectType : parsed.metadata.projectType || "Refurbishment").trim();
       const finalQuotedAmount = req.body.quotedAmount || parsed.metadata.formattedTotalPrice || null;
 
+      // Explicit admin choices
+      const confirmClientLinkId = req.body.confirmClientLinkId ? String(req.body.confirmClientLinkId).trim() : null;
+      const forceCreateNewClient = req.body.forceCreateNewClient === true || req.body.forceCreateNewClient === "true";
+
       const importResult = await db.transaction(async (tx) => {
         let clientId: string | null = null;
         let createdClientRecord: any = null;
 
         if (finalClientName) {
-          const existingClients = await tx
-            .select()
-            .from(clients)
-            .where(sql`LOWER(TRIM(${clients.name})) = LOWER(TRIM(${finalClientName}))`)
-            .limit(1);
-
-          if (existingClients.length > 0) {
-            clientId = existingClients[0].id;
-          } else {
+          if (forceCreateNewClient) {
+            // Admin explicitly requested to create a new client
             const [newClient] = await tx
               .insert(clients)
               .values({
                 name: finalClientName,
                 address: finalAddress || null,
-                notes: `Created automatically from HBXL Word quote: ${req.file!.originalname}`,
+                notes: `Created automatically from HBXL Word quote: ${req.file!.originalname} (explicitly created as new client by admin)`,
               })
               .returning();
             clientId = newClient.id;
             createdClientRecord = newClient;
+          } else if (confirmClientLinkId) {
+            // Admin explicitly confirmed linking to a specific existing client
+            const [existing] = await tx
+              .select()
+              .from(clients)
+              .where(eq(clients.id, confirmClientLinkId as any))
+              .limit(1);
+            if (existing) {
+              clientId = existing.id;
+            }
+          } else {
+            // Automatic matching safety evaluation
+            const existingClients = await tx
+              .select()
+              .from(clients)
+              .where(sql`LOWER(TRIM(${clients.name})) = LOWER(TRIM(${finalClientName}))`);
+
+            const matchEval = evaluateClientMatch(finalClientName, finalAddress, finalPostcode, existingClients);
+
+            if (matchEval.status === "MATCHED_EXISTING" && matchEval.clientId) {
+              // Rule A: Exact name + matching address/postcode
+              clientId = matchEval.clientId;
+            } else {
+              // Rule B, C, D: REVIEW_REQUIRED or CREATE_NEW -> Never silently link! Create distinct new client.
+              const [newClient] = await tx
+                .insert(clients)
+                .values({
+                  name: finalClientName,
+                  address: finalAddress || null,
+                  notes: `Created automatically from HBXL Word quote: ${req.file!.originalname}`,
+                })
+                .returning();
+              clientId = newClient.id;
+              createdClientRecord = newClient;
+            }
           }
         }
 

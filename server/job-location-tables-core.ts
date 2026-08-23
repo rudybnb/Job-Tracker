@@ -36,21 +36,6 @@ export function jobLocationTableStatements(): ReadonlyArray<string> {
     `CREATE INDEX IF NOT EXISTS idx_job_location_tasks_location_id ON job_location_tasks (location_id);`,
     `CREATE INDEX IF NOT EXISTS idx_job_location_tasks_status ON job_location_tasks (status);`,
 
-    // Clients table and relationship columns
-    `CREATE TABLE IF NOT EXISTS clients (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
-  address TEXT,
-  notes TEXT,
-  external_reference TEXT,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-);`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS clients_name_unique ON clients (name);`,
-    `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id);`,
-
     // Additive columns for job_assignments if not already present
     `ALTER TABLE job_assignments ADD COLUMN IF NOT EXISTS location_id TEXT;`,
     `ALTER TABLE job_assignments ADD COLUMN IF NOT EXISTS location_name TEXT;`,

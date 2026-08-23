@@ -93,10 +93,14 @@ interface WordQuotePreviewData {
     formattedTotalIncVat: string;
     missingFields?: string[];
     clientMatch?: {
-      status: "MATCHED_EXISTING" | "CREATE_NEW" | "MISSING";
+      status: "MATCHED_EXISTING" | "REVIEW_REQUIRED" | "CREATE_NEW" | "MISSING";
       clientId?: string;
       clientName: string;
+      existingAddress?: string | null;
+      quoteAddress?: string;
       isNew: boolean;
+      reviewRequired: boolean;
+      matchReason?: string;
       message: string;
     };
   };
@@ -128,6 +132,7 @@ export default function UploadCsv() {
   const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
   const [editedLocationName, setEditedLocationName] = useState("");
   const [editingQuoteMetadata, setEditingQuoteMetadata] = useState(false);
+  const [selectedClientAction, setSelectedClientAction] = useState<"link" | "create_new">("create_new");
   const [editedQuoteMetadata, setEditedQuoteMetadata] = useState({
     clientName: "",
     projectSiteName: "",
@@ -250,6 +255,12 @@ export default function UploadCsv() {
         formData.append('postcode', editedQuoteMetadata.postcode);
         formData.append('quoteDate', editedQuoteMetadata.quoteDate);
         formData.append('projectType', editedQuoteMetadata.projectType);
+
+        if (wordPreview.metadata.clientMatch?.clientId && selectedClientAction === "link") {
+          formData.append('confirmClientLinkId', wordPreview.metadata.clientMatch.clientId);
+        } else if (selectedClientAction === "create_new") {
+          formData.append('forceCreateNewClient', "true");
+        }
       }
       
       const response = await fetch('/api/upload-word-quote', {
@@ -439,6 +450,11 @@ export default function UploadCsv() {
           projectType: preview.metadata.projectType || "Refurbishment",
         });
         setEditingQuoteMetadata(false);
+        if (preview.metadata.clientMatch?.status === "MATCHED_EXISTING") {
+          setSelectedClientAction("link");
+        } else {
+          setSelectedClientAction("create_new");
+        }
         setShowPreview(true);
         workflowHelp.markStepCompleted('file-selection');
         workflowHelp.markStepCompleted('file-validation');
@@ -760,11 +776,16 @@ export default function UploadCsv() {
               {/* Project & Client Metadata Card */}
               <div className="bg-slate-800/90 border border-slate-700 rounded-lg p-5">
                 <div className="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Extracted Client &amp; Job Details</h4>
                     {wordPreview.metadata.clientMatch?.status === "MATCHED_EXISTING" && (
                       <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs">
                         ✓ Matches existing client
+                      </Badge>
+                    )}
+                    {wordPreview.metadata.clientMatch?.status === "REVIEW_REQUIRED" && (
+                      <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs">
+                        ⚠ Possible existing client — review required
                       </Badge>
                     )}
                     {wordPreview.metadata.clientMatch?.status === "CREATE_NEW" && (
@@ -786,6 +807,45 @@ export default function UploadCsv() {
                     {editingQuoteMetadata ? "Close Editor" : "Edit Details"}
                   </button>
                 </div>
+
+                {/* Review Required Action Selection if Address Differs or is Incomplete */}
+                {wordPreview.metadata.clientMatch?.status === "REVIEW_REQUIRED" && (
+                  <div className="bg-amber-950/30 border border-amber-600/40 rounded-lg p-3.5 mb-4 text-xs">
+                    <div className="flex items-center gap-2 font-medium text-amber-300 mb-1.5">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                      <span>Possible Existing Client Match Found: {wordPreview.metadata.clientMatch.clientName}</span>
+                    </div>
+                    <p className="text-slate-300 mb-3 leading-relaxed">
+                      {wordPreview.metadata.clientMatch.matchReason === "DIFFERENT_ADDRESS"
+                        ? `Address on file differs: "${wordPreview.metadata.clientMatch.existingAddress || 'None'}" vs quote "${wordPreview.metadata.clientMatch.quoteAddress || editedQuoteMetadata.address || 'None'}". To prevent incorrect linkage, confirm your intent below.`
+                        : "An existing client with this name was found, but lacks a verified address. Confirm whether this job belongs to that client or is a new account."}
+                    </p>
+                    <div className="flex flex-wrap gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedClientAction("create_new")}
+                        className={`px-3 py-1.5 rounded text-xs font-semibold border transition-all ${
+                          selectedClientAction === "create_new"
+                            ? "bg-blue-600 border-blue-400 text-white shadow-md ring-1 ring-blue-300"
+                            : "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800"
+                        }`}
+                      >
+                        + Create as Distinct New Client (Safe Default)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedClientAction("link")}
+                        className={`px-3 py-1.5 rounded text-xs font-semibold border transition-all ${
+                          selectedClientAction === "link"
+                            ? "bg-amber-600 border-amber-400 text-white shadow-md ring-1 ring-amber-300"
+                            : "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800"
+                        }`}
+                      >
+                        🔗 Link to Existing Client ({wordPreview.metadata.clientMatch.clientName})
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {editingQuoteMetadata ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">

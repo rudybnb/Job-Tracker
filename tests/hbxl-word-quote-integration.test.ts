@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import express from "express";
 import multer from "multer";
 import { parseHbxlWordQuote } from "../shared/hbxl-word-parser.ts";
+import { evaluateClientMatch } from "../server/routes.ts";
 import { createSpencerHouseDocxBuffer, createMaureenOrubebeDocxBuffer } from "./hbxl-word-quote-parser.test.ts";
 
 // ============================================================
@@ -181,18 +182,10 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
     }
 
     const clientNameToMatch = (req.body.clientName || parsed.metadata.clientName || "").trim();
-    let clientMatch: { status: string; clientId?: string; clientName: string; isNew: boolean; message: string };
+    const addressToMatch = (req.body.address || parsed.metadata.address || "").trim();
+    const postcodeToMatch = (req.body.postcode || parsed.metadata.postcode || "").trim();
 
-    if (clientNameToMatch) {
-      const existing = storage.clients.find(c => c.name.trim().toLowerCase() === clientNameToMatch.toLowerCase());
-      if (existing) {
-        clientMatch = { status: "MATCHED_EXISTING", clientId: existing.id, clientName: existing.name, isNew: false, message: `Matches existing client: "${existing.name}"` };
-      } else {
-        clientMatch = { status: "CREATE_NEW", clientName: clientNameToMatch, isNew: true, message: `Will create new client: "${clientNameToMatch}"` };
-      }
-    } else {
-      clientMatch = { status: "MISSING", clientName: "", isNew: false, message: "Client name not found in Word quote" };
-    }
+    const clientMatch = evaluateClientMatch(clientNameToMatch, addressToMatch, postcodeToMatch, storage.clients);
 
     if (req.query.preview === "true" || req.body.preview === "true") {
       return res.json({
@@ -214,18 +207,34 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
     const finalPostcode = (req.body.postcode !== undefined ? req.body.postcode : parsed.metadata.postcode || "").trim();
     const finalQuotedAmount = req.body.quotedAmount || parsed.metadata.formattedTotalPrice || null;
 
+    const confirmClientLinkId = req.body.confirmClientLinkId ? String(req.body.confirmClientLinkId).trim() : null;
+    const forceCreateNewClient = req.body.forceCreateNewClient === true || req.body.forceCreateNewClient === "true";
+
     let clientId: string | null = null;
     let clientCreated = false;
 
     if (finalClientName) {
-      const existing = storage.clients.find(c => c.name.trim().toLowerCase() === finalClientName.toLowerCase());
-      if (existing) {
-        clientId = existing.id;
-      } else {
+      if (forceCreateNewClient) {
         const newClient: MockClient = { id: `client-${Date.now()}`, name: finalClientName, address: finalAddress || null };
         storage.clients.push(newClient);
         clientId = newClient.id;
         clientCreated = true;
+      } else if (confirmClientLinkId) {
+        const existing = storage.clients.find(c => c.id === confirmClientLinkId);
+        if (existing) {
+          clientId = existing.id;
+        }
+      } else {
+        const matchEval = evaluateClientMatch(finalClientName, finalAddress, finalPostcode, storage.clients);
+        if (matchEval.status === "MATCHED_EXISTING" && matchEval.clientId) {
+          clientId = matchEval.clientId;
+        } else {
+          // REVIEW_REQUIRED or CREATE_NEW -> Never silently link! Create distinct new client.
+          const newClient: MockClient = { id: `client-${Date.now()}`, name: finalClientName, address: finalAddress || null };
+          storage.clients.push(newClient);
+          clientId = newClient.id;
+          clientCreated = true;
+        }
       }
     }
 
@@ -639,4 +648,80 @@ test("Admin preview correction: custom client & job metadata overrides parsed de
     assert.equal(job.clientId, storage.clients[0].id);
   });
 });
+
+// ============================================================
+// Test 5 — Client Matching Rule B: Different address/postcode requires review, never silently links
+// ============================================================
+test("Client Matching Rule B: Exact name with conflicting address flags REVIEW_REQUIRED and never silently links", async () => {
+  await withWordQuoteServer(async ({ postWordQuote, storage }) => {
+    // Pre-create existing client with different address/postcode
+    storage.clients.push({
+      id: "client-promise-london",
+      name: "Promise Igbinedion",
+      address: "10 Oxford Street, London, W1D 1BS",
+    });
+
+    const buf = await createSpencerHouseDocxBuffer();
+
+    // 1. Preview mode -> Must return REVIEW_REQUIRED
+    const previewRes = await postWordQuote({ buffer: buf, filename: "Job 2 Spencer House - Quote(1).docx", preview: true });
+    assert.equal(previewRes.status, 200);
+
+    const meta = previewRes.body.metadata as Record<string, any>;
+    assert.equal(meta.clientMatch.status, "REVIEW_REQUIRED", "Conflicting address must trigger REVIEW_REQUIRED");
+    assert.equal(meta.clientMatch.reviewRequired, true);
+    assert.equal(meta.clientMatch.matchReason, "DIFFERENT_ADDRESS");
+    assert.equal(meta.clientMatch.message, "Possible existing client — review required");
+
+    // 2. Unconfirmed import -> Must NOT silently link! Creates a distinct new client record.
+    const importRes = await postWordQuote({ buffer: buf, filename: "Job 2 Spencer House - Quote(1).docx", preview: false });
+    assert.equal(importRes.status, 200);
+    assert.equal(storage.clients.length, 2, "Must create a distinct 2nd client record instead of silently linking");
+
+    const newClient = storage.clients.find(c => c.id !== "client-promise-london")!;
+    assert.ok(newClient);
+    assert.equal(storage.jobs[0].clientId, newClient.id, "Job must link to new distinct client, not conflicting existing client");
+    assert.notEqual(storage.jobs[0].clientId, "client-promise-london");
+  });
+});
+
+// ============================================================
+// Test 6 — Client Matching Rule C: Existing client with no address on file requires review
+// ============================================================
+test("Client Matching Rule C: Existing client with no address on file flags REVIEW_REQUIRED and allows confirmed linking", async () => {
+  await withWordQuoteServer(async ({ postWordQuote, storage }) => {
+    // Pre-create existing client without an address on file
+    storage.clients.push({
+      id: "client-maureen-no-addr",
+      name: "Maureen Orubebe",
+      address: null,
+    });
+
+    const buf = await createMaureenOrubebeDocxBuffer();
+
+    // 1. Preview mode -> Must return REVIEW_REQUIRED
+    const previewRes = await postWordQuote({ buffer: buf, filename: "Maureen Orubebe 2nd Floor Quote.docx", preview: true });
+    assert.equal(previewRes.status, 200);
+
+    const meta = previewRes.body.metadata as Record<string, any>;
+    assert.equal(meta.clientMatch.status, "REVIEW_REQUIRED", "Missing address on file must trigger REVIEW_REQUIRED");
+    assert.equal(meta.clientMatch.reviewRequired, true);
+    assert.equal(meta.clientMatch.matchReason, "MISSING_ADDRESS_ON_FILE");
+
+    // 2. Confirmed import with explicit confirmClientLinkId -> Links to confirmed existing client
+    const importRes = await postWordQuote({
+      buffer: buf,
+      filename: "Maureen Orubebe 2nd Floor Quote.docx",
+      preview: false,
+      metadataOverrides: {
+        confirmClientLinkId: "client-maureen-no-addr",
+      },
+    });
+
+    assert.equal(importRes.status, 200);
+    assert.equal(storage.clients.length, 1, "Must not create a duplicate client when confirmed");
+    assert.equal(storage.jobs[0].clientId, "client-maureen-no-addr", "Job must link to confirmed client");
+  });
+});
+
 
