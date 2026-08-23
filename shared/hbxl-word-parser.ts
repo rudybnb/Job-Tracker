@@ -297,10 +297,11 @@ export const BANNED_TASK_KEYWORDS = new Set([
   "room",
   "floor",
   "tiling",
+  "item / description",
 ]);
 
 /**
- * Check if a paragraph text is banned from becoming a task or category.
+ * Check if a paragraph or table text is banned from becoming a task or category.
  */
 export function isBannedTaskOrCategory(text: string): boolean {
   const norm = text.trim().toLowerCase().replace(/[:\.\-_]+$/, "").trim();
@@ -325,8 +326,8 @@ export function isBannedTaskOrCategory(text: string): boolean {
   // Acceptance / signing / legal blocks
   if (/^(acceptance|terms\s*(?:&|and)\s*conditions|signature|signed|print\s*name|payment\s*terms|vat\s*summary|date\s*of\s*acceptance)/i.test(norm)) return true;
 
-  // Table header combinations like "Material Labour Plant Other Total"
-  if (/^(?:material|labour|plant|other|total|\s)+$/i.test(norm)) return true;
+  // Table header combinations like "Material Labour Plant Other Total" or "General Works Material Labour Plant Total"
+  if (/^(?:general\s+works|material|materials|labour|plant|other|total|\s|\|)+$/i.test(norm)) return true;
 
   return false;
 }
@@ -372,9 +373,6 @@ export function isPureMaterialOrProduct(text: string): boolean {
   return false;
 }
 
-/**
- * Parses XML text from word/document.xml into a clean representation.
- */
 export interface RawDocParagraph {
   text: string;
   isHeading: boolean;
@@ -384,77 +382,266 @@ export interface RawDocParagraph {
   styleName?: string;
 }
 
+export interface DocTableCell {
+  text: string;
+  paragraphs: RawDocParagraph[];
+}
+
+export interface DocTableRow {
+  cells: DocTableCell[];
+  text: string;
+}
+
+export interface DocTable {
+  rows: DocTableRow[];
+}
+
+export type DocElement =
+  | { type: "paragraph"; paragraph: RawDocParagraph }
+  | { type: "table"; table: DocTable };
+
+function findNextTag(xml: string, tagName: string, fromPos: number): number {
+  let p = fromPos;
+  while (p < xml.length) {
+    const idx = xml.indexOf(`<${tagName}`, p);
+    if (idx === -1) return -1;
+    const nextChar = xml[idx + tagName.length + 1];
+    if (nextChar === '>' || nextChar === ' ' || nextChar === '/' || nextChar === '\n' || nextChar === '\r' || nextChar === '\t') {
+      return idx;
+    }
+    p = idx + tagName.length + 1;
+  }
+  return -1;
+}
+
+function findClosingTag(xml: string, tagName: string, fromPos: number): number {
+  return xml.indexOf(`</${tagName}>`, fromPos);
+}
+
+export function parseSingleParagraphXml(pInnerXml: string): RawDocParagraph {
+  let text = "";
+  const tRegex = /<w:t(?:\s+[^>]*)?>([\s\S]*?)<\/w:t>/g;
+  let tMatch: RegExpExecArray | null;
+
+  while ((tMatch = tRegex.exec(pInnerXml)) !== null) {
+    const runText = tMatch[1]
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'");
+    text += runText;
+  }
+
+  text = text.trim();
+
+  const pStyleMatch = pInnerXml.match(/<w:pStyle\s+[^>]*w:val="([^"]+)"/);
+  const styleVal = pStyleMatch ? pStyleMatch[1].toLowerCase() : "";
+
+  let isHeading = false;
+  let headingLevel = 0;
+
+  if (styleVal.includes("heading1") || styleVal.includes("heading 1") || styleVal === "title") {
+    isHeading = true;
+    headingLevel = 1;
+  } else if (styleVal.includes("heading2") || styleVal.includes("heading 2") || styleVal.includes("subtitle")) {
+    isHeading = true;
+    headingLevel = 2;
+  } else if (styleVal.includes("heading3") || styleVal.includes("heading 3")) {
+    isHeading = true;
+    headingLevel = 3;
+  }
+
+  const isBold = /<w:b(?:\s+[^>]*)?\/>/.test(pInnerXml) || /<w:b\s+w:val="(?:true|1)"\/>/.test(pInnerXml);
+  const isBullet = /<w:numPr>/.test(pInnerXml) || text.startsWith("•") || text.startsWith("-") || text.startsWith("*");
+  const cleanText = text.replace(/^[•\-\*\s]+/, "").trim();
+
+  return {
+    text: cleanText || text,
+    isHeading,
+    headingLevel,
+    isBold,
+    isBullet,
+    styleName: pStyleMatch ? pStyleMatch[1] : undefined,
+  };
+}
+
+export function parseSingleTableXml(tblInnerXml: string): DocTable {
+  const rows: DocTableRow[] = [];
+  let pos = 0;
+
+  while (pos < tblInnerXml.length) {
+    const trStart = findNextTag(tblInnerXml, "w:tr", pos);
+    if (trStart === -1) break;
+    const trClose = findClosingTag(tblInnerXml, "w:tr", trStart);
+    if (trClose === -1) break;
+
+    const trFullXml = tblInnerXml.substring(trStart, trClose + 7);
+    const trInner = trFullXml.replace(/^<w:tr(?:\s+[^>]*)?>/, "").replace(/<\/w:tr>$/, "");
+
+    const cells: DocTableCell[] = [];
+    let cellPos = 0;
+
+    while (cellPos < trInner.length) {
+      const tcStart = findNextTag(trInner, "w:tc", cellPos);
+      if (tcStart === -1) break;
+      const tcClose = findClosingTag(trInner, "w:tc", tcStart);
+      if (tcClose === -1) break;
+
+      const tcFullXml = trInner.substring(tcStart, tcClose + 7);
+      const tcInner = tcFullXml.replace(/^<w:tc(?:\s+[^>]*)?>/, "").replace(/<\/w:tc>$/, "");
+
+      const paragraphs: RawDocParagraph[] = [];
+      let pPos = 0;
+
+      while (pPos < tcInner.length) {
+        const pStart = findNextTag(tcInner, "w:p", pPos);
+        if (pStart === -1) break;
+        const pClose = findClosingTag(tcInner, "w:p", pStart);
+        if (pClose === -1) break;
+
+        const pFullXml = tcInner.substring(pStart, pClose + 6);
+        const pInner = pFullXml.replace(/^<w:p(?:\s+[^>]*)?>/, "").replace(/<\/w:p>$/, "");
+        const p = parseSingleParagraphXml(pInner);
+        if (p.text) {
+          paragraphs.push(p);
+        }
+        pPos = pClose + 6;
+      }
+
+      const cellText = paragraphs.map((p) => p.text).join("\n").trim();
+      cells.push({ text: cellText, paragraphs });
+      cellPos = tcClose + 7;
+    }
+
+    if (cells.length > 0) {
+      const rowText = cells.map((c) => c.text).filter(Boolean).join(" | ");
+      rows.push({ cells, text: rowText });
+    }
+
+    pos = trClose + 7;
+  }
+
+  return { rows };
+}
+
+/**
+ * Extracts top-level document elements (<w:p> and <w:tbl>) in exact document order from <w:body>.
+ */
+export function extractDocumentElements(xmlContent: string): DocElement[] {
+  const elements: DocElement[] = [];
+  const bodyStart = xmlContent.indexOf("<w:body>");
+  const bodyEnd = xmlContent.lastIndexOf("</w:body>");
+  if (bodyStart === -1 || bodyEnd === -1) return elements;
+
+  const bodyXml = xmlContent.substring(bodyStart + 8, bodyEnd);
+  let pos = 0;
+
+  while (pos < bodyXml.length) {
+    const nextP = findNextTag(bodyXml, "w:p", pos);
+    const nextTbl = findNextTag(bodyXml, "w:tbl", pos);
+
+    if (nextP === -1 && nextTbl === -1) break;
+
+    if (nextP !== -1 && (nextTbl === -1 || nextP < nextTbl)) {
+      const pClose = findClosingTag(bodyXml, "w:p", nextP);
+      if (pClose === -1) break;
+      const pFullXml = bodyXml.substring(nextP, pClose + 6);
+      const pInner = pFullXml.replace(/^<w:p(?:\s+[^>]*)?>/, "").replace(/<\/w:p>$/, "");
+      const p = parseSingleParagraphXml(pInner);
+      if (p.text.trim()) {
+        elements.push({ type: "paragraph", paragraph: p });
+      }
+      pos = pClose + 6;
+    } else if (nextTbl !== -1) {
+      let depth = 1;
+      let searchPos = nextTbl + 6;
+      let tblClose = -1;
+
+      while (depth > 0 && searchPos < bodyXml.length) {
+        const nextOpen = findNextTag(bodyXml, "w:tbl", searchPos);
+        const nextClose = findClosingTag(bodyXml, "w:tbl", searchPos);
+
+        if (nextClose === -1) break;
+
+        if (nextOpen !== -1 && nextOpen < nextClose) {
+          depth++;
+          searchPos = nextOpen + 6;
+        } else {
+          depth--;
+          if (depth === 0) {
+            tblClose = nextClose;
+          }
+          searchPos = nextClose + 8;
+        }
+      }
+
+      if (tblClose === -1) break;
+
+      const tblFullXml = bodyXml.substring(nextTbl, tblClose + 8);
+      const tblInner = tblFullXml.replace(/^<w:tbl(?:\s+[^>]*)?>/, "").replace(/<\/w:tbl>$/, "");
+      const table = parseSingleTableXml(tblInner);
+      if (table.rows.length > 0) {
+        elements.push({ type: "table", table });
+      }
+      pos = tblClose + 8;
+    }
+  }
+
+  return elements;
+}
+
+/**
+ * Extracts flat paragraph list (maintained for backwards compatibility with tests).
+ */
 export function extractParagraphsFromDocumentXml(xmlContent: string): RawDocParagraph[] {
+  const elements = extractDocumentElements(xmlContent);
   const paragraphs: RawDocParagraph[] = [];
 
-  // Match all paragraphs <w:p>...</w:p>
-  const pRegex = /<w:p(?:\s+[^>]*)?>([\s\S]*?)<\/w:p>/g;
-  let pMatch: RegExpExecArray | null;
-
-  while ((pMatch = pRegex.exec(xmlContent)) !== null) {
-    const pBody = pMatch[1];
-
-    // Extract text runs <w:t>...</w:t>
-    let text = "";
-    const tRegex = /<w:t(?:\s+[^>]*)?>([\s\S]*?)<\/w:t>/g;
-    let tMatch: RegExpExecArray | null;
-    while ((tMatch = tRegex.exec(pBody)) !== null) {
-      // Decode basic xml entities
-      const runText = tMatch[1]
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'");
-      text += runText;
+  for (const el of elements) {
+    if (el.type === "paragraph") {
+      paragraphs.push(el.paragraph);
+    } else if (el.type === "table") {
+      for (const row of el.table.rows) {
+        for (const cell of row.cells) {
+          paragraphs.push(...cell.paragraphs);
+        }
+      }
     }
-
-    text = text.trim();
-    if (!text) continue;
-
-    // Check style / heading
-    const pStyleMatch = pBody.match(/<w:pStyle\s+[^>]*w:val="([^"]+)"/);
-    const styleVal = pStyleMatch ? pStyleMatch[1].toLowerCase() : "";
-
-    let isHeading = false;
-    let headingLevel = 0;
-
-    if (styleVal.includes("heading1") || styleVal.includes("heading 1") || styleVal === "title") {
-      isHeading = true;
-      headingLevel = 1;
-    } else if (styleVal.includes("heading2") || styleVal.includes("heading 2") || styleVal.includes("subtitle")) {
-      isHeading = true;
-      headingLevel = 2;
-    } else if (styleVal.includes("heading3") || styleVal.includes("heading 3")) {
-      isHeading = true;
-      headingLevel = 3;
-    }
-
-    // Check bold run formatting
-    const isBold = /<w:b(?:\s+[^>]*)?\/>/.test(pBody) || /<w:b\s+w:val="(?:true|1)"\/>/.test(pBody);
-    // Check bullet / num formatting
-    const isBullet = /<w:numPr>/.test(pBody) || text.startsWith("•") || text.startsWith("-") || text.startsWith("*");
-
-    // Clean bullet symbols from start of text
-    const cleanText = text.replace(/^[•\-\*\s]+/, "").trim();
-
-    paragraphs.push({
-      text: cleanText || text,
-      isHeading,
-      headingLevel,
-      isBold,
-      isBullet,
-      styleName: pStyleMatch ? pStyleMatch[1] : undefined,
-    });
   }
 
   return paragraphs;
 }
 
+function cleanLabel(str: string) {
+  return str.trim().toLowerCase().replace(/[:\.\-_]+$/, "").trim();
+}
+
+function parseAmount(str: string): number | null {
+  const m = str.replace(/,/g, "").match(/[\d]+(?:\.\d{2})?/);
+  if (!m) return null;
+  const val = parseFloat(m[0]);
+  return isNaN(val) ? null : val;
+}
+
+function formatAmount(val: number): string {
+  return `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function isAddressTerminator(text: string): boolean {
+  const norm = text.trim().toLowerCase();
+  if (!norm) return false;
+  if (norm.includes("£") || /^(?:total|sub-?total|grand\s+total|net\s+total|vat)\b/i.test(norm)) return true;
+  if (/^(?:summary\s+of\s+(?:estimate|quotation)|acceptance|terms\s*(?:&|and)\s*conditions|date|reference|ref:)/i.test(norm)) return true;
+  if (/^carry\s+out\s+work\s+in/i.test(norm)) return true;
+  return false;
+}
+
 /**
- * Extracts quote metadata (client, site, address, quote price) from paragraphs or text.
+ * Extracts quote metadata (client, site, address, quote price) from document elements.
+ * IMPORTANT: Strictly uses document content as the source of truth; zero authoritative filename fallbacks.
  */
-function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallbackFilename?: string) {
+export function extractMetadataFromElements(elements: DocElement[]) {
   let clientName = "";
   let projectSiteName = "";
   const addressLines: string[] = [];
@@ -471,217 +658,204 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
   let totalQuotePrice: number | null = null;
   let formattedTotalPrice = "";
 
-  let fallbackProjectSiteName = "";
-  if (fallbackFilename) {
-    const fnClean = fallbackFilename.replace(/\.docx$/i, "");
-    const siteMatch = fnClean.match(/(?:Job\s*\d+\s+)?([A-Za-z0-9\s]+?)(?:\s*[-–]?\s*(?:Quote|Quotation|Smart\s+Schedule|Export))/i);
-    if (siteMatch && siteMatch[1]) {
-      fallbackProjectSiteName = siteMatch[1].trim();
-    }
-  }
-
   const postcodePattern = /\b([A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2})\b/i;
 
-  const exclVatPatterns = [
-    /(?:Total\s*\(excl\.?\s*VAT\)|\bTotal\s+cost\s+excluding\s+VAT\b|\bTotal\s+excl\.?\s*VAT\b|\bNet\s+Total\b)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
-  ];
+  const CLIENT_LABELS = new Set([
+    "client", "client name", "customer", "customer name", "prepared for", "quotation for", "quote for", "for", "to"
+  ]);
 
-  const vatPatterns = [
-    /(?:Total\s+VAT|VAT\s*@\s*20%|^VAT)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
-    /^(?:Add\s+)?VAT\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
-  ];
+  const SITE_LABELS = new Set([
+    "project / site", "project/site", "project & site", "project site", "project name", "site name",
+    "job title", "project", "site", "property name"
+  ]);
 
-  const incVatPatterns = [
-    /(?:Grand\s+Total|Total\s*\(inc\.?\s*VAT\)|\bTotal\s+cost\s+including\s+VAT\b|\bTotal\s+inc\.?\s*VAT\b|\bGross\s+Total\b)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
-  ];
+  const ADDRESS_LABELS = new Set([
+    "site address", "property address", "client address", "customer address", "address", "property", "location"
+  ]);
 
-  const genericTotalPatterns = [
-    /(?:Total\s+Quote|Total\s+Quotation|Total\s+Price|Estimated\s*Cost|Total\s*Amount)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
-    /^Total\s*:?\s*£\s*([\d,]+\.\d{2})$/i,
-  ];
+  const DATE_LABELS = new Set([
+    "quote date", "quotation date", "date", "issue date", "date of quote", "date of quotation"
+  ]);
 
-  const clientPatterns = [
-    /^(?:Client|Customer|Prepared\s+for|For|To):\s*(.+)$/i,
-    /^(?:Client\s+Name):\s*(.+)$/i,
-  ];
-  const sitePatterns = [
-    /^(?:Project\/Site|Project\s*Site|Site\s*Name|Job\s*Title|Site|Project):\s*(.+)$/i,
-  ];
-  const addressLabelPattern = /^(?:Site\s+Address|Address|Property):\s*(.+)$/i;
-  const datePatterns = [
-    /^(?:Date|Quotation\s+Date|Issue\s+Date):\s*(.+)$/i,
-  ];
-  const refPatterns = [
-    /^(?:Reference|Ref|Job\s+Ref|Quote\s+Ref(?:erence)?):\s*(.+)$/i,
-  ];
+  const REF_LABELS = new Set([
+    "reference", "ref", "quote ref", "quote reference", "job ref"
+  ]);
 
-  let inAddressBlock = false;
-  let inDetailedWorkSection = false;
-  let addressBlockLineCount = 0;
-  const MAX_ADDRESS_LINES = 6;
+  const EXCL_VAT_LABELS = new Set([
+    "total cost excluding vat", "total cost excl vat", "total cost excl. vat", "total excluding vat",
+    "total excl vat", "total excl. vat", "total (excl vat)", "total (excl. vat)", "net total", "total net cost", "subtotal", "sub-total"
+  ]);
 
-  for (const p of paragraphs) {
-    const t = p.text.trim();
-    if (!t) { inAddressBlock = false; continue; }
+  const VAT_LABELS = new Set([
+    "total vat", "vat @ 20%", "vat @ 20.00%", "vat amount", "add vat", "vat"
+  ]);
 
-    if (p.isHeading && p.headingLevel === 1) {
-      inAddressBlock = false;
-      continue;
-    }
+  const INC_VAT_LABELS = new Set([
+    "total cost including vat", "total cost inc vat", "total cost inc. vat", "total including vat",
+    "total inc vat", "total inc. vat", "total (inc vat)", "total (inc. vat)", "grand total", "gross total", "total gross cost"
+  ]);
 
-    if (/^Carry\s+out\s+work\s+in/i.test(t)) {
-      inAddressBlock = false;
-      inDetailedWorkSection = true;
-    }
+  const GENERIC_TOTAL_LABELS = new Set([
+    "total quote", "total quotation", "total price", "estimated cost", "total amount", "total"
+  ]);
 
-    if (/^(?:Acceptance|Terms)/i.test(t)) {
-      inAddressBlock = false;
-    }
+  let inAddressParagraphBlock = false;
+  let addressParagraphCount = 0;
 
-    // Skip total and address scanning inside detailed room sections to avoid room subtotals
-    if (inDetailedWorkSection) {
-      continue;
-    }
+  for (const el of elements) {
+    if (el.type === "table") {
+      inAddressParagraphBlock = false;
+      for (const row of el.table.rows) {
+        if (row.cells.length >= 2) {
+          for (let c = 0; c + 1 < row.cells.length; c += 2) {
+            const label = cleanLabel(row.cells[c].text);
+            const val = row.cells[c + 1].text.trim();
+            if (!val) continue;
 
-    // Client name
-    if (!clientName) {
-      for (const cp of clientPatterns) {
-        const m = t.match(cp);
-        if (m && m[1] && m[1].trim().length > 1) {
-          const val = m[1].trim();
-          if (!val.match(/^(?:Ltd|Limited|PLC|LLP|plc)$/i)) {
-            clientName = val;
-            break;
+            if (!clientName && CLIENT_LABELS.has(label)) {
+              clientName = val.split("\n")[0].trim();
+            } else if (!projectSiteName && SITE_LABELS.has(label)) {
+              projectSiteName = val.split("\n")[0].trim();
+            } else if (addressLines.length === 0 && ADDRESS_LABELS.has(label)) {
+              const lines = val.split("\n").map(l => l.trim()).filter(Boolean);
+              for (const line of lines) {
+                if (isAddressTerminator(line)) break;
+                addressLines.push(line);
+                const pm = line.match(postcodePattern);
+                if (pm && pm[1] && !postcode) postcode = pm[1].toUpperCase().trim();
+              }
+            } else if (!quoteDate && DATE_LABELS.has(label)) {
+              const cleanDate = val.split("\n")[0].trim().replace(/^[\._\-\s]+$/, "");
+              if (cleanDate) quoteDate = cleanDate;
+            } else if (!quoteReference && REF_LABELS.has(label)) {
+              const cleanRef = val.split("\n")[0].trim().replace(/^[\._\-\s]+$/, "");
+              if (cleanRef) quoteReference = cleanRef;
+            } else if (totalExclVat === null && EXCL_VAT_LABELS.has(label)) {
+              const amt = parseAmount(val);
+              if (amt !== null && amt > 0) {
+                totalExclVat = amt;
+                formattedTotalExclVat = formatAmount(amt);
+              }
+            } else if (vatAmount === null && VAT_LABELS.has(label)) {
+              const amt = parseAmount(val);
+              if (amt !== null && amt > 0) {
+                vatAmount = amt;
+                formattedVatAmount = formatAmount(amt);
+              }
+            } else if (totalIncVat === null && INC_VAT_LABELS.has(label)) {
+              const amt = parseAmount(val);
+              if (amt !== null && amt > 0) {
+                totalIncVat = amt;
+                formattedTotalIncVat = formatAmount(amt);
+              }
+            } else if (totalQuotePrice === null && GENERIC_TOTAL_LABELS.has(label)) {
+              const amt = parseAmount(val);
+              if (amt !== null && amt > 100) {
+                totalQuotePrice = amt;
+                formattedTotalPrice = formatAmount(amt);
+              }
+            }
           }
         }
       }
-    }
-
-    // Project/Site name
-    if (!projectSiteName) {
-      for (const sp of sitePatterns) {
-        const m = t.match(sp);
-        if (m && m[1] && m[1].trim().length > 1) {
-          projectSiteName = m[1].trim();
-          break;
-        }
-      }
-    }
-
-    // Date
-    if (!quoteDate) {
-      for (const dp of datePatterns) {
-        const m = t.match(dp);
-        if (m && m[1]) { quoteDate = m[1].trim(); break; }
-      }
-    }
-
-    // Reference
-    if (!quoteReference) {
-      for (const rp of refPatterns) {
-        const m = t.match(rp);
-        if (m && m[1]) { quoteReference = m[1].trim(); break; }
-      }
-    }
-
-    // 1. Total excluding VAT (Net)
-    if (totalExclVat === null) {
-      for (const pat of exclVatPatterns) {
-        const m = t.match(pat);
-        if (m && m[1]) {
-          const val = parseFloat(m[1].replace(/,/g, ""));
-          if (!isNaN(val) && val > 0) {
-            totalExclVat = val;
-            formattedTotalExclVat = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            break;
-          }
-        }
-      }
-    }
-
-    // 2. VAT Amount
-    if (vatAmount === null) {
-      for (const pat of vatPatterns) {
-        const m = t.match(pat);
-        if (m && m[1]) {
-          const val = parseFloat(m[1].replace(/,/g, ""));
-          if (!isNaN(val) && val > 0) {
-            vatAmount = val;
-            formattedVatAmount = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            break;
-          }
-        }
-      }
-    }
-
-    // 3. Total including VAT (Gross / Grand Total)
-    if (totalIncVat === null) {
-      for (const pat of incVatPatterns) {
-        const m = t.match(pat);
-        if (m && m[1]) {
-          const val = parseFloat(m[1].replace(/,/g, ""));
-          if (!isNaN(val) && val > 0) {
-            totalIncVat = val;
-            formattedTotalIncVat = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            break;
-          }
-        }
-      }
-    }
-
-    // Generic total fallback if specific excl/inc VAT not matched
-    if (totalQuotePrice === null) {
-      for (const pat of genericTotalPatterns) {
-        const m = t.match(pat);
-        if (m && m[1]) {
-          const val = parseFloat(m[1].replace(/,/g, ""));
-          if (!isNaN(val) && val > 100) {
-            totalQuotePrice = val;
-            formattedTotalPrice = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            break;
-          }
-        }
-      }
-    }
-
-    // Address block
-    if (!inAddressBlock) {
-      const am = t.match(addressLabelPattern);
-      if (am && am[1]) {
-        inAddressBlock = true;
-        addressBlockLineCount = 0;
-        const firstAddressLine = am[1].trim();
-        if (firstAddressLine) {
-          addressLines.push(firstAddressLine);
-          addressBlockLineCount++;
-          const pm = firstAddressLine.match(postcodePattern);
-          if (pm && pm[1]) postcode = pm[1].toUpperCase().trim();
-        }
+    } else if (el.type === "paragraph") {
+      const t = el.paragraph.text.trim();
+      if (!t) {
+        inAddressParagraphBlock = false;
         continue;
       }
-    } else {
-      const isAnotherLabel = /^[A-Za-z][A-Za-z\s]{1,30}:\s/.test(t);
-      if (isAnotherLabel || addressBlockLineCount >= MAX_ADDRESS_LINES || p.isHeading) {
-        inAddressBlock = false;
-      } else {
-        addressLines.push(t);
-        addressBlockLineCount++;
-        const pm = t.match(postcodePattern);
-        if (pm && pm[1] && !postcode) postcode = pm[1].toUpperCase().trim();
-        continue;
-      }
-    }
 
-    // Postcode fallback
-    if (!postcode) {
-      const pm = t.match(postcodePattern);
-      if (pm && pm[1]) postcode = pm[1].toUpperCase().trim();
+      if (isAddressTerminator(t) || el.paragraph.isHeading) {
+        inAddressParagraphBlock = false;
+      }
+
+      if (!clientName) {
+        const m = t.match(/^(?:Client|Customer|Prepared\s+for|Quotation\s+for|Quote\s+for|For|To):\s*(.+)$/i);
+        if (m && m[1].trim() && !m[1].match(/^(?:Ltd|Limited|PLC|LLP|plc)$/i)) {
+          clientName = m[1].trim();
+        }
+      }
+      if (!projectSiteName) {
+        const m = t.match(/^(?:Project\/Site|Project\s*Site|Project\s*Name|Site\s*Name|Job\s*Title|Site|Project):\s*(.+)$/i);
+        if (m && m[1].trim()) projectSiteName = m[1].trim();
+      }
+      if (!quoteDate) {
+        const m = t.match(/^(?:Quote\s+Date|Quotation\s+Date|Date|Issue\s+Date):\s*(.+)$/i);
+        if (m && m[1].trim()) {
+          const cleanDate = m[1].trim().replace(/^[\._\-\s]+$/, "");
+          if (cleanDate) quoteDate = cleanDate;
+        }
+      }
+      if (!quoteReference) {
+        const m = t.match(/^(?:Reference|Ref|Job\s+Ref|Quote\s+Ref(?:erence)?):\s*(.+)$/i);
+        if (m && m[1].trim()) {
+          const cleanRef = m[1].trim().replace(/^[\._\-\s]+$/, "");
+          if (cleanRef) quoteReference = cleanRef;
+        }
+      }
+
+      // Check totals in paragraph
+      if (totalExclVat === null) {
+        const m = t.match(/(?:Total\s*\(excl\.?\s*VAT\)|\bTotal\s+cost\s+excluding\s+VAT\b|\bTotal\s+excl\.?\s*VAT\b|\bNet\s+Total\b)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i);
+        if (m && m[1]) {
+          const amt = parseAmount(m[1]);
+          if (amt !== null && amt > 0) {
+            totalExclVat = amt;
+            formattedTotalExclVat = formatAmount(amt);
+          }
+        }
+      }
+
+      if (vatAmount === null) {
+        const m = t.match(/(?:Total\s+VAT|VAT\s*@\s*20%|^VAT|Add\s+VAT)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i);
+        if (m && m[1]) {
+          const amt = parseAmount(m[1]);
+          if (amt !== null && amt > 0) {
+            vatAmount = amt;
+            formattedVatAmount = formatAmount(amt);
+          }
+        }
+      }
+
+      if (totalIncVat === null) {
+        const m = t.match(/(?:Grand\s+Total|Total\s*\(inc\.?\s*VAT\)|\bTotal\s+cost\s+including\s+VAT\b|\bTotal\s+inc\.?\s*VAT\b|\bGross\s+Total\b)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i);
+        if (m && m[1]) {
+          const amt = parseAmount(m[1]);
+          if (amt !== null && amt > 0) {
+            totalIncVat = amt;
+            formattedTotalIncVat = formatAmount(amt);
+          }
+        }
+      }
+
+      // Address paragraph blocks
+      if (!inAddressParagraphBlock && addressLines.length === 0) {
+        const am = t.match(/^(?:Site\s+Address|Address|Property):\s*(.*)$/i);
+        if (am) {
+          inAddressParagraphBlock = true;
+          addressParagraphCount = 0;
+          const firstLine = am[1].trim();
+          if (firstLine && !isAddressTerminator(firstLine)) {
+            addressLines.push(firstLine);
+            addressParagraphCount++;
+            const pm = firstLine.match(postcodePattern);
+            if (pm && pm[1] && !postcode) postcode = pm[1].toUpperCase().trim();
+          }
+        }
+      } else if (inAddressParagraphBlock) {
+        const isLabel = /^[A-Za-z\s]{2,25}:\s/.test(t);
+        if (isLabel || addressParagraphCount >= 6 || isAddressTerminator(t)) {
+          inAddressParagraphBlock = false;
+        } else {
+          addressLines.push(t);
+          addressParagraphCount++;
+          const pm = t.match(postcodePattern);
+          if (pm && pm[1] && !postcode) postcode = pm[1].toUpperCase().trim();
+        }
+      }
     }
   }
 
-  const address = addressLines.join("\n");
-
-  // Determine main total quote price
   if (totalQuotePrice === null) {
     if (totalExclVat !== null) {
       totalQuotePrice = totalExclVat;
@@ -692,10 +866,21 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
     }
   }
 
-  const resolvedSiteName = projectSiteName || fallbackProjectSiteName;
+  if (!postcode) {
+    for (const line of addressLines) {
+      const pm = line.match(postcodePattern);
+      if (pm && pm[1]) {
+        postcode = pm[1].toUpperCase().trim();
+        break;
+      }
+    }
+  }
+
+  const address = addressLines.join("\n");
+
   const missingFields: string[] = [];
   if (!clientName) missingFields.push("Client Name");
-  if (!resolvedSiteName) missingFields.push("Project / Site Name");
+  if (!projectSiteName) missingFields.push("Project / Site Name");
   if (!address) missingFields.push("Site Address");
   if (!postcode) missingFields.push("Postcode");
   if (!quoteDate) missingFields.push("Quote Date");
@@ -703,7 +888,7 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
 
   return {
     clientName,
-    projectSiteName: resolvedSiteName,
+    projectSiteName,
     address,
     postcode,
     projectType,
@@ -721,47 +906,313 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
   };
 }
 
-/**
- * Extracts a location name if the paragraph is a location boundary anchor.
- */
-function extractLocationAnchorName(p: RawDocParagraph, nextP?: RawDocParagraph, hasCarryOutAnchors: boolean = true): string | null {
-  const text = p.text.trim();
-
-  // Pattern 1: Standard HBXL "Carry out work in [LOCATION] comprising:"
-  const carryMatch = text.match(/^Carry\s+out\s+work\s+in\s+(.+?)(?:\s+comprising\s*:?|\s*:)?$/i);
+function extractLocationAnchorFromText(text: string): string | null {
+  const norm = text.trim();
+  const carryMatch = norm.match(/^Carry\s+out\s+work\s+in\s+(.+?)(?:\s+comprising\s*:?|\s*:)?$/i);
   if (carryMatch && carryMatch[1]) {
     const name = carryMatch[1].trim().replace(/[:\.\-_]+$/, "").trim();
-    if (name && !isBannedTaskOrCategory(name)) {
+    if (name) {
       return name;
     }
   }
-
-  // Pattern 2: Heading / title line whose text matches the location in the immediately following "Carry out work in..."
-  if (nextP) {
-    const nextText = nextP.text.trim();
-    const nextCarryMatch = nextText.match(/^Carry\s+out\s+work\s+in\s+(.+?)(?:\s+comprising\s*:?|\s*:)?$/i);
-    if (nextCarryMatch && nextCarryMatch[1]) {
-      const name = nextCarryMatch[1].trim().replace(/[:\.\-_]+$/, "").trim();
-      // Only treat p as a location title header if its text matches the upcoming location name
-      if (text.toLowerCase() === name.toLowerCase() || ((p.isHeading || p.isBold) && calculateLevenshteinDistance(text.toLowerCase(), name.toLowerCase()) <= 2)) {
-        return name;
-      }
-    }
-  }
-
-  // Pattern 3: Fallback for documents that do NOT have "Carry out work in" anchors
-  if (!hasCarryOutAnchors && (p.headingLevel === 1 || (p.isBold && !p.isBullet)) && text.length < 50) {
-    const norm = text.toLowerCase();
-    if (STANDARD_DISTINCT_ROOMS.has(norm) || isGenericLocation(text)) {
-      return text;
-    }
-  }
-
   return null;
 }
 
 /**
- * Parses an HBXL Word Quote document buffer.
+ * Parses document elements into location hierarchy, work categories, actionable tasks, and resource metadata.
+ */
+export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
+  const carryOutRegex = /^Carry\s+out\s+work\s+in\s+/i;
+  
+  let hasCarryOutAnchors = false;
+  for (const el of elements) {
+    if (el.type === "paragraph" && carryOutRegex.test(el.paragraph.text.trim())) {
+      hasCarryOutAnchors = true;
+      break;
+    } else if (el.type === "table") {
+      for (const row of el.table.rows) {
+        if (carryOutRegex.test(row.text)) {
+          hasCarryOutAnchors = true;
+          break;
+        }
+      }
+    }
+  }
+
+  const isTerminationSection = (text: string): boolean => {
+    return /^(?:Acceptance\s+of\s+(?:Estimate|Quotation|Quote)|Terms\s*(?:&|and)\s*Conditions|Customer\s+Signature|Client\s+Signature|Date\s+of\s+Acceptance)/i.test(text.trim());
+  };
+
+  interface RawLocation {
+    name: string;
+    categories: Array<{
+      name: string;
+      tasks: ParsedWordTask[];
+    }>;
+  }
+
+  const rawLocations: RawLocation[] = [];
+  let currentLocation: RawLocation | null = null;
+  let currentCategory: { name: string; tasks: ParsedWordTask[] } | null = null;
+  let lastActionableTask: ParsedWordTask | null = null;
+  let insideDetailedSection = !hasCarryOutAnchors;
+  let totalResourceCount = 0;
+
+  function handleActionableTask(taskName: string, description?: string) {
+    const cleanName = taskName.trim().replace(/[:\.\-_]+$/, "").trim();
+    if (!cleanName || isBannedTaskOrCategory(cleanName)) return;
+
+    if (isPureMaterialOrProduct(cleanName)) {
+      totalResourceCount++;
+      if (lastActionableTask) {
+        lastActionableTask.resources = lastActionableTask.resources || [];
+        if (!lastActionableTask.resources.includes(cleanName)) {
+          lastActionableTask.resources.push(cleanName);
+        }
+      }
+      return;
+    }
+
+    if (!currentCategory) {
+      currentCategory = {
+        name: "General Works",
+        tasks: [],
+      };
+      currentLocation?.categories.push(currentCategory);
+    }
+
+    const newTask: ParsedWordTask = {
+      name: cleanName,
+      description: description?.trim() || undefined,
+      resources: [],
+    };
+    currentCategory.tasks.push(newTask);
+    lastActionableTask = newTask;
+  }
+
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements[i];
+
+    if (el.type === "paragraph") {
+      const p = el.paragraph;
+      const text = p.text.trim();
+      if (!text) continue;
+
+      if (isTerminationSection(text)) {
+        currentLocation = null;
+        currentCategory = null;
+        lastActionableTask = null;
+        insideDetailedSection = false;
+        break;
+      }
+
+      // Check if location anchor
+      const anchorName = extractLocationAnchorFromText(text);
+      if (anchorName) {
+        insideDetailedSection = true;
+        currentLocation = { name: anchorName, categories: [] };
+        rawLocations.push(currentLocation);
+        currentCategory = null;
+        lastActionableTask = null;
+        continue;
+      }
+
+      // If next element is a paragraph with Carry out work in...
+      const nextEl = i + 1 < elements.length ? elements[i + 1] : undefined;
+      if (nextEl && nextEl.type === "paragraph") {
+        const nextAnchor = extractLocationAnchorFromText(nextEl.paragraph.text);
+        if (nextAnchor && (text.toLowerCase() === nextAnchor.toLowerCase() || ((p.isHeading || p.isBold) && calculateLevenshteinDistance(text.toLowerCase(), nextAnchor.toLowerCase()) <= 2))) {
+          insideDetailedSection = true;
+          currentLocation = { name: nextAnchor, categories: [] };
+          rawLocations.push(currentLocation);
+          currentCategory = null;
+          lastActionableTask = null;
+          i++; // skip companion carry-out sentence
+          continue;
+        }
+      }
+
+      // Fallback for non-carry-out documents
+      if (!hasCarryOutAnchors && (p.headingLevel === 1 || (p.isBold && !p.isBullet)) && text.length < 50) {
+        const norm = text.toLowerCase();
+        if (STANDARD_DISTINCT_ROOMS.has(norm) || isGenericLocation(text)) {
+          insideDetailedSection = true;
+          currentLocation = { name: text, categories: [] };
+          rawLocations.push(currentLocation);
+          currentCategory = null;
+          lastActionableTask = null;
+          continue;
+        }
+      }
+
+      if (!insideDetailedSection || !currentLocation) {
+        continue;
+      }
+
+      if (isBannedTaskOrCategory(text)) {
+        continue;
+      }
+
+      const isCategoryHeading =
+        (p.headingLevel === 2 || (p.isHeading && p.headingLevel > 1) || (p.isBold && !p.isBullet)) &&
+        !p.isBullet &&
+        text.length < 80 &&
+        !isPureMaterialOrProduct(text);
+
+      if (isCategoryHeading) {
+        currentCategory = { name: text, tasks: [] };
+        currentLocation.categories.push(currentCategory);
+        lastActionableTask = null;
+        continue;
+      }
+
+      handleActionableTask(text);
+    } else if (el.type === "table") {
+      if (isTerminationSection(el.table.rows.map(r => r.text).join(" "))) {
+        break;
+      }
+
+      for (const row of el.table.rows) {
+        const rowText = row.text.trim();
+        if (!rowText || isBannedTaskOrCategory(rowText)) continue;
+
+        // Check if table row contains location anchor
+        const anchorName = extractLocationAnchorFromText(rowText);
+        if (anchorName) {
+          insideDetailedSection = true;
+          currentLocation = { name: anchorName, categories: [] };
+          rawLocations.push(currentLocation);
+          currentCategory = null;
+          lastActionableTask = null;
+          continue;
+        }
+
+        if (!insideDetailedSection || !currentLocation) {
+          continue;
+        }
+
+        // Check if row is a category header (e.g. 1 cell spanning or bold)
+        if (row.cells.length === 1 && row.cells[0].paragraphs.length > 0) {
+          const cellP = row.cells[0].paragraphs[0];
+          if ((cellP.isHeading || cellP.isBold) && !isPureMaterialOrProduct(cellP.text) && !isBannedTaskOrCategory(cellP.text)) {
+            currentCategory = { name: cellP.text.trim(), tasks: [] };
+            currentLocation.categories.push(currentCategory);
+            lastActionableTask = null;
+            continue;
+          }
+        }
+
+        // In standard table rows:
+        let descText = "";
+        let extraText = "";
+
+        if (row.cells.length >= 2) {
+          if (/^\d+(?:\.\d+)?$|^[A-Z]$/i.test(row.cells[0].text.trim())) {
+            descText = row.cells[1].text.trim();
+            extraText = row.cells.slice(2).map(c => c.text).join(" ");
+          } else {
+            descText = row.cells[0].text.trim();
+            extraText = row.cells.slice(1).map(c => c.text).join(" ");
+          }
+        } else if (row.cells.length === 1) {
+          descText = row.cells[0].text.trim();
+        }
+
+        if (descText && !isBannedTaskOrCategory(descText)) {
+          const lines = descText.split("\n").map(l => l.trim()).filter(Boolean);
+          for (const line of lines) {
+            handleActionableTask(line);
+          }
+        }
+      }
+    }
+  }
+
+  // Group and normalize locations (Maureen identical merge, Spencer preservation)
+  const groupedLocations = new Map<string, ParsedWordLocation>();
+
+  for (const rawLoc of rawLocations) {
+    const rawName = rawLoc.name.trim();
+    if (!rawName) continue;
+
+    const normName = rawName.toLowerCase();
+    const existing = groupedLocations.get(normName);
+
+    if (existing) {
+      for (const rawCat of rawLoc.categories) {
+        const catNorm = rawCat.name.toLowerCase();
+        const existingCat = existing.categories.find(c => c.name.toLowerCase() === catNorm);
+        if (existingCat) {
+          for (const task of rawCat.tasks) {
+            if (!existingCat.tasks.some(t => t.name.toLowerCase() === task.name.toLowerCase())) {
+              existingCat.tasks.push(task);
+            }
+          }
+        } else {
+          existing.categories.push(rawCat);
+        }
+      }
+    } else {
+      let reviewStatus: "CONFIRMED" | "REVIEW_REQUIRED" = "CONFIRMED";
+      let reviewReason: string | undefined;
+
+      if (isGenericLocation(rawName)) {
+        reviewStatus = "REVIEW_REQUIRED";
+        reviewReason = `Generic location heading "${rawName}" requires room clarification before worker assignment.`;
+      }
+
+      groupedLocations.set(normName, {
+        name: rawName,
+        normalizedName: normName,
+        reviewStatus,
+        reviewReason,
+        categories: rawLoc.categories,
+      });
+    }
+  }
+
+  const finalLocations = Array.from(groupedLocations.values());
+
+  // Check spelling variants across locations (e.g. Dining Room vs Dinning Room)
+  for (let i = 0; i < finalLocations.length; i++) {
+    for (let j = i + 1; j < finalLocations.length; j++) {
+      const locA = finalLocations[i];
+      const locB = finalLocations[j];
+      if (isSpellingVariant(locA.name, locB.name)) {
+        if (locA.reviewStatus !== "REVIEW_REQUIRED") {
+          locA.reviewStatus = "REVIEW_REQUIRED";
+          locA.reviewReason = `Spelling variant / possible duplicate of "${locB.name}". Please verify room name.`;
+        }
+        if (locB.reviewStatus !== "REVIEW_REQUIRED") {
+          locB.reviewStatus = "REVIEW_REQUIRED";
+          locB.reviewReason = `Spelling variant / possible duplicate of "${locA.name}". Please verify room name.`;
+        }
+      }
+    }
+  }
+
+  const categoryCount = finalLocations.reduce((sum, l) => sum + l.categories.length, 0);
+  const taskCount = finalLocations.reduce(
+    (sum, l) => sum + l.categories.reduce((cSum, c) => cSum + c.tasks.length, 0),
+    0
+  );
+  const flaggedLocationCount = finalLocations.filter((l) => l.reviewStatus === "REVIEW_REQUIRED").length;
+
+  return {
+    locations: finalLocations,
+    stats: {
+      sourceLocationCount: rawLocations.length,
+      locationCount: finalLocations.length,
+      categoryCount,
+      taskCount,
+      resourceCount: totalResourceCount,
+      flaggedLocationCount,
+    },
+  };
+}
+
+/**
+ * Parses an HBXL EstimatorXpress Word Quote document buffer.
  */
 export async function parseHbxlWordQuote(
   fileBuffer: Buffer | ArrayBuffer,
@@ -789,6 +1240,12 @@ export async function parseHbxlWordQuote(
         quoteDate: "",
         totalQuotePrice: null,
         formattedTotalPrice: "",
+        totalExclVat: null,
+        formattedTotalExclVat: "",
+        vatAmount: null,
+        formattedVatAmount: "",
+        totalIncVat: null,
+        formattedTotalIncVat: "",
       },
       locations: [],
       stats: { sourceLocationCount: 0, locationCount: 0, categoryCount: 0, taskCount: 0, resourceCount: 0, flaggedLocationCount: 0 },
@@ -812,6 +1269,12 @@ export async function parseHbxlWordQuote(
         quoteDate: "",
         totalQuotePrice: null,
         formattedTotalPrice: "",
+        totalExclVat: null,
+        formattedTotalExclVat: "",
+        vatAmount: null,
+        formattedVatAmount: "",
+        totalIncVat: null,
+        formattedTotalIncVat: "",
       },
       locations: [],
       stats: { sourceLocationCount: 0, locationCount: 0, categoryCount: 0, taskCount: 0, resourceCount: 0, flaggedLocationCount: 0 },
@@ -819,9 +1282,9 @@ export async function parseHbxlWordQuote(
   }
 
   const documentXml = await documentXmlFile.async("text");
-  const paragraphs = extractParagraphsFromDocumentXml(documentXml);
+  const elements = extractDocumentElements(documentXml);
 
-  if (paragraphs.length === 0) {
+  if (elements.length === 0) {
     return {
       valid: false,
       format: "unknown",
@@ -837,241 +1300,28 @@ export async function parseHbxlWordQuote(
         quoteDate: "",
         totalQuotePrice: null,
         formattedTotalPrice: "",
+        totalExclVat: null,
+        formattedTotalExclVat: "",
+        vatAmount: null,
+        formattedVatAmount: "",
+        totalIncVat: null,
+        formattedTotalIncVat: "",
       },
       locations: [],
       stats: { sourceLocationCount: 0, locationCount: 0, categoryCount: 0, taskCount: 0, resourceCount: 0, flaggedLocationCount: 0 },
     };
   }
 
-  const fullText = paragraphs.map((p) => p.text).join("\n");
-  const metadata = extractMetadata(paragraphs, fullText, filename);
-
-  // =========================================================================
-  // LOCATION & TASK EXTRACTION
-  // =========================================================================
-  const carryOutRegex = /^Carry\s+out\s+work\s+in\s+/i;
-  const isTerminationSection = (text: string): boolean => {
-    return /^(?:Acceptance\s+of\s+(?:Estimate|Quotation|Quote)|Terms\s*(?:&|and)\s*Conditions|Customer\s+Signature|Client\s+Signature|Date\s+of\s+Acceptance)/i.test(text.trim());
-  };
-
-  const hasCarryOutAnchors = paragraphs.some((p) => carryOutRegex.test(p.text.trim()));
-
-  interface RawLocation {
-    name: string;
-    categories: Array<{
-      name: string;
-      tasks: ParsedWordTask[];
-    }>;
-  }
-
-  const rawLocations: RawLocation[] = [];
-  let currentLocation: RawLocation | null = null;
-  let currentCategory: { name: string; tasks: ParsedWordTask[] } | null = null;
-  let lastActionableTask: ParsedWordTask | null = null;
-  let insideDetailedSection = !hasCarryOutAnchors;
-  let totalResourceMetadataCount = 0;
-
-  for (let i = 0; i < paragraphs.length; i++) {
-    const p = paragraphs[i];
-    const nextP = i + 1 < paragraphs.length ? paragraphs[i + 1] : undefined;
-    const text = p.text.trim();
-    if (!text) continue;
-
-    // Check if we have hit a termination section (Acceptance, Terms & Conditions, etc.)
-    if (isTerminationSection(text)) {
-      currentLocation = null;
-      currentCategory = null;
-      lastActionableTask = null;
-      insideDetailedSection = false;
-      break;
-    }
-
-    // Check if this paragraph is a Location Anchor Boundary
-    const anchorLocationName = extractLocationAnchorName(p, nextP, hasCarryOutAnchors);
-    if (anchorLocationName) {
-      insideDetailedSection = true;
-
-      // Close previous location immediately so no boundary heading leaks into previous room!
-      currentLocation = {
-        name: anchorLocationName,
-        categories: [],
-      };
-      rawLocations.push(currentLocation);
-      currentCategory = null;
-      lastActionableTask = null;
-
-      // If the current paragraph is the title and next paragraph is "Carry out work in...", advance loop
-      if (nextP && /^Carry\s+out\s+work\s+in/i.test(nextP.text.trim())) {
-        i++; // Skip companion carry-out sentence
-      }
-      continue;
-    }
-
-    if (!insideDetailedSection || !currentLocation) {
-      // Skip all content before the first detail location anchor (i.e. Cover/Summary page)
-      continue;
-    }
-
-    // Skip any banned tokens, table column headers, prices, acceptance text, etc.
-    if (isBannedTaskOrCategory(text)) {
-      continue;
-    }
-
-    // Check if paragraph text is a Work Category Heading
-    // e.g. "Replace Existing Floorboards", "Internal Lighting", "Bathroom Electrics", "Ceramic Wall Tiling"
-    const isCategoryHeading =
-      (p.headingLevel === 2 || (p.isHeading && p.headingLevel > 1) || (p.isBold && !p.isBullet)) &&
-      !p.isBullet &&
-      text.length < 80 &&
-      !isPureMaterialOrProduct(text);
-
-    if (isCategoryHeading) {
-      currentCategory = {
-        name: text,
-        tasks: [],
-      };
-      currentLocation.categories.push(currentCategory);
-      lastActionableTask = null;
-      continue;
-    }
-
-    // Check if this line is pure resource/material metadata rather than an actionable task
-    if (isPureMaterialOrProduct(text)) {
-      totalResourceMetadataCount++;
-      if (lastActionableTask) {
-        lastActionableTask.resources = lastActionableTask.resources || [];
-        if (!lastActionableTask.resources.includes(text)) {
-          lastActionableTask.resources.push(text);
-        }
-      }
-      continue;
-    }
-
-    // Specific Actionable Task / Work Item
-    if (!currentCategory) {
-      currentCategory = {
-        name: "General Works",
-        tasks: [],
-      };
-      currentLocation.categories.push(currentCategory);
-    }
-
-    // Ensure we don't add duplicate tasks within the same category
-    let existingTask = currentCategory.tasks.find((t) => t.name === text);
-    if (!existingTask) {
-      existingTask = {
-        name: text,
-        description: text,
-        sourceReference: "HBXL_WORD",
-      };
-      currentCategory.tasks.push(existingTask);
-    }
-    lastActionableTask = existingTask;
-  }
-
-  // =========================================================================
-  // MERGE EXACT NORMALIZED DUPLICATE DETAIL LOCATIONS
-  // (e.g. "2nd main bedroom" and "2nd main Bedroom" merged into 1 location)
-  // =========================================================================
-  const locationMap = new Map<string, RawLocation>();
-
-  for (const rawLoc of rawLocations) {
-    const normKey = rawLoc.name.trim().toLowerCase();
-    const existing = locationMap.get(normKey);
-
-    if (!existing) {
-      locationMap.set(normKey, {
-        name: rawLoc.name,
-        categories: [...rawLoc.categories],
-      });
-    } else {
-      // Merge categories from this section into existing location
-      for (const newCat of rawLoc.categories) {
-        const existingCat = existing.categories.find((c) => c.name.toLowerCase() === newCat.name.toLowerCase());
-        if (existingCat) {
-          // Merge tasks
-          for (const task of newCat.tasks) {
-            if (!existingCat.tasks.some((t) => t.name.toLowerCase() === task.name.toLowerCase())) {
-              existingCat.tasks.push(task);
-            }
-          }
-        } else {
-          existing.categories.push(newCat);
-        }
-      }
-    }
-  }
-
-  const mergedLocationsList = Array.from(locationMap.values());
-
-  // =========================================================================
-  // LOCATION REVIEW & SPELLING VARIANT CHECKS
-  // =========================================================================
-  const locations: ParsedWordLocation[] = [];
-
-  for (let i = 0; i < mergedLocationsList.length; i++) {
-    const loc = mergedLocationsList[i];
-    // Filter out any categories with 0 tasks
-    const validCategories = loc.categories.filter((cat) => cat.tasks.length > 0);
-
-    const normalized = loc.name.trim().toLowerCase();
-    let reviewStatus: "CONFIRMED" | "REVIEW_REQUIRED" = "CONFIRMED";
-    let reviewReason: string | undefined = undefined;
-
-    // 1. Generic / container location check
-    if (isGenericLocation(loc.name)) {
-      reviewStatus = "REVIEW_REQUIRED";
-      reviewReason = `Generic location heading "${loc.name}" requires room clarification before worker assignment.`;
-    }
-
-    // 2. Check for true spelling variants across distinct normalized locations
-    // (e.g. "Dining Room" vs "Dinning Room")
-    for (let j = 0; j < mergedLocationsList.length; j++) {
-      if (i === j) continue;
-      const other = mergedLocationsList[j];
-      const otherNorm = other.name.trim().toLowerCase();
-
-      if (isSpellingVariant(loc.name, other.name)) {
-        reviewStatus = "REVIEW_REQUIRED";
-        reviewReason = `Spelling variant / possible duplicate of "${other.name}". Please verify room name.`;
-        break;
-      }
-    }
-
-    locations.push({
-      name: loc.name,
-      normalizedName: normalized,
-      reviewStatus,
-      reviewReason,
-      categories: validCategories,
-    });
-  }
-
-  let totalTasks = 0;
-  let totalCategories = 0;
-  for (const loc of locations) {
-    totalCategories += loc.categories.length;
-    for (const cat of loc.categories) {
-      totalTasks += cat.tasks.length;
-    }
-  }
-
-  const flaggedLocationCount = locations.filter((l) => l.reviewStatus === "REVIEW_REQUIRED").length;
+  const metadata = extractMetadataFromElements(elements);
+  const { locations, stats } = parseElementsIntoLocationsAndTasks(elements);
 
   return {
-    valid: locations.length > 0,
+    valid: true,
     format: "hbxl-word-quote",
     errors,
     warnings,
     metadata,
     locations,
-    stats: {
-      sourceLocationCount: rawLocations.length,
-      locationCount: locations.length,
-      categoryCount: totalCategories,
-      taskCount: totalTasks,
-      resourceCount: totalResourceMetadataCount,
-      flaggedLocationCount,
-    },
+    stats,
   };
 }

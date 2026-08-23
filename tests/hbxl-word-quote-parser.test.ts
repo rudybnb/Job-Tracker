@@ -254,79 +254,193 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
  */
 export async function createSpencerHouseDocxBuffer(): Promise<Buffer> {
   const xml = `
-    <!-- Header block — real document metadata -->
-    <w:p><w:r><w:t>HBXL Estimator</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Quotation</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Client: Promise Igbinedion</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Address: Spencer House</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Spencer Road</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Birchington</w:t></w:r></w:p>
-    <w:p><w:r><w:t>CT7 9EZ</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Total (excl. VAT): £17,350.46</w:t></w:r></w:p>
+    <!-- Header title -->
+    <w:p><w:r><w:t>HBXL EstimatorXpress Quotation</w:t></w:r></w:p>
 
-    <!-- Summary Section (Must be skipped) -->
-    <w:p><w:r><w:t>Summary of Estimate</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Customised Build</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Dining Room</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Dinning Room</w:t></w:r></w:p>
-    <w:p><w:r><w:t>House</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Living Room</w:t></w:r></w:p>
+    <!-- Table 1: Client & Project Details -->
+    <w:tbl>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Client:</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Promise Igbinedion</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Project / Site:</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Spencer House</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Site Address:</w:t></w:r></w:p></w:tc>
+        <w:tc>
+          <w:p><w:r><w:t>Spencer House</w:t></w:r></w:p>
+          <w:p><w:r><w:t>Spencer Road</w:t></w:r></w:p>
+          <w:p><w:r><w:t>Birchington</w:t></w:r></w:p>
+          <w:p><w:r><w:t>CT7 9EZ</w:t></w:r></w:p>
+        </w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Total cost excluding VAT:</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£17,350.46</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
 
-    <!-- Customised Build — Internal Door & Structural Openings (8 tasks) -->
+    <!-- Summary of Estimate Section (Must be skipped) -->
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Summary of Estimate</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Location</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Material</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Labour</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Total</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Customised Build</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£1,500.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£1,500.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£3,000.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Dining Room</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£600.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£900.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£1,500.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Dinning Room</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£2,000.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£3,000.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£5,000.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>House</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£500.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£1,000.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£1,500.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Living Room</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£2,000.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£4,350.46</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£6,350.46</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+
+    <!-- Detailed Section 1: Customised Build (8 tasks) -->
     <w:p><w:r><w:t>Carry out work in Customised Build comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Internal Door</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Internal Door 6 Panel Smooth 838 x 1981mm</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Door casing</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Architrave</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Door former</w:t></w:r></w:p>
-    <w:p><w:r><w:t>associated decorating/fixings</w:t></w:r></w:p>
-    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Structural Openings to Existing Wall</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Universal Beam 178 x 102 x 19kg per m</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Padstones</w:t></w:r></w:p>
-    <w:p><w:r><w:t>making-good materials</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>General Works</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Material</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Labour</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Total</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Internal Door 6 Panel Smooth 838 x 1981mm</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£150.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£100.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£250.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Door casing</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£50.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£60.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£110.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Architrave</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£30.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£40.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£70.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Door former</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£20.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£50.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£70.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>associated decorating/fixings</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£15.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£35.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£50.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
 
-    <!-- Dining Room — Vinyl Flooring (6 tasks) -->
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Structural Openings to Existing Wall</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Universal Beam 178 x 102 x 19kg per m</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£350.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£400.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£750.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Padstones</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£40.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£60.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£100.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>making-good materials</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£30.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£70.00</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>£100.00</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+
+    <!-- Detailed Section 2: Dining Room (6 tasks) -->
     <w:p><w:r><w:t>Carry out work in Dining Room comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Vinyl Flooring</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Vinyl flooring</w:t></w:r></w:p>
-    <w:p><w:r><w:t>2nd layer levelling compound</w:t></w:r></w:p>
-    <w:p><w:r><w:t>vinyl adhesive</w:t></w:r></w:p>
-    <w:p><w:r><w:t>threshold</w:t></w:r></w:p>
-    <w:p><w:r><w:t>sundry materials</w:t></w:r></w:p>
-    <w:p><w:r><w:t>skirting fixings</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:r><w:t>Vinyl flooring</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>2nd layer levelling compound</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>vinyl adhesive</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>threshold</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>sundry materials</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>skirting fixings</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
 
-    <!-- Dinning Room — Structural Openings & Decoration (7 tasks) -->
+    <!-- Detailed Section 3: Dinning Room (7 tasks) -->
     <w:p><w:r><w:t>Carry out work in Dinning Room comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Structural Openings to Existing Wall</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Universal Beam 203 x 133 x 25kg per m</w:t></w:r></w:p>
-    <w:p><w:r><w:t>padstones</w:t></w:r></w:p>
-    <w:p><w:r><w:t>making-good materials</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:r><w:t>Universal Beam 203 x 133 x 25kg per m</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>padstones</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>making-good materials</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Room Decoration</w:t></w:r></w:p>
-    <w:p><w:r><w:t>walls/plaster</w:t></w:r></w:p>
-    <w:p><w:r><w:t>ceiling</w:t></w:r></w:p>
-    <w:p><w:r><w:t>architraves/casings</w:t></w:r></w:p>
-    <w:p><w:r><w:t>skirtings</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:r><w:t>walls/plaster</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>ceiling</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>architraves/casings</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>skirtings</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
 
-    <!-- House — Structural Opening (3 tasks) -->
+    <!-- Detailed Section 4: House (3 tasks) -->
     <w:p><w:r><w:t>Carry out work in House comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Structural Opening</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Lintel Number 1 RSJ 178 x 102 x 19kg per m</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Lintel Number 2 RSJ 178 x 102 x 19kg per m</w:t></w:r></w:p>
-    <w:p><w:r><w:t>associated padstones/making good</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:r><w:t>Lintel Number 1 RSJ 178 x 102 x 19kg per m</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Lintel Number 2 RSJ 178 x 102 x 19kg per m</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>associated padstones/making good</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
 
-    <!-- Living Room — Room Decoration & Vinyl Flooring (7 tasks) -->
+    <!-- Detailed Section 5: Living Room (7 tasks) -->
     <w:p><w:r><w:t>Carry out work in Living Room comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Room Decoration</w:t></w:r></w:p>
-    <w:p><w:r><w:t>ceiling</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:r><w:t>ceiling</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Vinyl Flooring</w:t></w:r></w:p>
-    <w:p><w:r><w:t>vinyl flooring</w:t></w:r></w:p>
-    <w:p><w:r><w:t>levelling compound</w:t></w:r></w:p>
-    <w:p><w:r><w:t>threshold</w:t></w:r></w:p>
-    <w:p><w:r><w:t>adhesive</w:t></w:r></w:p>
-    <w:p><w:r><w:t>sundry materials</w:t></w:r></w:p>
-    <w:p><w:r><w:t>skirting fixings</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:r><w:t>vinyl flooring</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>levelling compound</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>threshold</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>adhesive</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>sundry materials</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>skirting fixings</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
 
-    <!-- Acceptance / Terms -->
+    <!-- Acceptance Section -->
     <w:p><w:r><w:t>Acceptance of Estimate</w:t></w:r></w:p>
     <w:p><w:r><w:t>Terms and Conditions</w:t></w:r></w:p>
   `;
