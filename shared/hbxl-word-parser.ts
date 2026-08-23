@@ -42,6 +42,12 @@ export interface ParsedWordQuoteResult {
     quoteDate: string;
     totalQuotePrice: number | null;
     formattedTotalPrice: string;
+    totalExclVat: number | null;
+    formattedTotalExclVat: string;
+    vatAmount: number | null;
+    formattedVatAmount: string;
+    totalIncVat: number | null;
+    formattedTotalIncVat: string;
   };
   locations: ParsedWordLocation[];
   stats: {
@@ -330,14 +336,32 @@ export function isBannedTaskOrCategory(text: string): boolean {
 export function isPureMaterialOrProduct(text: string): boolean {
   const norm = text.trim().toLowerCase();
 
+  // Action verbs indicate actionable tasks
+  if (
+    /^(?:remove|removal|install|installation|fit|fitting|supply\s+and\s+fit|hang|erect|construct|apply|paint|plaster|undercoat|emulsion|strip|form|lay|replace|replacement|take\s+down|cut|drill|connect|test|commission|seal|bed|point|re-point|first\s+fix|second\s+fix|decorate)\b/i.test(
+      norm,
+    )
+  ) {
+    return false;
+  }
+
+  // Known operational fixtures
+  if (
+    /^(?:pull\s+light\s+switch|extractor\s+fan|universal\s+beam|internal\s+door|fire\s+door|lintel|padstones?|architrave|door\s+casing|door\s+former|threshold|skirting fixings?|skirtings?|ceiling\s+rose|radiator|double\s+socket|sockets?)/i.test(
+      norm,
+    )
+  ) {
+    return false;
+  }
+
   // Generic non-action labels / table filler
   if (/^(?:material|materials|general\s+works|room|floor|tiling|description)$/i.test(norm)) {
     return true;
   }
 
-  // Specific product catalog descriptions with dimensions, brands, or pack sizes
+  // Specific product catalog descriptions with dimensions, brands, allowances, or pack sizes
   if (
-    /fibreglass|tongue\s*&\s*grooved|t&g|gloss\s+white|wall\s+tile\s+grout|wall\s+tile\s+adhesive|pvc\s+tile\s+trim|roll\s+\d+mm|\d+mm\s*x\s*\d+mm|nominal\s+\d+mm|finished\s+\d+mm|twin\s*&\s*earth/i.test(
+    /fibreglass|tongue\s*&\s*grooved|t&g|gloss\s+white|wall\s+tile\s+grout|wall\s+tile\s+adhesive|pvc\s+tile\s+trim|waterproof\s+wall\s+tile|tile\s+allowances?|roll\s+\d+mm|nominal\s+\d+mm|finished\s+\d+mm|twin\s*&\s*earth/i.test(
       norm,
     )
   ) {
@@ -437,6 +461,12 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
   let projectType = "";
   let quoteReference = "";
   let quoteDate = "";
+  let totalExclVat: number | null = null;
+  let vatAmount: number | null = null;
+  let totalIncVat: number | null = null;
+  let formattedTotalExclVat = "";
+  let formattedVatAmount = "";
+  let formattedTotalIncVat = "";
   let totalQuotePrice: number | null = null;
   let formattedTotalPrice = "";
 
@@ -451,10 +481,21 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
 
   const postcodePattern = /\b([A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2})\b/i;
 
-  const totalPatterns = [
-    /(?:Grand\s+Total|Total\s+(?:\(excl\.?\s*VAT\)|\(inc\.?\s*VAT\)|Quote|Quotation|Price|Estimated\s*Cost|Amount))\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
-    /Total\s*\(excl\.?\s*VAT\)\s*:?\s*£?\s*([\d,]+(?:\.\d{2})?)/i,
-    /Total\s*Price\s*:?\s*£?\s*([\d,]+(?:\.\d{2})?)/i,
+  const exclVatPatterns = [
+    /(?:Total\s*\(excl\.?\s*VAT\)|\bTotal\s+cost\s+excluding\s+VAT\b|\bTotal\s+excl\.?\s*VAT\b|\bNet\s+Total\b)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
+  ];
+
+  const vatPatterns = [
+    /(?:Total\s+VAT|VAT\s*@\s*20%|^VAT)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
+    /^(?:Add\s+)?VAT\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
+  ];
+
+  const incVatPatterns = [
+    /(?:Grand\s+Total|Total\s*\(inc\.?\s*VAT\)|\bTotal\s+cost\s+including\s+VAT\b|\bTotal\s+inc\.?\s*VAT\b|\bGross\s+Total\b)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
+  ];
+
+  const genericTotalPatterns = [
+    /(?:Total\s+Quote|Total\s+Quotation|Total\s+Price|Estimated\s*Cost|Total\s*Amount)\s*:?\s*(?:£|GBP)?\s*([\d,]+(?:\.\d{2})?)/i,
     /^Total\s*:?\s*£\s*([\d,]+\.\d{2})$/i,
   ];
 
@@ -474,6 +515,7 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
   ];
 
   let inAddressBlock = false;
+  let inDetailedWorkSection = false;
   let addressBlockLineCount = 0;
   const MAX_ADDRESS_LINES = 6;
 
@@ -486,8 +528,18 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
       continue;
     }
 
-    if (/^Carry\s+out\s+work\s+in/i.test(t) || /^(?:Acceptance|Terms)/i.test(t)) {
+    if (/^Carry\s+out\s+work\s+in/i.test(t)) {
       inAddressBlock = false;
+      inDetailedWorkSection = true;
+    }
+
+    if (/^(?:Acceptance|Terms)/i.test(t)) {
+      inAddressBlock = false;
+    }
+
+    // Skip total and address scanning inside detailed room sections to avoid room subtotals
+    if (inDetailedWorkSection) {
+      continue;
     }
 
     // Client name
@@ -531,24 +583,64 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
       }
     }
 
-    // Grand/Total price
-    if (totalQuotePrice === null) {
-      let matchedTotal = false;
-      for (const tp of totalPatterns) {
-        const m = t.match(tp);
+    // 1. Total excluding VAT (Net)
+    if (totalExclVat === null) {
+      for (const pat of exclVatPatterns) {
+        const m = t.match(pat);
         if (m && m[1]) {
-          const numStr = m[1].replace(/,/g, "");
-          const val = parseFloat(numStr);
-          if (!isNaN(val) && val > 100) {
-            totalQuotePrice = val;
-            formattedTotalPrice = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            if (inAddressBlock) inAddressBlock = false;
-            matchedTotal = true;
+          const val = parseFloat(m[1].replace(/,/g, ""));
+          if (!isNaN(val) && val > 0) {
+            totalExclVat = val;
+            formattedTotalExclVat = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             break;
           }
         }
       }
-      if (matchedTotal) continue;
+    }
+
+    // 2. VAT Amount
+    if (vatAmount === null) {
+      for (const pat of vatPatterns) {
+        const m = t.match(pat);
+        if (m && m[1]) {
+          const val = parseFloat(m[1].replace(/,/g, ""));
+          if (!isNaN(val) && val > 0) {
+            vatAmount = val;
+            formattedVatAmount = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            break;
+          }
+        }
+      }
+    }
+
+    // 3. Total including VAT (Gross / Grand Total)
+    if (totalIncVat === null) {
+      for (const pat of incVatPatterns) {
+        const m = t.match(pat);
+        if (m && m[1]) {
+          const val = parseFloat(m[1].replace(/,/g, ""));
+          if (!isNaN(val) && val > 0) {
+            totalIncVat = val;
+            formattedTotalIncVat = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            break;
+          }
+        }
+      }
+    }
+
+    // Generic total fallback if specific excl/inc VAT not matched
+    if (totalQuotePrice === null) {
+      for (const pat of genericTotalPatterns) {
+        const m = t.match(pat);
+        if (m && m[1]) {
+          const val = parseFloat(m[1].replace(/,/g, ""));
+          if (!isNaN(val) && val > 100) {
+            totalQuotePrice = val;
+            formattedTotalPrice = `£${val.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            break;
+          }
+        }
+      }
     }
 
     // Address block
@@ -588,6 +680,17 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
 
   const address = addressLines.join("\n");
 
+  // Determine main total quote price
+  if (totalQuotePrice === null) {
+    if (totalExclVat !== null) {
+      totalQuotePrice = totalExclVat;
+      formattedTotalPrice = formattedTotalExclVat;
+    } else if (totalIncVat !== null) {
+      totalQuotePrice = totalIncVat;
+      formattedTotalPrice = formattedTotalIncVat;
+    }
+  }
+
   return {
     clientName,
     projectSiteName: projectSiteName || fallbackProjectSiteName,
@@ -598,6 +701,12 @@ function extractMetadata(paragraphs: RawDocParagraph[], fullText: string, fallba
     quoteDate,
     totalQuotePrice,
     formattedTotalPrice,
+    totalExclVat,
+    formattedTotalExclVat,
+    vatAmount,
+    formattedVatAmount,
+    totalIncVat,
+    formattedTotalIncVat,
   };
 }
 

@@ -26,8 +26,8 @@ const REAL_MAUREEN = {
   projectSiteName: "2nd Floor",
   clientName: "Maureen Orubebe",
   postcode: "NW9 5YZ",
-  totalQuotePrice: 28450,
-  formattedTotalPrice: "£28,450.00",
+  totalQuotePrice: 38822.47,
+  formattedTotalPrice: "£38,822.47",
   locationNames: [
     "2nd bathroom",
     "2nd floor bedroom 4",
@@ -44,8 +44,8 @@ const REAL_MAUREEN = {
     "Upstairs",
   ],
   locationCount: 13,
-  categoryCount: 17,
-  taskCount: 26,
+  categoryCount: 21,
+  taskCount: 47,
 } as const;
 
 // Invented values that must NEVER appear in any output

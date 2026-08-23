@@ -75,7 +75,9 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>Address: 3 Lingard Avenue</w:t></w:r></w:p>
     <w:p><w:r><w:t>Colindale</w:t></w:r></w:p>
     <w:p><w:r><w:t>NW9 5YZ</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Total (excl. VAT): £28,450.00</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Total cost excluding VAT: £38,822.47</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Total VAT: £7,764.49</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Total cost including VAT: £46,586.96</w:t></w:r></w:p>
 
     <!-- SUMMARY SECTION (Must NEVER create locations or tasks) -->
     <w:p><w:r><w:t>Summary of Estimate</w:t></w:r></w:p>
@@ -87,6 +89,13 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>2nd Passage</w:t></w:r></w:p>
     <w:p><w:r><w:t>Bathroom Wall</w:t></w:r></w:p>
     <w:p><w:r><w:t>Bathrooms</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Downstairs</w:t></w:r></w:p>
+    <w:p><w:r><w:t>External Walls</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Floor</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Ground Floor</w:t></w:r></w:p>
+    <w:p><w:r><w:t>House</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Internal Walls</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Upstairs</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 1: 2nd bathroom -->
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>2nd bathroom</w:t></w:r></w:p>
@@ -94,9 +103,9 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Replace Existing Floorboards</w:t></w:r></w:p>
     <w:p><w:r><w:t>Remove 3.13m² of floorboards</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install 3.13m² insulation</w:t></w:r></w:p>
-    <w:p><w:r><w:t>GP Fibreglass Roll 100mm</w:t></w:r></w:p>
+    <w:p><w:r><w:t>GP Fibreglass Insulation Roll 150mm</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install 3.13m² replacement floorboards</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Whitewood Tongue &amp; Grooved Flooring (Nominal 25mm x 125mm Finished 20.5mm x 119mm) - Standard</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Whitewood Tongue &amp; Grooved Flooring 22 x 125mm</w:t></w:r></w:p>
     <w:p><w:r><w:t>Material</w:t></w:r></w:p>
     <w:p><w:r><w:t>Labour</w:t></w:r></w:p>
     <w:p><w:r><w:t>Resources to include:</w:t></w:r></w:p>
@@ -140,7 +149,7 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:r><w:t>Carry out work in Bathroom Wall comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Ceramic Wall Tiling</w:t></w:r></w:p>
     <w:p><w:r><w:t>Install 14.40m² ceramic wall tiling</w:t></w:r></w:p>
-    <w:p><w:r><w:t>150mm x 150mm Gloss White Ceramic Wall Tiles</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Ceramic plain / border / decorative tile allowances</w:t></w:r></w:p>
     <w:p><w:r><w:t>Waterproof Wall Tile Adhesive</w:t></w:r></w:p>
     <w:p><w:r><w:t>Wall Tile Grout White</w:t></w:r></w:p>
     <w:p><w:r><w:t>Resources to include:</w:t></w:r></w:p>
@@ -162,44 +171,69 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <!-- DETAILED SECTION 7: Downstairs -->
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Downstairs</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in Downstairs comprising:</w:t></w:r></w:p>
-    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Structural Opening</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Form structural opening</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Electrical Sockets</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Double Socket Downstairs</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install back boxes for 6 double sockets and connect to circuit</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 6 sockets</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 8: External Walls -->
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>External Walls</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in External Walls comprising:</w:t></w:r></w:p>
-    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>External Decoration</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Apply 2 coats masonry paint to external walls</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Brick and Block Cavity Wall</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Construct 63.98m² brick and block cavity wall</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 25.59m skirting board</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Decorate 63.98m² plastered wall</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Decorate 25.59m skirting board</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 9: Floor -->
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Floor</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in Floor comprising:</w:t></w:r></w:p>
-    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Floor Insulation</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Install floor insulation</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Domestic Carpeting</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 21.12m² carpet including underlay and carpet</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 10: Ground Floor -->
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Ground Floor</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in Ground Floor comprising:</w:t></w:r></w:p>
-    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Plastering</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Plaster walls and ceiling</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Removal of Floor Tiles</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Removal and disposal of 6.46m² floor tiles</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 11: House -->
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>House</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in House comprising:</w:t></w:r></w:p>
-    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>General Prep</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Site setup and protection</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Solid Wood Flooring</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 21.12m² solid wood flooring including levelling compound, underlay and skirting removal/refit</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>K2 Double Panel Radiator</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Hang 2 radiators</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Internal Lighting</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Ceiling Rose</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install cable for 3 ceiling roses</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 3 ceiling roses</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Mains Downlight IP and Fire Rated</w:t></w:r></w:p>
+    <w:p><w:r><w:t>First fix 4 downlights including cable</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 4 downlights</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 12: Internal Walls -->
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Internal Walls</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in Internal Walls comprising:</w:t></w:r></w:p>
-    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Stud Partition</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Construct timber stud partition wall</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Internal Door</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Internal Door Opening</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install door casing</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install internal door</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Decorate internal door and frame</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Fire Door</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Fire Door Opening</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install fire door casing and intumescent strips</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install fire door</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Form plasterboard reveal</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Decorate fire door and frame</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 13: Upstairs -->
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Upstairs</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in Upstairs comprising:</w:t></w:r></w:p>
-    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Ceiling Repair</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Repair and skim ceiling</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Stud Wall</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Construct 10.87m timber stud wall</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 21.75m skirting</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Decorate 21.75m skirting</w:t></w:r></w:p>
 
     <!-- LEGAL / SIGNING SECTION -->
     <w:p><w:r><w:t>Acceptance of Estimate</w:t></w:r></w:p>
@@ -375,16 +409,22 @@ test("Maureen Orubebe 2nd Floor quote parser: full source fidelity, merged ident
   assert.ok(result.metadata.address.includes("3 Lingard Avenue"));
   assert.ok(result.metadata.address.includes("Colindale"));
   assert.equal(result.metadata.postcode, "NW9 5YZ");
-  assert.equal(result.metadata.totalQuotePrice, 28450);
-  assert.equal(result.metadata.formattedTotalPrice, "£28,450.00");
+  assert.equal(result.metadata.totalExclVat, 38822.47);
+  assert.equal(result.metadata.formattedTotalExclVat, "£38,822.47");
+  assert.equal(result.metadata.vatAmount, 7764.49);
+  assert.equal(result.metadata.formattedVatAmount, "£7,764.49");
+  assert.equal(result.metadata.totalIncVat, 46586.96);
+  assert.equal(result.metadata.formattedTotalIncVat, "£46,586.96");
+  assert.equal(result.metadata.totalQuotePrice, 38822.47);
+  assert.equal(result.metadata.formattedTotalPrice, "£38,822.47");
 
   // 2. Location Statistics
   // 14 raw source sections merged into 13 distinct operational locations
   assert.equal(result.stats.sourceLocationCount, 14, "Source location count must be 14");
   assert.equal(result.stats.locationCount, 13, "Merged operational location count must be 13");
-  assert.equal(result.stats.categoryCount, 17, "Work category count must be 17");
-  assert.equal(result.stats.taskCount, 26, "Assignable task count must be 26");
-  assert.ok(result.stats.resourceCount >= 5, "Attached resource metadata lines must be recorded");
+  assert.equal(result.stats.categoryCount, 21, "Work category count must be 21");
+  assert.equal(result.stats.taskCount, 47, "Assignable task count must be 47");
+  assert.ok(result.stats.resourceCount >= 4, "Attached resource metadata lines must be recorded");
 
   // 3. Strict Boundary Verification: Ensure next location heading never leaked into previous location
   const loc2ndBathroom = result.locations.find(l => l.name === "2nd bathroom")!;
@@ -432,7 +472,7 @@ test("Maureen Orubebe 2nd Floor quote parser: full source fidelity, merged ident
     "Install 3.13m² replacement floorboards",
   ]);
   const insulTask = floorboardCat.tasks.find(t => t.name === "Install 3.13m² insulation")!;
-  assert.ok(insulTask.resources?.includes("GP Fibreglass Roll 100mm"), "Resource metadata attached to insulation task");
+  assert.ok(insulTask.resources?.includes("GP Fibreglass Insulation Roll 150mm"), "Resource metadata attached to insulation task");
 });
 
 test("Spencer House Word quote parser: extracts metadata, locations, categories and tasks exactly", async () => {
