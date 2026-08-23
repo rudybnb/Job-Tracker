@@ -273,3 +273,44 @@ test("DELETE /api/csv-uploads/:id: admin request removes upload record from Rece
     assert.equal(job2?.uploadId, null);
   });
 });
+
+test("DELETE /api/csv-uploads/:id: deleting a DOCX quote upload removes upload history only and keeps live job/locations/tasks", async () => {
+  await withTestRoute(async ({ storage, setSession, deleteUpload }) => {
+    // DOCX upload record in csv_uploads
+    storage.uploads.push({
+      id: "docx-upload-123",
+      filename: "Job 1 2nd Floor - Quote.docx",
+      status: "processed",
+      jobsCount: "1",
+      uploadedAt: new Date("2026-08-23T07:15:00Z"),
+    });
+
+    // Associated live job created from DOCX upload
+    storage.jobs.push({
+      id: "job-spencer-doc",
+      title: "Spencer House",
+      uploadId: "docx-upload-123",
+    });
+
+    setSession({ role: "admin", username: "admin" });
+
+    // Admin clicks trash icon on Recent Uploads card for the DOCX quote
+    const res = await deleteUpload("/api/csv-uploads/docx-upload-123");
+
+    // 1. Returns JSON, never HTML
+    assert.equal(res.status, 200);
+    assert.match(res.contentType, /application\/json/);
+    assert.equal(res.body.success, true);
+    assert.equal(res.body.id, "docx-upload-123");
+    assert.doesNotMatch(res.rawText, /<!DOCTYPE/);
+
+    // 2. Upload history entry is removed from Recent Uploads
+    assert.equal(storage.uploads.length, 0, "DOCX upload record removed from history");
+
+    // 3. Live job remains completely intact in the system
+    assert.equal(storage.jobs.length, 1, "Live job remains intact");
+    assert.equal(storage.jobs[0].id, "job-spencer-doc");
+    assert.equal(storage.jobs[0].title, "Spencer House");
+    assert.equal(storage.jobs[0].uploadId, null, "uploadId unlinked safely");
+  });
+});
