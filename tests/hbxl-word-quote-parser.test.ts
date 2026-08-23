@@ -216,16 +216,16 @@ export async function createMaureenOrubebeDocxBuffer(): Promise<Buffer> {
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Internal Walls</w:t></w:r></w:p>
     <w:p><w:r><w:t>Carry out work in Internal Walls comprising:</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Internal Door</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Internal Door Opening</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Install door casing</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Install internal door</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Decorate internal door and frame</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Form opening for 1 internal door</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install casing for 1 internal door</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 1 internal door</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Decorate 1 internal door and frame</w:t></w:r></w:p>
     <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Fire Door</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Fire Door Opening</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Install fire door casing and intumescent strips</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Install fire door</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Form plasterboard reveal</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Decorate fire door and frame</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Form opening for 2 fire doors</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install casing for 2 fire doors</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Install 2 fire doors</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Plaster reveals to 2 fire doors</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Decorate 2 fire doors</w:t></w:r></w:p>
 
     <!-- DETAILED SECTION 13: Upstairs -->
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Upstairs</w:t></w:r></w:p>
