@@ -1019,7 +1019,7 @@ export default function UploadCsv() {
                   <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                     <span>Extracted Rooms & Work Structure</span>
                     <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">
-                      {wordPreview.locations.length} Locations · {wordPreview.stats.taskCount} Work Items
+                      {wordPreview.locations.length} Locations · {wordPreview.stats.categoryCount} Work Packages{wordPreview.stats.taskCount > 0 ? ` · ${wordPreview.stats.taskCount} Explicit Tasks` : ""} · {wordPreview.stats.resourceCount} Resources
                     </span>
                   </h4>
                 </div>
@@ -1102,23 +1102,44 @@ export default function UploadCsv() {
                           </div>
                         )}
 
-                        {/* Categories and Tasks */}
+                        {/* Categories (Work Packages) and Tasks / Resources */}
                         <div className="space-y-2 mt-2">
                           {loc.categories.map((cat, catIndex) => (
                             <div key={catIndex} className="bg-slate-900/70 border border-slate-700/60 rounded p-2.5">
-                              <span className="text-xs font-semibold text-amber-400 block mb-1.5">
-                                → {cat.name}
-                              </span>
-                              <div className="flex flex-wrap gap-1.5">
-                                {cat.tasks.map((task, taskIndex) => (
-                                  <span
-                                    key={taskIndex}
-                                    className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700"
-                                  >
-                                    {task.name}
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-xs font-semibold text-amber-400">
+                                  → {cat.name}
+                                </span>
+                                {cat.tasks.length === 0 && (
+                                  <span className="text-[10px] text-amber-300/80 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/50">
+                                    Assignable Work Package
                                   </span>
-                                ))}
+                                )}
                               </div>
+                              {cat.tasks.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                                  {cat.tasks.map((task, taskIndex) => (
+                                    <span
+                                      key={taskIndex}
+                                      className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700"
+                                    >
+                                      {task.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {cat.resources && cat.resources.length > 0 && (
+                                <div className="text-[11px] text-slate-400 mt-1.5 pt-1.5 border-t border-slate-800">
+                                  <span className="text-slate-500 font-medium block mb-0.5">Resources / Scope Specs:</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {cat.resources.map((resItem, rIdx) => (
+                                      <span key={rIdx} className="bg-slate-800/60 text-slate-400 text-[11px] px-1.5 py-0.5 rounded border border-slate-700/40">
+                                        • {resItem}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

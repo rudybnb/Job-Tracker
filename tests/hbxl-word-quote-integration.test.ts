@@ -46,7 +46,7 @@ const REAL_MAUREEN = {
   ],
   locationCount: 13,
   categoryCount: 21,
-  taskCount: 47,
+  taskCount: 43,
 } as const;
 
 // Invented values that must NEVER appear in any output
@@ -278,14 +278,27 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
       storage.locations.push(locationRecord);
 
       for (const cat of loc.categories) {
-        for (const task of cat.tasks) {
+        if (cat.tasks.length > 0) {
+          for (const task of cat.tasks) {
+            taskSeq++;
+            storage.tasks.push({
+              id: `task-${taskSeq}`,
+              jobId: jobRecord.id,
+              locationId: locationRecord.id,
+              workCategory: cat.name,
+              taskName: task.name,
+              status: "pending",
+            });
+          }
+        } else {
+          // Category is itself the assignable Work Package
           taskSeq++;
           storage.tasks.push({
             id: `task-${taskSeq}`,
             jobId: jobRecord.id,
             locationId: locationRecord.id,
             workCategory: cat.name,
-            taskName: task.name,
+            taskName: cat.name,
             status: "pending",
           });
         }
@@ -559,17 +572,12 @@ test("Spencer House — Full import: real data, review flags, worker assignment,
     }
 
     const allTaskNames = storage.tasks.map((t) => t.taskName);
-    assert.ok(allTaskNames.includes("Internal Door 6 Panel Smooth 838 x 1981mm"), "Real door spec must be preserved");
-    assert.ok(allTaskNames.includes("Universal Beam 178 x 102 x 19kg per m"), "Real beam spec for Customised Build must be preserved");
-    assert.ok(allTaskNames.includes("Universal Beam 203 x 133 x 25kg per m"), "Real beam spec for Dinning Room must be preserved");
-    assert.ok(allTaskNames.includes("2nd layer levelling compound"), "Real 'Dining Room' specific wording must be preserved");
-    assert.ok(allTaskNames.includes("vinyl adhesive"), "Real wording 'vinyl adhesive' must be preserved");
-    assert.ok(allTaskNames.includes("Lintel Number 1 RSJ 178 x 102 x 19kg per m"), "Real lintel spec 1 must be preserved");
-    assert.ok(allTaskNames.includes("Lintel Number 2 RSJ 178 x 102 x 19kg per m"), "Real lintel spec 2 must be preserved");
-    assert.ok(allTaskNames.includes("associated padstones/making good"), "Real 'associated padstones/making good' must be preserved");
-    assert.ok(allTaskNames.includes("walls/plaster"), "Real 'walls/plaster' for Dinning Room must be preserved");
-    assert.ok(allTaskNames.includes("architraves/casings"), "Real 'architraves/casings' must be preserved");
-    assert.ok(allTaskNames.includes("skirtings"), "Real 'skirtings' must be preserved");
+    assert.equal(allTaskNames.length, 8, "Spencer must have exactly 8 assignable work packages");
+    assert.ok(allTaskNames.includes("Internal Door"), "Internal Door work package must exist");
+    assert.ok(allTaskNames.includes("Structural Openings to Existing Wall"), "Structural Openings to Existing Wall must exist");
+    assert.ok(allTaskNames.includes("Vinyl Flooring"), "Vinyl Flooring work package must exist");
+    assert.ok(allTaskNames.includes("Room Decoration"), "Room Decoration work package must exist");
+    assert.ok(allTaskNames.includes("Structural Opening"), "Structural Opening work package must exist");
 
     // Review status assertions
     for (const flaggedName of REAL_SPENCER.flaggedLocations) {
@@ -581,11 +589,11 @@ test("Spencer House — Full import: real data, review flags, worker assignment,
     const livingLoc = storage.locations.find((l) => l.name === "Living Room")!;
     assert.equal(livingLoc.reviewStatus, "CONFIRMED", "Living Room must be CONFIRMED");
 
-    // Worker allocation
+    // Worker allocation to assignable Work Package
     const diningLoc = storage.locations.find((l) => l.name === "Dining Room")!;
     const diningTasks = await getTasks(job.id, diningLoc.id);
-    const vinylTask = diningTasks.body.find((t) => t.taskName === "Vinyl flooring")!;
-    assert.ok(vinylTask);
+    const vinylTask = diningTasks.body.find((t) => t.taskName === "Vinyl Flooring")!;
+    assert.ok(vinylTask, "Vinyl Flooring work package task must exist");
 
     const assignRes = await assignWorkerTask({
       jobId: job.id,
@@ -598,7 +606,7 @@ test("Spencer House — Full import: real data, review flags, worker assignment,
     assert.equal(assignRes.status, 200);
     assert.equal(assignRes.body.success, true);
     assert.equal(assignRes.body.locationName, "Dining Room");
-    assert.equal(assignRes.body.taskName, "Vinyl flooring");
+    assert.equal(assignRes.body.taskName, "Vinyl Flooring");
     assert.equal(assignRes.body.contractorName, "Ahmed Gouda");
 
     const savedAssignment = storage.assignments[0];

@@ -537,8 +537,8 @@ test("Maureen Orubebe 2nd Floor quote parser: full source fidelity, merged ident
   assert.equal(result.stats.sourceLocationCount, 14, "Source location count must be 14");
   assert.equal(result.stats.locationCount, 13, "Merged operational location count must be 13");
   assert.equal(result.stats.categoryCount, 21, "Work category count must be 21");
-  assert.equal(result.stats.taskCount, 47, "Assignable task count must be 47");
-  assert.ok(result.stats.resourceCount >= 4, "Attached resource metadata lines must be recorded");
+  assert.equal(result.stats.taskCount, 43, "Assignable explicit task count must be 43");
+  assert.ok(result.stats.resourceCount >= 5, "Attached resource metadata lines must be recorded");
 
   // 3. Strict Boundary Verification: Ensure next location heading never leaked into previous location
   const loc2ndBathroom = result.locations.find(l => l.name === "2nd bathroom")!;
@@ -614,6 +614,12 @@ test("Spencer House Word quote parser: extracts metadata, locations, categories 
     "House",
     "Living Room",
   ]);
+
+  // Statistics: 5 locations, 8 work packages, 0 explicit action tasks (packages are assignable), 25 resources
+  assert.equal(result.stats.locationCount, 5);
+  assert.equal(result.stats.categoryCount, 8);
+  assert.equal(result.stats.taskCount, 0);
+  assert.ok(result.stats.resourceCount >= 20);
 
   const custBuild = result.locations.find((l) => l.name === "Customised Build")!;
   const dining = result.locations.find((l) => l.name === "Dining Room")!;

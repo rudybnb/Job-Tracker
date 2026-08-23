@@ -603,13 +603,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdLocations.push(createdLoc);
 
           for (const cat of loc.categories) {
-            for (const task of cat.tasks) {
+            if (cat.tasks.length > 0) {
+              for (const task of cat.tasks) {
+                await tx.insert(jobLocationTasks).values({
+                  jobId: job.id,
+                  locationId: createdLoc.id,
+                  workCategory: cat.name,
+                  taskName: task.name,
+                  taskDescription: task.description || (task.resources && task.resources.length > 0 ? `Resources:\n${task.resources.map(r => `• ${r}`).join('\n')}` : undefined),
+                  sourceReference: "HBXL_WORD",
+                  hbxlBuildPhase: cat.hbxlBuildPhase || null,
+                  status: "pending",
+                });
+                totalTasksCount++;
+              }
+            } else {
+              // The category itself is the assignable work package
+              const resDesc = cat.resources && cat.resources.length > 0
+                ? `Resources / Specifications:\n${cat.resources.map(r => `• ${r}`).join('\n')}`
+                : undefined;
               await tx.insert(jobLocationTasks).values({
                 jobId: job.id,
                 locationId: createdLoc.id,
                 workCategory: cat.name,
-                taskName: task.name,
-                taskDescription: task.description,
+                taskName: cat.name,
+                taskDescription: resDesc,
                 sourceReference: "HBXL_WORD",
                 hbxlBuildPhase: cat.hbxlBuildPhase || null,
                 status: "pending",

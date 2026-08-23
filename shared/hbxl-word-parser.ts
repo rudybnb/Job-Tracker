@@ -16,6 +16,7 @@ export interface ParsedWordCategory {
   name: string;
   hbxlBuildPhase?: string;
   tasks: ParsedWordTask[];
+  resources?: string[];
 }
 
 export interface ParsedWordLocation {
@@ -333,44 +334,22 @@ export function isBannedTaskOrCategory(text: string): boolean {
 }
 
 /**
+ * Determines whether a line contains an explicit construction action verb.
+ * ONLY lines with an explicit action verb become child assignable worker tasks.
+ * Product specifications, component names, materials, and scopes become resource metadata.
+ */
+export function hasExplicitActionVerb(text: string): boolean {
+  const norm = text.trim().toLowerCase();
+  return /^(?:remove|removal\s+and\s+disposal|removal|install|installation|fit|fitting|supply\s+and\s+fit|hang|erect|construct|apply|paint|plaster|undercoat|emulsion|strip|form|lay|replace|replacement|take\s+down|cut|drill|connect|test|commission|seal|bed|point|re-point|first\s+fix|second\s+fix|decorate|screed|tile|tiling|grout|make\s+good|making\s+good|demolish|clear|clean|prepare|prep|skim|wire|plumb)\b/i.test(
+    norm
+  );
+}
+
+/**
  * Distinguishes between Actionable Work Items and Pure Material/Product Descriptions.
  */
 export function isPureMaterialOrProduct(text: string): boolean {
-  const norm = text.trim().toLowerCase();
-
-  // Action verbs indicate actionable tasks
-  if (
-    /^(?:remove|removal|install|installation|fit|fitting|supply\s+and\s+fit|hang|erect|construct|apply|paint|plaster|undercoat|emulsion|strip|form|lay|replace|replacement|take\s+down|cut|drill|connect|test|commission|seal|bed|point|re-point|first\s+fix|second\s+fix|decorate)\b/i.test(
-      norm,
-    )
-  ) {
-    return false;
-  }
-
-  // Known operational fixtures
-  if (
-    /^(?:pull\s+light\s+switch|extractor\s+fan|universal\s+beam|internal\s+door|fire\s+door|lintel|padstones?|architrave|door\s+casing|door\s+former|threshold|skirting fixings?|skirtings?|ceiling\s+rose|radiator|double\s+socket|sockets?)/i.test(
-      norm,
-    )
-  ) {
-    return false;
-  }
-
-  // Generic non-action labels / table filler
-  if (/^(?:material|materials|general\s+works|room|floor|tiling|description)$/i.test(norm)) {
-    return true;
-  }
-
-  // Specific product catalog descriptions with dimensions, brands, allowances, or pack sizes
-  if (
-    /fibreglass|tongue\s*&\s*grooved|t&g|gloss\s+white|wall\s+tile\s+grout|wall\s+tile\s+adhesive|pvc\s+tile\s+trim|waterproof\s+wall\s+tile|tile\s+allowances?|roll\s+\d+mm|nominal\s+\d+mm|finished\s+\d+mm|twin\s*&\s*earth/i.test(
-      norm,
-    )
-  ) {
-    return true;
-  }
-
-  return false;
+  return !hasExplicitActionVerb(text);
 }
 
 export interface RawDocParagraph {
@@ -919,7 +898,11 @@ function extractLocationAnchorFromText(text: string): string | null {
 }
 
 /**
- * Parses document elements into location hierarchy, work categories, actionable tasks, and resource metadata.
+ * Parses document elements into location hierarchy, work packages (categories), actionable tasks, and resource metadata.
+ * 
+ * OPERATIONAL MODEL:
+ * Location → Work Package (Category) → Explicit Actionable Task (only if explicit action verb exists in document) → Resources/Specs.
+ * If a Work Package contains only materials/product lines and no action sentences, the Work Package itself is the assignable unit.
  */
 export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
   const carryOutRegex = /^Carry\s+out\s+work\s+in\s+/i;
@@ -945,49 +928,53 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
 
   interface RawLocation {
     name: string;
-    categories: Array<{
-      name: string;
-      tasks: ParsedWordTask[];
-    }>;
+    categories: ParsedWordCategory[];
   }
 
   const rawLocations: RawLocation[] = [];
   let currentLocation: RawLocation | null = null;
-  let currentCategory: { name: string; tasks: ParsedWordTask[] } | null = null;
+  let currentCategory: ParsedWordCategory | null = null;
   let lastActionableTask: ParsedWordTask | null = null;
   let insideDetailedSection = !hasCarryOutAnchors;
   let totalResourceCount = 0;
 
-  function handleActionableTask(taskName: string, description?: string) {
-    const cleanName = taskName.trim().replace(/[:\.\-_]+$/, "").trim();
-    if (!cleanName || isBannedTaskOrCategory(cleanName)) return;
-
-    if (isPureMaterialOrProduct(cleanName)) {
-      totalResourceCount++;
-      if (lastActionableTask) {
-        lastActionableTask.resources = lastActionableTask.resources || [];
-        if (!lastActionableTask.resources.includes(cleanName)) {
-          lastActionableTask.resources.push(cleanName);
-        }
-      }
-      return;
-    }
+  function handleItemLine(itemText: string, description?: string) {
+    const cleanText = itemText.trim().replace(/[:\.\-_]+$/, "").trim();
+    if (!cleanText || isBannedTaskOrCategory(cleanText)) return;
 
     if (!currentCategory) {
       currentCategory = {
         name: "General Works",
         tasks: [],
+        resources: [],
       };
       currentLocation?.categories.push(currentCategory);
     }
 
-    const newTask: ParsedWordTask = {
-      name: cleanName,
-      description: description?.trim() || undefined,
-      resources: [],
-    };
-    currentCategory.tasks.push(newTask);
-    lastActionableTask = newTask;
+    if (hasExplicitActionVerb(cleanText)) {
+      // Explicit actionable construction task
+      const newTask: ParsedWordTask = {
+        name: cleanText,
+        description: description?.trim() || undefined,
+        resources: [],
+      };
+      currentCategory.tasks.push(newTask);
+      lastActionableTask = newTask;
+    } else {
+      // Pure product, material, component, or specification
+      totalResourceCount++;
+      if (lastActionableTask) {
+        lastActionableTask.resources = lastActionableTask.resources || [];
+        if (!lastActionableTask.resources.includes(cleanText)) {
+          lastActionableTask.resources.push(cleanText);
+        }
+      } else {
+        currentCategory.resources = currentCategory.resources || [];
+        if (!currentCategory.resources.includes(cleanText)) {
+          currentCategory.resources.push(cleanText);
+        }
+      }
+    }
   }
 
   for (let i = 0; i < elements.length; i++) {
@@ -1054,19 +1041,17 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
       }
 
       const isCategoryHeading =
-        (p.headingLevel === 2 || (p.isHeading && p.headingLevel > 1) || (p.isBold && !p.isBullet)) &&
-        !p.isBullet &&
-        text.length < 80 &&
-        !isPureMaterialOrProduct(text);
+        (p.headingLevel === 2 || p.headingLevel === 3 || (p.styleName && /heading\s*[23]/i.test(p.styleName))) ||
+        (!hasExplicitActionVerb(text) && (p.isBold && !p.isBullet && text.length < 80));
 
       if (isCategoryHeading) {
-        currentCategory = { name: text, tasks: [] };
+        currentCategory = { name: text, tasks: [], resources: [] };
         currentLocation.categories.push(currentCategory);
         lastActionableTask = null;
         continue;
       }
 
-      handleActionableTask(text);
+      handleItemLine(text);
     } else if (el.type === "table") {
       if (isTerminationSection(el.table.rows.map(r => r.text).join(" "))) {
         break;
@@ -1094,8 +1079,8 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
         // Check if row is a category header (e.g. 1 cell spanning or bold)
         if (row.cells.length === 1 && row.cells[0].paragraphs.length > 0) {
           const cellP = row.cells[0].paragraphs[0];
-          if ((cellP.isHeading || cellP.isBold) && !isPureMaterialOrProduct(cellP.text) && !isBannedTaskOrCategory(cellP.text)) {
-            currentCategory = { name: cellP.text.trim(), tasks: [] };
+          if ((cellP.isHeading || cellP.isBold) && !hasExplicitActionVerb(cellP.text) && !isBannedTaskOrCategory(cellP.text)) {
+            currentCategory = { name: cellP.text.trim(), tasks: [], resources: [] };
             currentLocation.categories.push(currentCategory);
             lastActionableTask = null;
             continue;
@@ -1121,7 +1106,7 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
         if (descText && !isBannedTaskOrCategory(descText)) {
           const lines = descText.split("\n").map(l => l.trim()).filter(Boolean);
           for (const line of lines) {
-            handleActionableTask(line);
+            handleItemLine(line);
           }
         }
       }
@@ -1146,6 +1131,14 @@ export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
           for (const task of rawCat.tasks) {
             if (!existingCat.tasks.some(t => t.name.toLowerCase() === task.name.toLowerCase())) {
               existingCat.tasks.push(task);
+            }
+          }
+          if (rawCat.resources) {
+            existingCat.resources = existingCat.resources || [];
+            for (const r of rawCat.resources) {
+              if (!existingCat.resources.includes(r)) {
+                existingCat.resources.push(r);
+              }
             }
           }
         } else {
