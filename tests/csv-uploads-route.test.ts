@@ -29,9 +29,9 @@ class MockStorage {
 
   async deleteCsvUpload(id: string): Promise<boolean> {
     const initialUploadCount = this.uploads.length;
-    // Delete jobs associated with this upload only
-    this.jobs = this.jobs.filter((job) => job.uploadId !== id);
-    // Delete upload record
+    // Unlink uploadId on associated jobs so live jobs remain intact
+    this.jobs = this.jobs.map((job) => (job.uploadId === id ? { ...job, uploadId: null } : job));
+    // Delete upload record from Recent Uploads
     this.uploads = this.uploads.filter((u) => u.id !== id);
     return this.uploads.length < initialUploadCount;
   }
@@ -221,7 +221,7 @@ test("DELETE /api/csv-uploads/:id: admin request for nonexistent upload returns 
   });
 });
 
-test("DELETE /api/csv-uploads/:id: admin request safely removes only targeted upload and its created jobs", async () => {
+test("DELETE /api/csv-uploads/:id: admin request removes upload record from Recent Uploads while preserving all live jobs", async () => {
   await withTestRoute(async ({ storage, setSession, deleteUpload }) => {
     storage.uploads.push(
       {
@@ -241,8 +241,8 @@ test("DELETE /api/csv-uploads/:id: admin request safely removes only targeted up
     );
 
     storage.jobs.push(
-      { id: "job-1", title: "Job from upload 1", uploadId: "upload-to-delete" },
-      { id: "job-2", title: "Job 2 from upload 1", uploadId: "upload-to-delete" },
+      { id: "job-1", title: "Job 1 from upload 1 (MUST NOT BE DELETED)", uploadId: "upload-to-delete" },
+      { id: "job-2", title: "Job 2 from upload 1 (MUST NOT BE DELETED)", uploadId: "upload-to-delete" },
       { id: "job-3", title: "Job from upload 2 (KEEP)", uploadId: "upload-to-keep" },
       { id: "job-4", title: "Manual Job without upload (KEEP)", uploadId: null }
     );
@@ -256,15 +256,20 @@ test("DELETE /api/csv-uploads/:id: admin request safely removes only targeted up
     assert.equal(res.body.id, "upload-to-delete");
     assert.doesNotMatch(res.rawText, /<!DOCTYPE/);
 
-    // Verify only the targeted upload was removed
+    // Verify only the targeted upload record was removed from Recent Uploads
     assert.equal(storage.uploads.length, 1);
     assert.equal(storage.uploads[0].id, "upload-to-keep");
 
-    // Verify only jobs from the deleted upload were removed; other jobs remain untouched
-    assert.equal(storage.jobs.length, 2);
+    // Verify ALL 4 live jobs remain completely intact in the system
+    assert.equal(storage.jobs.length, 4);
     assert.deepEqual(
       storage.jobs.map((j) => j.id),
-      ["job-3", "job-4"]
+      ["job-1", "job-2", "job-3", "job-4"]
     );
+    // Associated jobs had their uploadId unlinked so they are detached from the deleted upload record
+    const job1 = storage.jobs.find((j) => j.id === "job-1");
+    const job2 = storage.jobs.find((j) => j.id === "job-2");
+    assert.equal(job1?.uploadId, null);
+    assert.equal(job2?.uploadId, null);
   });
 });

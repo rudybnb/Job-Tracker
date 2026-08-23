@@ -180,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         success: true,
-        message: "CSV upload record and associated jobs deleted successfully",
+        message: "CSV upload record removed from Recent Uploads. Live jobs remain intact.",
         id: uploadId,
       });
     } catch (error) {

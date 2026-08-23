@@ -73,11 +73,10 @@ export default function UploadJob() {
     },
     onSuccess: () => {
       toast({
-        title: "Upload Deleted",
-        description: "CSV upload record and all associated jobs have been successfully deleted",
+        title: "Upload Record Removed",
+        description: "Upload record was removed from Recent Uploads. Live jobs remain intact.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/csv-uploads'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
     },
     onError: (error) => {
       toast({
@@ -89,7 +88,7 @@ export default function UploadJob() {
   });
 
   const handleDeleteUpload = (uploadId: string, filename: string) => {
-    if (confirm(`Are you sure you want to delete the upload record for "${filename}"? This will also delete all jobs created from this upload. This action cannot be undone.`)) {
+    if (confirm(`Remove "${filename}" from Recent Uploads?\n\nNote: This removes the upload history entry only. Live jobs and schedules created in the system will remain intact.`)) {
       deleteMutation.mutate(uploadId);
     }
   };
@@ -178,7 +177,8 @@ export default function UploadJob() {
                         variant="ghost"
                         size="sm"
                         className="text-red-400 hover:text-red-300 hover:bg-red-900/20 p-1 h-8 w-8"
-                        title="Delete upload record"
+                        title="Remove from Recent Uploads (keeps live jobs intact)"
+                        aria-label="Remove upload record from Recent Uploads"
                       >
                         {deleteMutation.isPending ? (
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
