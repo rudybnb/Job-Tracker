@@ -389,7 +389,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Smart Schedule PREVIEW mode: parse only. No jobs are created or modified here.
-  app.post("/api/upload-csv/preview", upload.single("csvFile"), async (req: MulterRequest, res) => {
+  // Admin-guarded: workers/contractors/unauthenticated requests receive 401.
+  app.post("/api/upload-csv/preview", requireAdmin as unknown as import("express").RequestHandler, upload.single("csvFile"), async (req: MulterRequest, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
@@ -434,8 +435,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // CSV Upload endpoint
-  app.post("/api/upload-csv", upload.single('csvFile'), async (req: MulterRequest, res) => {
+  // CSV Upload endpoint. Admin-guarded: workers/contractors/unauthenticated requests receive 401.
+  app.post("/api/upload-csv", requireAdmin as unknown as import("express").RequestHandler, upload.single('csvFile'), async (req: MulterRequest, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
@@ -504,7 +505,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        const confirmedBy = ((req as SessionRequest).session?.adminName || "admin").trim() || "admin";
+        const attachSession = (req as SessionRequest).session as
+          | { adminName?: unknown; username?: unknown }
+          | undefined;
+        const confirmedBy = [attachSession?.adminName, attachSession?.username]
+          .map((value) => (typeof value === "string" ? value.trim() : ""))
+          .find((value) => value.length > 0) || "admin";
 
         const attachResult = await db.transaction(async (tx) => {
           await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${fingerprint + attachJobId}))`);
