@@ -28,7 +28,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { and, eq, inArray, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments, projectSourceImports } from "@shared/schema";
+import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments, projectSourceImports, workers } from "@shared/schema";
+import { WorkerService } from "./worker-service.ts";
+import { buildAssignablePeople, type AssignmentIdentity } from "./assignment-people.ts";
 import { normalizeUploadCsvContent, parseJobUploadCsv, suggestJobNameFromSource, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
 import {
   SMART_SCHEDULE_PARSER_VERSION,
@@ -52,6 +54,7 @@ import { parse } from "csv-parse";
 import { parseEnhancedCSV } from "./enhanced-csv-parser";
 
 const upload = multer({ storage: multer.memoryStorage() });
+const workerService = new WorkerService();
 
 function parseProjectMetadata(rawMetadata: unknown) {
   if (typeof rawMetadata !== "string") {
@@ -1025,12 +1028,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/assignment-desk/assignable-people", async (_req, res) => {
+    try {
+      const [canonicalWorkers, activeWorkerRows, contractorProfiles] = await Promise.all([
+        workerService.listWorkers(),
+        db.select({ id: workers.id }).from(workers).where(and(
+          eq(workers.isActive, true),
+          eq(workers.isDeleted, false),
+        )),
+        db.select().from(contractors),
+      ]);
+      const activeWorkerIds = new Set(activeWorkerRows.map((worker) => worker.id));
+      res.json(buildAssignablePeople(canonicalWorkers, activeWorkerIds, contractorProfiles));
+    } catch (error) {
+      console.error("Error fetching assignable people:", error);
+      res.status(500).json({ error: "Failed to fetch assignable people" });
+    }
+  });
+
   // Atomically assign one or more existing room work items to one or more contractors.
   app.post("/api/assign-worker-tasks", async (req, res) => {
     const {
       jobId,
       selections: rawSelections,
-      contractorIds: rawContractorIds,
+      people: rawPeople,
       startDate,
       endDate,
       specialInstructions,
@@ -1044,19 +1065,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       : [];
     const locationIds = selections.map((selection) => selection.locationId);
     const taskIds = selections.flatMap((selection) => selection.taskIds);
-    const contractorIds = Array.from(new Set(Array.isArray(rawContractorIds) ? rawContractorIds.map(String).filter(Boolean) : []));
+    const parsedPeople = Array.isArray(rawPeople)
+      ? rawPeople.map((person: any) => ({
+          type: person?.type === "worker" || person?.type === "contractor" ? person.type : "",
+          id: String(person?.id || ""),
+        }))
+      : [];
+    const personKeys = parsedPeople.map((person) => `${person.type}:${person.id}`);
 
     const hasInvalidSelections = selections.length === 0
       || selections.some((selection) => !selection.locationId || selection.taskIds.length === 0)
       || new Set(locationIds).size !== locationIds.length
       || new Set(taskIds).size !== taskIds.length;
-    if (!jobId || hasInvalidSelections || contractorIds.length === 0) {
+    const hasInvalidPeople = parsedPeople.length === 0
+      || parsedPeople.some((person) => !person.type || !person.id)
+      || new Set(personKeys).size !== personKeys.length;
+    if (!jobId || hasInvalidSelections || hasInvalidPeople) {
       return res.status(400).json({
-        error: "jobId, unique room/task selections, and at least one contractorId are required.",
+        error: "jobId, unique room/task selections, and typed worker or contractor identities are required.",
       });
     }
 
     try {
+      const people = parsedPeople as AssignmentIdentity[];
+      const workerIds = people.filter((person) => person.type === "worker").map((person) => person.id);
+      const contractorIds = people.filter((person) => person.type === "contractor").map((person) => person.id);
+      const canonicalWorkers = await workerService.listWorkers();
+      const canonicalWorkerById = new Map(
+        canonicalWorkers
+          .filter((worker) => worker.isActive && workerIds.includes(worker.id))
+          .map((worker) => [worker.id, worker]),
+      );
       const start = startDate || new Date().toISOString().split("T")[0];
       const end = endDate || start;
 
@@ -1074,13 +1113,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
           throw Object.assign(new Error("One or more rooms were not found for selected job"), { statusCode: 404 });
         }
 
-        const selectedContractors = await tx
-          .select()
-          .from(contractors)
-          .where(inArray(contractors.id, contractorIds));
-        if (selectedContractors.length !== contractorIds.length) {
-          throw Object.assign(new Error("One or more contractors were not found"), { statusCode: 404 });
+        const selectedWorkers = workerIds.length > 0
+          ? await tx.select().from(workers).where(and(
+              inArray(workers.id, workerIds),
+              eq(workers.isActive, true),
+              eq(workers.isDeleted, false),
+            ))
+          : [];
+        if (selectedWorkers.length !== workerIds.length || canonicalWorkerById.size !== workerIds.length) {
+          throw Object.assign(new Error("One or more active workers were not found"), { statusCode: 404 });
         }
+
+        const selectedContractors = contractorIds.length > 0
+          ? await tx.select().from(contractors).where(and(
+              inArray(contractors.id, contractorIds),
+              inArray(contractors.status, ["available", "busy"]),
+            ))
+          : [];
+        if (selectedContractors.length !== contractorIds.length) {
+          throw Object.assign(new Error("One or more active contractors were not found"), { statusCode: 404 });
+        }
+
+        if (contractorIds.length > 0) {
+          const activeWorkerRows = await tx.select({ id: workers.id }).from(workers).where(and(
+            eq(workers.isActive, true),
+            eq(workers.isDeleted, false),
+          ));
+          const assignableContractorIds = new Set(
+            buildAssignablePeople(
+              canonicalWorkers,
+              new Set(activeWorkerRows.map((worker) => worker.id)),
+              selectedContractors,
+            )
+              .filter((person) => person.identity.type === "contractor")
+              .map((person) => person.identity.id),
+          );
+          if (contractorIds.some((contractorId) => !assignableContractorIds.has(contractorId))) {
+            throw Object.assign(new Error("One or more contractors duplicate an active worker"), { statusCode: 409 });
+          }
+        }
+
+        const selectedContractorById = new Map(selectedContractors.map((contractor) => [contractor.id, contractor]));
+        const selectedPeople = people.map((identity) => {
+          if (identity.type === "worker") {
+            const worker = canonicalWorkerById.get(identity.id)!;
+            return {
+              identity,
+              name: worker.fullName,
+              email: worker.email || "",
+              phone: worker.phone || "0000000000",
+            };
+          }
+
+          const contractor = selectedContractorById.get(identity.id)!;
+          return {
+            identity,
+            name: contractor.name,
+            email: contractor.email,
+            phone: "0000000000",
+          };
+        });
 
         const selectedTasks = await tx
           .select()
@@ -1101,7 +1193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           throw Object.assign(new Error("One or more work items do not belong to their selected room"), { statusCode: 400 });
         }
 
-        const contractorNames = selectedContractors.map((contractor) => contractor.name || "Contractor");
+        const contractorNames = selectedPeople.map((person) => person.name || "Contractor");
         const selectedLocationById = new Map(selectedLocations.map((location) => [location.id, location]));
         const existingAssignments = await tx
           .select({
@@ -1119,10 +1211,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           throw Object.assign(new Error("One or more selected work items are already assigned to this contractor"), { statusCode: 409 });
         }
 
-        const assignmentRows = selectedContractors.flatMap((contractor) => {
-          const contractorName = contractor.name || "Contractor";
-          const instructions = selectedContractors.length > 1
-            ? `TEAM ASSIGNMENT: Working with ${selectedContractors.length} contractors. ${specialInstructions || ""}`.trim()
+        const assignmentRows = selectedPeople.flatMap((person) => {
+          const contractorName = person.name || "Contractor";
+          const instructions = selectedPeople.length > 1
+            ? `TEAM ASSIGNMENT: Working with ${selectedPeople.length} contractors. ${specialInstructions || ""}`.trim()
             : specialInstructions;
           return selections.flatMap((selection) => {
             const location = selectedLocationById.get(selection.locationId)!;
@@ -1131,8 +1223,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return {
                 jobId: job.id,
                 contractorName,
-                email: contractor.email,
-                phone: (contractor as any).phone || "0000000000",
+                email: person.email,
+                phone: person.phone,
                 workLocation: location.name,
                 hbxlJob: job.title,
                 locationId: location.id,
@@ -1152,26 +1244,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         const assignments = await tx.insert(jobAssignments).values(assignmentRows).returning();
+        const firstContractor = people.find((person) => person.type === "contractor");
         await tx
           .update(jobLocationTasks)
           .set({
             status: "assigned",
-            assignedContractorId: selectedContractors[0].id,
+            assignedContractorId: firstContractor?.id || null,
             assignedContractorName: contractorNames.join(", "),
             updatedAt: new Date(),
           })
           .where(inArray(jobLocationTasks.id, taskIds));
 
-        return { assignments, selectedContractors, selectedTasks, selectedLocations, job };
+        return { assignments, selectedPeople, selectedTasks, selectedLocations, job };
       });
 
       if (sendTelegramNotification) {
         const telegramService = new TelegramService();
-        for (const contractor of result.selectedContractors) {
+        for (const person of result.selectedPeople) {
           try {
             await telegramService.sendJobAssignment({
-              contractorName: contractor.name || "Contractor",
-              phone: (contractor as any).phone || "0000000000",
+              contractorName: person.name || "Contractor",
+              phone: person.phone,
               hbxlJob: result.job.title,
               buildPhases: [],
               workLocation: result.selectedLocations.map((location) => location.name).join(", "),
@@ -1188,7 +1281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         assignments: result.assignments,
         assignmentCount: result.assignments.length,
         taskCount: result.selectedTasks.length,
-        contractorCount: result.selectedContractors.length,
+        personCount: result.selectedPeople.length,
       });
     } catch (error) {
       const statusCode = Number((error as any)?.statusCode) || 500;

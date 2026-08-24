@@ -27,7 +27,15 @@ test("multi-room checklist replaces room and work-item dropdowns and submits sel
   assert.match(pageSource, /selectedTaskIds\.length/);
   assert.match(pageSource, /fetch\('\/api\/assign-worker-tasks'/);
   assert.match(pageSource, /selections:\s*roomTaskSelections/);
-  assert.match(pageSource, /contractorIds:\s*selectedContractors/);
+  assert.match(pageSource, /people:\s*selectedContractors\.map/);
+});
+
+test("Assignment Desk uses typed canonical people instead of onboarding applications", () => {
+  assert.match(pageSource, /\/api\/assignment-desk\/assignable-people/);
+  assert.doesNotMatch(pageSource, /\/api\/contractor-applications/);
+  assert.match(pageSource, /type:\s*"worker" \| "contractor"/);
+  assert.match(routesSource, /workerService\.listWorkers\(\)/);
+  assert.match(routesSource, /buildAssignablePeople\(canonicalWorkers, activeWorkerIds, contractorProfiles\)/);
 });
 
 test("multi-room assignment is one transaction with exact room and task validation", () => {
@@ -37,11 +45,24 @@ test("multi-room assignment is one transaction with exact room and task validati
   assert.match(route, /inArray\(jobLocationTasks\.locationId, locationIds\)/);
   assert.match(route, /inArray\(jobLocationTasks\.id, taskIds\)/);
   assert.match(route, /selectedTaskById\.get\(taskId\)\?\.locationId !== selection\.locationId/);
-  assert.match(route, /selectedContractors\.flatMap/);
+  assert.match(route, /selectedPeople\.flatMap/);
   assert.match(route, /selections\.flatMap/);
   assert.match(route, /selection\.taskIds\.map/);
   assert.match(route, /tx\.insert\(jobAssignments\)\.values\(assignmentRows\)/);
   assert.match(route, /tx\s*\.update\(jobLocationTasks\)/);
+});
+
+test("batch validates worker and contractor identity types against their own tables", () => {
+  const route = extractBatchRoute();
+  assert.match(route, /person\?\.type === "worker" \|\| person\?\.type === "contractor"/);
+  assert.match(route, /inArray\(workers\.id, workerIds\)/);
+  assert.match(route, /eq\(workers\.isActive, true\)/);
+  assert.match(route, /eq\(workers\.isDeleted, false\)/);
+  assert.match(route, /inArray\(contractors\.id, contractorIds\)/);
+  assert.match(route, /inArray\(contractors\.status, \["available", "busy"\]\)/);
+  assert.match(route, /contractors duplicate an active worker/);
+  assert.match(route, /buildAssignablePeople\([\s\S]*canonicalWorkers/);
+  assert.match(route, /assignedContractorId:\s*firstContractor\?\.id \|\| null/);
 });
 
 test("duplicate work-item guard runs before any assignment insert", () => {

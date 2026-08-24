@@ -73,14 +73,20 @@ interface JobLocationTask {
   status: string;
 }
 
-interface Contractor {
-  id: string;
+interface AssignablePerson {
+  identity: {
+    type: "worker" | "contractor";
+    id: string;
+  };
   firstName: string;
   lastName: string;
-  email: string;
-  phone: string;
-  primaryTrade: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  trade: string;
 }
+
+const assignmentPersonKey = (person: AssignablePerson) => `${person.identity.type}:${person.identity.id}`;
 
 function parseHbxlDate(value: unknown): Date | null {
   if (typeof value !== "string" || value.trim().length === 0) return null;
@@ -192,20 +198,9 @@ export default function CreateAssignment() {
   const selectedPhaseKey = selectedPhases.join("\n");
   const { toast } = useToast();
 
-  // Fetch approved contractors
-  const { data: approvedContractors = [] } = useQuery<Contractor[]>({
-    queryKey: ["/api/contractor-applications"],
-    select: (data: any[]) => 
-      data
-        .filter(contractor => contractor.status === 'approved')
-        .map(contractor => ({
-          id: contractor.id,
-          firstName: contractor.firstName,
-          lastName: contractor.lastName,
-          email: contractor.email,
-          phone: contractor.phone,
-          primaryTrade: contractor.primaryTrade
-        }))
+  // Assignment Desk uses canonical active workers plus unmatched active contractor profiles.
+  const { data: assignablePeople = [] } = useQuery<AssignablePerson[]>({
+    queryKey: ["/api/assignment-desk/assignable-people"],
   });
 
   // Fetch locations for selected job (additive)
@@ -436,7 +431,10 @@ export default function CreateAssignment() {
           body: JSON.stringify({
             jobId: selectedJobId,
             selections: roomTaskSelections,
-            contractorIds: selectedContractors,
+            people: selectedContractors.map((key) => {
+              const person = assignablePeople.find((candidate) => assignmentPersonKey(candidate) === key)!;
+              return person.identity;
+            }),
             startDate: startDate || new Date().toISOString().split("T")[0],
             endDate: endDate || startDate || new Date().toISOString().split("T")[0],
             specialInstructions,
@@ -449,8 +447,8 @@ export default function CreateAssignment() {
         }
 
         const contractorNames = selectedContractors.map(id => {
-          const contractor = approvedContractors.find(candidate => candidate.id === id);
-          return contractor ? `${contractor.firstName} ${contractor.lastName}` : '';
+          const contractor = assignablePeople.find(candidate => assignmentPersonKey(candidate) === id);
+          return contractor?.name || '';
         }).filter(Boolean).join(', ');
         toast({
           title: "Assignments Created",
@@ -466,14 +464,14 @@ export default function CreateAssignment() {
       
       // Create assignments for each selected contractor
       for (const contractorId of selectedContractors) {
-        const contractor = approvedContractors.find(c => c.id === contractorId);
+        const contractor = assignablePeople.find(c => assignmentPersonKey(c) === contractorId);
         if (!contractor) continue;
 
         const assignment = {
           jobId: selectedJobId || undefined,
-          contractorName: `${contractor.firstName} ${contractor.lastName}`,
-          email: contractor.email,
-          phone: contractor.phone,
+          contractorName: contractor.name,
+          email: contractor.email || "",
+          phone: contractor.phone || "0000000000",
           workLocation,
           hbxlJob: selectedHbxlJob,
           buildPhases: selectedPhases,
@@ -513,8 +511,8 @@ export default function CreateAssignment() {
       }
 
       const contractorNames = selectedContractors.map(id => {
-        const c = approvedContractors.find(contractor => contractor.id === id);
-        return c ? `${c.firstName} ${c.lastName}` : '';
+        const c = assignablePeople.find(contractor => assignmentPersonKey(contractor) === id);
+        return c?.name || '';
       }).filter(Boolean).join(', ');
 
       toast({
@@ -602,17 +600,17 @@ export default function CreateAssignment() {
                       
                       // Auto-fill contact details from first selected contractor
                       if (newSelected.length === 1) {
-                        const contractor = approvedContractors.find(c => c.id === contractorId);
+                        const contractor = assignablePeople.find(c => assignmentPersonKey(c) === contractorId);
                         if (contractor) {
-                          setContractorName(`${contractor.firstName} ${contractor.lastName}`);
-                          setEmail(contractor.email);
-                          setPhone(contractor.phone);
+                          setContractorName(contractor.name);
+                          setEmail(contractor.email || '');
+                          setPhone(contractor.phone || '');
                         }
                       } else {
                         // For multiple contractors, use combined names
                         const names = newSelected.map(id => {
-                          const contractor = approvedContractors.find(c => c.id === id);
-                          return contractor ? `${contractor.firstName} ${contractor.lastName}` : '';
+                          const contractor = assignablePeople.find(c => assignmentPersonKey(c) === id);
+                          return contractor?.name || '';
                         }).filter(Boolean);
                         setContractorName(names.join(', '));
                         setEmail('');
@@ -625,15 +623,18 @@ export default function CreateAssignment() {
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
                 >
                   <option value="">Choose contractors...</option>
-                  {approvedContractors.map((contractor) => (
-                    <option 
-                      key={contractor.id} 
-                      value={contractor.id}
-                      disabled={selectedContractors.includes(contractor.id)}
-                    >
-                      {contractor.firstName} {contractor.lastName} - {contractor.primaryTrade}
-                    </option>
-                  ))}
+                  {assignablePeople.map((contractor) => {
+                    const personKey = assignmentPersonKey(contractor);
+                    return (
+                      <option
+                        key={personKey}
+                        value={personKey}
+                        disabled={selectedContractors.includes(personKey)}
+                      >
+                        {contractor.name} - {contractor.trade.replaceAll("_", " ")}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -643,7 +644,7 @@ export default function CreateAssignment() {
                   <div className="text-sm text-slate-400">Selected Contractors:</div>
                   <div className="flex flex-wrap gap-2">
                     {selectedContractors.map((contractorId) => {
-                      const contractor = approvedContractors.find(c => c.id === contractorId);
+                      const contractor = assignablePeople.find(c => assignmentPersonKey(c) === contractorId);
                       if (!contractor) return null;
                       
                       return (
@@ -651,8 +652,8 @@ export default function CreateAssignment() {
                           key={contractorId}
                           className="bg-blue-600 text-white px-3 py-1 flex items-center gap-2"
                         >
-                          <span>{contractor.firstName} {contractor.lastName}</span>
-                          <span className="text-blue-200 text-xs">({contractor.primaryTrade})</span>
+                          <span>{contractor.name}</span>
+                          <span className="text-blue-200 text-xs">({contractor.trade.replaceAll("_", " ")})</span>
                           <button
                             onClick={() => {
                               const newSelected = selectedContractors.filter(id => id !== contractorId);
@@ -663,16 +664,16 @@ export default function CreateAssignment() {
                                 setEmail('');
                                 setPhone('');
                               } else if (newSelected.length === 1) {
-                                const remaining = approvedContractors.find(c => c.id === newSelected[0]);
+                                const remaining = assignablePeople.find(c => assignmentPersonKey(c) === newSelected[0]);
                                 if (remaining) {
-                                  setContractorName(`${remaining.firstName} ${remaining.lastName}`);
-                                  setEmail(remaining.email);
-                                  setPhone(remaining.phone);
+                                  setContractorName(remaining.name);
+                                  setEmail(remaining.email || '');
+                                  setPhone(remaining.phone || '');
                                 }
                               } else {
                                 const names = newSelected.map(id => {
-                                  const contractor = approvedContractors.find(c => c.id === id);
-                                  return contractor ? `${contractor.firstName} ${contractor.lastName}` : '';
+                                  const contractor = assignablePeople.find(c => assignmentPersonKey(c) === id);
+                                  return contractor?.name || '';
                                 }).filter(Boolean);
                                 setContractorName(names.join(', '));
                                 setEmail('');
