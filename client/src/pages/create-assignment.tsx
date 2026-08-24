@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
+  buildRoomAssignmentChecklist,
   findAssignmentJobById,
   formatAssignmentJobLabel,
   hasStructuredJobData,
@@ -179,7 +180,7 @@ export default function CreateAssignment() {
   const [workLocation, setWorkLocation] = useState("");
   const [selectedJobId, setSelectedJobId] = useState("");
   const [selectedLocationId, setSelectedLocationId] = useState("");
-  const [selectedTaskId, setSelectedTaskId] = useState("");
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
@@ -239,7 +240,8 @@ export default function CreateAssignment() {
 
   const selectedJob = findAssignmentJobById(uploadedJobs, selectedJobId);
   const selectedHbxlJob = selectedJob?.name ?? "";
-  const locationTasks = allJobLocationTasks.filter((task) => task.locationId === selectedLocationId);
+  const selectedLocation = jobLocations.find((location) => location.id === selectedLocationId);
+  const roomAssignmentChecklist = buildRoomAssignmentChecklist(allJobLocationTasks, selectedLocationId);
   const isJobStructureLoading = Boolean(selectedJobId) && (areJobLocationsLoading || areJobLocationTasksLoading);
   const didJobStructureFail = Boolean(selectedJobId) && (didJobLocationsFail || didJobLocationTasksFail);
   const isStructuredWordJob = !isJobStructureLoading
@@ -310,7 +312,7 @@ export default function CreateAssignment() {
       }
     } else {
       setSelectedLocationId("");
-      setSelectedTaskId("");
+      setSelectedTaskIds([]);
       setAvailablePhases([]);
     }
   }, [selectedJobId, uploadedJobs]);
@@ -336,6 +338,14 @@ export default function CreateAssignment() {
 
   const handleClearAllPhases = () => {
     setSelectedPhases([]);
+  };
+
+  const handleTaskToggle = (taskId: string) => {
+    setSelectedTaskIds((current) =>
+      current.includes(taskId)
+        ? current.filter((id) => id !== taskId)
+        : [...current, taskId],
+    );
   };
 
   const handleCreateAssignment = async () => {
@@ -371,10 +381,10 @@ export default function CreateAssignment() {
 
     // For location-based jobs: require Location and Work Item
     if (isStructuredWordJob) {
-      if (!selectedLocationId || !selectedTaskId) {
+      if (!selectedLocationId || selectedTaskIds.length === 0) {
         toast({
           title: "Missing Information",
-          description: "Please select both a Location / Room and a Specific Work Item",
+          description: "Please select a Location / Room and at least one work item",
           variant: "destructive"
         });
         return;
@@ -391,15 +401,41 @@ export default function CreateAssignment() {
       }
     }
 
-    const selectedLoc = jobLocations.find(l => l.id === selectedLocationId);
-    const isWholePackage = selectedTaskId.startsWith("package:");
-    const packageCategoryName = isWholePackage ? selectedTaskId.replace(/^package:/, "") : undefined;
-    const selectedTask = !isWholePackage ? locationTasks.find(t => t.id === selectedTaskId) : undefined;
-    const workCategory = packageCategoryName || selectedTask?.workCategory || undefined;
-    const taskName = packageCategoryName || selectedTask?.taskName || undefined;
-    const locationTaskId = isWholePackage ? undefined : (selectedTaskId || undefined);
-
     try {
+      if (isStructuredWordJob) {
+        const response = await fetch('/api/assign-worker-tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobId: selectedJobId,
+            locationId: selectedLocationId,
+            taskIds: selectedTaskIds,
+            contractorIds: selectedContractors,
+            startDate: startDate || new Date().toISOString().split("T")[0],
+            endDate: endDate || startDate || new Date().toISOString().split("T")[0],
+            specialInstructions,
+            sendTelegramNotification: true,
+          }),
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          throw new Error(body?.error || `Failed to create room assignments: ${response.status}`);
+        }
+
+        const contractorNames = selectedContractors.map(id => {
+          const contractor = approvedContractors.find(candidate => candidate.id === id);
+          return contractor ? `${contractor.firstName} ${contractor.lastName}` : '';
+        }).filter(Boolean).join(', ');
+        toast({
+          title: "Assignments Created",
+          description: `${selectedTaskIds.length} room work item${selectedTaskIds.length === 1 ? "" : "s"} assigned to ${contractorNames}.`,
+        });
+        setTimeout(() => {
+          window.location.href = '/job-assignments';
+        }, 2000);
+        return;
+      }
+
       const assignments = [];
       
       // Create assignments for each selected contractor
@@ -415,11 +451,11 @@ export default function CreateAssignment() {
           workLocation,
           hbxlJob: selectedHbxlJob,
           buildPhases: selectedPhases,
-          locationId: selectedLocationId || undefined,
-          locationName: selectedLoc?.name || undefined,
-          locationTaskId: locationTaskId,
-          workCategory: workCategory,
-          taskName: taskName,
+          locationId: undefined,
+          locationName: undefined,
+          locationTaskId: undefined,
+          workCategory: undefined,
+          taskName: undefined,
           startDate: startDate || new Date().toISOString().split("T")[0],
           endDate: endDate || startDate || new Date().toISOString().split("T")[0],
           specialInstructions: selectedContractors.length > 1 
@@ -448,27 +484,6 @@ export default function CreateAssignment() {
         assignments.push(savedAssignment);
         console.log(`✅ Assignment saved for ${contractor.firstName} ${contractor.lastName}`);
 
-        // Update task/category status in location tasks
-        if (selectedJobId && selectedLocationId && (locationTaskId || workCategory)) {
-          try {
-            await fetch('/api/assign-worker-task', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jobId: selectedJobId,
-                locationId: selectedLocationId,
-                taskId: locationTaskId,
-                workCategory: workCategory,
-                contractorId: contractor.id,
-                startDate: assignment.startDate,
-                endDate: assignment.endDate,
-                specialInstructions: assignment.specialInstructions,
-              }),
-            });
-          } catch (taskErr) {
-            console.warn("Could not sync location task assignment status:", taskErr);
-          }
-        }
       }
 
       const contractorNames = selectedContractors.map(id => {
@@ -724,7 +739,7 @@ export default function CreateAssignment() {
                   setSelectedJobId(jobId);
                   setSelectedPhases([]);
                   setSelectedLocationId("");
-                  setSelectedTaskId("");
+                  setSelectedTaskIds([]);
                   
                   if (jobId) {
                     const selectedJob = findAssignmentJobById(uploadedJobs, jobId);
@@ -788,7 +803,7 @@ export default function CreateAssignment() {
                     value={selectedLocationId}
                     onChange={(e) => {
                       setSelectedLocationId(e.target.value);
-                      setSelectedTaskId("");
+                      setSelectedTaskIds([]);
                     }}
                     className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
                   >
@@ -801,56 +816,41 @@ export default function CreateAssignment() {
                   </select>
                 </div>
 
-                {/* Work Package / Specific Task Selection */}
+                {/* Room-scoped assignable work checklist */}
                 {selectedLocationId && (
                   <div>
-                    <label className="block text-yellow-400 text-sm font-medium mb-2">
-                      Work Package / Specific Task *
-                    </label>
-                    <select
-                      value={selectedTaskId}
-                      onChange={(e) => setSelectedTaskId(e.target.value)}
-                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                    >
-                      <option value="">Select Work Package or Specific Task...</option>
-                      {(() => {
-                        const grouped = new Map<string, JobLocationTask[]>();
-                        for (const t of locationTasks) {
-                          const list = grouped.get(t.workCategory) || [];
-                          list.push(t);
-                          grouped.set(t.workCategory, list);
-                        }
-
-                        return Array.from(grouped.entries()).map(([catName, tasks]) => {
-                          const isPurePackage = tasks.length === 1 && tasks[0].taskName === tasks[0].workCategory;
-
-                          if (isPurePackage) {
-                            // Pure Work Package without child tasks (e.g. Spencer)
-                            const t = tasks[0];
-                            return (
-                              <option key={t.id} value={t.id}>
-                                📁 {catName} (Assignable Work Package) {t.status === "assigned" ? "✓ Assigned" : ""}
-                              </option>
-                            );
-                          }
-
-                          // Work Package with explicit child tasks (e.g. Maureen)
-                          const allAssigned = tasks.every((t) => t.status === "assigned");
-                          return (
-                            <optgroup key={catName} label={`📂 Work Package: ${catName}`}>
-                              <option value={`package:${catName}`}>
-                                📦 Assign Whole Package: {catName} ({tasks.length} tasks) {allAssigned ? "✓ All Assigned" : ""}
-                              </option>
-                              {tasks.map((t) => (
-                                <option key={t.id} value={t.id}>
-                                  &nbsp;&nbsp;• {t.taskName} {t.status === "assigned" ? "(Already Assigned)" : ""}
-                                </option>
-                              ))}
-                            </optgroup>
-                          );
-                        });
-                      })()}
-                    </select>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-yellow-400 text-sm font-medium">
+                        Assignable Work in {selectedLocation?.name || "Room"} *
+                      </label>
+                      <span className="text-xs text-slate-400">{selectedTaskIds.length} selected</span>
+                    </div>
+                    <div className="space-y-3 rounded-lg border border-slate-600 bg-slate-900/50 p-3">
+                      {roomAssignmentChecklist.length === 0 && (
+                        <p className="text-sm text-slate-400">No assignable work exists for this room.</p>
+                      )}
+                      {roomAssignmentChecklist.map((group) => (
+                        <fieldset key={group.name} className="space-y-2">
+                          {group.hasExplicitChildTasks && (
+                            <legend className="text-sm font-semibold text-white">{group.name}</legend>
+                          )}
+                          {group.items.map((item) => (
+                            <label key={item.id} className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-700 bg-slate-800/70 px-3 py-2 hover:border-yellow-500/60">
+                              <input
+                                type="checkbox"
+                                checked={selectedTaskIds.includes(item.id)}
+                                onChange={() => handleTaskToggle(item.id)}
+                                className="mt-0.5 h-4 w-4 rounded border-slate-500 bg-slate-700 text-yellow-400 focus:ring-yellow-500"
+                              />
+                              <span className="text-sm text-white">
+                                {item.checkboxLabel}
+                                {item.status === "assigned" && <span className="ml-2 text-xs text-emerald-400">Assigned</span>}
+                              </span>
+                            </label>
+                          ))}
+                        </fieldset>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

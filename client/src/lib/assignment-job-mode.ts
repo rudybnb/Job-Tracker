@@ -8,12 +8,51 @@ export interface AssignmentDeskJob {
   phases?: string[];
 }
 
+export interface AssignmentLocationTask {
+  id: string;
+  locationId: string;
+  workCategory: string;
+  taskName: string;
+  status: string;
+}
+
+export interface AssignmentWorkGroup<T extends AssignmentLocationTask = AssignmentLocationTask> {
+  name: string;
+  hasExplicitChildTasks: boolean;
+  items: Array<T & { checkboxLabel: string }>;
+}
+
 export function findAssignmentJobById<T extends AssignmentDeskJob>(jobs: T[], selectedJobId: string): T | undefined {
   return jobs.find((job) => job.id === selectedJobId);
 }
 
 export function hasStructuredJobData(locations: unknown[], locationTasks: unknown[]): boolean {
   return locations.length > 0 && locationTasks.length > 0;
+}
+
+export function buildRoomAssignmentChecklist<T extends AssignmentLocationTask>(
+  tasks: T[],
+  locationId: string,
+): AssignmentWorkGroup<T>[] {
+  const grouped = new Map<string, T[]>();
+  for (const task of tasks) {
+    if (task.locationId !== locationId) continue;
+    const group = grouped.get(task.workCategory) ?? [];
+    group.push(task);
+    grouped.set(task.workCategory, group);
+  }
+
+  return Array.from(grouped, ([name, items]) => {
+    const isPackageOnly = items.length === 1 && items[0].taskName === name;
+    return {
+      name,
+      hasExplicitChildTasks: !isPackageOnly,
+      items: items.map((item) => ({
+        ...item,
+        checkboxLabel: isPackageOnly ? name : item.taskName,
+      })),
+    };
+  });
 }
 
 export function formatAssignmentJobLabel(job: AssignmentDeskJob): string {

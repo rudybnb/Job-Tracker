@@ -25,7 +25,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as XLSX from "xlsx";
 import { createHash, randomUUID } from "node:crypto";
-import { eq, like, sql } from "drizzle-orm";
+import { and, eq, inArray, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
 import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments, projectSourceImports } from "@shared/schema";
@@ -1022,6 +1022,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching job location tasks:", error);
       res.status(500).json({ error: "Failed to fetch location tasks" });
+    }
+  });
+
+  // Atomically assign one or more existing room work items to one or more contractors.
+  app.post("/api/assign-worker-tasks", async (req, res) => {
+    const {
+      jobId,
+      locationId,
+      taskIds: rawTaskIds,
+      contractorIds: rawContractorIds,
+      startDate,
+      endDate,
+      specialInstructions,
+      sendTelegramNotification = false,
+    } = req.body;
+    const taskIds = Array.from(new Set(Array.isArray(rawTaskIds) ? rawTaskIds.map(String).filter(Boolean) : []));
+    const contractorIds = Array.from(new Set(Array.isArray(rawContractorIds) ? rawContractorIds.map(String).filter(Boolean) : []));
+
+    if (!jobId || !locationId || taskIds.length === 0 || contractorIds.length === 0) {
+      return res.status(400).json({
+        error: "jobId, locationId, at least one taskId, and at least one contractorId are required.",
+      });
+    }
+
+    try {
+      const start = startDate || new Date().toISOString().split("T")[0];
+      const end = endDate || start;
+
+      const result = await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`assignment:${jobId}:${locationId}`}))`);
+
+        const [job] = await tx.select().from(jobsTable).where(eq(jobsTable.id, jobId));
+        if (!job) throw Object.assign(new Error("Job not found"), { statusCode: 404 });
+
+        const [location] = await tx
+          .select()
+          .from(jobLocations)
+          .where(and(eq(jobLocations.id, locationId), eq(jobLocations.jobId, jobId)));
+        if (!location) throw Object.assign(new Error("Location not found for selected job"), { statusCode: 404 });
+
+        const selectedContractors = await tx
+          .select()
+          .from(contractors)
+          .where(inArray(contractors.id, contractorIds));
+        if (selectedContractors.length !== contractorIds.length) {
+          throw Object.assign(new Error("One or more contractors were not found"), { statusCode: 404 });
+        }
+
+        const selectedTasks = await tx
+          .select()
+          .from(jobLocationTasks)
+          .where(and(
+            eq(jobLocationTasks.jobId, jobId),
+            eq(jobLocationTasks.locationId, locationId),
+            inArray(jobLocationTasks.id, taskIds),
+          ));
+        if (selectedTasks.length !== taskIds.length) {
+          throw Object.assign(new Error("One or more work items do not belong to the selected room"), { statusCode: 400 });
+        }
+
+        const contractorNames = selectedContractors.map((contractor) => contractor.name || "Contractor");
+        const existingAssignments = await tx
+          .select({
+            contractorName: jobAssignments.contractorName,
+            locationTaskId: jobAssignments.locationTaskId,
+          })
+          .from(jobAssignments)
+          .where(and(
+            eq(jobAssignments.jobId, jobId),
+            eq(jobAssignments.locationId, locationId),
+            inArray(jobAssignments.locationTaskId, taskIds),
+            inArray(jobAssignments.contractorName, contractorNames),
+          ));
+        if (existingAssignments.length > 0) {
+          throw Object.assign(new Error("One or more selected work items are already assigned to this contractor"), { statusCode: 409 });
+        }
+
+        const assignmentRows = selectedContractors.flatMap((contractor) => {
+          const contractorName = contractor.name || "Contractor";
+          const instructions = selectedContractors.length > 1
+            ? `TEAM ASSIGNMENT: Working with ${selectedContractors.length} contractors. ${specialInstructions || ""}`.trim()
+            : specialInstructions;
+          return selectedTasks.map((task) => ({
+            jobId: job.id,
+            contractorName,
+            email: contractor.email,
+            phone: (contractor as any).phone || "0000000000",
+            workLocation: location.name,
+            hbxlJob: job.title,
+            locationId: location.id,
+            locationName: location.name,
+            locationTaskId: task.id,
+            workCategory: task.workCategory,
+            taskName: task.taskName,
+            buildPhases: [] as string[],
+            startDate: start,
+            endDate: end,
+            specialInstructions: instructions || `Assigned to ${location.name} → ${task.workCategory} (${task.taskName})`,
+            status: "assigned",
+            sendTelegramNotification: Boolean(sendTelegramNotification),
+          }));
+        });
+
+        const assignments = await tx.insert(jobAssignments).values(assignmentRows).returning();
+        await tx
+          .update(jobLocationTasks)
+          .set({
+            status: "assigned",
+            assignedContractorId: selectedContractors[0].id,
+            assignedContractorName: contractorNames.join(", "),
+            updatedAt: new Date(),
+          })
+          .where(inArray(jobLocationTasks.id, taskIds));
+
+        return { assignments, selectedContractors, selectedTasks, job, location };
+      });
+
+      if (sendTelegramNotification) {
+        const telegramService = new TelegramService();
+        for (const contractor of result.selectedContractors) {
+          try {
+            await telegramService.sendJobAssignment({
+              contractorName: contractor.name || "Contractor",
+              phone: (contractor as any).phone || "0000000000",
+              hbxlJob: result.job.title,
+              buildPhases: [],
+              workLocation: result.location.name,
+              startDate: start,
+            });
+          } catch (telegramError) {
+            console.error("Failed to send room assignment notification:", telegramError);
+          }
+        }
+      }
+
+      res.status(201).json({
+        success: true,
+        assignments: result.assignments,
+        assignmentCount: result.assignments.length,
+        taskCount: result.selectedTasks.length,
+        contractorCount: result.selectedContractors.length,
+      });
+    } catch (error) {
+      const statusCode = Number((error as any)?.statusCode) || 500;
+      console.error("Error assigning room work items:", error);
+      res.status(statusCode).json({ error: error instanceof Error ? error.message : "Failed to assign room work items" });
     }
   });
 
