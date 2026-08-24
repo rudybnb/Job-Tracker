@@ -2,7 +2,29 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { AssignmentStatusBadge } from "@/components/assignment-status-badge";
+import { queryClient } from "@/lib/queryClient";
 import "./job-assignments.css";
+
+interface StructuredProgressGroup {
+  workerId: string | null;
+  workerName: string;
+  jobId: string;
+  jobName: string;
+  roomCount: number;
+  workItemCount: number;
+  counts: Record<string, number>;
+  assignments: Array<{
+    id: string;
+    status: string;
+    locationName: string | null;
+    workLocation: string;
+    taskName: string | null;
+    workCategory: string | null;
+    latestStatusEvent?: { note: string | null } | null;
+  }>;
+}
 
 function LogoutButton() {
   const handleLogout = () => {
@@ -35,6 +57,7 @@ export default function JobAssignments() {
   const [completedTasks, setCompletedTasks] = useState<any[]>([]);
   const [inspectionStatus, setInspectionStatus] = useState<Record<string, 'approved' | 'issues'>>({});
   const [inspectionNotes, setInspectionNotes] = useState<Record<string, string>>({});
+  const [reworkNotes, setReworkNotes] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   // Fetch job assignments from the database
@@ -47,6 +70,40 @@ export default function JobAssignments() {
       }
       return response.json();
     }
+  });
+
+  const { data: structuredProgress = [] } = useQuery<StructuredProgressGroup[]>({
+    queryKey: ["/api/admin/structured-assignment-progress"],
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: async ({ assignmentId, status, note }: { assignmentId: string; status: string; note?: string }) => {
+      const response = await fetch(`/api/admin/structured-assignments/${encodeURIComponent(assignmentId)}/transition`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, note }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "Review update failed");
+      }
+      return response.json();
+    },
+    onSuccess: (_result, variables) => {
+      setReworkNotes((current) => {
+        const next = { ...current };
+        delete next[variables.assignmentId];
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/structured-assignment-progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/job-assignments"] });
+      toast({ title: "Assignment Updated", description: "The worker's status has been updated." });
+    },
+    onError: (error) => toast({
+      title: "Review Not Saved",
+      description: error instanceof Error ? error.message : "Please retry.",
+      variant: "destructive",
+    }),
   });
 
   const handleDeleteAssignment = async (assignmentId: string) => {
@@ -214,6 +271,77 @@ export default function JobAssignments() {
           </Button>
         </section>
 
+        <section className="ja-panel" aria-labelledby="structured-progress-title">
+          <div className="ja-panel__head">
+            <div>
+              <p className="ja-kicker">Structured work</p>
+              <h2 id="structured-progress-title">Worker Progress & Approval</h2>
+            </div>
+            <span className="ja-count">{structuredProgress.length} worker/job groups</span>
+          </div>
+          <div className="ja-panel__body space-y-4">
+            {structuredProgress.map((group) => (
+              <article key={`${group.workerId || group.workerName}:${group.jobId}`} className="rounded-xl border-2 border-slate-600 bg-slate-950 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-extrabold text-white">{group.workerName} — {group.jobName}</h3>
+                    <p className="mt-1 font-semibold text-slate-300">{group.roomCount} rooms · {group.workItemCount} work items</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-sm font-bold">
+                    <span className="rounded border border-amber-400 bg-amber-950 px-2 py-1 text-amber-100">{group.counts.in_progress || 0} In Progress</span>
+                    <span className="rounded border-2 border-fuchsia-300 bg-fuchsia-950 px-2 py-1 text-fuchsia-100">{group.counts.awaiting_approval || 0} Awaiting Approval</span>
+                    <span className="rounded border border-emerald-400 bg-emerald-950 px-2 py-1 text-emerald-100">{group.counts.approved || 0} Approved</span>
+                    <span className="rounded border border-red-400 bg-red-950 px-2 py-1 text-red-100">{group.counts.rework_required || 0} Rework Required</span>
+                  </div>
+                </div>
+
+                {(group.counts.awaiting_approval || 0) > 0 && (
+                  <div className="mt-4 space-y-3 border-t-2 border-fuchsia-700 pt-4">
+                    <h4 className="font-extrabold uppercase tracking-wide text-fuchsia-200">Awaiting Approval</h4>
+                    {group.assignments.filter((assignment) => assignment.status === "awaiting_approval").map((assignment) => (
+                      <div key={assignment.id} className="rounded-lg border-2 border-fuchsia-400 bg-slate-900 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <strong className="text-white">{assignment.locationName || assignment.workLocation}</strong>
+                            <p className="text-sm text-slate-300">{assignment.taskName || assignment.workCategory}</p>
+                          </div>
+                          <AssignmentStatusBadge status={assignment.status} />
+                        </div>
+                        <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                          <input
+                            className="rounded border-2 border-slate-500 bg-slate-950 px-3 py-2 text-white"
+                            placeholder="Required rework note"
+                            value={reworkNotes[assignment.id] || ""}
+                            onChange={(event) => setReworkNotes((current) => ({ ...current, [assignment.id]: event.target.value }))}
+                          />
+                          <Button
+                            className="bg-emerald-600 font-extrabold text-white hover:bg-emerald-500"
+                            disabled={reviewMutation.isPending}
+                            onClick={() => reviewMutation.mutate({ assignmentId: assignment.id, status: "approved" })}
+                          >
+                            APPROVE
+                          </Button>
+                          <Button
+                            className="bg-red-700 font-extrabold text-white hover:bg-red-600"
+                            disabled={reviewMutation.isPending || !(reworkNotes[assignment.id] || "").trim()}
+                            onClick={() => reviewMutation.mutate({
+                              assignmentId: assignment.id,
+                              status: "rework_required",
+                              note: reworkNotes[assignment.id],
+                            })}
+                          >
+                            REWORK REQUIRED
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="ja-panel" aria-labelledby="current-assignments-title">
           <div className="ja-panel__head">
             <div>
@@ -272,9 +400,11 @@ export default function JobAssignments() {
                       <div className="ja-card__stats" aria-label="Assignment summary">
                         <div className="ja-stat">
                           <span>Status</span>
-                          <strong className="ja-status-text">
-                            {assignment.status || 'Assigned'}
-                          </strong>
+                          {assignment.jobId && assignment.locationId && assignment.locationTaskId ? (
+                            <AssignmentStatusBadge status={assignment.status || "assigned"} />
+                          ) : (
+                            <strong className="ja-status-text">{assignment.status || 'Assigned'}</strong>
+                          )}
                         </div>
                         <div className="ja-stat">
                           <span>Phases</span>
@@ -310,12 +440,16 @@ export default function JobAssignments() {
                       </div>
                       <div className="ja-detail ja-detail--action">
                         <span>Actions</span>
-                        <button 
-                          onClick={() => toggleInspectionView(assignment.id)}
-                          className="ja-text-button"
-                        >
-                          {expandedAssignment === assignment.id ? 'Hide' : 'Show'} Task Inspection
-                        </button>
+                        {assignment.jobId && assignment.locationId && assignment.locationTaskId ? (
+                          <strong>Use approval panel above</strong>
+                        ) : (
+                          <button
+                            onClick={() => toggleInspectionView(assignment.id)}
+                            className="ja-text-button"
+                          >
+                            {expandedAssignment === assignment.id ? 'Hide' : 'Show'} Task Inspection
+                          </button>
+                        )}
                       </div>
                     </div>
 

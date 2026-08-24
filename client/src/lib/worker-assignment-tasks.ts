@@ -18,6 +18,14 @@ export interface WorkerAssignment {
   workCategory?: string | null;
   taskName?: string | null;
   workerId?: string;
+  latestStatusEvent?: {
+    fromStatus: string;
+    toStatus: string;
+    actorType: string;
+    actorId: string | null;
+    note: string | null;
+    createdAt: string;
+  } | null;
 }
 
 export interface WorkerAssignmentsResponse {
@@ -77,36 +85,17 @@ export function getStructuredRoomAssignments(
 
   return getWorkerAssignments(assignments, workerId, contractorName).filter(
     (assignment) =>
-      assignment.status === "assigned"
-      && assignment.jobId === selectedAssignment.jobId
+      assignment.jobId === selectedAssignment.jobId
       && assignment.locationId === selectedAssignment.locationId
       && Boolean(assignment.locationTaskId),
   );
 }
 
-export async function saveStructuredTaskCompletion(
-  assignmentId: string,
-  completed: boolean,
-): Promise<void> {
-  const response = await fetch(`/api/worker-task-progress/${encodeURIComponent(assignmentId)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ completed }),
-  });
-  if (!response.ok) throw new Error("Task completion was not saved");
-
-  const persisted = await response.json() as { completed?: boolean };
-  if (persisted.completed !== completed) {
-    throw new Error("Task completion was not confirmed");
-  }
-}
-
 export function buildStructuredTasks(
   assignments: WorkerAssignment[],
-  completedByAssignmentId: ReadonlyMap<string, boolean> = new Map(),
 ): TaskProgressData[] {
   return assignments.map((assignment) => {
-    const completed = completedByAssignmentId.get(assignment.id) ?? false;
+    const completed = assignment.status === "approved";
     const title = assignment.taskName || assignment.workCategory || "Assigned work";
 
     return {
@@ -120,6 +109,8 @@ export function buildStructuredTasks(
       completedItems: completed ? 1 : 0,
       status: completed ? "completed" : "not started",
       completed,
+      lifecycleStatus: assignment.status,
+      statusNote: assignment.latestStatusEvent?.note || null,
     };
   });
 }

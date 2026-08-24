@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AssignmentStatusBadge } from "@/components/assignment-status-badge";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 import { TaskProgressManager, type TaskProgressData } from "@/lib/task-progress-manager";
 import {
   buildStructuredTasks,
@@ -10,7 +12,6 @@ import {
   getStructuredRoomAssignments,
   getWorkerAssignments,
   isStructuredAssignment as hasStructuredWork,
-  saveStructuredTaskCompletion,
   type WorkerAssignmentsResponse,
 } from "@/lib/worker-assignment-tasks";
 import "./hallmark-sweep.css";
@@ -50,7 +51,7 @@ export default function TaskProgress() {
   );
   const isStructuredAssignment = hasStructuredWork(activeAssignment);
   const structuredAssignmentKey = structuredRoomAssignments
-    .map((assignment) => assignment.id)
+    .map((assignment) => `${assignment.id}:${assignment.status}:${assignment.latestStatusEvent?.createdAt || ""}`)
     .join(',');
 
   // Get team task progress to show teammate completion status
@@ -135,32 +136,7 @@ export default function TaskProgress() {
     
     const loadTasksFromCSV = async () => {
       if (isStructuredAssignment) {
-        const completedByAssignmentId = new Map<string, boolean>();
-
-        await Promise.all(structuredRoomAssignments.map(async (assignment) => {
-          try {
-            const response = await fetch(
-              `/api/worker-task-progress/${encodeURIComponent(assignment.id)}`,
-            );
-            if (!response.ok) throw new Error("Task progress could not be loaded");
-            const progressRows = await response.json() as Array<{
-              taskId: string;
-              completed: boolean;
-            }>;
-            completedByAssignmentId.set(
-              assignment.id,
-              progressRows.some(
-                (row) =>
-                  row.taskId === assignment.locationTaskId
-                  && row.completed,
-              ),
-            );
-          } catch (error) {
-            console.error('Failed to restore structured task progress:', error);
-          }
-        }));
-
-        setTasks(buildStructuredTasks(structuredRoomAssignments, completedByAssignmentId));
+        setTasks(buildStructuredTasks(structuredRoomAssignments));
         return;
       }
 
@@ -387,6 +363,57 @@ export default function TaskProgress() {
     return total > 0 ? Math.round((getTotalCompleted() / total) * 100) : 0;
   };
 
+  const transitionStructuredTask = async (task: TaskProgressData, status: string) => {
+    if (!task.assignmentId || task.saveState === "saving") return;
+    setTasks((current) => current.map((item) =>
+      item.id === task.id ? { ...item, saveState: "saving" } : item,
+    ));
+
+    try {
+      const response = await fetch(
+        `/api/worker-assignments/${encodeURIComponent(task.assignmentId)}/transition`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        },
+      );
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "Status update failed");
+      }
+      const result = await response.json() as {
+        assignment: { status: string };
+        event: { note: string | null };
+      };
+      setTasks((current) => current.map((item) => item.id === task.id ? {
+        ...item,
+        lifecycleStatus: result.assignment.status,
+        status: result.assignment.status === "approved" ? "completed" : "not started",
+        completed: result.assignment.status === "approved",
+        completedItems: result.assignment.status === "approved" ? item.totalItems : 0,
+        statusNote: result.event.note,
+        saveState: "idle",
+      } : item));
+      queryClient.invalidateQueries({ queryKey: ["/api/worker-assignments"] });
+      toast({
+        title: status === "awaiting_approval" ? "Awaiting Approval" : "Work Started",
+        description: status === "awaiting_approval"
+          ? "The work remains visible until a manager approves it."
+          : "This work item is now in progress.",
+      });
+    } catch (error) {
+      setTasks((current) => current.map((item) =>
+        item.id === task.id ? { ...item, saveState: "error" } : item,
+      ));
+      toast({
+        title: "Status Not Saved",
+        description: error instanceof Error ? error.message : "Please retry.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const updateTaskProgress = async (taskId: string, increment: number) => {
     const previousTask = tasks.find((task) => task.id === taskId);
     if (!previousTask || previousTask.saveState === "saving") return;
@@ -411,31 +438,6 @@ export default function TaskProgress() {
     setTasks(updatedTasks);
     
     const updatedTask = updatedTasks.find(task => task.id === taskId);
-    if (isStructuredAssignment && updatedTask?.assignmentId) {
-      try {
-        await saveStructuredTaskCompletion(
-          updatedTask.assignmentId,
-          updatedTask.status === "completed",
-        );
-        setTasks((current) => current.map((task) =>
-          task.id === taskId ? { ...task, saveState: "idle" } : task,
-        ));
-        toast({ title: "Progress Saved", description: "Task completion confirmed." });
-      } catch (error) {
-        setTasks((current) => current.map((task) =>
-          task.id === taskId
-            ? { ...previousTask, saveState: "error" }
-            : task,
-        ));
-        toast({
-          title: "Progress Not Saved",
-          description: "The server did not confirm this update. Please retry.",
-          variant: "destructive",
-        });
-      }
-      return;
-    }
-
     // Legacy task progress retains its existing local and database behavior.
     if (updatedTask) {
       const isCompleted = updatedTask.status === "completed";
@@ -690,27 +692,64 @@ export default function TaskProgress() {
                           )}
                         </div>
                       </div>
-                      <Badge 
-                        variant="outline" 
-                        className={`${
-                          teammateCompletion 
-                            ? 'border-green-500 text-green-400' 
-                            : 'border-slate-500 text-slate-400'
-                        }`}
-                      >
-                        {teammateCompletion
-                          ? 'Done by teammate'
-                          : task.saveState === 'saving'
-                            ? 'saving'
-                            : task.saveState === 'error'
-                              ? 'save failed'
-                              : task.status}
-                      </Badge>
+                      {isStructuredAssignment ? (
+                        <AssignmentStatusBadge status={task.lifecycleStatus || "assigned"} />
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className={`${teammateCompletion ? 'border-green-500 text-green-400' : 'border-slate-500 text-slate-400'}`}
+                        >
+                          {teammateCompletion ? 'Done by teammate' : task.status}
+                        </Badge>
+                      )}
                     </div>
                     
                     <p className="text-slate-300 text-sm mb-3">{task.description}</p>
+
+                    {task.lifecycleStatus === "rework_required" && task.statusNote && (
+                      <div className="mb-4 rounded-lg border-2 border-red-400 bg-red-950 p-3 text-red-100" role="alert">
+                        <strong className="block text-sm uppercase tracking-wide">Manager rework note</strong>
+                        <p className="mt-1 text-sm">{task.statusNote}</p>
+                      </div>
+                    )}
+                    {task.saveState === "error" && (
+                      <p className="mb-3 font-semibold text-red-300">Status was not saved. Please retry.</p>
+                    )}
                     
-                    {!teammateCompletion && (
+                    {!teammateCompletion && isStructuredAssignment && (
+                      <div className="mt-4">
+                        {(task.lifecycleStatus === "assigned" || task.lifecycleStatus === "rework_required") && (
+                          <Button
+                            className="w-full bg-amber-500 font-extrabold text-slate-950 hover:bg-amber-400"
+                            disabled={task.saveState === "saving"}
+                            onClick={() => transitionStructuredTask(task, "in_progress")}
+                          >
+                            {task.saveState === "saving" ? "SAVING..." : task.lifecycleStatus === "rework_required" ? "START REWORK" : "START WORK"}
+                          </Button>
+                        )}
+                        {task.lifecycleStatus === "in_progress" && (
+                          <Button
+                            className="w-full bg-fuchsia-600 font-extrabold text-white hover:bg-fuchsia-500"
+                            disabled={task.saveState === "saving"}
+                            onClick={() => transitionStructuredTask(task, "awaiting_approval")}
+                          >
+                            {task.saveState === "saving" ? "SAVING..." : "MARK WORK DONE"}
+                          </Button>
+                        )}
+                        {task.lifecycleStatus === "awaiting_approval" && (
+                          <p className="rounded-lg border-2 border-fuchsia-400 bg-fuchsia-950 p-3 text-center font-bold text-fuchsia-100">
+                            AWAITING APPROVAL. This work remains visible until a manager signs it off.
+                          </p>
+                        )}
+                        {task.lifecycleStatus === "approved" && (
+                          <p className="rounded-lg border-2 border-emerald-400 bg-emerald-950 p-3 text-center font-bold text-emerald-100">
+                            APPROVED ✓
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {!teammateCompletion && !isStructuredAssignment && (
                       <>
                         <div className="text-orange-400 text-sm mb-4">
                           • {task.totalItems} items left to complete

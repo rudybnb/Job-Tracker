@@ -1666,6 +1666,26 @@ export const insertJobAssignmentSchema = createInsertSchema(jobAssignments).omit
   updatedAt: true,
 });
 
+export const jobAssignmentStatusEvents = pgTable("job_assignment_status_events", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  assignmentId: text("assignment_id").notNull().references(() => jobAssignments.id, { onDelete: "cascade" }),
+  fromStatus: text("from_status").notNull(),
+  toStatus: text("to_status").notNull(),
+  actorType: text("actor_type").notNull(),
+  actorId: text("actor_id"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("job_assignment_status_events_assignment_created_idx").on(table.assignmentId, table.createdAt),
+  check("job_assignment_status_events_actor_type_check", sql`${table.actorType} IN ('worker', 'admin', 'system')`),
+  check("job_assignment_status_events_actor_id_check", sql`${table.actorType} = 'system' OR ${table.actorId} IS NOT NULL`),
+]);
+
+export const insertJobAssignmentStatusEventSchema = createInsertSchema(jobAssignmentStatusEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Task Progress table for tracking individual task completion
 export const taskProgress = pgTable("task_progress", {
   id: text("id").primaryKey().default(sql`gen_random_uuid()`),

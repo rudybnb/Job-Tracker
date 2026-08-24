@@ -25,13 +25,18 @@ import * as fs from "fs";
 import * as path from "path";
 import * as XLSX from "xlsx";
 import { createHash, randomUUID } from "node:crypto";
-import { and, eq, inArray, like, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments, projectSourceImports, workers } from "@shared/schema";
+import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments, jobAssignmentStatusEvents, projectSourceImports, workers } from "@shared/schema";
 import { deriveCanonicalUsername, WorkerService } from "./worker-service.ts";
 import { buildAssignablePeople, type AssignmentIdentity } from "./assignment-people.ts";
-import { getAssignmentsOwnedByWorker, isStructuredWorkerAssignment } from "./worker-task-ownership.ts";
+import { getAssignmentsOwnedByWorker, isStructuredWorkerAssignment, resolveStructuredAssignmentWorkerId } from "./worker-task-ownership.ts";
+import {
+  AssignmentLifecycleError,
+  databaseAssignmentLifecycleRepository,
+  transitionStructuredAssignment,
+} from "./structured-assignment-lifecycle.ts";
 import { normalizeUploadCsvContent, parseJobUploadCsv, suggestJobNameFromSource, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
 import {
   SMART_SCHEDULE_PARSER_VERSION,
@@ -1029,7 +1034,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/assignment-desk/assignable-people", async (_req, res) => {
+  app.get(
+    "/api/assignment-desk/assignable-people",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (_req, res) => {
     try {
       const [canonicalWorkers, activeWorkerRows, contractorProfiles] = await Promise.all([
         workerService.listWorkers(),
@@ -1048,7 +1056,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Atomically assign one or more existing room work items to one or more contractors.
-  app.post("/api/assign-worker-tasks", async (req, res) => {
+  app.post(
+    "/api/assign-worker-tasks",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (req, res) => {
     const {
       jobId,
       selections: rawSelections,
@@ -1293,7 +1304,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Assign worker to Job + Location + Task (Phase 3 assignment flow)
   // Assign worker to Job + Location + (Work Package OR Child Task)
-  app.post("/api/assign-worker-task", async (req, res) => {
+  app.post(
+    "/api/assign-worker-task",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (req, res) => {
     try {
       const {
         jobId,
@@ -1540,12 +1554,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       storage.getJobAssignments(),
       workerService.listWorkers(),
     ]);
-    const assignments = getAssignmentsOwnedByWorker(
+    const ownedAssignments = getAssignmentsOwnedByWorker(
       allAssignments,
       authenticatedWorker,
       workerList.filter((worker) => worker.isActive),
     );
+    const assignments = await addLatestStatusEvent(ownedAssignments);
     return { authenticatedWorker, assignments };
+  }
+
+  async function addLatestStatusEvent<T extends { id: string }>(assignments: T[]) {
+    if (assignments.length === 0) return assignments;
+
+    const events = await db
+      .select()
+      .from(jobAssignmentStatusEvents)
+      .where(inArray(jobAssignmentStatusEvents.assignmentId, assignments.map((assignment) => assignment.id)))
+      .orderBy(desc(jobAssignmentStatusEvents.createdAt));
+    const latestByAssignment = new Map<string, typeof events[number]>();
+    for (const event of events) {
+      if (!latestByAssignment.has(event.assignmentId)) {
+        latestByAssignment.set(event.assignmentId, event);
+      }
+    }
+
+    return assignments.map((assignment) => ({
+      ...assignment,
+      latestStatusEvent: latestByAssignment.get(assignment.id) || null,
+    }));
   }
 
   async function blocksLegacyStructuredProgress(
@@ -1572,6 +1608,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch worker assignments" });
     }
   });
+
+  app.post("/api/worker-assignments/:assignmentId/transition", async (req, res) => {
+    try {
+      const authenticatedWorker = await getAuthenticatedWorker(req as SessionRequest);
+      if (!authenticatedWorker) {
+        return res.status(401).json({ error: "Authenticated worker required" });
+      }
+
+      const workerList = (await workerService.listWorkers()).filter((worker) => worker.isActive);
+      const result = await transitionStructuredAssignment(
+        databaseAssignmentLifecycleRepository,
+        {
+          assignmentId: req.params.assignmentId,
+          toStatus: req.body?.status,
+          actorType: "worker",
+          actorId: authenticatedWorker.id,
+          ownsAssignment: (assignment) =>
+            resolveStructuredAssignmentWorkerId(assignment, workerList) === authenticatedWorker.id,
+        },
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof AssignmentLifecycleError) {
+        return res.status(error.statusCode).json({ error: error.message, code: error.code });
+      }
+      console.error("Error transitioning structured worker assignment:", error);
+      res.status(500).json({ error: "Failed to update assignment status" });
+    }
+  });
+
+  app.get(
+    "/api/admin/structured-assignment-progress",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (_req, res) => {
+      try {
+        const [allAssignments, workerList] = await Promise.all([
+          storage.getJobAssignments(),
+          workerService.listWorkers(),
+        ]);
+        const structuredAssignments = await addLatestStatusEvent(
+          allAssignments.filter(isStructuredWorkerAssignment),
+        );
+        const groups = new Map<string, any>();
+
+        for (const assignment of structuredAssignments) {
+          const workerId = resolveStructuredAssignmentWorkerId(assignment, workerList) || null;
+          const key = `${workerId || assignment.contractorName}:${assignment.jobId}`;
+          if (!groups.has(key)) {
+            groups.set(key, {
+              workerId,
+              workerName: assignment.contractorName,
+              jobId: assignment.jobId,
+              jobName: assignment.hbxlJob,
+              roomIds: new Set<string>(),
+              counts: {
+                assigned: 0,
+                in_progress: 0,
+                awaiting_approval: 0,
+                approved: 0,
+                rework_required: 0,
+              },
+              assignments: [],
+            });
+          }
+          const group = groups.get(key);
+          group.roomIds.add(assignment.locationId);
+          if (assignment.status in group.counts) group.counts[assignment.status] += 1;
+          group.assignments.push(assignment);
+        }
+
+        res.json(Array.from(groups.values()).map((group) => ({
+          ...group,
+          roomCount: group.roomIds.size,
+          workItemCount: group.assignments.length,
+          roomIds: undefined,
+        })));
+      } catch (error) {
+        console.error("Error loading structured assignment progress:", error);
+        res.status(500).json({ error: "Failed to load structured assignment progress" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/admin/structured-assignments/:assignmentId/transition",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (req, res) => {
+      try {
+        const session = (req as SessionRequest).session;
+        const result = await transitionStructuredAssignment(
+          databaseAssignmentLifecycleRepository,
+          {
+            assignmentId: req.params.assignmentId,
+            toStatus: req.body?.status,
+            actorType: "admin",
+            actorId: session.userId || session.username || null,
+            note: req.body?.note,
+          },
+        );
+        res.json(result);
+      } catch (error) {
+        if (error instanceof AssignmentLifecycleError) {
+          return res.status(error.statusCode).json({ error: error.message, code: error.code });
+        }
+        console.error("Error reviewing structured assignment:", error);
+        res.status(500).json({ error: "Failed to review assignment" });
+      }
+    },
+  );
 
   // Get all job assignments (for admin interface)
   app.get("/api/job-assignments", async (req, res) => {
@@ -1827,9 +1972,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/job-assignments", async (req, res) => {
+  app.post(
+    "/api/job-assignments",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (req, res) => {
     try {
       console.log("📋 Creating job assignment:", req.body);
+
+      const createsStructuredAssignment = Boolean(
+        req.body?.jobId && req.body?.locationId && req.body?.locationTaskId,
+      );
+      if (
+        createsStructuredAssignment
+        && Object.prototype.hasOwnProperty.call(req.body, "status")
+        && req.body.status !== "assigned"
+      ) {
+        return res.status(400).json({ error: "Structured assignments must start as assigned" });
+      }
       
       // Add GPS coordinates based on workLocation (postcode)
       if (req.body.workLocation) {
@@ -1891,10 +2050,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update job assignment
-  app.put("/api/job-assignments/:id", async (req, res) => {
+  app.put(
+    "/api/job-assignments/:id",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (req, res) => {
     try {
       const { id } = req.params;
       console.log("📝 Updating job assignment:", id, "with:", req.body);
+
+      const existing = await storage.getJobAssignment(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      if (
+        isStructuredWorkerAssignment(existing)
+        && ["status", "jobId", "locationId", "locationTaskId"].some((field) =>
+          Object.prototype.hasOwnProperty.call(req.body, field),
+        )
+      ) {
+        return res.status(409).json({
+          error: "Structured assignment lifecycle fields cannot be changed by the general update endpoint",
+        });
+      }
+      const becomesStructuredAssignment = Boolean(
+        (req.body.jobId ?? existing.jobId)
+        && (req.body.locationId ?? existing.locationId)
+        && (req.body.locationTaskId ?? existing.locationTaskId),
+      );
+      if (!isStructuredWorkerAssignment(existing) && becomesStructuredAssignment) {
+        return res.status(409).json({
+          error: "A legacy assignment cannot be converted into a structured assignment",
+        });
+      }
       
       const updated = await storage.updateJobAssignment(id, req.body);
       if (!updated) {
@@ -1909,7 +2096,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete job assignment
-  app.delete("/api/job-assignments/:id", async (req, res) => {
+  app.delete(
+    "/api/job-assignments/:id",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (req, res) => {
     try {
       const { id } = req.params;
       console.log("🗑️ Deleting job assignment:", id);
@@ -3361,48 +3551,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/worker-task-progress/:assignmentId", async (req, res) => {
-    try {
-      if (typeof req.body?.completed !== "boolean") {
-        return res.status(400).json({ error: "Completed must be a boolean" });
-      }
-
-      const owned = await getAuthenticatedWorkerAssignments(req as SessionRequest);
-      if (!owned) return res.status(401).json({ error: "Authenticated worker required" });
-
-      const assignment = owned.assignments.find(
-        (candidate) => candidate.id === req.params.assignmentId,
-      );
-      if (!assignment || !isStructuredWorkerAssignment(assignment)) {
-        return res.status(404).json({ error: "Structured assignment not found" });
-      }
-
-      const taskId = assignment.locationTaskId!;
-      let progress = await storage.updateTaskCompletion(
-        assignment.contractorName,
-        assignment.id,
-        taskId,
-        req.body.completed,
-      );
-      if (!progress) {
-        progress = await storage.createTaskProgress({
-          contractorName: assignment.contractorName,
-          assignmentId: assignment.id,
-          taskId,
-          taskDescription: assignment.taskName || assignment.workCategory || "Assigned work",
-          phase: assignment.locationName || assignment.workLocation,
-          completed: req.body.completed,
-        });
-      }
-
-      res.json({
-        assignmentId: assignment.id,
-        taskId: progress.taskId,
-        completed: progress.completed,
-      });
-    } catch (error) {
-      console.error("Error saving structured worker task progress:", error);
-      res.status(500).json({ error: "Failed to save task progress" });
-    }
+    res.status(410).json({
+      error: "Structured task progress is managed by assignment status transitions",
+      transitionEndpoint: `/api/worker-assignments/${req.params.assignmentId}/transition`,
+    });
   });
 
   const httpServer = createServer(app);

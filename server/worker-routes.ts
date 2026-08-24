@@ -1,10 +1,12 @@
 import express, { type Request, type Response, type Router } from "express";
 import { WorkerService, normalizePhoneE164 } from "./worker-service.ts";
+import { requireAdmin } from "./integration-review-route.ts";
 
 export const WORKERS_ADMIN_API_PREFIX = "/api/admin/workers";
 
 export function createWorkerRouter(workerService = new WorkerService()): Router {
   const router = express.Router();
+  router.use(requireAdmin as unknown as express.RequestHandler);
 
   // GET /api/admin/workers - List all workers from operational records
   router.get(WORKERS_ADMIN_API_PREFIX, async (_req: Request, res: Response) => {

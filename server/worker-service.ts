@@ -786,6 +786,7 @@ export class WorkerService {
     
     // Find existing assignment for worker
     const existing = existingAssignments.find((a) => {
+      if (a.jobId && a.locationId && a.locationTaskId) return false;
       if (normPhone && a.phone && normalizePhoneE164(a.phone) === normPhone) return true;
       return a.contractorName.toLowerCase() === workerFullName.toLowerCase();
     });
@@ -828,7 +829,8 @@ export class WorkerService {
     for (const a of assignments) {
       const matchPhone = normPhone && a.phone && normalizePhoneE164(a.phone) === normPhone;
       const matchName = a.contractorName.toLowerCase() === fullName.toLowerCase();
-      if (matchPhone || matchName) {
+      const isStructuredAssignment = Boolean(a.jobId && a.locationId && a.locationTaskId);
+      if (!isStructuredAssignment && (matchPhone || matchName)) {
         await db.delete(jobAssignments).where(eq(jobAssignments.id, a.id));
       }
     }

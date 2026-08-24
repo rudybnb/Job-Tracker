@@ -5,7 +5,6 @@ import {
   getSelectedAssignment,
   getStructuredRoomAssignments,
   getWorkerAssignments,
-  saveStructuredTaskCompletion,
   type WorkerAssignment,
 } from "../client/src/lib/worker-assignment-tasks";
 
@@ -62,7 +61,7 @@ test("worker assignment selection uses the clicked ID and exact worker identity"
   );
 });
 
-test("structured room selection includes only assigned rows for the same worker, job, and room", () => {
+test("structured room selection includes all lifecycle rows for the same worker, job, and room", () => {
   const selected = assignment("bath");
   const assignments = [
     selected,
@@ -73,7 +72,7 @@ test("structured room selection includes only assigned rows for the same worker,
       workLocation: "Ground Floor Lounge",
     }),
     assignment("other-job", { jobId: "another-job" }),
-    assignment("unassigned", { status: "completed" }),
+    assignment("approved", { status: "approved" }),
     assignment("other-worker", {
       contractorName: "Ahmed Gouda",
       workerId: "ahmed-worker",
@@ -84,7 +83,7 @@ test("structured room selection includes only assigned rows for the same worker,
   assert.deepEqual(
     getStructuredRoomAssignments(assignments, "rudy-worker", "Rudy Diedericks", selected)
       .map((row) => row.id),
-    ["bath", "mixer"],
+    ["bath", "mixer", "approved"],
   );
 });
 
@@ -103,42 +102,13 @@ test("structured assignment filtering requires worker ID even when the name matc
   );
 });
 
-test("structured completion requires backend confirmation and rejects failed saves", async () => {
-  const originalFetch = globalThis.fetch;
-  try {
-    globalThis.fetch = async () => ({ ok: false }) as Response;
-    await assert.rejects(
-      saveStructuredTaskCompletion("assignment-1", true),
-      /not saved/,
-    );
-
-    globalThis.fetch = async () => ({
-      ok: true,
-      json: async () => ({ completed: false }),
-    }) as Response;
-    await assert.rejects(
-      saveStructuredTaskCompletion("assignment-1", true),
-      /not confirmed/,
-    );
-
-    globalThis.fetch = async () => ({
-      ok: true,
-      json: async () => ({ completed: true }),
-    }) as Response;
-    await saveStructuredTaskCompletion("assignment-1", true);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("structured tasks contain only assignment work items and persist against their source rows", () => {
+test("structured tasks derive completion only from authoritative approved status", () => {
   const roomAssignments = [
     assignment("bath", { taskName: "Bath Standard" }),
-    assignment("mixer", { taskName: "Shower Mixer" }),
+    assignment("mixer", { taskName: "Shower Mixer", status: "approved" }),
   ];
-  const completed = new Map([["mixer", true]]);
 
-  const tasks = buildStructuredTasks(roomAssignments, completed);
+  const tasks = buildStructuredTasks(roomAssignments);
 
   assert.deepEqual(tasks.map((task) => ({
     assignmentId: task.assignmentId,
@@ -146,6 +116,7 @@ test("structured tasks contain only assignment work items and persist against th
     title: task.title,
     area: task.area,
     status: task.status,
+    lifecycleStatus: task.lifecycleStatus,
   })), [
     {
       assignmentId: "bath",
@@ -153,6 +124,7 @@ test("structured tasks contain only assignment work items and persist against th
       title: "Bath Standard",
       area: "Bathroom 1",
       status: "not started",
+      lifecycleStatus: "assigned",
     },
     {
       assignmentId: "mixer",
@@ -160,6 +132,7 @@ test("structured tasks contain only assignment work items and persist against th
       title: "Shower Mixer",
       area: "Bathroom 1",
       status: "completed",
+      lifecycleStatus: "approved",
     },
   ]);
 });

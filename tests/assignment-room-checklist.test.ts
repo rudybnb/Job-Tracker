@@ -9,7 +9,7 @@ const routesSource = readFileSync(path.join(repoRoot, "server", "routes.ts"), "u
 const pageSource = readFileSync(path.join(repoRoot, "client", "src", "pages", "create-assignment.tsx"), "utf8");
 
 function extractBatchRoute(): string {
-  const start = routesSource.indexOf('app.post("/api/assign-worker-tasks"');
+  const start = routesSource.indexOf('"/api/assign-worker-tasks"');
   const end = routesSource.indexOf("// Assign worker to Job + Location + Task", start);
   assert.ok(start > -1, "batch room-assignment endpoint exists");
   assert.ok(end > start, "batch endpoint has a stable boundary");
@@ -36,6 +36,8 @@ test("Assignment Desk uses typed canonical people instead of onboarding applicat
   assert.match(pageSource, /type:\s*"worker" \| "contractor"/);
   assert.match(routesSource, /workerService\.listWorkers\(\)/);
   assert.match(routesSource, /buildAssignablePeople\(canonicalWorkers, activeWorkerIds, contractorProfiles\)/);
+  assert.match(routesSource, /"\/api\/assignment-desk\/assignable-people",\s*requireAdmin/);
+  assert.match(routesSource, /"\/api\/assign-worker-tasks",\s*requireAdmin/);
 });
 
 test("multi-room assignment is one transaction with exact room and task validation", () => {

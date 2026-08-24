@@ -47,6 +47,7 @@ export const TABLE_OWNERSHIP_MANIFEST: TableOwnershipManifest = {
     "integration_shadow_receipts",
     "integration_shadow_reviews",
     "job_assignments",
+    "job_assignment_status_events",
     "jobs",
     "labour_cost_calculations",
     "labour_rates",

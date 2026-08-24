@@ -15,6 +15,8 @@ export interface TaskProgressData {
   completed?: boolean;
   assignmentId?: string;
   saveState?: "idle" | "saving" | "error";
+  lifecycleStatus?: string;
+  statusNote?: string | null;
 }
 
 export class TaskProgressManager {
