@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  decideSmartScheduleMatch,
   describeCandidateFlags,
   rankSmartScheduleCandidates,
   type RankedWordJobCandidate,
@@ -259,4 +260,158 @@ test("legitimate addresses containing 999 or Test place names are not flagged", 
     address: "Test Valley Business Park",
     postcode: "SO40 3AA",
   }), []);
+});
+
+// ---------------------------------------------------------------------------
+// Client-name fallback matching (Maureen scenario).
+//
+// Schedule CSVs carry no client name; a person-name filename hint
+// ("Maureen Orubebe") can never match job titles like "2nd Floor". When no
+// title matched, the hint is compared against candidate CLIENT NAMES so that
+// client's structured Word jobs surface as candidates instead of falling
+// through to legacy CSV creation. Multiple client matches ALWAYS require
+// admin review � lineage/provenance must never silently pick the project.
+// ---------------------------------------------------------------------------
+
+function maureenCandidates(): RankedWordJobCandidate[] {
+  const mk = (
+    id: string,
+    title: string,
+    overrides: Partial<RankedWordJobCandidate> = {},
+  ): RankedWordJobCandidate => ({
+    jobId: id,
+    title,
+    clientName: "Maureen Orubebe",
+    address: "2nd Floor Flat, London",
+    postcode: "NW9 5YZ",
+    hasCurrentSourceImport: false,
+    latestImportAt: null,
+    ...overrides,
+  });
+
+  return [
+    mk("022d4fbe-1111-1111-1111-111111111111", "Refurbishment"),
+    mk("3884004c-2222-2222-2222-222222222222", "Refurbishment"),
+    mk("4b572375-3333-3333-3333-333333333333", "2nd Floor"),
+    mk("a0633cbb-4444-4444-4444-444444444444", "2nd Floor"),
+    mk("b97191df-5555-5555-5555-555555555555", "2nd Floor", {
+      hasCurrentSourceImport: true,
+      latestImportAt: "2026-08-24T06:47:10Z",
+    }),
+    mk("dd9728a5-6666-6666-6666-666666666666", "Refurbishment"),
+    // One test-junk job for the same client � demoted by clean gates.
+    mk("eeeeeeee-7777-7777-7777-777777777777", "2nd Floor", {
+      address: "999 Nonexistent St",
+    }),
+    // A Spencer job must never appear for a Maureen hint.
+    mk("ffffffff-8888-8888-8888-888888888888", "Spencer House", {
+      clientName: "Promise Igbinedion",
+      postcode: "CT7 9EZ",
+    }),
+  ];
+}
+
+test("maureen scenario: filename person-hint surfaces that client's Word jobs for review", () => {
+  const result = rankSmartScheduleCandidates(
+    { csvProjectName: null, filenameProjectHint: "Maureen Orubebe" },
+    maureenCandidates(),
+  );
+
+  assert.equal(result.decision, "REVIEW_REQUIRED_MULTIPLE");
+  if (result.decision !== "REVIEW_REQUIRED_MULTIPLE") return;
+  // Detailed reason renders beneath the UI's fixed "Multiple matching Word
+  // jobs found — review required" headline.
+  assert.ok(result.reason.includes('client "Maureen Orubebe"'));
+  assert.ok(result.reason.includes("review required"));
+  // All clean Maureen candidates are shown; junk and other clients excluded.
+  assert.equal(result.tiedCandidateIds.length, 6);
+  assert.ok(result.tiedCandidateIds.includes("b97191df-5555-5555-5555-555555555555"));
+  assert.ok(!result.tiedCandidateIds.includes("eeeeeeee-7777-7777-7777-777777777777"));
+  assert.ok(!result.tiedCandidateIds.includes("ffffffff-8888-8888-8888-888888888888"));
+});
+
+test("CRITICAL: multiple client-only matches never auto-recommend even with lineage", () => {
+  const result = rankSmartScheduleCandidates(
+    { filenameProjectHint: "maureen orubebe" },
+    maureenCandidates(),
+  );
+  // b97191df has confirmed lineage � ranking must still NOT pick it silently.
+  assert.equal(result.decision, "REVIEW_REQUIRED_MULTIPLE");
+});
+
+test("single clean client-only match is recommended with honest reason", () => {
+  const single = maureenCandidates().filter(
+    (candidate) =>
+      candidate.jobId === "b97191df-5555-5555-5555-555555555555" ||
+      candidate.jobId === "ffffffff-8888-8888-8888-888888888888",
+  );
+  const result = rankSmartScheduleCandidates({ filenameProjectHint: "Maureen Orubebe" }, single);
+  assert.equal(result.decision, "RECOMMENDED");
+  if (result.decision !== "RECOMMENDED") return;
+  assert.equal(result.recommendedJobId, "b97191df-5555-5555-5555-555555555555");
+  assert.ok(result.reason.includes('client "Maureen Orubebe"'));
+  assert.ok(result.reason.includes("(matched from the schedule filename)"));
+  // Non-matching jobs (e.g. the Spencer job) appear nowhere at all.
+  assert.deepEqual(result.otherCandidateIds, []);
+  assert.equal(result.recommendedJobId, "b97191df-5555-5555-5555-555555555555");
+});
+
+test("title match takes precedence over client-name fallback", () => {
+  // With a csvProjectName of a specific title, only that title matches.
+  const byTitle = rankSmartScheduleCandidates(
+    { csvProjectName: "Refurbishment", filenameProjectHint: null },
+    maureenCandidates(),
+  );
+  // Refurbishment titles have no lineage/dates -> equivalent -> review required.
+  assert.equal(byTitle.decision, "REVIEW_REQUIRED_MULTIPLE");
+  if (byTitle.decision !== "REVIEW_REQUIRED_MULTIPLE") return;
+  assert.ok(byTitle.tiedCandidateIds.every((id) => !id.startsWith("4b572375") && !id.startsWith("a0633cbb")));
+});
+
+test("no title or client match still yields NO_CONFIDENT_MATCH (legacy fallback preserved)", () => {
+  const result = rankSmartScheduleCandidates(
+    { filenameProjectHint: "Totally Unknown Person" },
+    maureenCandidates(),
+  );
+  assert.equal(result.decision, "NO_CONFIDENT_MATCH");
+});
+
+test("decideSmartScheduleMatch client fallback: multiple -> REVIEW_REQUIRED with ids", () => {
+  const result = decideSmartScheduleMatch(
+    { filenameProjectHint: "Maureen Orubebe" },
+    maureenCandidates().map((candidate) => ({
+      jobId: candidate.jobId,
+      title: candidate.title,
+      clientName: candidate.clientName,
+      address: candidate.address,
+      postcode: candidate.postcode,
+    })),
+  );
+  assert.equal(result.decision, "REVIEW_REQUIRED");
+  assert.equal(result.matchedCandidateIds.length, 7);
+});
+
+test("decideSmartScheduleMatch client fallback: single -> SUGGEST_MATCH", () => {
+  const single = [
+    {
+      jobId: "b97191df-5555-5555-5555-555555555555",
+      title: "2nd Floor",
+      clientName: "Maureen Orubebe",
+    },
+  ];
+  const result = decideSmartScheduleMatch({ filenameProjectHint: "Maureen Orubebe" }, single);
+  assert.equal(result.decision, "SUGGEST_MATCH");
+  assert.equal(result.suggestedJobId, "b97191df-5555-5555-5555-555555555555");
+});
+
+test("decideSmartScheduleMatch: title match wins over weaker client fallback", () => {
+  const result = decideSmartScheduleMatch(
+    { filenameProjectHint: "Maureen Orubebe" },
+    [
+      { jobId: "aaaa0000-0000-0000-0000-000000000000", title: "Maureen Orubebe", clientName: "Someone Else" },
+      { jobId: "bbbb0000-0000-0000-0000-000000000000", title: "2nd Floor", clientName: "Maureen Orubebe" },
+    ],
+  );
+  assert.equal(result.decision, "SUGGEST_MATCH");
+  assert.equal(result.suggestedJobId, "aaaa0000-0000-0000-0000-000000000000");
 });

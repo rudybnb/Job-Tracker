@@ -83,6 +83,44 @@ export function decideSmartScheduleMatch(
     }
   }
 
+  // Client-name fallback: schedule files usually carry no client name, so a
+  // person-name filename hint ("Maureen Orubebe") can never match job titles
+  // like "2nd Floor". When no title matched, compare the filename hint against
+  // candidate CLIENT NAMES so that client's structured Word jobs surface as
+  // candidates instead of falling through to legacy CSV creation. Title matches
+  // always take precedence; this fallback never runs when a title match exists.
+  const hint = (signals.filenameProjectHint ?? "").trim();
+  if (hint) {
+    const normalizedHint = normalizeProjectName(hint);
+    if (normalizedHint) {
+      const clientMatches = candidates.filter(
+        (candidate) => normalizeProjectName(candidate.clientName) === normalizedHint,
+      );
+
+      if (clientMatches.length === 1) {
+        return {
+          decision: "SUGGEST_MATCH",
+          suggestedJobId: clientMatches[0].jobId,
+          matchedCandidateIds: [clientMatches[0].jobId],
+          reason:
+            `Exactly one structured Word job belongs to client "${clientMatches[0].clientName}" ` +
+            "(matched from the schedule filename). Filename hints are advisory; confirm before attaching.",
+        };
+      }
+
+      if (clientMatches.length > 1) {
+        return {
+          decision: "REVIEW_REQUIRED",
+          suggestedJobId: null,
+          matchedCandidateIds: clientMatches.map((match) => match.jobId),
+          reason:
+            `Multiple structured Word jobs belong to client "${clientMatches[0].clientName}" ` +
+            "(matched from the schedule filename). Choose the exact job before importing.",
+        };
+      }
+    }
+  }
+
   if (candidates.length > 0) {
     return {
       decision: "REVIEW_REQUIRED",
@@ -314,6 +352,11 @@ function sameRank(a: RankKey, b: RankKey): boolean {
  *
  * 1. Baseline signal match: normalized project/site name from the file (or the
  *    filename hint) must equal the candidate's normalized title.
+ * 1b. Client-name fallback: when NO title matched, the filename hint is compared
+ *     against candidate CLIENT NAMES so a person-name file ("Maureen Orubebe")
+ *     surfaces that client's structured Word jobs instead of legacy CSV. Title
+ *     matches always take precedence; multiple client-only matches force
+ *     REVIEW_REQUIRED_MULTIPLE (never a silent lineage-based pick).
  * 2. Clean gates: missing client, invalid postcode, test addresses and quote
  *    artifacts demote a candidate out of the recommended slot (never deleted).
  * 3. Tie-break among clean candidates:
@@ -337,12 +380,26 @@ export function rankSmartScheduleCandidates(
     .map((signal) => (signal ?? "").trim())
     .filter((signal) => signal.length > 0);
 
-  const matched =
+  // Title-based matching first: project/site name signals vs candidate titles.
+  let matched =
     signalOrder.length === 0
       ? []
       : candidates.filter((candidate) =>
           signalOrder.some((signal) => normalizeProjectName(signal) === normalizeProjectName(candidate.title)),
         );
+
+  // Client-name fallback: when no title matched, a person-name filename hint
+  // ("Maureen Orubebe") is compared against candidate CLIENT NAMES so that
+  // client's structured Word jobs surface instead of falling through to the
+  // legacy CSV workflow. Title matches always take precedence.
+  let matchedByClient = false;
+  if (matched.length === 0) {
+    const hint = normalizeProjectName(signals.filenameProjectHint);
+    if (hint) {
+      matched = candidates.filter((candidate) => normalizeProjectName(candidate.clientName) === hint);
+      matchedByClient = matched.length > 0;
+    }
+  }
 
   if (matched.length === 0) {
     return {
@@ -363,6 +420,21 @@ export function rankSmartScheduleCandidates(
         "Matching Word jobs exist but none are clean enough to recommend automatically " +
         `(e.g. ${matched.slice(0, 3).map((c) => describeCandidateFlags(c).join(", ") || "unclear identity").join("; ")}). ` +
         "Review the possible matches below or use the legacy CSV workflow.",
+    };
+  }
+
+  // A client-name-only match never silently picks one job when several of that
+  // client's structured Word jobs exist: lineage/provenance ranking must not
+  // decide WHICH project this schedule belongs to. The admin chooses explicitly.
+  if (matchedByClient && clean.length > 1) {
+    return {
+      decision: "REVIEW_REQUIRED_MULTIPLE",
+      tiedCandidateIds: [...clean]
+        .sort((a, b) => a.jobId.localeCompare(b.jobId))
+        .map((candidate) => candidate.jobId),
+      reason:
+        `Multiple structured Word jobs belong to client "${clean[0].clientName}" ` +
+        "(matched from the schedule filename) — review required. Choose the exact job.",
     };
   }
 
@@ -396,6 +468,8 @@ export function rankSmartScheduleCandidates(
     otherCandidateIds: matched
       .filter((candidate) => candidate.jobId !== recommended.jobId)
       .map((candidate) => candidate.jobId),
-    reason: `Exactly one clean structured Word job matches "${recommended.title}".${lineageNote}`,
+    reason: matchedByClient
+      ? `Structured Word job for client "${recommended.clientName}" (matched from the schedule filename).${lineageNote}`
+      : `Exactly one clean structured Word job matches "${recommended.title}".${lineageNote}`,
   };
 }
