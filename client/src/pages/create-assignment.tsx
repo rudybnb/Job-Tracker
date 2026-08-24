@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   buildRoomAssignmentChecklist,
+  buildRoomTaskSelections,
   findAssignmentJobById,
   formatAssignmentJobLabel,
   hasStructuredJobData,
+  toggleAllRoomTasks,
 } from "@/lib/assignment-job-mode";
 import "./hallmark-sweep.css";
 
@@ -179,7 +181,7 @@ export default function CreateAssignment() {
   const [phone, setPhone] = useState("");
   const [workLocation, setWorkLocation] = useState("");
   const [selectedJobId, setSelectedJobId] = useState("");
-  const [selectedLocationId, setSelectedLocationId] = useState("");
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -240,8 +242,13 @@ export default function CreateAssignment() {
 
   const selectedJob = findAssignmentJobById(uploadedJobs, selectedJobId);
   const selectedHbxlJob = selectedJob?.name ?? "";
-  const selectedLocation = jobLocations.find((location) => location.id === selectedLocationId);
-  const roomAssignmentChecklist = buildRoomAssignmentChecklist(allJobLocationTasks, selectedLocationId);
+  const selectedRooms = jobLocations
+    .filter((location) => selectedLocationIds.includes(location.id))
+    .map((location) => ({
+      location,
+      checklist: buildRoomAssignmentChecklist(allJobLocationTasks, location.id),
+    }));
+  const roomTaskSelections = buildRoomTaskSelections(allJobLocationTasks, selectedLocationIds, selectedTaskIds);
   const isJobStructureLoading = Boolean(selectedJobId) && (areJobLocationsLoading || areJobLocationTasksLoading);
   const didJobStructureFail = Boolean(selectedJobId) && (didJobLocationsFail || didJobLocationTasksFail);
   const isStructuredWordJob = !isJobStructureLoading
@@ -311,7 +318,7 @@ export default function CreateAssignment() {
         setAvailablePhases([]);
       }
     } else {
-      setSelectedLocationId("");
+      setSelectedLocationIds([]);
       setSelectedTaskIds([]);
       setAvailablePhases([]);
     }
@@ -348,6 +355,26 @@ export default function CreateAssignment() {
     );
   };
 
+  const handleRoomToggle = (locationId: string) => {
+    if (selectedLocationIds.includes(locationId)) {
+      const roomTaskIdSet = new Set(
+        allJobLocationTasks.filter((task) => task.locationId === locationId).map((task) => task.id),
+      );
+      setSelectedLocationIds((current) => current.filter((id) => id !== locationId));
+      setSelectedTaskIds((current) => current.filter((id) => !roomTaskIdSet.has(id)));
+      return;
+    }
+
+    setSelectedLocationIds((current) => [...current, locationId]);
+  };
+
+  const handleSelectAllRoomTasks = (locationId: string) => {
+    const roomTaskIds = allJobLocationTasks
+      .filter((task) => task.locationId === locationId)
+      .map((task) => task.id);
+    setSelectedTaskIds((current) => toggleAllRoomTasks(current, roomTaskIds));
+  };
+
   const handleCreateAssignment = async () => {
     // Validate required fields
     if (selectedContractors.length === 0) {
@@ -379,12 +406,12 @@ export default function CreateAssignment() {
       return;
     }
 
-    // For location-based jobs: require Location and Work Item
+    // Structured jobs require at least one room and one room-scoped work item.
     if (isStructuredWordJob) {
-      if (!selectedLocationId || selectedTaskIds.length === 0) {
+      if (selectedLocationIds.length === 0 || roomTaskSelections.length === 0) {
         toast({
           title: "Missing Information",
-          description: "Please select a Location / Room and at least one work item",
+          description: "Please select at least one room and one work item",
           variant: "destructive"
         });
         return;
@@ -408,8 +435,7 @@ export default function CreateAssignment() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             jobId: selectedJobId,
-            locationId: selectedLocationId,
-            taskIds: selectedTaskIds,
+            selections: roomTaskSelections,
             contractorIds: selectedContractors,
             startDate: startDate || new Date().toISOString().split("T")[0],
             endDate: endDate || startDate || new Date().toISOString().split("T")[0],
@@ -428,7 +454,7 @@ export default function CreateAssignment() {
         }).filter(Boolean).join(', ');
         toast({
           title: "Assignments Created",
-          description: `${selectedTaskIds.length} room work item${selectedTaskIds.length === 1 ? "" : "s"} assigned to ${contractorNames}.`,
+          description: `${selectedTaskIds.length} work item${selectedTaskIds.length === 1 ? "" : "s"} across ${roomTaskSelections.length} room${roomTaskSelections.length === 1 ? "" : "s"} assigned to ${contractorNames}.`,
         });
         setTimeout(() => {
           window.location.href = '/job-assignments';
@@ -738,7 +764,7 @@ export default function CreateAssignment() {
                   console.log('Job selection changed to ID:', jobId);
                   setSelectedJobId(jobId);
                   setSelectedPhases([]);
-                  setSelectedLocationId("");
+                  setSelectedLocationIds([]);
                   setSelectedTaskIds([]);
                   
                   if (jobId) {
@@ -794,42 +820,54 @@ export default function CreateAssignment() {
                   </span>
                 </div>
 
-                {/* Location / Room Selection */}
-                <div>
-                  <label className="block text-yellow-400 text-sm font-medium mb-2">
-                    Location / Room *
-                  </label>
-                  <select
-                    value={selectedLocationId}
-                    onChange={(e) => {
-                      setSelectedLocationId(e.target.value);
-                      setSelectedTaskIds([]);
-                    }}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                  >
-                    <option value="">Select Location / Room...</option>
-                    {jobLocations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.name} {loc.reviewStatus === "REVIEW_REQUIRED" ? "⚠️ (Needs Review)" : ""}
-                      </option>
+                {/* Multi-room selection */}
+                <div className="space-y-2">
+                  <div className="text-yellow-400 text-sm font-medium">Locations / Rooms *</div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {jobLocations.map((location) => (
+                      <label key={location.id} className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-600 bg-slate-900/50 px-3 py-2 hover:border-yellow-500/60">
+                        <input
+                          type="checkbox"
+                          checked={selectedLocationIds.includes(location.id)}
+                          onChange={() => handleRoomToggle(location.id)}
+                          className="mt-0.5 h-4 w-4 rounded border-slate-500 bg-slate-700 text-yellow-400 focus:ring-yellow-500"
+                        />
+                        <span className="text-sm text-white">
+                          {location.name}
+                          {location.reviewStatus === "REVIEW_REQUIRED" && <span className="ml-2 text-xs text-amber-400">Needs Review</span>}
+                        </span>
+                      </label>
                     ))}
-                  </select>
+                  </div>
                 </div>
 
-                {/* Room-scoped assignable work checklist */}
-                {selectedLocationId && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-yellow-400 text-sm font-medium">
-                        Assignable Work in {selectedLocation?.name || "Room"} *
+                {/* One independently selectable work section per selected room. */}
+                {selectedRooms.map(({ location, checklist }) => {
+                  const roomTaskIds = checklist.flatMap((group) => group.items.map((item) => item.id));
+                  const allRoomTasksSelected = roomTaskIds.length > 0
+                    && roomTaskIds.every((taskId) => selectedTaskIds.includes(taskId));
+                  const selectedRoomTaskCount = roomTaskIds.filter((taskId) => selectedTaskIds.includes(taskId)).length;
+
+                  return (
+                    <section key={location.id} className="space-y-3 rounded-lg border border-slate-600 bg-slate-900/50 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h4 className="font-semibold text-yellow-400">{location.name}</h4>
+                        <span className="text-xs text-slate-400">{selectedRoomTaskCount} selected</span>
+                      </div>
+                      <label className="flex cursor-pointer items-center gap-3 border-b border-slate-700 pb-3 text-sm font-medium text-white">
+                        <input
+                          type="checkbox"
+                          checked={allRoomTasksSelected}
+                          disabled={roomTaskIds.length === 0}
+                          onChange={() => handleSelectAllRoomTasks(location.id)}
+                          className="h-4 w-4 rounded border-slate-500 bg-slate-700 text-yellow-400 focus:ring-yellow-500"
+                        />
+                        Select all work in this room
                       </label>
-                      <span className="text-xs text-slate-400">{selectedTaskIds.length} selected</span>
-                    </div>
-                    <div className="space-y-3 rounded-lg border border-slate-600 bg-slate-900/50 p-3">
-                      {roomAssignmentChecklist.length === 0 && (
+                      {checklist.length === 0 && (
                         <p className="text-sm text-slate-400">No assignable work exists for this room.</p>
                       )}
-                      {roomAssignmentChecklist.map((group) => (
+                      {checklist.map((group) => (
                         <fieldset key={group.name} className="space-y-2">
                           {group.hasExplicitChildTasks && (
                             <legend className="text-sm font-semibold text-white">{group.name}</legend>
@@ -850,9 +888,10 @@ export default function CreateAssignment() {
                           ))}
                         </fieldset>
                       ))}
-                    </div>
-                  </div>
-                )}
+                    </section>
+                  );
+                })}
+
               </div>
             )}
 
@@ -945,6 +984,14 @@ export default function CreateAssignment() {
                 placeholder="Any special instructions for the contractor..."
               />
             </div>
+
+            {isStructuredWordJob && selectedLocationIds.length > 0 && (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-white">
+                <span className="font-semibold">{selectedLocationIds.length}</span> room{selectedLocationIds.length === 1 ? "" : "s"}
+                <span className="mx-2 text-slate-500">/</span>
+                <span className="font-semibold">{selectedTaskIds.length}</span> work item{selectedTaskIds.length === 1 ? "" : "s"} selected
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex space-x-4 pt-4">

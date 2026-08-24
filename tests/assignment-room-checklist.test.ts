@@ -16,23 +16,30 @@ function extractBatchRoute(): string {
   return routesSource.slice(start, end);
 }
 
-test("room checklist replaces the single work-item dropdown and submits selected task IDs once", () => {
+test("multi-room checklist replaces room and work-item dropdowns and submits selections once", () => {
   assert.doesNotMatch(pageSource, /Work Package \/ Specific Task \*/);
+  assert.doesNotMatch(pageSource, /Select Location \/ Room\.\.\./);
+  assert.match(pageSource, /Locations \/ Rooms \*/);
   assert.match(pageSource, /type="checkbox"/);
-  assert.match(pageSource, /roomAssignmentChecklist\.map/);
+  assert.match(pageSource, /selectedRooms\.map/);
+  assert.match(pageSource, /Select all work in this room/);
+  assert.match(pageSource, /selectedLocationIds\.length/);
+  assert.match(pageSource, /selectedTaskIds\.length/);
   assert.match(pageSource, /fetch\('\/api\/assign-worker-tasks'/);
-  assert.match(pageSource, /taskIds:\s*selectedTaskIds/);
+  assert.match(pageSource, /selections:\s*roomTaskSelections/);
   assert.match(pageSource, /contractorIds:\s*selectedContractors/);
 });
 
-test("multi-item room assignment is one transaction with room-scoped task validation", () => {
+test("multi-room assignment is one transaction with exact room and task validation", () => {
   const route = extractBatchRoute();
   assert.equal(route.match(/await db\.transaction\(/g)?.length ?? 0, 1);
   assert.match(route, /eq\(jobLocationTasks\.jobId, jobId\)/);
-  assert.match(route, /eq\(jobLocationTasks\.locationId, locationId\)/);
+  assert.match(route, /inArray\(jobLocationTasks\.locationId, locationIds\)/);
   assert.match(route, /inArray\(jobLocationTasks\.id, taskIds\)/);
+  assert.match(route, /selectedTaskById\.get\(taskId\)\?\.locationId !== selection\.locationId/);
   assert.match(route, /selectedContractors\.flatMap/);
-  assert.match(route, /selectedTasks\.map/);
+  assert.match(route, /selections\.flatMap/);
+  assert.match(route, /selection\.taskIds\.map/);
   assert.match(route, /tx\.insert\(jobAssignments\)\.values\(assignmentRows\)/);
   assert.match(route, /tx\s*\.update\(jobLocationTasks\)/);
 });
@@ -47,4 +54,10 @@ test("duplicate work-item guard runs before any assignment insert", () => {
   assert.ok(duplicateGuard > duplicateLookup);
   assert.ok(insert > duplicateGuard, "no assignment row is inserted before duplicate validation");
   assert.match(route, /pg_advisory_xact_lock/);
+});
+
+test("legacy CSV assignment remains on its existing build-phase path", () => {
+  assert.match(pageSource, /Legacy CSV assignment mode/);
+  assert.match(pageSource, /buildPhases:\s*selectedPhases/);
+  assert.match(pageSource, /fetch\('\/api\/job-assignments'/);
 });

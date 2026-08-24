@@ -3,9 +3,11 @@ import test from "node:test";
 
 import {
   buildRoomAssignmentChecklist,
+  buildRoomTaskSelections,
   findAssignmentJobById,
   formatAssignmentJobLabel,
   hasStructuredJobData,
+  toggleAllRoomTasks,
   type AssignmentDeskJob,
 } from "../client/src/lib/assignment-job-mode";
 
@@ -85,4 +87,35 @@ test("packages with genuine child tasks expose children but not a whole-package 
   assert.deepEqual(group.items.map((item) => item.checkboxLabel), ["Prepare walls", "Paint walls", "Paint ceiling"]);
   assert.equal(group.items.some((item) => item.checkboxLabel === "Room Decoration"), false);
   assert.equal(group.items.some((item) => /£|material|resource/i.test(item.checkboxLabel)), false);
+});
+
+test("multi-room selections retain exact room and work-item pairs", () => {
+  const tasks = [
+    { id: "bed-3-door", locationId: "bedroom-3", workCategory: "Fire Door", taskName: "Fire Door", status: "pending" },
+    { id: "bed-3-decor", locationId: "bedroom-3", workCategory: "Decoration", taskName: "Decoration", status: "pending" },
+    { id: "bed-4-door", locationId: "bedroom-4", workCategory: "Fire Door", taskName: "Fire Door", status: "pending" },
+    { id: "bed-4-decor", locationId: "bedroom-4", workCategory: "Decoration", taskName: "Decoration", status: "pending" },
+  ];
+
+  const selections = buildRoomTaskSelections(
+    tasks,
+    ["bedroom-3", "bedroom-4"],
+    ["bed-3-decor", "bed-4-door", "bed-4-decor"],
+  );
+
+  assert.deepEqual(selections, [
+    { locationId: "bedroom-3", taskIds: ["bed-3-decor"] },
+    { locationId: "bedroom-4", taskIds: ["bed-4-door", "bed-4-decor"] },
+  ]);
+});
+
+test("select all toggles one room without changing another room", () => {
+  const bedroom3Tasks = ["bed-3-door", "bed-3-decor", "bed-3-floor"];
+  const bedroom4Selection = ["bed-4-decor"];
+
+  const allBedroom3Selected = toggleAllRoomTasks(bedroom4Selection, bedroom3Tasks);
+  assert.deepEqual(allBedroom3Selected, ["bed-4-decor", ...bedroom3Tasks]);
+
+  const bedroom3Cleared = toggleAllRoomTasks(allBedroom3Selected, bedroom3Tasks);
+  assert.deepEqual(bedroom3Cleared, bedroom4Selection);
 });

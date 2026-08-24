@@ -22,6 +22,11 @@ export interface AssignmentWorkGroup<T extends AssignmentLocationTask = Assignme
   items: Array<T & { checkboxLabel: string }>;
 }
 
+export interface RoomTaskSelection {
+  locationId: string;
+  taskIds: string[];
+}
+
 export function findAssignmentJobById<T extends AssignmentDeskJob>(jobs: T[], selectedJobId: string): T | undefined {
   return jobs.find((job) => job.id === selectedJobId);
 }
@@ -53,6 +58,33 @@ export function buildRoomAssignmentChecklist<T extends AssignmentLocationTask>(
       })),
     };
   });
+}
+
+export function buildRoomTaskSelections<T extends AssignmentLocationTask>(
+  tasks: T[],
+  locationIds: string[],
+  selectedTaskIds: string[],
+): RoomTaskSelection[] {
+  const selectedTaskIdSet = new Set(selectedTaskIds);
+  return locationIds.map((locationId) => ({
+    locationId,
+    taskIds: tasks
+      .filter((task) => task.locationId === locationId && selectedTaskIdSet.has(task.id))
+      .map((task) => task.id),
+  })).filter((selection) => selection.taskIds.length > 0);
+}
+
+export function toggleAllRoomTasks(currentTaskIds: string[], roomTaskIds: string[]): string[] {
+  if (roomTaskIds.length === 0) return currentTaskIds;
+
+  const currentTaskIdSet = new Set(currentTaskIds);
+  const allRoomTasksSelected = roomTaskIds.every((taskId) => currentTaskIdSet.has(taskId));
+  if (allRoomTasksSelected) {
+    const roomTaskIdSet = new Set(roomTaskIds);
+    return currentTaskIds.filter((taskId) => !roomTaskIdSet.has(taskId));
+  }
+
+  return Array.from(new Set([...currentTaskIds, ...roomTaskIds]));
 }
 
 export function formatAssignmentJobLabel(job: AssignmentDeskJob): string {

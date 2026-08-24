@@ -1029,20 +1029,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/assign-worker-tasks", async (req, res) => {
     const {
       jobId,
-      locationId,
-      taskIds: rawTaskIds,
+      selections: rawSelections,
       contractorIds: rawContractorIds,
       startDate,
       endDate,
       specialInstructions,
       sendTelegramNotification = false,
     } = req.body;
-    const taskIds = Array.from(new Set(Array.isArray(rawTaskIds) ? rawTaskIds.map(String).filter(Boolean) : []));
+    const selections = Array.isArray(rawSelections)
+      ? rawSelections.map((selection: any) => ({
+          locationId: String(selection?.locationId || ""),
+          taskIds: Array.from(new Set(Array.isArray(selection?.taskIds) ? selection.taskIds.map(String).filter(Boolean) : [])),
+        }))
+      : [];
+    const locationIds = selections.map((selection) => selection.locationId);
+    const taskIds = selections.flatMap((selection) => selection.taskIds);
     const contractorIds = Array.from(new Set(Array.isArray(rawContractorIds) ? rawContractorIds.map(String).filter(Boolean) : []));
 
-    if (!jobId || !locationId || taskIds.length === 0 || contractorIds.length === 0) {
+    const hasInvalidSelections = selections.length === 0
+      || selections.some((selection) => !selection.locationId || selection.taskIds.length === 0)
+      || new Set(locationIds).size !== locationIds.length
+      || new Set(taskIds).size !== taskIds.length;
+    if (!jobId || hasInvalidSelections || contractorIds.length === 0) {
       return res.status(400).json({
-        error: "jobId, locationId, at least one taskId, and at least one contractorId are required.",
+        error: "jobId, unique room/task selections, and at least one contractorId are required.",
       });
     }
 
@@ -1051,16 +1061,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const end = endDate || start;
 
       const result = await db.transaction(async (tx) => {
-        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`assignment:${jobId}:${locationId}`}))`);
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`assignment:${jobId}`}))`);
 
         const [job] = await tx.select().from(jobsTable).where(eq(jobsTable.id, jobId));
         if (!job) throw Object.assign(new Error("Job not found"), { statusCode: 404 });
 
-        const [location] = await tx
+        const selectedLocations = await tx
           .select()
           .from(jobLocations)
-          .where(and(eq(jobLocations.id, locationId), eq(jobLocations.jobId, jobId)));
-        if (!location) throw Object.assign(new Error("Location not found for selected job"), { statusCode: 404 });
+          .where(and(eq(jobLocations.jobId, jobId), inArray(jobLocations.id, locationIds)));
+        if (selectedLocations.length !== locationIds.length) {
+          throw Object.assign(new Error("One or more rooms were not found for selected job"), { statusCode: 404 });
+        }
 
         const selectedContractors = await tx
           .select()
@@ -1075,14 +1087,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(jobLocationTasks)
           .where(and(
             eq(jobLocationTasks.jobId, jobId),
-            eq(jobLocationTasks.locationId, locationId),
+            inArray(jobLocationTasks.locationId, locationIds),
             inArray(jobLocationTasks.id, taskIds),
           ));
         if (selectedTasks.length !== taskIds.length) {
-          throw Object.assign(new Error("One or more work items do not belong to the selected room"), { statusCode: 400 });
+          throw Object.assign(new Error("One or more work items do not belong to the selected job rooms"), { statusCode: 400 });
+        }
+
+        const selectedTaskById = new Map(selectedTasks.map((task) => [task.id, task]));
+        if (selections.some((selection) => selection.taskIds.some(
+          (taskId) => selectedTaskById.get(taskId)?.locationId !== selection.locationId,
+        ))) {
+          throw Object.assign(new Error("One or more work items do not belong to their selected room"), { statusCode: 400 });
         }
 
         const contractorNames = selectedContractors.map((contractor) => contractor.name || "Contractor");
+        const selectedLocationById = new Map(selectedLocations.map((location) => [location.id, location]));
         const existingAssignments = await tx
           .select({
             contractorName: jobAssignments.contractorName,
@@ -1091,7 +1111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(jobAssignments)
           .where(and(
             eq(jobAssignments.jobId, jobId),
-            eq(jobAssignments.locationId, locationId),
+            inArray(jobAssignments.locationId, locationIds),
             inArray(jobAssignments.locationTaskId, taskIds),
             inArray(jobAssignments.contractorName, contractorNames),
           ));
@@ -1104,25 +1124,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const instructions = selectedContractors.length > 1
             ? `TEAM ASSIGNMENT: Working with ${selectedContractors.length} contractors. ${specialInstructions || ""}`.trim()
             : specialInstructions;
-          return selectedTasks.map((task) => ({
-            jobId: job.id,
-            contractorName,
-            email: contractor.email,
-            phone: (contractor as any).phone || "0000000000",
-            workLocation: location.name,
-            hbxlJob: job.title,
-            locationId: location.id,
-            locationName: location.name,
-            locationTaskId: task.id,
-            workCategory: task.workCategory,
-            taskName: task.taskName,
-            buildPhases: [] as string[],
-            startDate: start,
-            endDate: end,
-            specialInstructions: instructions || `Assigned to ${location.name} → ${task.workCategory} (${task.taskName})`,
-            status: "assigned",
-            sendTelegramNotification: Boolean(sendTelegramNotification),
-          }));
+          return selections.flatMap((selection) => {
+            const location = selectedLocationById.get(selection.locationId)!;
+            return selection.taskIds.map((taskId) => {
+              const task = selectedTaskById.get(taskId)!;
+              return {
+                jobId: job.id,
+                contractorName,
+                email: contractor.email,
+                phone: (contractor as any).phone || "0000000000",
+                workLocation: location.name,
+                hbxlJob: job.title,
+                locationId: location.id,
+                locationName: location.name,
+                locationTaskId: task.id,
+                workCategory: task.workCategory,
+                taskName: task.taskName,
+                buildPhases: [] as string[],
+                startDate: start,
+                endDate: end,
+                specialInstructions: instructions || `Assigned to ${location.name} → ${task.workCategory} (${task.taskName})`,
+                status: "assigned",
+                sendTelegramNotification: Boolean(sendTelegramNotification),
+              };
+            });
+          });
         });
 
         const assignments = await tx.insert(jobAssignments).values(assignmentRows).returning();
@@ -1136,7 +1162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .where(inArray(jobLocationTasks.id, taskIds));
 
-        return { assignments, selectedContractors, selectedTasks, job, location };
+        return { assignments, selectedContractors, selectedTasks, selectedLocations, job };
       });
 
       if (sendTelegramNotification) {
@@ -1148,7 +1174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               phone: (contractor as any).phone || "0000000000",
               hbxlJob: result.job.title,
               buildPhases: [],
-              workLocation: result.location.name,
+              workLocation: result.selectedLocations.map((location) => location.name).join(", "),
               startDate: start,
             });
           } catch (telegramError) {
