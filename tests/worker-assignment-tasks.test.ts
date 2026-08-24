@@ -5,6 +5,7 @@ import {
   getSelectedAssignment,
   getStructuredRoomAssignments,
   getWorkerAssignments,
+  saveStructuredTaskCompletion,
   type WorkerAssignment,
 } from "../client/src/lib/worker-assignment-tasks";
 
@@ -28,6 +29,7 @@ function assignment(
     locationTaskId: `${id}-location-task`,
     workCategory: `${id} category`,
     taskName: `${id} task`,
+    workerId: "rudy-worker",
     ...overrides,
   };
 }
@@ -36,20 +38,26 @@ test("worker assignment selection uses the clicked ID and exact worker identity"
   const assignments = [
     assignment("first"),
     assignment("clicked"),
-    assignment("same-prefix", { contractorName: "Rudy Diedericks Jr" }),
-    assignment("other-worker", { contractorName: "Ahmed Gouda" }),
+    assignment("same-prefix", {
+      contractorName: "Rudy Diedericks Jr",
+      workerId: "other-worker",
+    }),
+    assignment("other-worker", {
+      contractorName: "Ahmed Gouda",
+      workerId: "ahmed-worker",
+    }),
   ];
 
   assert.deepEqual(
-    getWorkerAssignments(assignments, "Rudy Diedericks").map((row) => row.id),
+    getWorkerAssignments(assignments, "rudy-worker", "Rudy Diedericks").map((row) => row.id),
     ["first", "clicked"],
   );
   assert.equal(
-    getSelectedAssignment(assignments, "Rudy Diedericks", "clicked")?.id,
+    getSelectedAssignment(assignments, "rudy-worker", "Rudy Diedericks", "clicked")?.id,
     "clicked",
   );
   assert.equal(
-    getSelectedAssignment(assignments, "Rudy Diedericks", "other-worker"),
+    getSelectedAssignment(assignments, "rudy-worker", "Rudy Diedericks", "other-worker"),
     undefined,
   );
 });
@@ -66,15 +74,61 @@ test("structured room selection includes only assigned rows for the same worker,
     }),
     assignment("other-job", { jobId: "another-job" }),
     assignment("unassigned", { status: "completed" }),
-    assignment("other-worker", { contractorName: "Ahmed Gouda" }),
+    assignment("other-worker", {
+      contractorName: "Ahmed Gouda",
+      workerId: "ahmed-worker",
+    }),
     assignment("legacy", { locationTaskId: null }),
   ];
 
   assert.deepEqual(
-    getStructuredRoomAssignments(assignments, "Rudy Diedericks", selected)
+    getStructuredRoomAssignments(assignments, "rudy-worker", "Rudy Diedericks", selected)
       .map((row) => row.id),
     ["bath", "mixer"],
   );
+});
+
+test("structured assignment filtering requires worker ID even when the name matches", () => {
+  const assignments = [
+    assignment("owned", { workerId: "rudy-worker" }),
+    assignment("wrong-id", { workerId: "ahmed-worker" }),
+    assignment("missing-id", { workerId: undefined }),
+    assignment("legacy", { jobId: null, locationId: null, locationTaskId: null }),
+  ];
+
+  assert.deepEqual(
+    getWorkerAssignments(assignments, "rudy-worker", "Rudy Diedericks")
+      .map((row) => row.id),
+    ["owned", "legacy"],
+  );
+});
+
+test("structured completion requires backend confirmation and rejects failed saves", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => ({ ok: false }) as Response;
+    await assert.rejects(
+      saveStructuredTaskCompletion("assignment-1", true),
+      /not saved/,
+    );
+
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({ completed: false }),
+    }) as Response;
+    await assert.rejects(
+      saveStructuredTaskCompletion("assignment-1", true),
+      /not confirmed/,
+    );
+
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({ completed: true }),
+    }) as Response;
+    await saveStructuredTaskCompletion("assignment-1", true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("structured tasks contain only assignment work items and persist against their source rows", () => {

@@ -10,7 +10,8 @@ import {
   getStructuredRoomAssignments,
   getWorkerAssignments,
   isStructuredAssignment as hasStructuredWork,
-  type WorkerAssignment,
+  saveStructuredTaskCompletion,
+  type WorkerAssignmentsResponse,
 } from "@/lib/worker-assignment-tasks";
 import "./hallmark-sweep.css";
 
@@ -26,18 +27,24 @@ export default function TaskProgress() {
   console.log('🚀 contractorName from localStorage:', contractorName);
   console.log('🚀 contractorFirstName:', contractorFirstName);
   
-  const { data: fetchedAssignments = [], isLoading } = useQuery<WorkerAssignment[]>({
-    queryKey: [`/api/contractor-assignments/${encodeURIComponent(contractorName)}`],
+  const { data, isLoading } = useQuery<WorkerAssignmentsResponse>({
+    queryKey: ["/api/worker-assignments"],
   });
 
-  const assignments = getWorkerAssignments(fetchedAssignments, contractorName);
+  const assignments = getWorkerAssignments(
+    data?.assignments || [],
+    data?.workerId || "",
+    contractorName,
+  );
   const activeAssignment = getSelectedAssignment(
     assignments,
+    data?.workerId || "",
     contractorName,
     requestedAssignmentId,
   );
   const structuredRoomAssignments = getStructuredRoomAssignments(
     assignments,
+    data?.workerId || "",
     contractorName,
     activeAssignment,
   );
@@ -49,7 +56,7 @@ export default function TaskProgress() {
   // Get team task progress to show teammate completion status
   const { data: teamProgress = [] } = useQuery({
     queryKey: [`/api/team-task-progress/${activeAssignment?.id}`],
-    enabled: !!activeAssignment?.id,
+    enabled: !!activeAssignment?.id && !isStructuredAssignment,
   });
   
   // Initialize TaskProgressManager when assignment is available
@@ -132,14 +139,20 @@ export default function TaskProgress() {
 
         await Promise.all(structuredRoomAssignments.map(async (assignment) => {
           try {
-            const manager = new TaskProgressManager(contractorName, assignment.id);
-            const progressRows = await manager.loadTaskProgress();
+            const response = await fetch(
+              `/api/worker-task-progress/${encodeURIComponent(assignment.id)}`,
+            );
+            if (!response.ok) throw new Error("Task progress could not be loaded");
+            const progressRows = await response.json() as Array<{
+              taskId: string;
+              completed: boolean;
+            }>;
             completedByAssignmentId.set(
               assignment.id,
               progressRows.some(
                 (row) =>
                   row.taskId === assignment.locationTaskId
-                  && row.status === "completed",
+                  && row.completed,
               ),
             );
           } catch (error) {
@@ -374,7 +387,10 @@ export default function TaskProgress() {
     return total > 0 ? Math.round((getTotalCompleted() / total) * 100) : 0;
   };
 
-  const updateTaskProgress = (taskId: string, increment: number) => {
+  const updateTaskProgress = async (taskId: string, increment: number) => {
+    const previousTask = tasks.find((task) => task.id === taskId);
+    if (!previousTask || previousTask.saveState === "saving") return;
+
     const updatedTasks = tasks.map(task => {
       if (task.id === taskId) {
         const newCompletedItems = Math.max(0, Math.min(task.totalItems, task.completedItems + increment));
@@ -385,7 +401,8 @@ export default function TaskProgress() {
         return {
           ...task,
           completedItems: newCompletedItems,
-          status: newStatus as "not started" | "in progress" | "completed"
+          status: newStatus as "not started" | "in progress" | "completed",
+          saveState: isStructuredAssignment ? "saving" as const : task.saveState,
         };
       }
       return task;
@@ -393,23 +410,44 @@ export default function TaskProgress() {
     
     setTasks(updatedTasks);
     
-    // DATABASE BACKUP: Use TaskProgressManager for robust persistence
     const updatedTask = updatedTasks.find(task => task.id === taskId);
+    if (isStructuredAssignment && updatedTask?.assignmentId) {
+      try {
+        await saveStructuredTaskCompletion(
+          updatedTask.assignmentId,
+          updatedTask.status === "completed",
+        );
+        setTasks((current) => current.map((task) =>
+          task.id === taskId ? { ...task, saveState: "idle" } : task,
+        ));
+        toast({ title: "Progress Saved", description: "Task completion confirmed." });
+      } catch (error) {
+        setTasks((current) => current.map((task) =>
+          task.id === taskId
+            ? { ...previousTask, saveState: "error" }
+            : task,
+        ));
+        toast({
+          title: "Progress Not Saved",
+          description: "The server did not confirm this update. Please retry.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    // Legacy task progress retains its existing local and database behavior.
     if (updatedTask) {
       const isCompleted = updatedTask.status === "completed";
-      const taskManager = isStructuredAssignment && updatedTask.assignmentId
-        ? new TaskProgressManager(contractorName, updatedTask.assignmentId)
-        : progressManager;
+      const taskManager = progressManager;
 
       if (taskManager) {
-        const saveProgress = isStructuredAssignment
-          ? taskManager.saveTaskProgress([updatedTask])
-          : taskManager.updateTaskCompletion(
-              updatedTask.taskId || updatedTask.id,
-              isCompleted,
-              updatedTask.title,
-              updatedTask.area,
-            );
+        const saveProgress = taskManager.updateTaskCompletion(
+          updatedTask.taskId || updatedTask.id,
+          isCompleted,
+          updatedTask.title,
+          updatedTask.area,
+        );
 
         saveProgress
           .then(() => {
@@ -660,7 +698,13 @@ export default function TaskProgress() {
                             : 'border-slate-500 text-slate-400'
                         }`}
                       >
-                        {teammateCompletion ? 'Done by teammate' : task.status}
+                        {teammateCompletion
+                          ? 'Done by teammate'
+                          : task.saveState === 'saving'
+                            ? 'saving'
+                            : task.saveState === 'error'
+                              ? 'save failed'
+                              : task.status}
                       </Badge>
                     </div>
                     

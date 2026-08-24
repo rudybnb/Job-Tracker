@@ -3,18 +3,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   getWorkerAssignments,
-  type WorkerAssignment,
+  type WorkerAssignmentsResponse,
 } from "@/lib/worker-assignment-tasks";
 import "./jobs.css";
 
 export default function Jobs() {
   const contractorName = localStorage.getItem("contractorName") || "Dalwayne Diedericks";
 
-  const { data: fetchedAssignments = [], isLoading } = useQuery<WorkerAssignment[]>({
-    queryKey: [`/api/contractor-assignments/${encodeURIComponent(contractorName)}`],
+  const { data, isLoading } = useQuery<WorkerAssignmentsResponse>({
+    queryKey: ["/api/worker-assignments"],
     enabled: true,
   });
-  const assignments = getWorkerAssignments(fetchedAssignments, contractorName);
+  const assignments = getWorkerAssignments(
+    data?.assignments || [],
+    data?.workerId || "",
+    contractorName,
+  );
 
   const isForeman = contractorName.toLowerCase().includes("dalwayne") || contractorName.toLowerCase().includes("diedericks");
   const activeAssignments = assignments.filter((assignment) => assignment.status === "assigned").length;

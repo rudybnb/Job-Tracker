@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { DatabaseStorage } from "./database-storage";
@@ -6,8 +6,8 @@ import { authenticateStaffUser } from "./password-security.ts";
 import { requireAdmin } from "./integration-review-route.ts";
 
 // Session interface for type safety
-interface SessionRequest extends Express.Request {
-  session?: {
+interface SessionRequest extends Request {
+  session: Request["session"] & {
     adminName?: string;
     contractorName?: string;
     contractorId?: string;
@@ -29,8 +29,9 @@ import { and, eq, inArray, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
 import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments, projectSourceImports, workers } from "@shared/schema";
-import { WorkerService } from "./worker-service.ts";
+import { deriveCanonicalUsername, WorkerService } from "./worker-service.ts";
 import { buildAssignablePeople, type AssignmentIdentity } from "./assignment-people.ts";
+import { getAssignmentsOwnedByWorker, isStructuredWorkerAssignment } from "./worker-task-ownership.ts";
 import { normalizeUploadCsvContent, parseJobUploadCsv, suggestJobNameFromSource, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
 import {
   SMART_SCHEDULE_PARSER_VERSION,
@@ -1493,7 +1494,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assignments = await storage.getContractorAssignments(contractorName);
       
       // Add GPS coordinates to assignments that don't have them OR update with current coordinates
-      const updatedAssignments = assignments.map(assignment => {
+      const visibleAssignments = assignments.filter(
+        (assignment) =>
+          !isStructuredWorkerAssignment(assignment)
+          || (req as SessionRequest).session?.role === "admin",
+      );
+      const updatedAssignments = visibleAssignments.map(assignment => {
         const coordinates = getPostcodeCoordinates(assignment.workLocation || '');
         if (coordinates) {
           // Always update coordinates to ensure they're current
@@ -1512,6 +1518,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching contractor assignments:", error);
       res.status(500).json({ error: "Failed to fetch assignments" });
+    }
+  });
+
+  async function getAuthenticatedWorker(req: SessionRequest) {
+    const session = req.session;
+    if (!session?.userId || session.role !== "contractor" || !session.username) return null;
+
+    const canonicalUsername = deriveCanonicalUsername(session.username);
+    const workerList = await workerService.listWorkers();
+    return workerList.find(
+      (worker) => worker.isActive && worker.username === canonicalUsername,
+    ) || null;
+  }
+
+  async function getAuthenticatedWorkerAssignments(req: SessionRequest) {
+    const authenticatedWorker = await getAuthenticatedWorker(req);
+    if (!authenticatedWorker) return null;
+
+    const [allAssignments, workerList] = await Promise.all([
+      storage.getJobAssignments(),
+      workerService.listWorkers(),
+    ]);
+    const assignments = getAssignmentsOwnedByWorker(
+      allAssignments,
+      authenticatedWorker,
+      workerList.filter((worker) => worker.isActive),
+    );
+    return { authenticatedWorker, assignments };
+  }
+
+  async function blocksLegacyStructuredProgress(
+    req: SessionRequest,
+    assignmentId: string,
+  ): Promise<boolean> {
+    if (req.session?.role === "admin") return false;
+    const assignments = await storage.getJobAssignments();
+    const assignment = assignments.find((candidate) => candidate.id === assignmentId);
+    return Boolean(assignment && isStructuredWorkerAssignment(assignment));
+  }
+
+  app.get("/api/worker-assignments", async (req, res) => {
+    try {
+      const owned = await getAuthenticatedWorkerAssignments(req as SessionRequest);
+      if (!owned) return res.status(401).json({ error: "Authenticated worker required" });
+
+      res.json({
+        workerId: owned.authenticatedWorker.id,
+        assignments: owned.assignments,
+      });
+    } catch (error) {
+      console.error("Error fetching authenticated worker assignments:", error);
+      res.status(500).json({ error: "Failed to fetch worker assignments" });
     }
   });
 
@@ -3133,6 +3191,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/task-progress/:contractorName/:assignmentId", async (req, res) => {
     try {
       const { contractorName, assignmentId } = req.params;
+      if (await blocksLegacyStructuredProgress(req as SessionRequest, assignmentId)) {
+        return res.status(403).json({ error: "Use authenticated structured task progress" });
+      }
       const progress = await storage.getTaskProgress(contractorName, assignmentId);
       res.json(progress);
     } catch (error) {
@@ -3141,10 +3202,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/worker-task-progress/:assignmentId", async (req, res) => {
+    try {
+      const owned = await getAuthenticatedWorkerAssignments(req as SessionRequest);
+      if (!owned) return res.status(401).json({ error: "Authenticated worker required" });
+
+      const assignment = owned.assignments.find(
+        (candidate) => candidate.id === req.params.assignmentId,
+      );
+      if (!assignment || !isStructuredWorkerAssignment(assignment)) {
+        return res.status(404).json({ error: "Structured assignment not found" });
+      }
+
+      const progress = await storage.getTaskProgress(
+        assignment.contractorName,
+        assignment.id,
+      );
+      res.json(progress.filter((row) => row.taskId === assignment.locationTaskId));
+    } catch (error) {
+      console.error("Error fetching structured worker task progress:", error);
+      res.status(500).json({ error: "Failed to fetch task progress" });
+    }
+  });
+
   // Get team task progress - shows completion status from all team members
   app.get("/api/team-task-progress/:assignmentId", async (req, res) => {
     try {
       const { assignmentId } = req.params;
+      if (await blocksLegacyStructuredProgress(req as SessionRequest, assignmentId)) {
+        return res.status(403).json({ error: "Structured team progress is not available" });
+      }
       console.log(`🤝 Fetching team task progress for assignment: ${assignmentId}`);
       
       // Get all assignments to find teammates working on the same job
@@ -3192,6 +3279,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/task-progress", async (req, res) => {
     try {
+      if (await blocksLegacyStructuredProgress(req as SessionRequest, req.body?.assignmentId)) {
+        return res.status(403).json({ error: "Use authenticated structured task progress" });
+      }
       const progress = await storage.createTaskProgress(req.body);
       res.status(201).json(progress);
     } catch (error) {
@@ -3203,6 +3293,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/task-progress/:contractorName/:assignmentId/:taskId", async (req, res) => {
     try {
       const { contractorName, assignmentId, taskId } = req.params;
+      if (await blocksLegacyStructuredProgress(req as SessionRequest, assignmentId)) {
+        return res.status(403).json({ error: "Use authenticated structured task progress" });
+      }
       const { completed } = req.body;
       
       const progress = await storage.updateTaskCompletion(contractorName, assignmentId, taskId, completed);
@@ -3222,6 +3315,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/task-progress/update", async (req, res) => {
     try {
       const { contractorName, assignmentId, taskId, taskDescription, phase, completed } = req.body;
+      if (await blocksLegacyStructuredProgress(req as SessionRequest, assignmentId)) {
+        return res.status(403).json({ error: "Use authenticated structured task progress" });
+      }
       
       console.log(`📝 Processing task update: ${taskId} - ${completed ? 'completed' : 'incomplete'}`);
       
@@ -3261,6 +3357,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("❌ Error in task progress update:", error);
       res.status(500).json({ error: "Failed to backup task progress" });
+    }
+  });
+
+  app.post("/api/worker-task-progress/:assignmentId", async (req, res) => {
+    try {
+      if (typeof req.body?.completed !== "boolean") {
+        return res.status(400).json({ error: "Completed must be a boolean" });
+      }
+
+      const owned = await getAuthenticatedWorkerAssignments(req as SessionRequest);
+      if (!owned) return res.status(401).json({ error: "Authenticated worker required" });
+
+      const assignment = owned.assignments.find(
+        (candidate) => candidate.id === req.params.assignmentId,
+      );
+      if (!assignment || !isStructuredWorkerAssignment(assignment)) {
+        return res.status(404).json({ error: "Structured assignment not found" });
+      }
+
+      const taskId = assignment.locationTaskId!;
+      let progress = await storage.updateTaskCompletion(
+        assignment.contractorName,
+        assignment.id,
+        taskId,
+        req.body.completed,
+      );
+      if (!progress) {
+        progress = await storage.createTaskProgress({
+          contractorName: assignment.contractorName,
+          assignmentId: assignment.id,
+          taskId,
+          taskDescription: assignment.taskName || assignment.workCategory || "Assigned work",
+          phase: assignment.locationName || assignment.workLocation,
+          completed: req.body.completed,
+        });
+      }
+
+      res.json({
+        assignmentId: assignment.id,
+        taskId: progress.taskId,
+        completed: progress.completed,
+      });
+    } catch (error) {
+      console.error("Error saving structured worker task progress:", error);
+      res.status(500).json({ error: "Failed to save task progress" });
     }
   });
 

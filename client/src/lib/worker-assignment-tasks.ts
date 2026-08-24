@@ -17,23 +17,35 @@ export interface WorkerAssignment {
   locationTaskId?: string | null;
   workCategory?: string | null;
   taskName?: string | null;
+  workerId?: string;
+}
+
+export interface WorkerAssignmentsResponse {
+  workerId: string;
+  assignments: WorkerAssignment[];
 }
 
 export function getWorkerAssignments(
   assignments: WorkerAssignment[],
+  workerId: string,
   contractorName: string,
 ): WorkerAssignment[] {
-  return assignments.filter(
-    (assignment) => assignment.contractorName.trim() === contractorName.trim(),
-  );
+  return assignments.filter((assignment) => {
+    if (isStructuredAssignment(assignment)) {
+      return Boolean(workerId) && assignment.workerId === workerId;
+    }
+
+    return assignment.contractorName.trim() === contractorName.trim();
+  });
 }
 
 export function getSelectedAssignment(
   assignments: WorkerAssignment[],
+  workerId: string,
   contractorName: string,
   assignmentId: string | null,
 ): WorkerAssignment | undefined {
-  const workerAssignments = getWorkerAssignments(assignments, contractorName);
+  const workerAssignments = getWorkerAssignments(assignments, workerId, contractorName);
 
   if (assignmentId) {
     return workerAssignments.find((assignment) => assignment.id === assignmentId);
@@ -57,18 +69,36 @@ export function isStructuredAssignment(
 
 export function getStructuredRoomAssignments(
   assignments: WorkerAssignment[],
+  workerId: string,
   contractorName: string,
   selectedAssignment: WorkerAssignment | undefined,
 ): WorkerAssignment[] {
   if (!isStructuredAssignment(selectedAssignment)) return [];
 
-  return getWorkerAssignments(assignments, contractorName).filter(
+  return getWorkerAssignments(assignments, workerId, contractorName).filter(
     (assignment) =>
       assignment.status === "assigned"
       && assignment.jobId === selectedAssignment.jobId
       && assignment.locationId === selectedAssignment.locationId
       && Boolean(assignment.locationTaskId),
   );
+}
+
+export async function saveStructuredTaskCompletion(
+  assignmentId: string,
+  completed: boolean,
+): Promise<void> {
+  const response = await fetch(`/api/worker-task-progress/${encodeURIComponent(assignmentId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ completed }),
+  });
+  if (!response.ok) throw new Error("Task completion was not saved");
+
+  const persisted = await response.json() as { completed?: boolean };
+  if (persisted.completed !== completed) {
+    throw new Error("Task completion was not confirmed");
+  }
 }
 
 export function buildStructuredTasks(
