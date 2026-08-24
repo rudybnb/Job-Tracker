@@ -330,15 +330,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientName: jobsTable.clientName,
         address: jobsTable.address,
         postcode: jobsTable.postcode,
-        hasCurrentSourceImport: sql<boolean>`EXISTS (SELECT 1 FROM project_source_import i WHERE i.job_id = ${jobsTable.id} AND i.is_current_revision = true AND i.status = 'IMPORTED')`,
+        hasCurrentSourceImport: sql<boolean>`EXISTS (SELECT 1 FROM project_source_import i WHERE i.job_id = ${jobsTable.id}::text AND i.is_current_revision = true AND i.status = 'IMPORTED')`,
         latestImportAt: sql<string | null>`(
           SELECT to_char(MAX(i.imported_at), 'YYYY-MM-DD"T"HH24:MI:SSOF')
-          FROM project_source_import i WHERE i.job_id = ${jobsTable.id}
+          FROM project_source_import i WHERE i.job_id = ${jobsTable.id}::text
         )`,
       })
       .from(jobsTable)
       .where(
-        sql`EXISTS (SELECT 1 FROM job_locations l WHERE l.job_id = ${jobsTable.id}) AND EXISTS (SELECT 1 FROM job_location_tasks t WHERE t.job_id = ${jobsTable.id})`,
+        sql`EXISTS (SELECT 1 FROM job_locations l WHERE l.job_id = ${jobsTable.id}::text) AND EXISTS (SELECT 1 FROM job_location_tasks t WHERE t.job_id = ${jobsTable.id}::text)`,
       )
       .orderBy(jobsTable.title);
 
