@@ -13,6 +13,7 @@ export interface TaskProgressData {
   status: "not started" | "in progress" | "completed";
   taskId?: string;
   completed?: boolean;
+  assignmentId?: string;
 }
 
 export class TaskProgressManager {
@@ -74,7 +75,12 @@ export class TaskProgressManager {
   /**
    * Update individual task progress
    */
-  async updateTaskCompletion(taskId: string, completed: boolean): Promise<void> {
+  async updateTaskCompletion(
+    taskId: string,
+    completed: boolean,
+    taskDescription?: string,
+    phase?: string,
+  ): Promise<void> {
     try {
       const response = await fetch('/api/task-progress/update', {
         method: 'POST',
@@ -83,7 +89,9 @@ export class TaskProgressManager {
           contractorName: this.contractorName,
           assignmentId: this.assignmentId,
           taskId,
-          completed
+          completed,
+          taskDescription,
+          phase,
         })
       });
 
@@ -174,7 +182,12 @@ export class TaskProgressManager {
   private async syncWithDatabase(tasks: TaskProgressData[]): Promise<void> {
     for (const task of tasks) {
       if (task.taskId) {
-        await this.updateTaskCompletion(task.taskId, task.status === 'completed');
+        await this.updateTaskCompletion(
+          task.taskId,
+          task.status === 'completed',
+          task.title,
+          task.area,
+        );
       }
     }
   }

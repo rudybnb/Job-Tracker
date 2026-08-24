@@ -1,29 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  getWorkerAssignments,
+  type WorkerAssignment,
+} from "@/lib/worker-assignment-tasks";
 import "./jobs.css";
-
-interface ContractorAssignment {
-  id: string;
-  contractorName: string;
-  workLocation: string;
-  hbxlJob: string;
-  buildPhases: string[];
-  startDate: string;
-  endDate: string;
-  status: string;
-  createdAt: string;
-  specialInstructions?: string;
-}
 
 export default function Jobs() {
   const contractorName = localStorage.getItem("contractorName") || "Dalwayne Diedericks";
-  const contractorFirstName = contractorName.split(" ")[0];
 
-  const { data: assignments = [], isLoading } = useQuery<ContractorAssignment[]>({
-    queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
+  const { data: fetchedAssignments = [], isLoading } = useQuery<WorkerAssignment[]>({
+    queryKey: [`/api/contractor-assignments/${encodeURIComponent(contractorName)}`],
     enabled: true,
   });
+  const assignments = getWorkerAssignments(fetchedAssignments, contractorName);
 
   const isForeman = contractorName.toLowerCase().includes("dalwayne") || contractorName.toLowerCase().includes("diedericks");
   const activeAssignments = assignments.filter((assignment) => assignment.status === "assigned").length;
@@ -152,7 +143,9 @@ export default function Jobs() {
                   <Button
                     size="sm"
                     className="jobs-button jobs-button--tasks"
-                    onClick={() => window.location.href = "/task-progress"}
+                    onClick={() => {
+                      window.location.href = `/task-progress?assignmentId=${encodeURIComponent(assignment.id)}`;
+                    }}
                   >
                     Tasks
                   </Button>

@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { TaskProgressManager, type TaskProgressData } from "@/lib/task-progress-manager";
+import {
+  buildStructuredTasks,
+  getSelectedAssignment,
+  getStructuredRoomAssignments,
+  getWorkerAssignments,
+  isStructuredAssignment as hasStructuredWork,
+  type WorkerAssignment,
+} from "@/lib/worker-assignment-tasks";
 import "./hallmark-sweep.css";
 
 export default function TaskProgress() {
@@ -12,17 +20,31 @@ export default function TaskProgress() {
   // Get contractor assignments using logged-in contractor name
   const contractorName = localStorage.getItem('contractorName') || 'Dalwayne Diedericks';
   const contractorFirstName = contractorName.split(' ')[0];
+  const requestedAssignmentId = new URLSearchParams(window.location.search).get('assignmentId');
   
   console.log('🚀 TaskProgress component loaded');
   console.log('🚀 contractorName from localStorage:', contractorName);
   console.log('🚀 contractorFirstName:', contractorFirstName);
   
-  const { data: assignments = [], isLoading } = useQuery({
-    queryKey: [`/api/contractor-assignments/${contractorFirstName}`],
+  const { data: fetchedAssignments = [], isLoading } = useQuery<WorkerAssignment[]>({
+    queryKey: [`/api/contractor-assignments/${encodeURIComponent(contractorName)}`],
   });
 
-  // Get the first (active) assignment
-  const activeAssignment = (assignments as any[])[0];
+  const assignments = getWorkerAssignments(fetchedAssignments, contractorName);
+  const activeAssignment = getSelectedAssignment(
+    assignments,
+    contractorName,
+    requestedAssignmentId,
+  );
+  const structuredRoomAssignments = getStructuredRoomAssignments(
+    assignments,
+    contractorName,
+    activeAssignment,
+  );
+  const isStructuredAssignment = hasStructuredWork(activeAssignment);
+  const structuredAssignmentKey = structuredRoomAssignments
+    .map((assignment) => assignment.id)
+    .join(',');
 
   // Get team task progress to show teammate completion status
   const { data: teamProgress = [] } = useQuery({
@@ -99,12 +121,36 @@ export default function TaskProgress() {
     console.log('🔄 activeAssignment:', activeAssignment);
     console.log('🔄 buildPhases:', activeAssignment?.buildPhases);
     
-    if (!activeAssignment || !activeAssignment.buildPhases) {
+    if (!activeAssignment || (!isStructuredAssignment && !activeAssignment.buildPhases)) {
       console.log('❌ No active assignment or build phases, skipping task loading');
       return;
     }
     
     const loadTasksFromCSV = async () => {
+      if (isStructuredAssignment) {
+        const completedByAssignmentId = new Map<string, boolean>();
+
+        await Promise.all(structuredRoomAssignments.map(async (assignment) => {
+          try {
+            const manager = new TaskProgressManager(contractorName, assignment.id);
+            const progressRows = await manager.loadTaskProgress();
+            completedByAssignmentId.set(
+              assignment.id,
+              progressRows.some(
+                (row) =>
+                  row.taskId === assignment.locationTaskId
+                  && row.status === "completed",
+              ),
+            );
+          } catch (error) {
+            console.error('Failed to restore structured task progress:', error);
+          }
+        }));
+
+        setTasks(buildStructuredTasks(structuredRoomAssignments, completedByAssignmentId));
+        return;
+      }
+
       const storageKey = `task_progress_${activeAssignment.id}`;
       const savedProgress = localStorage.getItem(storageKey);
       
@@ -113,7 +159,7 @@ export default function TaskProgress() {
       if (!savedProgress) {
         try {
           console.log('📁 No localStorage found, checking database backup...');
-          const response = await fetch(`/api/task-progress/${contractorName}/${activeAssignment.id}`);
+          const response = await fetch(`/api/task-progress/${encodeURIComponent(contractorName)}/${activeAssignment.id}`);
           if (response.ok) {
             databaseBackup = await response.json();
             console.log(`📦 Found ${databaseBackup.length} tasks in database backup`);
@@ -303,11 +349,11 @@ export default function TaskProgress() {
     };
     
     loadTasksFromCSV();
-  }, [activeAssignment]);
+  }, [activeAssignment?.id, contractorName, isStructuredAssignment, structuredAssignmentKey]);
   
   // Save progress whenever tasks change (database-backed)
   useEffect(() => {
-    if (tasks.length > 0 && activeAssignment && progressManager) {
+    if (!isStructuredAssignment && tasks.length > 0 && activeAssignment && progressManager) {
       // Save to localStorage immediately for speed
       const storageKey = `task_progress_${activeAssignment.id}`;
       localStorage.setItem(storageKey, JSON.stringify(tasks));
@@ -317,7 +363,7 @@ export default function TaskProgress() {
         console.error('❌ Failed to backup to database:', error);
       });
     }
-  }, [tasks, activeAssignment, progressManager]);
+  }, [tasks, activeAssignment, progressManager, isStructuredAssignment]);
   
   const [contractorDropdownOpen, setContractorDropdownOpen] = useState(false);
 
@@ -347,18 +393,25 @@ export default function TaskProgress() {
     
     setTasks(updatedTasks);
     
-    // Save progress to localStorage with assignment-specific key (existing functionality)
-    const storageKey = `task_progress_${activeAssignment?.id || 'default'}`;
-    localStorage.setItem(storageKey, JSON.stringify(updatedTasks));
-    
     // DATABASE BACKUP: Use TaskProgressManager for robust persistence
-    if (activeAssignment?.id && progressManager) {
-      const updatedTask = updatedTasks.find(task => task.id === taskId);
-      if (updatedTask) {
-        const isCompleted = updatedTask.status === "completed";
-        
-        // Use TaskProgressManager for smart database backup
-        progressManager.updateTaskCompletion(updatedTask.taskId || updatedTask.id, isCompleted)
+    const updatedTask = updatedTasks.find(task => task.id === taskId);
+    if (updatedTask) {
+      const isCompleted = updatedTask.status === "completed";
+      const taskManager = isStructuredAssignment && updatedTask.assignmentId
+        ? new TaskProgressManager(contractorName, updatedTask.assignmentId)
+        : progressManager;
+
+      if (taskManager) {
+        const saveProgress = isStructuredAssignment
+          ? taskManager.saveTaskProgress([updatedTask])
+          : taskManager.updateTaskCompletion(
+              updatedTask.taskId || updatedTask.id,
+              isCompleted,
+              updatedTask.title,
+              updatedTask.area,
+            );
+
+        saveProgress
           .then(() => {
             console.log(`✅ Task persisted: ${updatedTask.title} - ${isCompleted ? 'completed' : 'in progress'}`);
           })
@@ -367,14 +420,19 @@ export default function TaskProgress() {
           });
       }
     }
+
+    if (!isStructuredAssignment) {
+      const storageKey = `task_progress_${activeAssignment?.id || 'default'}`;
+      localStorage.setItem(storageKey, JSON.stringify(updatedTasks));
+    }
     
     // CRITICAL FIX: Only calculate progress for the current assignment, not affecting other phases
-    const progressForCurrentTasks = updatedTasks.filter(task => 
-      activeAssignment?.buildPhases.includes(task.area)
-    );
+    const progressForCurrentTasks = isStructuredAssignment
+      ? updatedTasks
+      : updatedTasks.filter(task => activeAssignment?.buildPhases.includes(task.area));
     
     // CRITICAL: Trigger progress monitoring for 50% inspection notifications
-    if (activeAssignment) {
+    if (activeAssignment && !isStructuredAssignment) {
       // Calculate progress only for current assignment tasks
       const totalForAssignment = progressForCurrentTasks.reduce((sum, task) => sum + task.totalItems, 0);
       const completedForAssignment = progressForCurrentTasks.reduce((sum, task) => sum + task.completedItems, 0);
