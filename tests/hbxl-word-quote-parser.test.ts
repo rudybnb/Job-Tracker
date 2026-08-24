@@ -637,6 +637,57 @@ test("Spencer House Word quote parser: extracts metadata, locations, categories 
   assert.equal(living.reviewStatus, "CONFIRMED");
 });
 
+test("main Summary final Total cost is canonical over location and specialist summary totals", async () => {
+  const buffer = await createMockDocxBuffer(`
+    <w:p><w:r><w:t>Project: Maureen</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Client: Maureen Orubebe</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Address: 3 Lingard Avenue</w:t></w:r></w:p>
+    <w:p><w:r><w:t>NW5 9YZ</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Carry out work in Bathroom comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Shower Enclosure</w:t></w:r></w:p>
+    <w:tbl><w:tr>
+      <w:tc><w:p><w:r><w:t>Total cost</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>£1,258.36</w:t></w:r></w:p></w:tc>
+    </w:tr></w:tbl>
+    <w:p><w:r><w:t>Summary</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Bathroom</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p/></w:tc>
+        <w:tc><w:p><w:r><w:t>£1,258.36</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Total cost</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p/></w:tc>
+        <w:tc><w:p><w:r><w:t>£71,110.29</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+    <w:p><w:r><w:t>Plant Summary</w:t></w:r></w:p>
+    <w:tbl><w:tr>
+      <w:tc><w:p><w:r><w:t>Total cost</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p/></w:tc>
+      <w:tc><w:p><w:r><w:t>£2,784.60</w:t></w:r></w:p></w:tc>
+    </w:tr></w:tbl>
+    <w:p><w:r><w:t>Subcontractor Summary</w:t></w:r></w:p>
+    <w:tbl><w:tr>
+      <w:tc><w:p><w:r><w:t>Total cost</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p/></w:tc>
+      <w:tc><w:p><w:r><w:t>£23,175.00</w:t></w:r></w:p></w:tc>
+    </w:tr></w:tbl>
+  `);
+
+  const result = await parseHbxlWordQuote(buffer, "Job 3 Maureen Orubebe - Quote.docx");
+
+  assert.equal(result.metadata.clientName, "Maureen Orubebe");
+  assert.equal(result.metadata.projectSiteName, "Maureen");
+  assert.equal(result.metadata.postcode, "NW5 9YZ");
+  assert.equal(result.metadata.totalQuotePrice, 71110.29);
+  assert.equal(result.metadata.formattedTotalPrice, "£71,110.29");
+  assert.equal(result.metadata.totalExclVat, null);
+  assert.equal(result.metadata.vatAmount, null);
+  assert.equal(result.metadata.totalIncVat, null);
+});
+
 test("EstimatorXpress generated styles define package, resource, action, and header roles", async () => {
   const body = `
     <w:p><w:pPr><w:pStyle w:val="P3"/></w:pPr><w:r><w:t>Spencer House</w:t></w:r></w:p>

@@ -721,6 +721,29 @@ export function extractMetadataFromElements(elements: DocElement[]) {
     "total quote", "total quotation", "total price", "estimated cost", "total amount", "total cost", "total"
   ]);
 
+  // EstimatorXpress's canonical quote total is the final row of the main
+  // "Summary" table. Location totals appear earlier and specialist summaries
+  // can appear later, so document order alone is not authoritative.
+  for (let index = 0; index + 1 < elements.length; index++) {
+    const heading = elements[index];
+    const summaryTable = elements[index + 1];
+    if (
+      heading.type !== "paragraph" || !/^summary$/i.test(heading.paragraph.text.trim()) ||
+      summaryTable.type !== "table"
+    ) continue;
+
+    const finalRow = [...summaryTable.table.rows].reverse().find((row) =>
+      row.cells.some((cell) => cell.text.trim()),
+    );
+    if (!finalRow || cleanLabel(finalRow.cells[0]?.text ?? "") !== "total cost") continue;
+
+    const amount = parseAmount(finalRow.cells[finalRow.cells.length - 1]?.text ?? "");
+    if (amount !== null && amount > 0) {
+      totalQuotePrice = amount;
+      formattedTotalPrice = formatAmount(amount);
+    }
+  }
+
   let inAddressParagraphBlock = false;
   let addressParagraphCount = 0;
 
