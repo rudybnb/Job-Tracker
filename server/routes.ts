@@ -423,12 +423,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fingerprint = createHash("sha256").update(normalizedContent).digest("hex");
       const validation = parseJobUploadCsv(normalizedContent);
 
-      let candidates: Array<WordJobCandidate & { label: string }> = [];
-      try {
-        candidates = await listStructuredWordJobCandidates();
-      } catch (candidateError) {
-        console.error("Error listing structured Word job candidates:", candidateError);
-      }
+      const candidates: Array<WordJobCandidate & { label: string }> =
+        await listStructuredWordJobCandidates();
 
       const summary = summarizeSmartScheduleFile(validation, req.file.originalname);
       const signals = {
