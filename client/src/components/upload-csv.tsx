@@ -16,7 +16,7 @@ import {
   type ProjectMetadata,
   type UploadValidationIssue,
 } from "@shared/job-upload-import";
-import { formatWordJobCandidateLabel, type SmartScheduleMatchDecision } from "@shared/job-match";
+import { describeCandidateFlags, formatWordJobCandidateLabel, type SmartScheduleMatchDecision } from "@shared/job-match";
 
 interface CsvUpload {
   id: string;
@@ -132,6 +132,8 @@ interface SmartScheduleCandidate {
   address?: string | null;
   postcode?: string | null;
   label: string;
+  hasCurrentSourceImport?: boolean;
+  latestImportAt?: string | null;
 }
 
 interface SmartSchedulePreviewResponse {
@@ -167,6 +169,13 @@ interface SmartSchedulePreviewResponse {
     decision: SmartScheduleMatchDecision;
     suggestedJobId: string | null;
     matchedCandidateIds: string[];
+    reason: string;
+  };
+  suggestion: {
+    decision: "RECOMMENDED" | "REVIEW_REQUIRED_MULTIPLE" | "NO_CONFIDENT_MATCH";
+    recommendedJobId?: string;
+    otherCandidateIds?: string[];
+    tiedCandidateIds?: string[];
     reason: string;
   };
 }
@@ -223,9 +232,10 @@ export default function UploadCsv() {
   const [selectedAttachJobId, setSelectedAttachJobId] = useState<string | null>(null);
   const [csvPathChoice, setCsvPathChoice] = useState<"undecided" | "attach" | "legacy">("undecided");
   const [lastAttachSummary, setLastAttachSummary] = useState<SmartScheduleAttachResponse | null>(null);
+  const [showOtherMatches, setShowOtherMatches] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   // Initialize workflow help for CSV upload process
   const workflowHelp = useWorkflowHelp(WORKFLOW_CONFIGS.csvUpload);
 
@@ -237,6 +247,24 @@ export default function UploadCsv() {
   const matchDecision = smartSchedulePreview?.match.decision ?? null;
   const suggestedAttachJobId =
     matchDecision === "SUGGEST_MATCH" ? smartSchedulePreview?.match.suggestedJobId ?? null : null;
+  const suggestion = smartSchedulePreview?.suggestion ?? null;
+  const recommendedCandidate =
+    suggestion?.decision === "RECOMMENDED"
+      ? csvCandidates.find((candidate) => candidate.jobId === suggestion.recommendedJobId) ?? null
+      : null;
+  // Demoted candidates keep their server order (recommended first, then others).
+  const otherMatchCandidates =
+    suggestion?.decision === "RECOMMENDED"
+      ? (suggestion.otherCandidateIds ?? [])
+          .map((jobId) => csvCandidates.find((candidate) => candidate.jobId === jobId))
+          .filter((candidate): candidate is SmartScheduleCandidate => Boolean(candidate))
+      : [];
+  const tiedCandidates =
+    suggestion?.decision === "REVIEW_REQUIRED_MULTIPLE"
+      ? (suggestion.tiedCandidateIds ?? [])
+          .map((jobId) => csvCandidates.find((candidate) => candidate.jobId === jobId))
+          .filter((candidate): candidate is SmartScheduleCandidate => Boolean(candidate))
+      : [];
   const effectiveCsvChoice: "attach" | "legacy" | "undecided" =
     csvCandidates.length === 0 || csvPathChoice === "legacy"
       ? "legacy"
@@ -331,12 +359,13 @@ export default function UploadCsv() {
   });
 
   // Smart Schedule ATTACH mutation: attaches to an existing structured Word job.
+  // Accepts the target job ID explicitly so direct-attach buttons avoid stale closure.
   // No new job row is created; Word quote values remain untouched.
-  const attachCsvMutation = useMutation<SmartScheduleAttachResponse, Error, File>({
-    mutationFn: async (file: File) => {
+  const attachCsvMutation = useMutation<SmartScheduleAttachResponse, Error, { file: File; jobId: string }>({
+    mutationFn: async ({ file, jobId }) => {
       const formData = new FormData();
       formData.append('csvFile', file);
-      formData.append('attachJobId', selectedAttachJobId ?? "");
+      formData.append('attachJobId', jobId);
 
       const response = await fetch('/api/upload-csv', {
         method: 'POST',
@@ -503,7 +532,7 @@ export default function UploadCsv() {
       }
       uploadWordMutation.mutate(selectedFile);
     } else if (effectiveCsvChoice === "attach" && selectedAttachJobId) {
-      attachCsvMutation.mutate(selectedFile);
+      attachCsvMutation.mutate({ file: selectedFile, jobId: selectedAttachJobId });
     } else {
       if (canApproveUpload) {
         uploadCsvMutation.mutate(selectedFile);
@@ -669,9 +698,14 @@ export default function UploadCsv() {
       setSmartSchedulePreview(schedulePreview);
       setSelectedAttachJobId(null);
       setCsvPathChoice("undecided");
+      setShowOtherMatches(false);
       if (schedulePreview) {
-        // Auto-suggest only when exactly one strong structured Word candidate exists.
-        if (schedulePreview.match.decision === "SUGGEST_MATCH" && schedulePreview.match.suggestedJobId) {
+        // Auto-select only the deterministic recommended clean candidate; the
+        // admin still confirms with an explicit Attach action.
+        if (schedulePreview.suggestion?.decision === "RECOMMENDED" && schedulePreview.suggestion.recommendedJobId) {
+          setSelectedAttachJobId(schedulePreview.suggestion.recommendedJobId);
+          setCsvPathChoice("attach");
+        } else if (schedulePreview.match.decision === "SUGGEST_MATCH" && schedulePreview.match.suggestedJobId) {
           setSelectedAttachJobId(schedulePreview.match.suggestedJobId);
           setCsvPathChoice("attach");
         }
@@ -1479,53 +1513,112 @@ export default function UploadCsv() {
                     <p className="text-xs text-slate-600 mb-3">{smartSchedulePreview.match.reason}</p>
                   )}
 
-                  {/* Suggested candidate card — details come from the EXISTING WORD JOB */}
-                  {suggestedAttachJobId && (() => {
-                    const suggested = csvCandidates.find((c) => c.jobId === suggestedAttachJobId);
-                    if (!suggested) return null;
+                  {/* Review-required panel: genuinely equivalent clean candidates */}
+                  {suggestion?.decision === "REVIEW_REQUIRED_MULTIPLE" && (
+                    <div className="rounded-lg border border-amber-300 bg-white p-3 mb-3">
+                      <div className="text-sm font-bold text-amber-800 mb-2">
+                        Multiple matching Word jobs found — review required
+                      </div>
+                      <p className="text-xs text-slate-600 mb-2">{suggestion.reason}</p>
+                      <div className="space-y-2">
+                        {tiedCandidates.map((candidate) => (
+                          <button
+                            key={candidate.jobId}
+                            type="button"
+                            onClick={() => { setCsvPathChoice("attach"); setSelectedAttachJobId(candidate.jobId); }}
+                            disabled={isPending}
+                            className={`w-full text-left rounded-md border px-3 py-2 text-xs transition-all ${
+                              selectedAttachJobId === candidate.jobId
+                                ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-300"
+                                : "border-slate-200 bg-white hover:border-emerald-400"
+                            }`}
+                          >
+                            <div className="font-semibold text-slate-900">{candidate.title}</div>
+                            <div className="text-slate-600">{candidate.clientName || "—"} · {candidate.postcode || "no postcode"}</div>
+                            <div className="text-slate-500">
+                              Imported: {candidate.latestImportAt ? new Date(candidate.latestImportAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "date not recorded"}
+                            </div>
+                            <div className="text-[10px] text-slate-400">ref {candidate.jobId.slice(0, 8)}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recommended candidate card — details come from the EXISTING WORD JOB */}
+                  {recommendedCandidate && (() => {
+                    const recommended = recommendedCandidate;
                     return (
-                      <button
-                        type="button"
-                        onClick={() => { setCsvPathChoice("attach"); setSelectedAttachJobId(suggested.jobId); }}
-                        disabled={isPending}
-                        className={`w-full text-left rounded-lg border p-3 mb-3 transition-all ${
-                          selectedAttachJobId === suggested.jobId
-                            ? "border-emerald-500 bg-white ring-2 ring-emerald-300"
-                            : "border-slate-300 bg-white hover:border-emerald-400"
-                        }`}
-                      >
-                        <div className="text-sm font-bold text-slate-900 mb-1">Attach Smart Schedule to existing job</div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 text-xs text-slate-700">
-                          <div><span className="text-slate-500 block">Job</span><strong>{suggested.title}</strong></div>
-                          <div><span className="text-slate-500 block">Client</span><strong>{suggested.clientName || "—"}</strong></div>
-                          <div><span className="text-slate-500 block">Postcode</span><strong>{suggested.postcode || "—"}</strong></div>
+                      <div className={`rounded-lg border p-3 mb-3 transition-all ${
+                        selectedAttachJobId === recommended.jobId
+                          ? "border-emerald-500 bg-white ring-2 ring-emerald-300"
+                          : "border-slate-300 bg-white"
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-emerald-700 font-semibold text-sm">✅ Recommended match</span>
                         </div>
-                        <div className="mt-2 text-[11px] text-slate-500">Source: Structured Word Quote · client/address shown from the existing Word job, not from the CSV.</div>
-                      </button>
+                        <div className="text-base font-bold text-slate-900">{recommended.title}</div>
+                        <div className="text-sm text-slate-700">
+                          {recommended.clientName || "—"}{recommended.postcode ? ` · ${recommended.postcode}` : ""}
+                        </div>
+                        <div className="mt-0.5 text-xs text-slate-600">
+                          Structured Word{recommended.hasCurrentSourceImport ? " · Latest clean import" : ""}
+                        </div>
+                        <div className="mt-1 text-[11px] text-slate-400">Job ref {recommended.jobId.slice(0, 8)}</div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!selectedFile) return;
+                            setCsvPathChoice("attach");
+                            setSelectedAttachJobId(recommended.jobId);
+                            attachCsvMutation.mutate({ file: selectedFile, jobId: recommended.jobId });
+                          }}
+                          disabled={isPending || !selectedFile}
+                          className="mt-3 w-full sm:w-auto px-4 py-2 rounded font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+                        >
+                          {attachCsvMutation.isPending ? "Attaching…" : "Attach Smart Schedule to this job"}
+                        </button>
+                      </div>
                     );
                   })()}
 
-                  {/* Explicit picker — value is always the job ID */}
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
-                    {suggestedAttachJobId ? "Or choose a different existing Word job" : "Select the exact job to attach to"}
-                  </label>
-                  <select
-                    value={selectedAttachJobId ?? ""}
-                    onChange={(e) => {
-                      const jobId = e.target.value || null;
-                      setSelectedAttachJobId(jobId);
-                      setCsvPathChoice(jobId ? "attach" : "undecided");
-                    }}
-                    disabled={isPending}
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="">— Select an existing structured Word job —</option>
-                    {csvCandidates.map((candidate) => (
-                      <option key={candidate.jobId} value={candidate.jobId}>
-                        {candidate.label || formatWordJobCandidateLabel(candidate)}
-                      </option>
-                    ))}
-                  </select>
+                  {/* Collapsed alternatives: historical duplicates / test junk, never deleted */}
+                  {otherMatchCandidates.length > 0 && (
+                    <div className="mb-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowOtherMatches((open) => !open)}
+                        disabled={isPending}
+                        className="text-xs font-medium text-slate-600 underline underline-offset-2 hover:text-slate-800"
+                      >
+                        {showOtherMatches ? "Hide other possible matches" : `Show other possible matches (${otherMatchCandidates.length})`}
+                      </button>
+                      {showOtherMatches && (
+                        <div className="mt-2 space-y-2">
+                          {otherMatchCandidates.map((candidate) => (
+                            <button
+                              key={candidate.jobId}
+                              type="button"
+                              onClick={() => { setCsvPathChoice("attach"); setSelectedAttachJobId(candidate.jobId); }}
+                              disabled={isPending}
+                              className={`w-full text-left rounded-md border px-3 py-2 text-xs transition-all ${
+                                selectedAttachJobId === candidate.jobId
+                                  ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-300"
+                                  : "border-slate-200 bg-white hover:border-emerald-400"
+                              }`}
+                            >
+                              <div className="font-semibold text-slate-800">{candidate.title}</div>
+                              <div className="text-slate-600">{candidate.clientName || "—"} · {candidate.postcode || candidate.address?.split("\n")[0] || "no address"}</div>
+                              {describeCandidateFlags(candidate).length > 0 && (
+                                <div className="text-amber-700">⚠ {describeCandidateFlags(candidate).join(" · ")}</div>
+                              )}
+                              <div className="text-[10px] text-slate-400">ref {candidate.jobId.slice(0, 8)}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-3 flex items-center gap-3 text-xs">
                     <span className="text-slate-400">or</span>

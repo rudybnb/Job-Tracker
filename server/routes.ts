@@ -37,6 +37,7 @@ import {
   buildSmartScheduleAttachPatch,
   decideSmartScheduleMatch,
   formatWordJobCandidateLabel,
+  rankSmartScheduleCandidates,
   resolveSmartScheduleImportAction,
   type WordJobCandidate,
 } from "@shared/job-match";
@@ -312,8 +313,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Structured Word job candidates for Smart Schedule attachment.
-  // A structured Word job has BOTH job_locations and job_location_tasks (HBXL Word import).
-  async function listStructuredWordJobCandidates(): Promise<Array<WordJobCandidate & { label: string }>> {
+  // A structured Word job has BOTH job_locations and job_location_tasks (HBXL Word import)
+  // — that EXISTS filter is the eligibility proof; row counts are deliberately not
+  // selected because an older incorrect parser can produce more rows than the
+  // correct final one. Enrichment facts (lineage, import dates) feed the
+  // deterministic picker ranking in shared/job-match.ts.
+  async function listStructuredWordJobCandidates(): Promise<Array<WordJobCandidate & {
+    label: string;
+    hasCurrentSourceImport: boolean;
+    latestImportAt: string | null;
+  }>> {
     const rows = await db
       .select({
         jobId: jobsTable.id,
@@ -321,6 +330,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientName: jobsTable.clientName,
         address: jobsTable.address,
         postcode: jobsTable.postcode,
+        hasCurrentSourceImport: sql<boolean>`EXISTS (SELECT 1 FROM project_source_import i WHERE i.job_id = ${jobsTable.id} AND i.is_current_revision = true AND i.status = 'IMPORTED')`,
+        latestImportAt: sql<string | null>`(
+          SELECT to_char(MAX(i.imported_at), 'YYYY-MM-DD"T"HH24:MI:SSOF')
+          FROM project_source_import i WHERE i.job_id = ${jobsTable.id}
+        )`,
       })
       .from(jobsTable)
       .where(
@@ -417,10 +431,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const summary = summarizeSmartScheduleFile(validation, req.file.originalname);
+      const signals = {
+        csvProjectName: summary.csvIdentity.projectName,
+        filenameProjectHint: summary.filenameProjectHint,
+        // Smart Schedule CSVs never carry client name; this field is always absent.
+        csvClientName: null as string | null,
+        csvPostcode: summary.csvIdentity.postcode,
+      };
       const match = decideSmartScheduleMatch(
-        { csvProjectName: summary.csvIdentity.projectName, filenameProjectHint: summary.filenameProjectHint },
+        { csvProjectName: signals.csvProjectName, filenameProjectHint: signals.filenameProjectHint },
         candidates,
       );
+      const suggestion = rankSmartScheduleCandidates(signals, candidates);
 
       res.json({
         preview: true,
@@ -428,6 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fingerprint,
         candidates,
         match,
+        suggestion,
       });
     } catch (error) {
       console.error("Error previewing Smart Schedule:", error);

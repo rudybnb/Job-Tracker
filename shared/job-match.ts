@@ -23,6 +23,10 @@ export interface SmartScheduleMatchSignals {
   csvProjectName?: string | null;
   /** Normalized project name derived from the uploaded filename (hint only). */
   filenameProjectHint?: string | null;
+  /** Exact client name genuinely present in the schedule file (may be absent). */
+  csvClientName?: string | null;
+  /** Exact postcode genuinely present in the schedule file (may be absent). */
+  csvPostcode?: string | null;
 }
 
 export interface SmartScheduleMatchResult {
@@ -190,4 +194,208 @@ export function formatWordJobCandidateLabel(candidate: WordJobCandidateLabelInpu
   }
 
   return `${label} — ${candidate.jobId.slice(0, length)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Smart Schedule job-picker ranking (Word-first attachment).
+//
+// Admins must never have to choose between duplicate jobs using raw UUIDs.
+// Candidates are ranked so ONE clean recommended job surfaces at the top;
+// historical duplicates/test junk collapse into an explicit "other possible
+// matches" group. Ranking is deterministic and uses no fabricated data.
+// ---------------------------------------------------------------------------
+
+/** Candidate enriched with server-provided facts (no guessed values). */
+export interface RankedWordJobCandidate {
+  jobId: string;
+  title: string;
+  clientName?: string | null;
+  address?: string | null;
+  postcode?: string | null;
+  /** True when the job has a current IMPORTED revision in project_source_import. */
+  hasCurrentSourceImport?: boolean;
+  /** ISO timestamp of the most recent proven import for this job, if any. */
+  latestImportAt?: string | null;
+}
+
+export type SmartScheduleSuggestionDecision =
+  | {
+      decision: "RECOMMENDED";
+      recommendedJobId: string;
+      /** Demoted candidates (junk/test/duplicates that lost ranking). */
+      otherCandidateIds: string[];
+      reason: string;
+    }
+  | {
+      decision: "REVIEW_REQUIRED_MULTIPLE";
+      /** Genuinely equivalent clean candidates the admin must choose between. */
+      tiedCandidateIds: string[];
+      reason: string;
+    }
+  | {
+      decision: "NO_CONFIDENT_MATCH";
+      reason: string;
+    };
+
+const TEST_ADDRESS_PATTERN = /\b(nonexistent|fake|dummy)\b|\btest\s+(address|street|road|st|rd|lane|ln|drive|dr|job|data)\b/i;
+const QUOTE_ARTIFACT_PATTERN = /£|total\s*\(excl\.?\s*vat|summary of estimate/i;
+const UK_POSTCODE_PATTERN = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
+
+/** Human-readable reasons a candidate was demoted out of the recommended slot. */
+export function describeCandidateFlags(candidate: RankedWordJobCandidate): string[] {
+  const flags: string[] = [];
+  if (!candidate.clientName?.trim()) flags.push("missing client");
+  const postcode = candidate.postcode?.trim() ?? "";
+  if (postcode && !UK_POSTCODE_PATTERN.test(postcode.toUpperCase())) flags.push("invalid postcode");
+  const address = candidate.address ?? "";
+  if (TEST_ADDRESS_PATTERN.test(address)) flags.push("test address");
+  else if (QUOTE_ARTIFACT_PATTERN.test(address)) flags.push("malformed address");
+  return flags;
+}
+
+function candidateIsClean(candidate: RankedWordJobCandidate): boolean {
+  if (!candidate.clientName?.trim()) return false;
+  const postcode = candidate.postcode?.trim() ?? "";
+  if (postcode && !UK_POSTCODE_PATTERN.test(postcode.toUpperCase())) return false;
+  const address = candidate.address ?? "";
+  if (TEST_ADDRESS_PATTERN.test(address)) return false;
+  if (QUOTE_ARTIFACT_PATTERN.test(address)) return false;
+  return true;
+}
+
+interface RankKey {
+  lineage: number;
+  importAt: number;
+  signalScore: number;
+  jobId: string;
+}
+
+function rankKey(candidate: RankedWordJobCandidate, signals: SmartScheduleMatchSignals): RankKey {
+  const importTime = candidate.latestImportAt ? Date.parse(candidate.latestImportAt) : NaN;
+  return {
+    lineage: candidate.hasCurrentSourceImport ? 1 : 0,
+    importAt: Number.isNaN(importTime) ? -1 : importTime,
+    signalScore: signalMatchScore(signals, candidate),
+    jobId: candidate.jobId,
+  };
+}
+
+/**
+ * Exact identity-signal agreement between the schedule file and the candidate.
+ * Project name carries the most weight; exact client/postcode agreement only
+ * applies when those fields were genuinely present in the file. Absent file
+ * fields contribute nothing for every candidate (no invented comparisons).
+ */
+function signalMatchScore(signals: SmartScheduleMatchSignals, candidate: RankedWordJobCandidate): number {
+  let score = 0;
+  const title = normalizeProjectName(candidate.title);
+  const csvName = normalizeProjectName(signals.csvProjectName);
+  const hintName = normalizeProjectName(signals.filenameProjectHint);
+  if (csvName && title === csvName) score += 2;
+  else if (hintName && title === hintName) score += 1;
+
+  const csvClient = normalizeProjectName(signals.csvClientName);
+  const clientName = normalizeProjectName(candidate.clientName);
+  if (csvClient && clientName && csvClient === clientName) score += 1;
+
+  const csvPostcode = (signals.csvPostcode ?? "").replace(/\s+/g, "").toUpperCase();
+  const postcode = (candidate.postcode ?? "").replace(/\s+/g, "").toUpperCase();
+  if (csvPostcode && postcode && csvPostcode === postcode) score += 1;
+
+  return score;
+}
+
+function sameRank(a: RankKey, b: RankKey): boolean {
+  return a.lineage === b.lineage && a.importAt === b.importAt && a.signalScore === b.signalScore;
+}
+
+/**
+ * Deterministic ranking for the Smart Schedule attach picker.
+ *
+ * 1. Baseline signal match: normalized project/site name from the file (or the
+ *    filename hint) must equal the candidate's normalized title.
+ * 2. Clean gates: missing client, invalid postcode, test addresses and quote
+ *    artifacts demote a candidate out of the recommended slot (never deleted).
+ * 3. Tie-break among clean candidates:
+ *      A. confirmed/current source lineage
+ *      B. latest proven valid import date
+ *      C. exact project/client/postcode signals from the file
+ *      D. deterministic job ID (stable fallback only)
+ *
+ *    Row/location/task/resource COUNTS are deliberately NOT ranking signals:
+ *    an older incorrect parser can produce more rows than the correct final
+ *    parser, so "richer structure" is not evidence of quality.
+ * 4. Only if clean candidates remain fully equivalent after the whole chain
+ *    does the caller get REVIEW_REQUIRED_MULTIPLE — never a silent pick based
+ *    on row volume.
+ */
+export function rankSmartScheduleCandidates(
+  signals: SmartScheduleMatchSignals,
+  candidates: RankedWordJobCandidate[],
+): SmartScheduleSuggestionDecision {
+  const signalOrder = [signals.csvProjectName, signals.filenameProjectHint]
+    .map((signal) => (signal ?? "").trim())
+    .filter((signal) => signal.length > 0);
+
+  const matched =
+    signalOrder.length === 0
+      ? []
+      : candidates.filter((candidate) =>
+          signalOrder.some((signal) => normalizeProjectName(signal) === normalizeProjectName(candidate.title)),
+        );
+
+  if (matched.length === 0) {
+    return {
+      decision: "NO_CONFIDENT_MATCH",
+      reason:
+        signalOrder.length === 0
+          ? "The schedule file contains no usable project identifier. Select the exact job manually or use the legacy CSV workflow."
+          : "No structured Word job matches this schedule file's project name. Select the exact job manually or use the legacy CSV workflow.",
+    };
+  }
+
+  const clean = matched.filter(candidateIsClean);
+
+  if (clean.length === 0) {
+    return {
+      decision: "NO_CONFIDENT_MATCH",
+      reason:
+        "Matching Word jobs exist but none are clean enough to recommend automatically " +
+        `(e.g. ${matched.slice(0, 3).map((c) => describeCandidateFlags(c).join(", ") || "unclear identity").join("; ")}). ` +
+        "Review the possible matches below or use the legacy CSV workflow.",
+    };
+  }
+
+  const ranked = [...clean].sort((a, b) => {
+    const keyA = rankKey(a, signals);
+    const keyB = rankKey(b, signals);
+    if (keyB.lineage !== keyA.lineage) return keyB.lineage - keyA.lineage;
+    if (keyB.importAt !== keyA.importAt) return keyB.importAt - keyA.importAt;
+    if (keyB.signalScore !== keyA.signalScore) return keyB.signalScore - keyA.signalScore;
+    return keyA.jobId.localeCompare(keyB.jobId);
+  });
+
+  const topKey = rankKey(ranked[0], signals);
+  const tiedGroup = ranked.filter((candidate) => sameRank(rankKey(candidate, signals), topKey));
+
+  if (tiedGroup.length > 1) {
+    return {
+      decision: "REVIEW_REQUIRED_MULTIPLE",
+      tiedCandidateIds: tiedGroup.map((candidate) => candidate.jobId),
+      reason: "Multiple matching Word jobs found — review required",
+    };
+  }
+
+  const recommended = ranked[0];
+  const lineageNote = recommended.hasCurrentSourceImport ? " It carries the latest confirmed source import." : "";
+  return {
+    decision: "RECOMMENDED",
+    recommendedJobId: recommended.jobId,
+    // Every other matched candidate collapses into "other possible matches":
+    // both gate-demoted junk/test imports and clean duplicates that lost ranking.
+    otherCandidateIds: matched
+      .filter((candidate) => candidate.jobId !== recommended.jobId)
+      .map((candidate) => candidate.jobId),
+    reason: `Exactly one clean structured Word job matches "${recommended.title}".${lineageNote}`,
+  };
 }
