@@ -1089,10 +1089,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/jobs/:jobId/material-costs", async (req, res) => {
     try {
       const { jobId } = req.params;
+      // Return ONLY rows belonging to the current HBXL_MATERIALS_USED revision.
+      // Historical revision rows remain in the table (full audit trail) but are
+      // not surfaced here. Join to project_source_import and filter to the
+      // single isCurrentRevision=true, status='IMPORTED' record for this stream.
       const rows = await db
-        .select()
+        .select({
+          id: jobMaterialCostResources.id,
+          jobId: jobMaterialCostResources.jobId,
+          sourceImportId: jobMaterialCostResources.sourceImportId,
+          buildPhase: jobMaterialCostResources.buildPhase,
+          description: jobMaterialCostResources.description,
+          unitRate: jobMaterialCostResources.unitRate,
+          unit: jobMaterialCostResources.unit,
+          qtyExcludingWastage: jobMaterialCostResources.qtyExcludingWastage,
+          wastageQty: jobMaterialCostResources.wastageQty,
+          orderQtyIncludingWastage: jobMaterialCostResources.orderQtyIncludingWastage,
+          costExcludingWastage: jobMaterialCostResources.costExcludingWastage,
+          wastageCost: jobMaterialCostResources.wastageCost,
+          totalCostIncludingWastage: jobMaterialCostResources.totalCostIncludingWastage,
+          sourceRowOrder: jobMaterialCostResources.sourceRowOrder,
+          materialRowKind: jobMaterialCostResources.materialRowKind,
+        })
         .from(jobMaterialCostResources)
-        .where(eq(jobMaterialCostResources.jobId, jobId))
+        .innerJoin(
+          projectSourceImports,
+          eq(jobMaterialCostResources.sourceImportId, projectSourceImports.id),
+        )
+        .where(
+          sql`${jobMaterialCostResources.jobId} = ${jobId}
+            AND ${projectSourceImports.sourceStreamKey} = ${HBXL_MATERIALS_USED_STREAM_KEY}
+            AND ${projectSourceImports.isCurrentRevision} = true
+            AND ${projectSourceImports.status} = 'IMPORTED'`,
+        )
         .orderBy(jobMaterialCostResources.sourceRowOrder);
       res.json(rows);
     } catch (error) {
@@ -1234,18 +1263,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               },
             })
             .returning();
-
-          // Delete the current revision's resource rows (prior revision rows are
-          // kept intact — they are linked to their own source_import_id and must
-          // not be deleted as they constitute the audit trail).
-          if (importAction.supersedeImportIds.length > 0) {
-            await tx
-              .delete(jobMaterialCostResources)
-              .where(
-                sql`${jobMaterialCostResources.jobId} = ${jobId}
-                  AND ${jobMaterialCostResources.sourceImportId} = ANY(${importAction.supersedeImportIds}::uuid[])`,
-              );
-          }
 
           // Batch-insert all 70 rows, each stamped with this import's id.
           const insertValues = classified.map((r, idx) => ({

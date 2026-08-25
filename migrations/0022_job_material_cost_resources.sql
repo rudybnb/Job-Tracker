@@ -47,7 +47,7 @@ BEGIN
           CHECK ("source_row_order" > 0)
       )
     $ddl$;
-    EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS "job_material_cost_resources_job_order_unique" ON "job_material_cost_resources" ("job_id", "source_row_order")';
+    EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS "job_material_cost_resources_import_order_unique" ON "job_material_cost_resources" ("source_import_id", "source_row_order")';
   END IF;
 END
 $migration$;

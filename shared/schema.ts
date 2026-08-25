@@ -1800,7 +1800,7 @@ export const jobMaterialCostResources = pgTable("job_material_cost_resources", {
   sourceRowOrder: integer("source_row_order").notNull(),
   materialRowKind: text("material_row_kind").notNull().default("PHYSICAL_PRODUCT"),
 }, (table) => [
-  uniqueIndex("job_material_cost_resources_job_order_unique").on(table.jobId, table.sourceRowOrder),
+  uniqueIndex("job_material_cost_resources_import_order_unique").on(table.sourceImportId, table.sourceRowOrder),
   check("job_material_cost_resources_kind_check", sql`${table.materialRowKind} IN ('PHYSICAL_PRODUCT', 'BROAD_ALLOWANCE')`),
   check("job_material_cost_resources_row_order_check", sql`${table.sourceRowOrder} > 0`),
 ]);
