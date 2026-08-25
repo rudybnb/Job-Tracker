@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { buildProcurementCostPlan, type ProcurementCostPlanSection } from "@shared/procurement-cost-plan";
+import { buildProcurementCostPlan, type ProcurementSectionKey, type ProcurementCostPlanSection } from "@shared/procurement-cost-plan";
 import "./hallmark-sweep.css";
 
 interface Client {
@@ -76,6 +76,14 @@ function isActiveJob(job: Job): boolean {
   return status !== "completed" && status !== "cancelled";
 }
 
+const PROCUREMENT_TAB_ORDER: ProcurementSectionKey[] = ["materials", "labour", "plant", "subcontractors"];
+const PROCUREMENT_TAB_LABELS: Record<ProcurementSectionKey, string> = {
+  materials: "MATERIALS",
+  labour: "LABOUR",
+  plant: "PLANT / HIRE",
+  subcontractors: "SUBCONTRACTORS",
+};
+
 function ProcurementSection({ section }: { section: ProcurementCostPlanSection }) {
   return (
     <section className="rounded-lg border border-slate-600 bg-slate-800 p-3">
@@ -146,6 +154,7 @@ function LogoutButton() {
 export default function AdminBudgetTracking() {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [expandedProcurementJobId, setExpandedProcurementJobId] = useState<string | null>(null);
+  const [activeProcurementTab, setActiveProcurementTab] = useState<ProcurementSectionKey>("materials");
 
   // Fetch all clients
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
@@ -498,7 +507,10 @@ export default function AdminBudgetTracking() {
                               size="sm"
                               variant="outline"
                               className="flex-1 border-slate-600 hover:bg-slate-600"
-                              onClick={() => setExpandedProcurementJobId(procurementOpen ? null : job.id)}
+                              onClick={() => {
+                                setExpandedProcurementJobId(procurementOpen ? null : job.id);
+                                if (!procurementOpen) setActiveProcurementTab("materials");
+                              }}
                             >
                               <i className="fas fa-eye mr-2"></i>
                               {procurementOpen ? "Hide Cost Plan" : "View Details"}
@@ -520,7 +532,7 @@ export default function AdminBudgetTracking() {
                                 <div>
                                   <h3 className="text-lg font-bold text-white">Procurement / Cost Plan</h3>
                                   <p className="text-sm text-slate-400">
-                                    Read-only Smart Schedule allowances: what to buy, hire, subcontract, or plan for labour. Budget rates are not purchase prices.
+                                    Read-only Smart Schedule allowances: what to buy, hire, subcontract, or plan for labour. Budget rates are allowance benchmarks.
                                   </p>
                                 </div>
                                 <div className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-right">
@@ -536,11 +548,28 @@ export default function AdminBudgetTracking() {
                                 </div>
                               )}
 
-                              <div className="grid grid-cols-1 gap-4">
-                                <ProcurementSection section={procurementPlan.materials} />
-                                <ProcurementSection section={procurementPlan.plant} />
-                                <ProcurementSection section={procurementPlan.subcontractors} />
-                                <ProcurementSection section={procurementPlan.labour} />
+                              <div className="flex flex-wrap gap-2" role="tablist" aria-label="Procurement categories">
+                                {PROCUREMENT_TAB_ORDER.map((key) => {
+                                  const section = procurementPlan[key];
+                                  const selected = activeProcurementTab === key;
+                                  return (
+                                    <button
+                                      key={key}
+                                      type="button"
+                                      role="tab"
+                                      aria-selected={selected}
+                                      onClick={() => setActiveProcurementTab(key)}
+                                      className={`rounded-lg border px-3 py-2 text-left transition-colors ${selected ? "border-yellow-500 bg-yellow-500 text-slate-950" : "border-slate-600 bg-slate-900 text-slate-200 hover:border-yellow-500"}`}
+                                    >
+                                      <span className="block text-xs font-bold tracking-wide">{PROCUREMENT_TAB_LABELS[key]}</span>
+                                      <span className="block text-sm font-semibold">{formatMoney(section.total)}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              <div role="tabpanel">
+                                <ProcurementSection section={procurementPlan[activeProcurementTab]} />
                               </div>
                             </div>
                           )}

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildProcurementCostPlan } from "../shared/procurement-cost-plan.ts";
+
+const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 test("builds separate procurement sections from retained Smart Schedule resources", () => {
   const plan = buildProcurementCostPlan(JSON.stringify({
@@ -53,4 +58,16 @@ test("Maureen procurement section totals reconcile to Smart Schedule commercial 
   assert.equal(plan.plant.total, 1820);
   assert.equal(plan.subcontractors.total, 15450);
   assert.equal(plan.totalEstimatedCost, 49601.22);
+});
+
+test("budget tracking procurement UI uses tabs and budget wording", () => {
+  const source = readFileSync(path.join(repoRoot, "client", "src", "pages", "admin-budget-tracking.tsx"), "utf8");
+
+  assert.match(source, /MATERIALS/);
+  assert.match(source, /LABOUR/);
+  assert.match(source, /PLANT \/ HIRE/);
+  assert.match(source, /SUBCONTRACTORS/);
+  assert.match(source, /Budget Rate/);
+  assert.match(source, /Budget Total/);
+  assert.doesNotMatch(source, /Purchase Price/i);
 });
