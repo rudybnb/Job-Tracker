@@ -8,6 +8,7 @@ import {
   buildRoomTaskSelections,
   findAssignmentJobById,
   formatAssignmentJobLabel,
+  getStructuredAssignmentConflict,
   hasStructuredJobData,
   toggleAllRoomTasks,
 } from "@/lib/assignment-job-mode";
@@ -84,6 +85,17 @@ interface AssignablePerson {
   email: string | null;
   phone: string | null;
   trade: string;
+}
+
+interface ExistingJobAssignment {
+  id: string;
+  contractorName: string;
+  email?: string | null;
+  phone?: string | null;
+  status: string;
+  jobId?: string | null;
+  locationId?: string | null;
+  locationTaskId?: string | null;
 }
 
 const assignmentPersonKey = (person: AssignablePerson) => `${person.identity.type}:${person.identity.id}`;
@@ -235,15 +247,39 @@ export default function CreateAssignment() {
     enabled: Boolean(selectedJobId),
   });
 
+  const { data: existingJobAssignments = [] } = useQuery<ExistingJobAssignment[]>({
+    queryKey: ["/api/job-assignments"],
+    enabled: Boolean(selectedJobId && selectedContractors.length > 0),
+  });
+
   const selectedJob = findAssignmentJobById(uploadedJobs, selectedJobId);
   const selectedHbxlJob = selectedJob?.name ?? "";
+  const selectedPeople = selectedContractors.flatMap((key) => {
+    const person = assignablePeople.find((candidate) => assignmentPersonKey(candidate) === key);
+    return person ? [{ name: person.name, email: person.email, phone: person.phone }] : [];
+  });
+  const existingStructuredAssignments = existingJobAssignments.filter((assignment) =>
+    assignment.jobId === selectedJobId && assignment.locationId && assignment.locationTaskId,
+  );
+  const assignmentConflictsByTaskId = new Map(
+    allJobLocationTasks.map((task) => [
+      task.id,
+      getStructuredAssignmentConflict(selectedJobId, task.id, selectedPeople, existingStructuredAssignments),
+    ]),
+  );
+  const unavailableTaskIds = new Set(
+    Array.from(assignmentConflictsByTaskId.entries())
+      .filter(([, conflict]) => conflict.isUnavailable)
+      .map(([taskId]) => taskId),
+  );
+  const unavailableTaskIdsKey = Array.from(unavailableTaskIds).sort().join("\n");
   const selectedRooms = jobLocations
     .filter((location) => selectedLocationIds.includes(location.id))
     .map((location) => ({
       location,
       checklist: buildRoomAssignmentChecklist(allJobLocationTasks, location.id),
     }));
-  const roomTaskSelections = buildRoomTaskSelections(allJobLocationTasks, selectedLocationIds, selectedTaskIds);
+  const roomTaskSelections = buildRoomTaskSelections(allJobLocationTasks, selectedLocationIds, selectedTaskIds, unavailableTaskIds);
   const isJobStructureLoading = Boolean(selectedJobId) && (areJobLocationsLoading || areJobLocationTasksLoading);
   const didJobStructureFail = Boolean(selectedJobId) && (didJobLocationsFail || didJobLocationTasksFail);
   const isStructuredWordJob = !isJobStructureLoading
@@ -326,6 +362,11 @@ export default function CreateAssignment() {
     if (dateRange.endDate) setEndDate(dateRange.endDate);
   }, [selectedJob, selectedPhaseKey]);
 
+  useEffect(() => {
+    if (!isStructuredWordJob || unavailableTaskIds.size === 0) return;
+    setSelectedTaskIds((current) => current.filter((taskId) => !unavailableTaskIds.has(taskId)));
+  }, [isStructuredWordJob, unavailableTaskIdsKey]);
+
   const handlePhaseToggle = (phase: string) => {
     setSelectedPhases(prev => 
       prev.includes(phase) 
@@ -343,6 +384,7 @@ export default function CreateAssignment() {
   };
 
   const handleTaskToggle = (taskId: string) => {
+    if (unavailableTaskIds.has(taskId)) return;
     setSelectedTaskIds((current) =>
       current.includes(taskId)
         ? current.filter((id) => id !== taskId)
@@ -366,6 +408,7 @@ export default function CreateAssignment() {
   const handleSelectAllRoomTasks = (locationId: string) => {
     const roomTaskIds = allJobLocationTasks
       .filter((task) => task.locationId === locationId)
+      .filter((task) => !unavailableTaskIds.has(task.id))
       .map((task) => task.id);
     setSelectedTaskIds((current) => toggleAllRoomTasks(current, roomTaskIds));
   };
@@ -529,9 +572,12 @@ export default function CreateAssignment() {
       
     } catch (error) {
       console.error('❌ Assignment creation failed:', error);
+      const message = error instanceof Error && error.message
+        ? error.message
+        : "Failed to create assignment. Please try again.";
       toast({
         title: "Assignment Error",
-        description: "Failed to create assignment. Please try again.",
+        description: message,
         variant: "destructive"
       });
     }
@@ -874,18 +920,45 @@ export default function CreateAssignment() {
                             <legend className="text-sm font-semibold text-white">{group.name}</legend>
                           )}
                           {group.items.map((item) => (
-                            <label key={item.id} className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-700 bg-slate-800/70 px-3 py-2 hover:border-yellow-500/60">
-                              <input
-                                type="checkbox"
-                                checked={selectedTaskIds.includes(item.id)}
-                                onChange={() => handleTaskToggle(item.id)}
-                                className="mt-0.5 h-4 w-4 rounded border-slate-500 bg-slate-700 text-yellow-400 focus:ring-yellow-500"
-                              />
-                              <span className="text-sm text-white">
-                                {item.checkboxLabel}
-                                {item.status === "assigned" && <span className="ml-2 text-xs text-emerald-400">Assigned</span>}
-                              </span>
-                            </label>
+                            (() => {
+                              const conflict = assignmentConflictsByTaskId.get(item.id);
+                              const isUnavailable = Boolean(conflict?.isUnavailable);
+
+                              return (
+                                <label
+                                  key={item.id}
+                                  className={`flex items-start gap-3 rounded-md border px-3 py-2 ${
+                                    isUnavailable
+                                      ? "cursor-not-allowed border-emerald-500/60 bg-emerald-950/30"
+                                      : "cursor-pointer border-slate-700 bg-slate-800/70 hover:border-yellow-500/60"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedTaskIds.includes(item.id) && !isUnavailable}
+                                    disabled={isUnavailable}
+                                    onChange={() => handleTaskToggle(item.id)}
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-500 bg-slate-700 text-yellow-400 focus:ring-yellow-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                  />
+                                  <span className="space-y-1 text-sm text-white">
+                                    <span className="block">{item.checkboxLabel}</span>
+                                    {conflict?.selectedAssigneeNames.map((name) => (
+                                      <span key={`selected-${name}`} className="block text-xs font-semibold uppercase tracking-wide text-emerald-300">
+                                        ✓ ALREADY ASSIGNED — {name}
+                                      </span>
+                                    ))}
+                                    {conflict?.otherAssigneeNames.map((name) => (
+                                      <span key={`other-${name}`} className="block text-xs font-semibold uppercase tracking-wide text-amber-300">
+                                        ASSIGNED TO: {name}
+                                      </span>
+                                    ))}
+                                    {!conflict?.isUnavailable && item.status === "assigned" && (
+                                      <span className="block text-xs text-emerald-400">Assigned</span>
+                                    )}
+                                  </span>
+                                </label>
+                              );
+                            })()
                           ))}
                         </fieldset>
                       ))}

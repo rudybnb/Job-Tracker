@@ -6,6 +6,7 @@ import {
   buildRoomTaskSelections,
   findAssignmentJobById,
   formatAssignmentJobLabel,
+  getStructuredAssignmentConflict,
   hasStructuredJobData,
   toggleAllRoomTasks,
   type AssignmentDeskJob,
@@ -118,4 +119,67 @@ test("select all toggles one room without changing another room", () => {
 
   const bedroom3Cleared = toggleAllRoomTasks(allBedroom3Selected, bedroom3Tasks);
   assert.deepEqual(bedroom3Cleared, bedroom4Selection);
+});
+
+test("structured assignments already owned by selected worker are labelled and excluded from payload", () => {
+  const existingAssignments = [
+    {
+      jobId: "maureen",
+      locationId: "bathroom-1",
+      locationTaskId: "bath-standard",
+      contractorName: "Rudy Diedericks",
+      email: "rudybnb@yahoo.co.uk",
+      phone: "+447534251548",
+    },
+  ];
+  const selectedPeople = [
+    { name: "Rudy Diedricks", email: null, phone: "07534251548" },
+  ];
+
+  const conflict = getStructuredAssignmentConflict("maureen", "bath-standard", selectedPeople, existingAssignments);
+  const selections = buildRoomTaskSelections(
+    [
+      { id: "bath-standard", locationId: "bathroom-1", workCategory: "Bath Standard", taskName: "Bath Standard", status: "assigned" },
+      { id: "floor-tiling", locationId: "bathroom-1", workCategory: "Floor Tiling", taskName: "Floor Tiling", status: "pending" },
+    ],
+    ["bathroom-1"],
+    ["bath-standard", "floor-tiling"],
+    conflict.isUnavailable ? ["bath-standard"] : [],
+  );
+
+  assert.equal(conflict.isAlreadyAssignedToSelectedPerson, true);
+  assert.deepEqual(conflict.selectedAssigneeNames, ["Rudy Diedericks"]);
+  assert.deepEqual(selections, [{ locationId: "bathroom-1", taskIds: ["floor-tiling"] }]);
+});
+
+test("structured assignments owned by another worker are labelled unavailable without duplicate reassignment", () => {
+  const conflict = getStructuredAssignmentConflict(
+    "maureen",
+    "room-decoration",
+    [{ name: "Mohamed Shawky", email: null, phone: "+447405619186" }],
+    [{ jobId: "maureen", locationId: "lounge", locationTaskId: "room-decoration", contractorName: "Rudy Diedericks", phone: "+447534251548" }],
+  );
+
+  assert.equal(conflict.isAlreadyAssignedToSelectedPerson, false);
+  assert.equal(conflict.isAssignedToOtherPerson, true);
+  assert.equal(conflict.isUnavailable, true);
+  assert.deepEqual(conflict.otherAssigneeNames, ["Rudy Diedericks"]);
+});
+
+test("unassigned structured work remains selectable", () => {
+  const conflict = getStructuredAssignmentConflict(
+    "maureen",
+    "unassigned-task",
+    [{ name: "Rudy Diedericks", phone: "+447534251548" }],
+    [{ jobId: "maureen", locationId: "bathroom-1", locationTaskId: "bath-standard", contractorName: "Rudy Diedericks", phone: "+447534251548" }],
+  );
+  const selections = buildRoomTaskSelections(
+    [{ id: "unassigned-task", locationId: "bathroom-1", workCategory: "Floor Tiling", taskName: "Floor Tiling", status: "pending" }],
+    ["bathroom-1"],
+    ["unassigned-task"],
+    conflict.isUnavailable ? ["unassigned-task"] : [],
+  );
+
+  assert.equal(conflict.isUnavailable, false);
+  assert.deepEqual(selections, [{ locationId: "bathroom-1", taskIds: ["unassigned-task"] }]);
 });
