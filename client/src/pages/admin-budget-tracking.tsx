@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { buildProcurementCostPlan, type ProcurementCostPlanSection } from "@shared/procurement-cost-plan";
 import "./hallmark-sweep.css";
 
 interface Client {
@@ -40,6 +41,7 @@ interface Job {
   forecast_margin_percentage: string | null;
   profit_loss: string;
   profit_loss_percentage: string;
+  phase_task_data: string | null;
   status: string;
   start_date: string | null;
   estimated_end_date: string | null;
@@ -74,6 +76,50 @@ function isActiveJob(job: Job): boolean {
   return status !== "completed" && status !== "cancelled";
 }
 
+function ProcurementSection({ section }: { section: ProcurementCostPlanSection }) {
+  return (
+    <section className="rounded-lg border border-slate-600 bg-slate-800 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h4 className="text-sm font-bold uppercase tracking-wide text-yellow-500">{section.title}</h4>
+        <span className="text-sm font-bold text-white">{formatMoney(section.total)}</span>
+      </div>
+      {section.lines.length === 0 ? (
+        <p className="text-sm text-slate-400">No Smart Schedule rows in this category.</p>
+      ) : (
+        <div className="space-y-2">
+          {section.lines.map((line, index) => (
+            <div key={`${section.key}-${line.phase}-${line.productCode}-${line.description}-${index}`} className="rounded-md border border-slate-700 bg-slate-900 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-white">{line.description}</div>
+                  <div className="mt-1 text-xs text-slate-400">
+                    Qty: {line.quantity.toLocaleString()} {line.unit}
+                    {line.phase ? ` · Phase: ${line.phase}` : ""}
+                    {line.requiredDate ? ` · Required: ${line.requiredDate}` : ""}
+                  </div>
+                  {(line.supplier || line.productCode) && (
+                    <div className="mt-1 text-xs text-slate-500">
+                      {line.supplier ? `Supplier: ${line.supplier}` : ""}
+                      {line.supplier && line.productCode ? " · " : ""}
+                      {line.productCode ? `Product code: ${line.productCode}` : ""}
+                    </div>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-xs text-slate-400">Budget Rate</div>
+                  <div className="font-semibold text-slate-100">{formatMoney(line.budgetRate)}</div>
+                  <div className="mt-1 text-xs text-slate-400">Budget Total</div>
+                  <div className="font-bold text-white">{formatMoney(line.budgetTotal)}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function LogoutButton() {
   const handleLogout = () => {
     localStorage.clear();
@@ -99,6 +145,7 @@ function LogoutButton() {
 
 export default function AdminBudgetTracking() {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [expandedProcurementJobId, setExpandedProcurementJobId] = useState<string | null>(null);
 
   // Fetch all clients
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
@@ -313,7 +360,7 @@ export default function AdminBudgetTracking() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <button
-                    onClick={() => setSelectedClientId(null)}
+                    onClick={() => { setSelectedClientId(null); setExpandedProcurementJobId(null); }}
                     className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center hover:bg-slate-600"
                   >
                     <i className="fas fa-arrow-left text-white"></i>
@@ -347,6 +394,8 @@ export default function AdminBudgetTracking() {
                     const hasCommercialData = moneyValue(job.client_quote) > 0 || moneyValue(job.estimated_cost) > 0;
                     const statusColor = hasCommercialData ? "bg-blue-500" : "bg-slate-600";
                     const statusText = hasCommercialData ? "Commercial Data" : "No Manual Budget";
+                    const procurementPlan = buildProcurementCostPlan(job.phase_task_data);
+                    const procurementOpen = expandedProcurementJobId === job.id;
 
                     return (
                       <Card key={job.id} className="bg-slate-700 border-slate-600 p-4">
@@ -449,10 +498,10 @@ export default function AdminBudgetTracking() {
                               size="sm"
                               variant="outline"
                               className="flex-1 border-slate-600 hover:bg-slate-600"
-                              onClick={() => {/* TODO: View details */}}
+                              onClick={() => setExpandedProcurementJobId(procurementOpen ? null : job.id)}
                             >
                               <i className="fas fa-eye mr-2"></i>
-                              View Details
+                              {procurementOpen ? "Hide Cost Plan" : "View Details"}
                             </Button>
                             <Button
                               size="sm"
@@ -464,6 +513,37 @@ export default function AdminBudgetTracking() {
                               Add Expense
                             </Button>
                           </div>
+
+                          {procurementOpen && (
+                            <div className="pt-4 border-t border-slate-600 space-y-4">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <h3 className="text-lg font-bold text-white">Procurement / Cost Plan</h3>
+                                  <p className="text-sm text-slate-400">
+                                    Read-only Smart Schedule allowances: what to buy, hire, subcontract, or plan for labour. Budget rates are not purchase prices.
+                                  </p>
+                                </div>
+                                <div className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-right">
+                                  <div className="text-xs text-slate-400">Section Total</div>
+                                  <div className="text-lg font-bold text-white">{formatMoney(procurementPlan.totalEstimatedCost)}</div>
+                                  <div className="text-xs text-slate-500">Commercial summary: {formatMoney(job.estimated_cost)}</div>
+                                </div>
+                              </div>
+
+                              {moneyValue(job.estimated_cost) !== moneyValue(procurementPlan.totalEstimatedCost) && (
+                                <div className="rounded-md border border-amber-500 bg-amber-950/40 p-3 text-sm text-amber-100">
+                                  Smart Schedule row sections total {formatMoney(procurementPlan.totalEstimatedCost)}. Commercial summary total is {formatMoney(job.estimated_cost)}.
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 gap-4">
+                                <ProcurementSection section={procurementPlan.materials} />
+                                <ProcurementSection section={procurementPlan.plant} />
+                                <ProcurementSection section={procurementPlan.subcontractors} />
+                                <ProcurementSection section={procurementPlan.labour} />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </Card>
                     );
