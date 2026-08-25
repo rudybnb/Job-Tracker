@@ -163,7 +163,7 @@ function MaterialUpload({ jobId, onImported }: { jobId: string; onImported: () =
 
   return (
     <div className="rounded-md border border-slate-700 bg-slate-900 p-3">
-      <h5 className="text-xs font-bold uppercase tracking-wide text-yellow-500 mb-2">Import HBXL Materials Used CSV</h5>
+      <h5 className="text-xs font-bold uppercase tracking-wide text-yellow-500 mb-2">Import / Re-import HBXL Materials Used CSV</h5>
       <input type="file" accept=".csv" onChange={handleFile} className="text-sm text-slate-400 mb-2" />
       {uploading && <p className="text-xs text-slate-400">Processing...</p>}
       {error && <p className="text-xs text-red-400">{error}</p>}
@@ -185,6 +185,410 @@ function MaterialUpload({ jobId, onImported }: { jobId: string; onImported: () =
             {uploading ? "Importing..." : "Confirm Import"}
           </button>
         </div>
+      )}
+    </div>
+  );
+}
+
+interface MaterialActualEntry {
+  supplierName?: string;
+  supplierUnitPrice?: string;
+  actualQuantity?: string;
+  actualTotal?: string;
+  notes?: string;
+}
+
+function MaterialsCostSheet({
+  jobId,
+  materialCostRows = [],
+  materialCostActuals = [],
+  onActualsSaved,
+}: {
+  jobId: string;
+  materialCostRows: any[];
+  materialCostActuals: any[];
+  onActualsSaved: () => void;
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPhase, setSelectedPhase] = useState<string>("ALL");
+  const [editingActuals, setEditingActuals] = useState<Record<string, MaterialActualEntry>>({});
+  const [savingResourceId, setSavingResourceId] = useState<string | null>(null);
+  const [savedSuccessId, setSavedSuccessId] = useState<string | null>(null);
+
+  // Map of actuals by resourceId
+  const actualsMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const act of materialCostActuals) {
+      map[act.resourceId] = act;
+    }
+    return map;
+  }, [materialCostActuals]);
+
+  // Separate Physical Products vs Broad Allowances
+  const physicalRows = useMemo(
+    () => materialCostRows.filter((r) => r.materialRowKind === "PHYSICAL_PRODUCT"),
+    [materialCostRows]
+  );
+  const allowanceRows = useMemo(
+    () => materialCostRows.filter((r) => r.materialRowKind === "BROAD_ALLOWANCE"),
+    [materialCostRows]
+  );
+
+  // Available build phases for dropdown filter
+  const buildPhases = useMemo(() => {
+    const phases = new Set<string>();
+    for (const r of physicalRows) {
+      if (r.buildPhase) phases.add(r.buildPhase);
+    }
+    return Array.from(phases);
+  }, [physicalRows]);
+
+  // Filtered physical rows
+  const filteredPhysicalRows = useMemo(() => {
+    return physicalRows.filter((r) => {
+      const matchPhase = selectedPhase === "ALL" || r.buildPhase === selectedPhase;
+      const matchSearch =
+        !searchTerm.trim() ||
+        r.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.buildPhase && r.buildPhase.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchPhase && matchSearch;
+    });
+  }, [physicalRows, selectedPhase, searchTerm]);
+
+  // Helper to get active entry for a row
+  const getEntry = (resourceId: string): MaterialActualEntry => {
+    return editingActuals[resourceId] ?? actualsMap[resourceId] ?? {};
+  };
+
+  // Handle change of inputs
+  const handleFieldChange = (resourceId: string, field: keyof MaterialActualEntry, value: string, defaultQty?: string) => {
+    setEditingActuals((prev) => {
+      const current = { ...getEntry(resourceId), [field]: value };
+      
+      const price = parseFloat(field === "supplierUnitPrice" ? value : (current.supplierUnitPrice ?? "0")) || 0;
+      const qtyStr = field === "actualQuantity" ? value : (current.actualQuantity ?? defaultQty ?? "0");
+      const qty = parseFloat(qtyStr) || 0;
+      
+      if (price > 0 && qty > 0) {
+        current.actualTotal = (price * qty).toFixed(2);
+      } else if (price === 0 || qty === 0) {
+        current.actualTotal = "";
+      }
+
+      return {
+        ...prev,
+        [resourceId]: current,
+      };
+    });
+  };
+
+  const handleSaveRow = async (resource: any) => {
+    const entry = getEntry(resource.id);
+    setSavingResourceId(resource.id);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/material-costs/${resource.id}/actual`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          supplierName: entry.supplierName ?? null,
+          supplierUnitPrice: entry.supplierUnitPrice ?? null,
+          actualQuantity: entry.actualQuantity ?? (entry.supplierUnitPrice ? resource.orderQtyIncludingWastage : null),
+          actualTotal: entry.actualTotal ?? null,
+          notes: entry.notes ?? null,
+        }),
+      });
+      if (res.ok) {
+        setSavedSuccessId(resource.id);
+        setTimeout(() => setSavedSuccessId(null), 2500);
+        onActualsSaved();
+      }
+    } catch (err) {
+      console.error("Save actual failed:", err);
+    } finally {
+      setSavingResourceId(null);
+    }
+  };
+
+  // Financial Totals Calculations
+  const hbxlPhysicalBudget = useMemo(
+    () => physicalRows.reduce((sum, r) => sum + moneyValue(r.totalCostIncludingWastage), 0),
+    [physicalRows]
+  );
+
+  const actualMaterialSpend = useMemo(() => {
+    return physicalRows.reduce((sum, r) => {
+      const entry = getEntry(r.id);
+      return sum + (entry.actualTotal ? moneyValue(entry.actualTotal) : 0);
+    }, 0);
+  }, [physicalRows, editingActuals, actualsMap]);
+
+  // Variance: sum of (HBXL budget - Actual Total) for items that have actual supplier pricing entered
+  const totalVariance = useMemo(() => {
+    return physicalRows.reduce((sum, r) => {
+      const entry = getEntry(r.id);
+      if (!entry.actualTotal || moneyValue(entry.actualTotal) === 0) return sum;
+      const hbxlCost = moneyValue(r.totalCostIncludingWastage);
+      const actCost = moneyValue(entry.actualTotal);
+      return sum + (hbxlCost - actCost);
+    }, 0);
+  }, [physicalRows, editingActuals, actualsMap]);
+
+  const remainingBudget = hbxlPhysicalBudget - actualMaterialSpend;
+  const allowanceBudget = useMemo(
+    () => allowanceRows.reduce((sum, r) => sum + moneyValue(r.totalCostIncludingWastage), 0),
+    [allowanceRows]
+  );
+  const totalHbxlReport = hbxlPhysicalBudget + allowanceBudget;
+
+  const countPricedItems = useMemo(() => {
+    return physicalRows.filter((r) => {
+      const entry = getEntry(r.id);
+      return entry.actualTotal && moneyValue(entry.actualTotal) > 0;
+    }).length;
+  }, [physicalRows, editingActuals, actualsMap]);
+
+  return (
+    <div className="space-y-4">
+      {/* Top Money Summary Header */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* HBXL Physical Material Budget */}
+        <div className="rounded-lg border border-yellow-500/50 bg-slate-900 p-3 shadow">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-yellow-500">HBXL Physical Budget</div>
+          <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(hbxlPhysicalBudget)}</div>
+          <div className="mt-1 text-xs text-slate-400">{physicalRows.length} physical material items</div>
+        </div>
+
+        {/* Actual Material Spend */}
+        <div className="rounded-lg border border-blue-500/50 bg-slate-900 p-3 shadow">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-blue-400">Actual Material Spend</div>
+          <div className="mt-1 text-2xl font-black text-blue-300 font-mono">{formatMoney(actualMaterialSpend)}</div>
+          <div className="mt-1 text-xs text-slate-400">{countPricedItems} of {physicalRows.length} items priced</div>
+        </div>
+
+        {/* Saving / Overspend */}
+        <div className={`rounded-lg border p-3 shadow ${totalVariance >= 0 ? "border-green-500/50 bg-green-950/20" : "border-red-500/50 bg-red-950/20"}`}>
+          <div className="flex items-center justify-between">
+            <span className={`text-[11px] font-bold uppercase tracking-wider ${totalVariance >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {totalVariance >= 0 ? "Buying Saving" : "Buying Overspend"}
+            </span>
+            <Badge variant={totalVariance >= 0 ? "default" : "destructive"} className="text-[10px] px-1.5 py-0">
+              {totalVariance >= 0 ? "SAVING" : "OVERSPEND"}
+            </Badge>
+          </div>
+          <div className={`mt-1 text-2xl font-black font-mono ${totalVariance >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {totalVariance >= 0 ? `+${formatMoney(totalVariance)}` : `-${formatMoney(Math.abs(totalVariance))}`}
+          </div>
+          <div className="mt-1 text-xs text-slate-400">Net variance on priced lines</div>
+        </div>
+
+        {/* Remaining Material Budget */}
+        <div className="rounded-lg border border-slate-700 bg-slate-900 p-3 shadow">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Remaining Budget</div>
+          <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(remainingBudget)}</div>
+          <div className="mt-1 text-xs text-slate-500">Uncommitted physical budget</div>
+        </div>
+      </div>
+
+      {/* Secondary Allowance & Full Report Card */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-xs text-slate-300">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-yellow-400 uppercase tracking-wide">Allowance Budget:</span>
+          <span className="font-mono font-bold text-white text-sm">{formatMoney(allowanceBudget)}</span>
+          <span className="text-slate-400">(Carpeting, Wood & Vinyl Flooring)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-slate-300 uppercase tracking-wide">Total HBXL Report:</span>
+          <span className="font-mono font-bold text-yellow-400 text-sm">{formatMoney(totalHbxlReport)}</span>
+        </div>
+      </div>
+
+      {/* Search and Filters Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+          <input
+            type="text"
+            placeholder="Search material description or phase..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-yellow-500 focus:outline-none flex-1 max-w-md"
+          />
+          <select
+            value={selectedPhase}
+            onChange={(e) => setSelectedPhase(e.target.value)}
+            className="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-200 focus:border-yellow-500 focus:outline-none"
+          >
+            <option value="ALL">All Build Phases ({physicalRows.length})</option>
+            {buildPhases.map((phase) => (
+              <option key={phase} value={phase}>{phase}</option>
+            ))}
+          </select>
+        </div>
+        <div className="text-xs text-slate-400">
+          Showing <span className="font-mono text-white">{filteredPhysicalRows.length}</span> of {physicalRows.length} physical rows
+        </div>
+      </div>
+
+      {/* Primary Material Sheet Table */}
+      <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900 shadow">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-slate-700 bg-slate-800/90 text-slate-300 font-semibold uppercase tracking-wider">
+              <th className="py-2.5 px-2 w-10 text-center">#</th>
+              <th className="py-2.5 px-3 min-w-[220px]">Material Description</th>
+              <th className="py-2.5 px-2 w-28">Order Qty</th>
+              <th className="py-2.5 px-2 w-20 text-right">HBXL Rate</th>
+              <th className="py-2.5 px-2 w-24 text-right">HBXL Budget</th>
+              <th className="py-2.5 px-2 w-36">Supplier</th>
+              <th className="py-2.5 px-2 w-24">Supplier Price</th>
+              <th className="py-2.5 px-2 w-24">Actual Qty</th>
+              <th className="py-2.5 px-2 w-24 text-right">Actual Total</th>
+              <th className="py-2.5 px-2 w-28 text-right">Variance</th>
+              <th className="py-2.5 px-2 w-16 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/60">
+            {filteredPhysicalRows.length === 0 ? (
+              <tr>
+                <td colSpan={11} className="py-8 text-center text-slate-400">
+                  No physical materials match your filter criteria.
+                </td>
+              </tr>
+            ) : (
+              filteredPhysicalRows.map((row) => {
+                const entry = getEntry(row.id);
+                const hbxlBudget = moneyValue(row.totalCostIncludingWastage);
+                const actualTotalVal = entry.actualTotal ? moneyValue(entry.actualTotal) : null;
+                const variance = actualTotalVal !== null ? hbxlBudget - actualTotalVal : null;
+                const isSaving = variance !== null && variance >= 0;
+                const isSavingSuccess = savedSuccessId === row.id;
+                const isRowSaving = savingResourceId === row.id;
+
+                return (
+                  <tr key={row.id} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-2 px-2 text-center text-slate-500 font-mono text-[11px]">{row.sourceRowOrder}</td>
+                    <td className="py-2 px-3">
+                      <div className="font-semibold text-white leading-tight">{row.description}</div>
+                      <div className="text-[10px] text-slate-400 font-medium mt-0.5">{row.buildPhase}</div>
+                    </td>
+                    <td className="py-2 px-2 font-mono text-slate-300">
+                      {row.orderQtyIncludingWastage} <span className="text-slate-500 text-[10px]">{row.unit}</span>
+                    </td>
+                    <td className="py-2 px-2 text-right font-mono text-slate-300">£{parseFloat(row.unitRate).toFixed(2)}</td>
+                    <td className="py-2 px-2 text-right font-mono font-bold text-yellow-400">£{hbxlBudget.toFixed(2)}</td>
+                    
+                    {/* Supplier Name input */}
+                    <td className="py-2 px-2">
+                      <input
+                        type="text"
+                        placeholder="Supplier..."
+                        value={entry.supplierName ?? ""}
+                        onChange={(e) => handleFieldChange(row.id, "supplierName", e.target.value)}
+                        onBlur={() => handleSaveRow(row)}
+                        className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
+                      />
+                    </td>
+
+                    {/* Supplier Unit Price input */}
+                    <td className="py-2 px-2">
+                      <div className="relative">
+                        <span className="absolute left-1.5 top-1 text-slate-500 text-xs">£</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={entry.supplierUnitPrice ?? ""}
+                          onChange={(e) => handleFieldChange(row.id, "supplierUnitPrice", e.target.value, row.orderQtyIncludingWastage)}
+                          onBlur={() => handleSaveRow(row)}
+                          className="w-full rounded border border-slate-700 bg-slate-950 pl-4 pr-1 py-1 font-mono text-xs text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
+                        />
+                      </div>
+                    </td>
+
+                    {/* Actual Quantity input */}
+                    <td className="py-2 px-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder={row.orderQtyIncludingWastage}
+                        value={entry.actualQuantity ?? ""}
+                        onChange={(e) => handleFieldChange(row.id, "actualQuantity", e.target.value, row.orderQtyIncludingWastage)}
+                        onBlur={() => handleSaveRow(row)}
+                        className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-xs text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
+                      />
+                    </td>
+
+                    {/* Actual Total */}
+                    <td className="py-2 px-2 text-right font-mono font-semibold">
+                      {actualTotalVal !== null ? (
+                        <span className="text-blue-300">£{actualTotalVal.toFixed(2)}</span>
+                      ) : (
+                        <span className="text-slate-600">—</span>
+                      )}
+                    </td>
+
+                    {/* Variance */}
+                    <td className="py-2 px-2 text-right font-mono font-bold">
+                      {variance !== null ? (
+                        <span className={isSaving ? "text-green-400" : "text-red-400"}>
+                          {isSaving ? `+£${variance.toFixed(2)}` : `-£${Math.abs(variance).toFixed(2)}`}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600">—</span>
+                      )}
+                    </td>
+
+                    {/* Save Action */}
+                    <td className="py-2 px-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveRow(row)}
+                        disabled={isRowSaving}
+                        title="Save Supplier Actuals"
+                        className={`rounded px-2 py-1 text-[10px] font-bold uppercase transition-all ${
+                          isSavingSuccess
+                            ? "bg-green-600 text-white"
+                            : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700"
+                        }`}
+                      >
+                        {isRowSaving ? "..." : isSavingSuccess ? "✓" : "Save"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Broad Allowances Section */}
+      {allowanceRows.length > 0 && (
+        <section className="rounded-lg border border-yellow-500/40 bg-yellow-950/10 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div>
+              <h4 className="text-sm font-bold uppercase tracking-wide text-yellow-500">HBXL Broad Allowances (Lump-Sum Provisional Items)</h4>
+              <p className="text-xs text-slate-400">Lump-sum finishings allowances from the client estimate; tracked separately from physical trade buying.</p>
+            </div>
+            <div className="text-right">
+              <span className="text-xs text-slate-400">Total Allowance: </span>
+              <span className="text-sm font-bold text-yellow-400 font-mono">{formatMoney(allowanceBudget)}</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+            {allowanceRows.map((a) => (
+              <div key={a.id} className="rounded-md border border-slate-700 bg-slate-900/80 p-3 flex flex-col justify-between">
+                <div>
+                  <div className="text-xs font-semibold text-white">{a.description}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{a.buildPhase}</div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400">Provisional Budget:</span>
+                  <span className="text-xs font-bold text-yellow-400 font-mono">£{parseFloat(a.totalCostIncludingWastage).toFixed(2)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );
@@ -404,7 +808,7 @@ export default function AdminBudgetTracking() {
   // Fetch all clients
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ["/api/financial/clients"],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
   // Fetch jobs for selected client
@@ -413,12 +817,12 @@ export default function AdminBudgetTracking() {
     refetchInterval: 30000,
   });
 
-  const { data: procurementAssignments = [], isPending: assignmentsLoading, isError: assignmentsFailed } = useQuery<ProcurementAssignment[]>({
+  const { data: procurementAssignments = [] } = useQuery<ProcurementAssignment[]>({
     queryKey: ["/api/job-assignments"],
     enabled: Boolean(expandedProcurementJobId),
   });
 
-  const { data: procurementLocations = [], isPending: locationsLoading, isError: locationsFailed } = useQuery<ProcurementLocation[]>({
+  const { data: procurementLocations = [] } = useQuery<ProcurementLocation[]>({
     queryKey: ["/api/jobs", expandedProcurementJobId, "procurement-locations"],
     queryFn: async () => {
       if (!expandedProcurementJobId) return [];
@@ -429,7 +833,7 @@ export default function AdminBudgetTracking() {
     enabled: Boolean(expandedProcurementJobId),
   });
 
-  const { data: procurementTasks = [], isPending: tasksLoading, isError: tasksFailed } = useQuery<ProcurementLocationTask[]>({
+  const { data: procurementTasks = [] } = useQuery<ProcurementLocationTask[]>({
     queryKey: ["/api/jobs", expandedProcurementJobId, "procurement-location-tasks"],
     queryFn: async () => {
       if (!expandedProcurementJobId) return [];
@@ -456,6 +860,17 @@ export default function AdminBudgetTracking() {
     queryFn: async () => {
       if (!expandedProcurementJobId) return [];
       const response = await fetch(`/api/jobs/${expandedProcurementJobId}/material-costs`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: Boolean(expandedProcurementJobId),
+  });
+
+  const { data: materialCostActuals = [], refetch: refetchActuals } = useQuery<any[]>({
+    queryKey: ["/api/jobs", expandedProcurementJobId, "material-costs-actuals"],
+    queryFn: async () => {
+      if (!expandedProcurementJobId) return [];
+      const response = await fetch(`/api/jobs/${expandedProcurementJobId}/material-costs/actuals`);
       if (!response.ok) return [];
       return response.json();
     },
@@ -599,54 +1014,29 @@ export default function AdminBudgetTracking() {
                     return (
                       <Card
                         key={client.id}
-                        className="bg-slate-700 border-slate-600 p-4 cursor-pointer hover:bg-slate-600 transition-colors"
+                        className="bg-slate-700 border-slate-600 p-4 hover:bg-slate-650 cursor-pointer transition-colors"
                         onClick={() => setSelectedClientId(client.id)}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4 flex-1">
-                            {/* Status Indicator */}
-                            <div className={`w-3 h-3 rounded-full ${statusColor}`}></div>
-                            
-                            {/* Client Info */}
-                            <div className="flex-1">
-                              <div className="font-semibold text-white">{client.name}</div>
-                              <div className="text-sm text-slate-400">{client.email || "No email recorded"}</div>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <h3 className="text-lg font-semibold text-white">{client.name}</h3>
+                              <Badge className={`text-xs ${statusColor}`}>
+                                {statusText}
+                              </Badge>
                             </div>
-
-                            {/* Stats */}
-                            <div className="text-right">
-                              <div className="text-sm text-slate-400">Active Jobs</div>
-                              <div className="text-lg font-bold text-white">{activeJobs}</div>
+                            <div className="text-sm text-slate-400 mt-1">
+                              {clientJobs.length} {clientJobs.length === 1 ? 'job' : 'jobs'} ({activeJobs} active)
                             </div>
-
-                            <div className="text-right">
-                              <div className="text-sm text-slate-400">Quoted Value</div>
-                              <div className="text-lg font-bold text-white">
-                                {formatMoney(quotedValue)}
-                              </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-slate-400">Total Quoted</div>
+                            <div className="text-lg font-bold text-white">
+                              {formatMoney(quotedValue)}
                             </div>
-
-                            <div className="text-right">
-                              <div className="text-sm text-slate-400">Estimated Cost</div>
-                              <div className="text-lg font-bold text-white">
-                                {formatMoney(estimatedCost)}
-                              </div>
+                            <div className="text-xs text-slate-400 mt-1">
+                              Spent: {formatMoney(actualSpent)}
                             </div>
-
-                            <div className="text-right">
-                              <div className="text-sm text-slate-400">Actual Spent</div>
-                              <div className="text-lg font-bold text-white">
-                                {formatMoney(actualSpent)}
-                              </div>
-                            </div>
-
-                            {/* Status Badge */}
-                            <Badge className={`${statusColor} text-white border-0`}>
-                              {statusText}
-                            </Badge>
-
-                            {/* Arrow */}
-                            <i className="fas fa-chevron-right text-slate-400"></i>
                           </div>
                         </div>
                       </Card>
@@ -658,143 +1048,117 @@ export default function AdminBudgetTracking() {
           </>
         ) : (
           <>
-            {/* Job Details View */}
+            {/* Client Jobs View */}
             <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => { setSelectedClientId(null); setExpandedProcurementJobId(null); }}
-                    className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center hover:bg-slate-600"
+                  <Button
+                    onClick={() => {
+                      setSelectedClientId(null);
+                      setExpandedProcurementJobId(null);
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="border-slate-600 hover:bg-slate-700"
                   >
-                    <i className="fas fa-arrow-left text-white"></i>
-                  </button>
-                  <div>
-                    <h2 className="text-lg font-semibold text-yellow-600">
-                      {clients.find(c => c.id === selectedClientId)?.name}
-                    </h2>
-                    <div className="text-sm text-slate-400">Jobs & Budget Tracking</div>
-                  </div>
+                    <i className="fas fa-arrow-left mr-2"></i>
+                    Back to Clients
+                  </Button>
+                  <h2 className="text-lg font-semibold text-white">
+                    {clients.find(c => c.id === selectedClientId)?.name} - Jobs
+                  </h2>
                 </div>
-                <Button
-                  onClick={() => {/* TODO: Add new job */}}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <i className="fas fa-plus mr-2"></i>
-                  New Job
-                </Button>
               </div>
 
               {selectedClientJobs.length === 0 ? (
                 <div className="text-center py-8 text-slate-400">
                   <i className="fas fa-briefcase text-4xl mb-2"></i>
-                  <div>No jobs for this client</div>
-                  <div className="text-sm">Add a job to start tracking</div>
+                  <div>No jobs found for this client</div>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {selectedClientJobs.map((job) => {
-                    const hasCommercialData = moneyValue(job.client_quote) > 0 || moneyValue(job.estimated_cost) > 0;
-                    const statusColor = hasCommercialData ? "bg-blue-500" : "bg-slate-600";
-                    const statusText = hasCommercialData ? "Commercial Data" : "No Manual Budget";
+                    const quotedValue = moneyValue(job.client_quote ?? job.quoted_amount);
+                    const estimatedCost = moneyValue(job.estimated_cost);
+                    const actualSpent = moneyValue(job.actual_spent ?? job.total_actual_cost);
+                    const actualLabour = moneyValue(job.actual_labour_cost);
+                    const actualMaterial = moneyValue(job.actual_material_cost);
+                    const actualPlant = moneyValue(job.actual_plant_cost);
+                    const budgetVariance = quotedValue - actualSpent;
                     const procurementPlan = buildProcurementCostPlan(job.phase_task_data);
                     const procurementOpen = expandedProcurementJobId === job.id;
-                    const roomPackageChecklist = procurementOpen
-                      ? buildRoomPackageProcurementChecklist({
-                          jobId: job.id,
-                          assignments: procurementAssignments,
-                          locations: procurementLocations,
-                          tasks: procurementTasks,
-                          structuredResources: procurementStructuredResources,
-                          filter: activeProcurementTimeFilter,
-                        })
-                      : [];
-                    const checklistLoading = procurementOpen && (assignmentsLoading || locationsLoading || tasksLoading);
-                    const checklistFailed = procurementOpen && (assignmentsFailed || locationsFailed || tasksFailed);
+                    const roomPackageChecklist = buildRoomPackageProcurementChecklist({
+                      assignments: procurementAssignments,
+                      locations: procurementLocations,
+                      tasks: procurementTasks,
+                      structuredResources: procurementStructuredResources,
+                      filter: activeProcurementTimeFilter,
+                      jobId: job.id,
+                    });
 
                     return (
                       <Card key={job.id} className="bg-slate-700 border-slate-600 p-4">
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                           {/* Job Header */}
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-3 h-3 rounded-full ${statusColor}`}></div>
-                              <div>
-                                <div className="font-semibold text-white">{job.job_name}</div>
-                                <div className="text-sm text-slate-400">
-                                  Status: {job.status.replace('_', ' ').toUpperCase()}
-                                </div>
-                              </div>
-                            </div>
-                            <Badge className={`${statusColor} text-white border-0`}>
-                              {statusText}
-                            </Badge>
-                          </div>
-
-                          {/* Commercial Details */}
-                          <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <div className="text-sm text-slate-400">Client Quote</div>
+                              <h3 className="text-lg font-semibold text-white">{job.job_name}</h3>
+                              <div className="text-sm text-slate-400">Status: {job.status}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-slate-400">Client Quote</div>
                               <div className="text-lg font-bold text-white">
                                 {formatMaybeMoney(job.client_quote)}
                               </div>
                             </div>
+                          </div>
+
+                          {/* Budget vs Actual Grid */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-600">
                             <div>
-                              <div className="text-sm text-slate-400">Estimated Cost</div>
-                              <div className="text-lg font-bold text-white">
-                                {formatMoney(job.estimated_cost)}
+                              <div className="text-xs text-slate-400">Estimated Cost</div>
+                              <div className="text-sm font-semibold text-slate-200">
+                                {formatMaybeMoney(job.estimated_cost)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-sm text-slate-400">Forecast Gross Profit</div>
-                              <div className="text-lg font-bold text-white">
+                              <div className="text-xs text-slate-400">Actual Spent</div>
+                              <div className="text-sm font-semibold text-slate-200">
+                                {formatMoney(actualSpent)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-400">Forecast Profit</div>
+                              <div className="text-sm font-semibold text-slate-200">
                                 {formatMaybeMoney(job.forecast_gross_profit)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-sm text-slate-400">Forecast Margin</div>
-                              <div className="text-lg font-bold text-white">
+                              <div className="text-xs text-slate-400">Forecast Margin</div>
+                              <div className="text-sm font-semibold text-slate-200">
                                 {formatMaybePercent(job.forecast_margin_percentage)}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-sm text-slate-400">Actual Spent</div>
-                              <div className="text-lg font-bold text-white">
-                                {formatMoney(job.actual_spent ?? job.total_actual_cost)}
                               </div>
                             </div>
                           </div>
 
-                          {/* Estimated Cost Breakdown */}
-                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-3 border-t border-slate-600">
+                          {/* Cost Categories */}
+                          <div className="grid grid-cols-3 gap-3 pt-3 border-t border-slate-600">
                             <div>
-                              <div className="text-xs text-slate-400">Estimated Labour</div>
-                              <div className="text-sm font-semibold text-blue-400">
-                                {formatMoney(job.estimated_labour_cost)}
+                              <div className="text-xs text-slate-400">Labour (Spent / Bud)</div>
+                              <div className="text-sm font-semibold text-slate-200">
+                                {formatMoney(actualLabour)} / {formatMaybeMoney(job.estimated_labour_cost)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-xs text-slate-400">Estimated Materials</div>
-                              <div className="text-sm font-semibold text-green-400">
-                                {formatMoney(job.estimated_material_cost)}
+                              <div className="text-xs text-slate-400">Material (Spent / Bud)</div>
+                              <div className="text-sm font-semibold text-slate-200">
+                                {formatMoney(actualMaterial)} / {formatMaybeMoney(job.estimated_material_cost)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-xs text-slate-400">Estimated Plant</div>
-                              <div className="text-sm font-semibold text-yellow-400">
-                                {formatMoney(job.estimated_plant_cost)}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-slate-400">Subcontractors</div>
-                              <div className="text-sm font-semibold text-purple-400">
-                                {formatMoney(job.estimated_subcontractor_cost)}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-slate-400">Other</div>
-                              <div className="text-sm font-semibold text-slate-300">
-                                {formatMoney(job.estimated_other_cost)}
+                              <div className="text-xs text-slate-400">Plant (Spent / Bud)</div>
+                              <div className="text-sm font-semibold text-slate-200">
+                                {formatMoney(actualPlant)} / {formatMaybeMoney(job.estimated_plant_cost)}
                               </div>
                             </div>
                           </div>
@@ -841,7 +1205,7 @@ export default function AdminBudgetTracking() {
                                 <div>
                                   <h3 className="text-lg font-bold text-white">Procurement / Cost Plan</h3>
                                   <p className="text-sm text-slate-400">
-                                    Read-only Smart Schedule allowances: what to buy, hire, subcontract, or plan for labour. Budget rates are allowance benchmarks.
+                                    Primary material buying and Smart Schedule allowances: what to buy, hire, subcontract, or plan for labour.
                                   </p>
                                 </div>
                                 <div className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-right">
@@ -857,23 +1221,7 @@ export default function AdminBudgetTracking() {
                                 </div>
                               )}
 
-                              <div className="flex flex-wrap gap-2" aria-label="Procurement time period">
-                                {PROCUREMENT_TIME_FILTERS.map((filter) => {
-                                  const selected = activeProcurementTimeFilter === filter.key;
-                                  return (
-                                    <button
-                                      key={filter.key}
-                                      type="button"
-                                      aria-pressed={selected}
-                                      onClick={() => setActiveProcurementTimeFilter(filter.key)}
-                                      className={`rounded-lg border px-3 py-2 text-xs font-bold tracking-wide transition-colors ${selected ? "border-yellow-500 bg-yellow-500 text-slate-950" : "border-slate-600 bg-slate-900 text-slate-200 hover:border-yellow-500"}`}
-                                    >
-                                      {filter.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-
+                              {/* Category Tabs */}
                               <div className="flex flex-wrap gap-2" role="tablist" aria-label="Procurement categories">
                                 {PROCUREMENT_TAB_ORDER.map((key) => {
                                   const section = procurementPlan[key];
@@ -894,49 +1242,106 @@ export default function AdminBudgetTracking() {
                                 })}
                               </div>
 
+                              {/* Tab Content */}
                               <div role="tabpanel" className="space-y-4">
-                                <section className="rounded-lg border border-yellow-500 bg-slate-900 p-4">
-                                  <div className={`grid gap-4 ${activeProcurementTab === "materials" ? "md:grid-cols-2" : "grid-cols-1"}`}>
-                                    <div>
-                                      <div className="text-xs font-bold tracking-wide text-yellow-500">{PROCUREMENT_BUDGET_LABELS[activeProcurementTab]}</div>
-                                      <div className="mt-1 text-2xl font-bold text-white">{formatMoney(procurementPlan[activeProcurementTab].total)}</div>
-                                    </div>
-                                    {activeProcurementTab === "materials" && (
-                                      <div>
-                                        <div className="text-xs font-bold tracking-wide text-yellow-500">
-                                          {PROCUREMENT_TIME_FILTERS.find((filter) => filter.key === activeProcurementTimeFilter)?.label} PLANNED WORK
+                                {activeProcurementTab === "materials" ? (
+                                  <div className="space-y-4">
+                                    {materialCostRows.length > 0 ? (
+                                      <>
+                                        {/* PRIMARY VIEW: Money-First Material Cost Sheet */}
+                                        <MaterialsCostSheet
+                                          jobId={job.id}
+                                          materialCostRows={materialCostRows}
+                                          materialCostActuals={materialCostActuals}
+                                          onActualsSaved={refetchActuals}
+                                        />
+
+                                        {/* SECONDARY VIEW: Collapsible Weekly/Room Material Planning */}
+                                        <details className="rounded-lg border border-slate-700 bg-slate-900/90 p-3 text-slate-300">
+                                          <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-yellow-500 select-none">
+                                            ▼ Weekly / Room Material Planning (Optional Reference)
+                                          </summary>
+                                          <div className="mt-3 space-y-3 pt-3 border-t border-slate-800">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                              <div className="flex flex-wrap gap-2" aria-label="Procurement time period">
+                                                {PROCUREMENT_TIME_FILTERS.map((filter) => {
+                                                  const selected = activeProcurementTimeFilter === filter.key;
+                                                  return (
+                                                    <button
+                                                      key={filter.key}
+                                                      type="button"
+                                                      aria-pressed={selected}
+                                                      onClick={() => setActiveProcurementTimeFilter(filter.key)}
+                                                      className={`rounded-lg border px-3 py-1.5 text-xs font-bold tracking-wide transition-colors ${selected ? "border-yellow-500 bg-yellow-500 text-slate-950" : "border-slate-600 bg-slate-800 text-slate-200 hover:border-yellow-500"}`}
+                                                    >
+                                                      {filter.label}
+                                                    </button>
+                                                  );
+                                                })}
+                                              </div>
+                                              <div className="text-right">
+                                                <span className="text-xs text-yellow-500 font-bold uppercase tracking-wide">
+                                                  {PROCUREMENT_TIME_FILTERS.find((filter) => filter.key === activeProcurementTimeFilter)?.label} PLANNED WORK:
+                                                </span>
+                                                <span className="ml-2 font-mono font-bold text-white text-sm">{roomPackageChecklist.length}</span>
+                                                <span className="ml-1 text-xs text-slate-400">packages</span>
+                                              </div>
+                                            </div>
+                                            <p className="text-xs text-slate-400 border-t border-slate-800 pt-2">
+                                              Room/package resource lists come from the Word quote. Smart Schedule pricing is currently project-level and is not allocated to individual rooms.
+                                            </p>
+                                            <RoomPackageChecklist 
+                                              items={roomPackageChecklist} 
+                                              materialCostRows={materialCostRows}
+                                              allStructuredResources={procurementStructuredResources}
+                                            />
+                                          </div>
+                                        </details>
+
+                                        {/* Utility: Materials CSV Re-import */}
+                                        <details className="rounded-lg border border-slate-700 bg-slate-900/90 p-3 text-slate-300">
+                                          <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-yellow-500 select-none">
+                                            ▼ Materials Used CSV Import & Revisions
+                                          </summary>
+                                          <div className="mt-3 pt-3 border-t border-slate-800">
+                                            <MaterialUpload 
+                                              jobId={job.id} 
+                                              onImported={() => {
+                                                queryClient.invalidateQueries({ queryKey: ["/api/jobs", expandedProcurementJobId, "material-costs"] });
+                                                refetchActuals();
+                                              }} 
+                                            />
+                                          </div>
+                                        </details>
+                                      </>
+                                    ) : (
+                                      <div className="space-y-4">
+                                        <div className="rounded-lg border border-yellow-500/60 bg-slate-900 p-6 text-center">
+                                          <h4 className="text-base font-bold text-yellow-400 mb-2">No Materials Used CSV Imported Yet</h4>
+                                          <p className="text-xs text-slate-400 max-w-lg mx-auto mb-4">
+                                            Import the project's HBXL Materials Used CSV to unlock the full flat material pricing sheet, supplier purchasing tracking, and automatic room budget allocations.
+                                          </p>
+                                          <MaterialUpload 
+                                            jobId={job.id} 
+                                            onImported={() => {
+                                              queryClient.invalidateQueries({ queryKey: ["/api/jobs", expandedProcurementJobId, "material-costs"] });
+                                              refetchActuals();
+                                            }} 
+                                          />
                                         </div>
-                                        <div className="mt-1 text-2xl font-bold text-white">{roomPackageChecklist.length}</div>
-                                        <div className="text-xs text-slate-400">scheduled rooms/packages</div>
+                                        <ProcurementSection section={procurementPlan.materials} />
                                       </div>
                                     )}
                                   </div>
-                                  {activeProcurementTab === "materials" && (
-                                    <p className="mt-4 border-t border-slate-700 pt-3 text-sm text-slate-300">
-                                      Room/package resource lists come from the Word quote. Smart Schedule pricing is currently project-level and is not allocated to individual rooms.
-                                    </p>
-                                  )}
-                                </section>
-                                {activeProcurementTab === "materials" && (
-                                  checklistLoading ? (
-                                    <div className="rounded-lg border border-slate-600 bg-slate-800 p-3 text-sm text-slate-400">Loading scheduled room/package resources...</div>
-                                  ) : checklistFailed ? (
-                                    <div className="rounded-lg border border-red-500 bg-red-950/30 p-3 text-sm text-red-100">Unable to load the room/package procurement checklist.</div>
-                                  ) : (
-                                    <RoomPackageChecklist 
-                                      items={roomPackageChecklist} 
-                                      materialCostRows={materialCostRows}
-                                      allStructuredResources={procurementStructuredResources}
-                                    />
-                                  )
+                                ) : (
+                                  <div className="space-y-4">
+                                    <section className="rounded-lg border border-yellow-500 bg-slate-900 p-4">
+                                      <div className="text-xs font-bold tracking-wide text-yellow-500">{PROCUREMENT_BUDGET_LABELS[activeProcurementTab]}</div>
+                                      <div className="mt-1 text-2xl font-bold text-white">{formatMoney(procurementPlan[activeProcurementTab].total)}</div>
+                                    </section>
+                                    <ProcurementSection section={procurementPlan[activeProcurementTab]} />
+                                  </div>
                                 )}
-                                {activeProcurementTab === "materials" && (
-                                  <MaterialUpload 
-                                    jobId={job.id} 
-                                    onImported={() => queryClient.invalidateQueries({ queryKey: ["/api/jobs", expandedProcurementJobId, "material-costs"] })} 
-                                  />
-                                )}
-                                <ProcurementSection section={procurementPlan[activeProcurementTab]} />
                               </div>
                             </div>
                           )}

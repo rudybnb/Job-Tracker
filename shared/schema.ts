@@ -1809,6 +1809,33 @@ export const insertJobMaterialCostResourceSchema = createInsertSchema(jobMateria
   id: true,
 });
 
+// Actual Supplier Purchases & Order Tracking per Material Resource Line Item
+export const jobMaterialCostActuals = pgTable("job_material_cost_actuals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  resourceId: varchar("resource_id").notNull().references(() => jobMaterialCostResources.id, { onDelete: "cascade" }),
+  supplierName: text("supplier_name"),
+  supplierUnitPrice: text("supplier_unit_price"),
+  actualQuantity: text("actual_quantity"),
+  actualTotal: text("actual_total"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("job_material_cost_actuals_job_resource_unique").on(table.jobId, table.resourceId),
+  index("job_material_cost_actuals_job_idx").on(table.jobId),
+  index("job_material_cost_actuals_resource_idx").on(table.resourceId),
+]);
+
+export const insertJobMaterialCostActualSchema = createInsertSchema(jobMaterialCostActuals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type JobMaterialCostActual = typeof jobMaterialCostActuals.$inferSelect;
+export type InsertJobMaterialCostActual = z.infer<typeof insertJobMaterialCostActualSchema>;
+
 // Contractor Reports table for simple issue reporting
 export const contractorReports = pgTable("contractor_reports", {
   id: text("id").primaryKey().default(sql`gen_random_uuid()`),

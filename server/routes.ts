@@ -28,7 +28,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, jobLocationTaskResources, jobMaterialCostResources, contractors, jobAssignments, jobAssignmentStatusEvents, projectSourceImports, workers } from "@shared/schema";
+import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, jobLocationTaskResources, jobMaterialCostResources, jobMaterialCostActuals, contractors, jobAssignments, jobAssignmentStatusEvents, projectSourceImports, workers } from "@shared/schema";
 import { deriveCanonicalUsername, WorkerService } from "./worker-service.ts";
 import { buildAssignablePeople, type AssignmentIdentity } from "./assignment-people.ts";
 import { getAssignmentsOwnedByWorker, isStructuredWorkerAssignment, resolveStructuredAssignmentWorkerId } from "./worker-task-ownership.ts";
@@ -1083,6 +1083,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching job location task resources:", error);
       res.json([]);
+    }
+  });
+
+  app.get("/api/jobs/:jobId/material-costs/actuals", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const rows = await db
+        .select()
+        .from(jobMaterialCostActuals)
+        .where(eq(jobMaterialCostActuals.jobId, jobId));
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching material cost actuals:", error);
+      res.json([]);
+    }
+  });
+
+  app.put("/api/jobs/:jobId/material-costs/:resourceId/actual", async (req, res) => {
+    try {
+      const { jobId, resourceId } = req.params;
+      const { supplierName, supplierUnitPrice, actualQuantity, actualTotal, notes } = req.body;
+
+      const existing = await db
+        .select()
+        .from(jobMaterialCostActuals)
+        .where(and(
+          eq(jobMaterialCostActuals.jobId, jobId),
+          eq(jobMaterialCostActuals.resourceId, resourceId)
+        ));
+
+      if (existing.length > 0) {
+        const [updated] = await db
+          .update(jobMaterialCostActuals)
+          .set({
+            supplierName: supplierName ?? null,
+            supplierUnitPrice: supplierUnitPrice != null ? String(supplierUnitPrice) : null,
+            actualQuantity: actualQuantity != null ? String(actualQuantity) : null,
+            actualTotal: actualTotal != null ? String(actualTotal) : null,
+            notes: notes ?? null,
+            updatedAt: new Date(),
+          })
+          .where(eq(jobMaterialCostActuals.id, existing[0].id))
+          .returning();
+        return res.json(updated);
+      } else {
+        const [inserted] = await db
+          .insert(jobMaterialCostActuals)
+          .values({
+            jobId,
+            resourceId,
+            supplierName: supplierName ?? null,
+            supplierUnitPrice: supplierUnitPrice != null ? String(supplierUnitPrice) : null,
+            actualQuantity: actualQuantity != null ? String(actualQuantity) : null,
+            actualTotal: actualTotal != null ? String(actualTotal) : null,
+            notes: notes ?? null,
+          })
+          .returning();
+        return res.json(inserted);
+      }
+    } catch (error) {
+      console.error("Error saving material cost actual:", error);
+      res.status(500).json({ error: "Failed to save supplier actual" });
     }
   });
 
