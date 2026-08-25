@@ -688,6 +688,72 @@ test("main Summary final Total cost is canonical over location and specialist su
   assert.equal(result.metadata.totalIncVat, null);
 });
 
+export async function createDetailedMaureenResourceDocxBuffer(): Promise<Buffer> {
+  return createMockDocxBuffer(`
+    <w:p><w:r><w:t>Project: Maureen</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Client: Maureen Orubebe</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Address: 3 Lingard Avenue</w:t></w:r></w:p>
+    <w:p><w:r><w:t>NW9 5YZ</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Total cost £50,978.23</w:t></w:r></w:p>
+
+    <w:p><w:pPr><w:pStyle w:val="P7"/></w:pPr><w:r><w:t>Install Fire Door comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P11"/></w:pPr><w:r><w:t>Second Floor Bedroom 3</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P12"/></w:pPr><w:r><w:t>Fire Door (Internal Fire Door FD30)</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Door</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Internal Fire Door FD30</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>1 Each</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Door casing</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Fire Check Door Casing</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>5 m</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Architrave</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Torus Architrave</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>10 m</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Paint for door</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Trade Gloss Paint</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr></w:p></w:tc></w:tr>
+    </w:tbl>
+
+    <w:p><w:pPr><w:pStyle w:val="P7"/></w:pPr><w:r><w:t>Install Solid Wood Flooring comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P11"/></w:pPr><w:r><w:t>Second Floor Bedroom 3</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P12"/></w:pPr><w:r><w:t>Solid Wood Flooring (Wood Floor)</w:t></w:r></w:p>
+    <w:tbl><w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Solid wood flooring</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Solid Wood Flooring</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>£454.50</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
+    <w:p><w:pPr><w:pStyle w:val="P11"/></w:pPr><w:r><w:t>Second Floor Bedroom 4</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P12"/></w:pPr><w:r><w:t>Solid Wood Flooring (Wood Floor)</w:t></w:r></w:p>
+    <w:tbl><w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Solid wood flooring</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Solid Wood Flooring</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>£730.16</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
+
+    <w:p><w:pPr><w:pStyle w:val="P7"/></w:pPr><w:r><w:t>Fit Domestic Carpeting comprising:</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P11"/></w:pPr><w:r><w:t>Second Floor Bedroom 4</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="P12"/></w:pPr><w:r><w:t>Domestic Carpeting (Carpeting)</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Underlay</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Carpet Underlay</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>15 m²</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Carpet</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>Carpeting</w:t></w:r></w:p></w:tc><w:tc><w:p><w:pPr><w:pStyle w:val="P13"/></w:pPr><w:r><w:t>£851.84</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
+    <w:p><w:r><w:t>Acceptance of Estimate</w:t></w:r></w:p>
+  `);
+}
+
+test("detailed EstimatorXpress output retains P13 resource children without creating assignable resource tasks", async () => {
+  const result = await parseHbxlWordQuote(await createDetailedMaureenResourceDocxBuffer(), "detailed-maureen.docx");
+  const bedroom3 = result.locations.find((location) => location.name === "Second Floor Bedroom 3")!;
+  const bedroom4 = result.locations.find((location) => location.name === "Second Floor Bedroom 4")!;
+  const fireDoor = bedroom3.categories.find((category) => category.name === "Fire Door")!;
+  const bedroom3Flooring = bedroom3.categories.find((category) => category.name === "Solid Wood Flooring")!;
+  const bedroom4Flooring = bedroom4.categories.find((category) => category.name === "Solid Wood Flooring")!;
+  const carpeting = bedroom4.categories.find((category) => category.name === "Domestic Carpeting")!;
+
+  assert.deepEqual(fireDoor.structuredResources?.slice(0, 3), [
+    { usageDescription: "Door", productDescription: "Internal Fire Door FD30", quantity: "1", unit: "Each", sourceValueRaw: "1 Each", sourceValueKind: "quantity", sourceOrder: 1, sourceReference: "HBXL_WORD" },
+    { usageDescription: "Door casing", productDescription: "Fire Check Door Casing", quantity: "5", unit: "m", sourceValueRaw: "5 m", sourceValueKind: "quantity", sourceOrder: 2, sourceReference: "HBXL_WORD" },
+    { usageDescription: "Architrave", productDescription: "Torus Architrave", quantity: "10", unit: "m", sourceValueRaw: "10 m", sourceValueKind: "quantity", sourceOrder: 3, sourceReference: "HBXL_WORD" },
+  ]);
+  assert.deepEqual(fireDoor.structuredResources?.[3], {
+    usageDescription: "Paint for door", productDescription: "Trade Gloss Paint", quantity: null, unit: null,
+    sourceValueRaw: null, sourceValueKind: "blank", sourceOrder: 4, sourceReference: "HBXL_WORD",
+  });
+  assert.equal(bedroom3Flooring.structuredResources?.[0].sourceValueKind, "currency_unclassified");
+  assert.equal(bedroom3Flooring.structuredResources?.[0].sourceValueRaw, "£454.50");
+  assert.equal(bedroom4Flooring.structuredResources?.[0].sourceValueRaw, "£730.16");
+  assert.deepEqual(carpeting.structuredResources?.map((resource) => [resource.usageDescription, resource.quantity, resource.unit, resource.sourceValueKind]), [
+    ["Underlay", "15", "m²", "quantity"],
+    ["Carpet", null, null, "currency_unclassified"],
+  ]);
+  assert.equal(result.stats.taskCount, 0);
+  assert.ok(result.locations.every((location) => location.categories.every((category) => category.tasks.length === 0)));
+});
+
 test("EstimatorXpress generated styles define package, resource, action, and header roles", async () => {
   const body = `
     <w:p><w:pPr><w:pStyle w:val="P3"/></w:pPr><w:r><w:t>Spencer House</w:t></w:r></w:p>

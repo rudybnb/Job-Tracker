@@ -28,7 +28,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, contractors, jobAssignments, jobAssignmentStatusEvents, projectSourceImports, workers } from "@shared/schema";
+import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, jobLocationTaskResources, contractors, jobAssignments, jobAssignmentStatusEvents, projectSourceImports, workers } from "@shared/schema";
 import { deriveCanonicalUsername, WorkerService } from "./worker-service.ts";
 import { buildAssignablePeople, type AssignmentIdentity } from "./assignment-people.ts";
 import { getAssignmentsOwnedByWorker, isStructuredWorkerAssignment, resolveStructuredAssignmentWorkerId } from "./worker-task-ownership.ts";
@@ -898,6 +898,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const createdLocations: any[] = [];
         let totalTasksCount = 0;
 
+        const persistTaskResources = async (
+          locationTaskId: string,
+          resources: NonNullable<(typeof parsed.locations)[number]["categories"][number]["structuredResources"]>,
+        ) => {
+          if (resources.length === 0) return;
+          await tx.insert(jobLocationTaskResources).values(resources.map((resource) => ({
+            locationTaskId,
+            usageDescription: resource.usageDescription,
+            productDescription: resource.productDescription,
+            quantity: resource.quantity,
+            unit: resource.unit,
+            sourceValueRaw: resource.sourceValueRaw,
+            sourceValueKind: resource.sourceValueKind,
+            sourceOrder: resource.sourceOrder,
+            sourceReference: resource.sourceReference,
+          })));
+        };
+
         for (const loc of parsed.locations) {
           const [createdLoc] = await tx
             .insert(jobLocations)
@@ -917,16 +935,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const cat of loc.categories) {
             if (cat.tasks.length > 0) {
               for (const task of cat.tasks) {
-                await tx.insert(jobLocationTasks).values({
-                  jobId: job.id,
-                  locationId: createdLoc.id,
-                  workCategory: cat.name,
-                  taskName: task.name,
-                  taskDescription: task.description || (task.resources && task.resources.length > 0 ? `Resources:\n${task.resources.map(r => `• ${r}`).join('\n')}` : undefined),
-                  sourceReference: "HBXL_WORD",
-                  hbxlBuildPhase: cat.hbxlBuildPhase || null,
-                  status: "pending",
-                });
+                const [createdTask] = await tx
+                  .insert(jobLocationTasks)
+                  .values({
+                    jobId: job.id,
+                    locationId: createdLoc.id,
+                    workCategory: cat.name,
+                    taskName: task.name,
+                    taskDescription: task.description || (task.resources && task.resources.length > 0 ? `Resources:\n${task.resources.map(r => `• ${r}`).join('\n')}` : undefined),
+                    sourceReference: "HBXL_WORD",
+                    hbxlBuildPhase: cat.hbxlBuildPhase || null,
+                    status: "pending",
+                  })
+                  .returning();
+                await persistTaskResources(createdTask.id, task.structuredResources ?? []);
                 totalTasksCount++;
               }
             } else {
@@ -934,16 +956,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const resDesc = cat.resources && cat.resources.length > 0
                 ? `Resources / Specifications:\n${cat.resources.map(r => `• ${r}`).join('\n')}`
                 : undefined;
-              await tx.insert(jobLocationTasks).values({
-                jobId: job.id,
-                locationId: createdLoc.id,
-                workCategory: cat.name,
-                taskName: cat.name,
-                taskDescription: resDesc,
-                sourceReference: "HBXL_WORD",
-                hbxlBuildPhase: cat.hbxlBuildPhase || null,
-                status: "pending",
-              });
+              const [createdTask] = await tx
+                .insert(jobLocationTasks)
+                .values({
+                  jobId: job.id,
+                  locationId: createdLoc.id,
+                  workCategory: cat.name,
+                  taskName: cat.name,
+                  taskDescription: resDesc,
+                  sourceReference: "HBXL_WORD",
+                  hbxlBuildPhase: cat.hbxlBuildPhase || null,
+                  status: "pending",
+                })
+                .returning();
+              await persistTaskResources(createdTask.id, cat.structuredResources ?? []);
               totalTasksCount++;
             }
           }

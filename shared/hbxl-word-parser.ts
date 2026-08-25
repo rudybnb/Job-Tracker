@@ -10,6 +10,20 @@ export interface ParsedWordTask {
   sourceReference?: string;
   hbxlBuildPhase?: string;
   resources?: string[];
+  structuredResources?: ParsedWordResource[];
+}
+
+export type ParsedWordResourceValueKind = "quantity" | "currency_unclassified" | "blank";
+
+export interface ParsedWordResource {
+  usageDescription: string;
+  productDescription: string;
+  quantity: string | null;
+  unit: string | null;
+  sourceValueRaw: string | null;
+  sourceValueKind: ParsedWordResourceValueKind;
+  sourceOrder: number;
+  sourceReference: "HBXL_WORD";
 }
 
 export interface ParsedWordCategory {
@@ -17,6 +31,7 @@ export interface ParsedWordCategory {
   hbxlBuildPhase?: string;
   tasks: ParsedWordTask[];
   resources?: string[];
+  structuredResources?: ParsedWordResource[];
 }
 
 export interface ParsedWordLocation {
@@ -1040,6 +1055,176 @@ export function traceHbxlDocumentRoles(elements: DocElement[]): HbxlDiagnosticRo
   return trace;
 }
 
+export function parseDetailedWordResourceValue(sourceValue: string | null | undefined): Pick<
+  ParsedWordResource,
+  "quantity" | "unit" | "sourceValueRaw" | "sourceValueKind"
+> {
+  const raw = sourceValue?.trim() ?? "";
+  if (!raw) {
+    return { quantity: null, unit: null, sourceValueRaw: null, sourceValueKind: "blank" };
+  }
+
+  if (/^£\s*\d[\d,]*(?:\.\d{2})?$/.test(raw)) {
+    return { quantity: null, unit: null, sourceValueRaw: raw, sourceValueKind: "currency_unclassified" };
+  }
+
+  const quantityMatch = raw.match(/^(<)?\s*(\d+(?:\.\d+)?)\s+(.+?)$/);
+  if (quantityMatch) {
+    return {
+      quantity: `${quantityMatch[1] ?? ""}${quantityMatch[2]}`,
+      unit: quantityMatch[3],
+      sourceValueRaw: raw,
+      sourceValueKind: "quantity",
+    };
+  }
+
+  return { quantity: null, unit: null, sourceValueRaw: raw, sourceValueKind: "blank" };
+}
+
+function detailedWorkPackageName(paragraph: RawDocParagraph): string | null {
+  if (paragraph.styleName !== "P7" || /^Carry\s+out\s+work\s+in\b/i.test(paragraph.text)) return null;
+  const match = paragraph.text.trim().match(/^(.+?)\s+comprising\s*:?$/i);
+  if (!match) return null;
+  const name = match[1].replace(/^(?:install|fit)\s+/i, "").trim();
+  return name || null;
+}
+
+function parseDetailedEstimatorXpressResources(elements: DocElement[]) {
+  const hasDetailedRows = elements.some((element) => element.type === "table" && element.table.rows.some((row) =>
+    row.cells.length === 3 && row.cells.some((cell) => cell.paragraphs.some((paragraph) => paragraph.styleName === "P13")),
+  ));
+  const hasPackageSections = elements.some((element) =>
+    element.type === "paragraph" && detailedWorkPackageName(element.paragraph) !== null,
+  );
+  if (!hasDetailedRows || !hasPackageSections) return null;
+
+  interface RawDetailedLocation {
+    name: string;
+    categories: ParsedWordCategory[];
+  }
+
+  const rawLocations: RawDetailedLocation[] = [];
+  let currentWorkPackage: string | null = null;
+  let currentLocation: RawDetailedLocation | null = null;
+  let currentCategory: ParsedWordCategory | null = null;
+
+  for (const element of elements) {
+    if (element.type === "paragraph") {
+      const paragraph = element.paragraph;
+      const text = paragraph.text.trim();
+      if (!text) continue;
+      if (/^(?:Acceptance\s+of\s+(?:Estimate|Quotation|Quote)|Terms\s*(?:&|and)\s*Conditions)/i.test(text)) break;
+
+      const packageName = detailedWorkPackageName(paragraph);
+      if (packageName) {
+        currentWorkPackage = packageName;
+        currentLocation = null;
+        currentCategory = null;
+        continue;
+      }
+
+      if (paragraph.styleName === "P11" && currentWorkPackage) {
+        currentLocation = { name: text, categories: [] };
+        currentCategory = {
+          name: currentWorkPackage,
+          tasks: [],
+          resources: [],
+          structuredResources: [],
+        };
+        currentLocation.categories.push(currentCategory);
+        rawLocations.push(currentLocation);
+        continue;
+      }
+
+      if (paragraph.styleName === "P12" && currentCategory) {
+        if (!currentCategory.resources?.includes(text)) currentCategory.resources?.push(text);
+      }
+      continue;
+    }
+
+    if (!currentCategory) continue;
+    for (const row of element.table.rows) {
+      const isDetailedResourceRow = row.cells.length === 3 && row.cells.some((cell) =>
+        cell.paragraphs.some((paragraph) => paragraph.styleName === "P13"),
+      );
+      if (!isDetailedResourceRow) continue;
+
+      const usageDescription = row.cells[0]?.text.trim() ?? "";
+      const productDescription = row.cells[1]?.text.trim() ?? "";
+      if (!usageDescription || !productDescription) continue;
+      const parsedValue = parseDetailedWordResourceValue(row.cells[2]?.text);
+      const sourceOrder = (currentCategory.structuredResources?.length ?? 0) + 1;
+      currentCategory.structuredResources?.push({
+        usageDescription,
+        productDescription,
+        ...parsedValue,
+        sourceOrder,
+        sourceReference: "HBXL_WORD",
+      });
+      if (!currentCategory.resources?.includes(usageDescription)) currentCategory.resources?.push(usageDescription);
+    }
+  }
+
+  const groupedLocations = new Map<string, ParsedWordLocation>();
+  for (const rawLocation of rawLocations) {
+    const name = rawLocation.name.trim();
+    if (!name) continue;
+    const normalizedName = name.toLowerCase();
+    let location = groupedLocations.get(normalizedName);
+    if (!location) {
+      const reviewRequired = isGenericLocation(name);
+      location = {
+        name,
+        normalizedName,
+        reviewStatus: reviewRequired ? "REVIEW_REQUIRED" : "CONFIRMED",
+        reviewReason: reviewRequired ? `Generic location heading "${name}" requires room clarification before worker assignment.` : undefined,
+        categories: [],
+      };
+      groupedLocations.set(normalizedName, location);
+    }
+
+    for (const category of rawLocation.categories) {
+      const existing = location.categories.find((candidate) => candidate.name.toLowerCase() === category.name.toLowerCase());
+      if (!existing) {
+        location.categories.push(category);
+        continue;
+      }
+      for (const resource of category.resources ?? []) {
+        if (!existing.resources?.includes(resource)) existing.resources?.push(resource);
+      }
+      for (const resource of category.structuredResources ?? []) {
+        existing.structuredResources = existing.structuredResources ?? [];
+        existing.structuredResources.push({ ...resource, sourceOrder: existing.structuredResources.length + 1 });
+      }
+    }
+  }
+
+  const locations = Array.from(groupedLocations.values());
+  for (let i = 0; i < locations.length; i++) {
+    for (let j = i + 1; j < locations.length; j++) {
+      if (!isSpellingVariant(locations[i].name, locations[j].name)) continue;
+      locations[i].reviewStatus = "REVIEW_REQUIRED";
+      locations[i].reviewReason = `Spelling variant / possible duplicate of "${locations[j].name}". Please verify room name.`;
+      locations[j].reviewStatus = "REVIEW_REQUIRED";
+      locations[j].reviewReason = `Spelling variant / possible duplicate of "${locations[i].name}". Please verify room name.`;
+    }
+  }
+
+  return {
+    locations,
+    stats: {
+      sourceLocationCount: rawLocations.length,
+      locationCount: locations.length,
+      categoryCount: locations.reduce((sum, location) => sum + location.categories.length, 0),
+      taskCount: 0,
+      resourceCount: locations.reduce((locationSum, location) => locationSum + location.categories.reduce(
+        (categorySum, category) => categorySum + (category.structuredResources?.length ?? 0), 0,
+      ), 0),
+      flaggedLocationCount: locations.filter((location) => location.reviewStatus === "REVIEW_REQUIRED").length,
+    },
+  };
+}
+
 /**
  * Parses document elements into location hierarchy, work packages (categories), actionable tasks, and resource metadata.
  * 
@@ -1048,6 +1233,9 @@ export function traceHbxlDocumentRoles(elements: DocElement[]): HbxlDiagnosticRo
  * P12/P13 and embedded product/resource lines are reference metadata only.
  */
 export function parseElementsIntoLocationsAndTasks(elements: DocElement[]) {
+  const detailedResult = parseDetailedEstimatorXpressResources(elements);
+  if (detailedResult) return detailedResult;
+
   const carryOutRegex = /^Carry\s+out\s+work\s+in\s+/i;
   const hasEstimatorXpressRoles = elements.some((element) => {
     if (element.type === "paragraph") return element.paragraph.styleName === "P11";

@@ -5,7 +5,7 @@ import express from "express";
 import multer from "multer";
 import { parseHbxlWordQuote } from "../shared/hbxl-word-parser.ts";
 import { evaluateClientMatch } from "../server/routes.ts";
-import { createSpencerHouseDocxBuffer, createMaureenOrubebeDocxBuffer } from "./hbxl-word-quote-parser.test.ts";
+import { createDetailedMaureenResourceDocxBuffer, createSpencerHouseDocxBuffer, createMaureenOrubebeDocxBuffer } from "./hbxl-word-quote-parser.test.ts";
 
 // ============================================================
 // REAL SPENCER HOUSE GOLDEN DATA (from Job 2 Spencer House - Quote(1).docx)
@@ -124,6 +124,19 @@ interface MockTask {
   assignedContractorName?: string | null;
 }
 
+interface MockTaskResource {
+  id: string;
+  locationTaskId: string;
+  usageDescription: string;
+  productDescription: string;
+  quantity: string | null;
+  unit: string | null;
+  sourceValueRaw: string | null;
+  sourceValueKind: string;
+  sourceOrder: number;
+  sourceReference: string;
+}
+
 interface MockContractor {
   id: string;
   name: string;
@@ -149,6 +162,7 @@ class MockWordQuoteStorage {
   jobs: MockJob[] = [];
   locations: MockLocation[] = [];
   tasks: MockTask[] = [];
+  resources: MockTaskResource[] = [];
   contractors: MockContractor[] = [];
   assignments: MockAssignment[] = [];
   uploads: Array<{ id: string; filename: string; status: string }> = [];
@@ -281,26 +295,40 @@ async function withWordQuoteServer(run: (context: TestServerContext) => Promise<
         if (cat.tasks.length > 0) {
           for (const task of cat.tasks) {
             taskSeq++;
-            storage.tasks.push({
+            const taskRecord: MockTask = {
               id: `task-${taskSeq}`,
               jobId: jobRecord.id,
               locationId: locationRecord.id,
               workCategory: cat.name,
               taskName: task.name,
               status: "pending",
-            });
+            };
+            storage.tasks.push(taskRecord);
+            const resourceOffset = storage.resources.length;
+            storage.resources.push(...(task.structuredResources ?? []).map((resource, index) => ({
+              id: `resource-${resourceOffset + index + 1}`,
+              locationTaskId: taskRecord.id,
+              ...resource,
+            })));
           }
         } else {
           // Category is itself the assignable Work Package
           taskSeq++;
-          storage.tasks.push({
+          const taskRecord: MockTask = {
             id: `task-${taskSeq}`,
             jobId: jobRecord.id,
             locationId: locationRecord.id,
             workCategory: cat.name,
             taskName: cat.name,
             status: "pending",
-          });
+          };
+          storage.tasks.push(taskRecord);
+          const resourceOffset = storage.resources.length;
+          storage.resources.push(...(cat.structuredResources ?? []).map((resource, index) => ({
+            id: `resource-${resourceOffset + index + 1}`,
+            locationTaskId: taskRecord.id,
+            ...resource,
+          })));
         }
       }
     }
@@ -803,4 +831,35 @@ test("Client Matching Rule C: Existing client with no address on file flags REVI
   });
 });
 
+test("detailed Word import persists resources under room/package tasks without making resources assignable", async () => {
+  await withWordQuoteServer(async ({ postWordQuote, storage }) => {
+    const response = await postWordQuote({
+      buffer: await createDetailedMaureenResourceDocxBuffer(),
+      filename: "Job 3 Maureen Orubebe - Quote.docx",
+    });
 
+    assert.equal(response.status, 200);
+    const job = storage.jobs[0];
+    const bedroom3 = storage.locations.find((location) => location.jobId === job.id && location.name === "Second Floor Bedroom 3")!;
+    const bedroom4 = storage.locations.find((location) => location.jobId === job.id && location.name === "Second Floor Bedroom 4")!;
+    const fireDoor = storage.tasks.find((task) => task.locationId === bedroom3.id && task.workCategory === "Fire Door")!;
+    const carpeting = storage.tasks.find((task) => task.locationId === bedroom4.id && task.workCategory === "Domestic Carpeting")!;
+    const fireDoorResources = storage.resources.filter((resource) => resource.locationTaskId === fireDoor.id);
+    const carpetingResources = storage.resources.filter((resource) => resource.locationTaskId === carpeting.id);
+
+    assert.equal(fireDoor.taskName, "Fire Door");
+    assert.deepEqual(fireDoorResources.map((resource) => [resource.usageDescription, resource.quantity, resource.unit]), [
+      ["Door", "1", "Each"],
+      ["Door casing", "5", "m"],
+      ["Architrave", "10", "m"],
+      ["Paint for door", null, null],
+    ]);
+    assert.deepEqual(carpetingResources.map((resource) => [resource.usageDescription, resource.sourceValueRaw, resource.sourceValueKind]), [
+      ["Underlay", "15 m²", "quantity"],
+      ["Carpet", "£851.84", "currency_unclassified"],
+    ]);
+    assert.equal(storage.tasks.some((task) => task.taskName === "Door" || task.taskName === "Underlay"), false);
+    assert.equal(storage.resources.every((resource) => resource.sourceReference === "HBXL_WORD"), true);
+    assert.equal(storage.resources.every((resource) => storage.tasks.some((task) => task.id === resource.locationTaskId)), true);
+  });
+});

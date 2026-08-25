@@ -1759,6 +1759,29 @@ export const insertJobLocationTaskSchema = createInsertSchema(jobLocationTasks).
   updatedAt: true,
 });
 
+export const jobLocationTaskResources = pgTable("job_location_task_resources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  locationTaskId: varchar("location_task_id").notNull().references(() => jobLocationTasks.id, { onDelete: "cascade" }),
+  usageDescription: text("usage_description").notNull(),
+  productDescription: text("product_description").notNull(),
+  quantity: text("quantity"),
+  unit: text("unit"),
+  sourceValueRaw: text("source_value_raw"),
+  sourceValueKind: text("source_value_kind").notNull(),
+  sourceOrder: integer("source_order").notNull(),
+  sourceReference: text("source_reference").notNull().default("HBXL_WORD"),
+}, (table) => [
+  uniqueIndex("job_location_task_resources_task_order_unique").on(table.locationTaskId, table.sourceOrder),
+  check("job_location_task_resources_value_kind_check", sql`${table.sourceValueKind} IN ('quantity', 'currency_unclassified', 'blank')`),
+  check("job_location_task_resources_source_order_check", sql`${table.sourceOrder} > 0`),
+  check("job_location_task_resources_quantity_check", sql`(${table.sourceValueKind} = 'quantity' AND ${table.quantity} IS NOT NULL AND ${table.unit} IS NOT NULL) OR (${table.sourceValueKind} <> 'quantity' AND ${table.quantity} IS NULL AND ${table.unit} IS NULL)`),
+  check("job_location_task_resources_source_reference_check", sql`${table.sourceReference} = 'HBXL_WORD'`),
+]);
+
+export const insertJobLocationTaskResourceSchema = createInsertSchema(jobLocationTaskResources).omit({
+  id: true,
+});
+
 
 
 // Contractor Reports table for simple issue reporting
@@ -2758,6 +2781,8 @@ export type InsertJobLocation = z.infer<typeof insertJobLocationSchema>;
 export type JobLocation = typeof jobLocations.$inferSelect;
 export type InsertJobLocationTask = z.infer<typeof insertJobLocationTaskSchema>;
 export type JobLocationTask = typeof jobLocationTasks.$inferSelect;
+export type InsertJobLocationTaskResource = z.infer<typeof insertJobLocationTaskResourceSchema>;
+export type JobLocationTaskResource = typeof jobLocationTaskResources.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;

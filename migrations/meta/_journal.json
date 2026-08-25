@@ -148,6 +148,13 @@
       "when": 1787673600000,
       "tag": "0020_job_assignment_status_events",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1787673600001,
+      "tag": "0021_job_location_task_resources",
+      "breakpoints": true
     }
   ]
 }
