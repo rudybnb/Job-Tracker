@@ -14,6 +14,7 @@ export interface WordJobCandidate {
   clientName?: string | null;
   address?: string | null;
   postcode?: string | null;
+  quotedAmount?: string | null;
 }
 
 export type SmartScheduleMatchDecision = "SUGGEST_MATCH" | "REVIEW_REQUIRED" | "CREATE_NEW_LEGACY";
@@ -203,6 +204,7 @@ export interface WordJobCandidateLabelInput {
   clientName?: string | null;
   address?: string | null;
   postcode?: string | null;
+  quotedAmount?: string | null;
 }
 
 /** "Spencer House — Promise Igbinedion — CT7 9EZ — Structured Word" */

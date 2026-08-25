@@ -37,7 +37,7 @@ import {
   databaseAssignmentLifecycleRepository,
   transitionStructuredAssignment,
 } from "./structured-assignment-lifecycle.ts";
-import { normalizeUploadCsvContent, parseJobUploadCsv, suggestJobNameFromSource, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
+import { calculateSmartScheduleCommercialSummary, normalizeUploadCsvContent, parseJobUploadCsv, suggestJobNameFromSource, toInsertJobs, validateProjectMetadata } from "@shared/job-upload-import";
 import {
   SMART_SCHEDULE_PARSER_VERSION,
   SMART_SCHEDULE_SOURCE_TYPE,
@@ -339,6 +339,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientName: jobsTable.clientName,
         address: jobsTable.address,
         postcode: jobsTable.postcode,
+        quotedAmount: jobsTable.quotedAmount,
         hasCurrentSourceImport: sql<boolean>`EXISTS (SELECT 1 FROM project_source_import i WHERE i.job_id = ${jobsTable.id}::text AND i.is_current_revision = true AND i.status = 'IMPORTED')`,
         latestImportAt: sql<string | null>`(
           SELECT to_char(MAX(i.imported_at), 'YYYY-MM-DD"T"HH24:MI:SSOF')
@@ -359,8 +360,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const firstJobPreview = validation.jobPreview[0];
     const phases = Array.from(new Set(validation.jobs.flatMap((job) => job.phases)));
 
-    let resourceRows = 0;
-    const totalsByResourceType: Record<string, number> = {};
     let parsedTaskData: any = {};
     try {
       parsedTaskData = validation.jobs[0]?.phaseTaskData ? JSON.parse(validation.jobs[0].phaseTaskData) : {};
@@ -368,14 +367,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       parsedTaskData = {};
     }
 
-    if (Array.isArray(parsedTaskData.resources)) {
-      for (const resource of parsedTaskData.resources) {
-        resourceRows++;
-        const typeKey = String(resource.resourceType ?? "other").toLowerCase() || "other";
-        totalsByResourceType[typeKey] = (totalsByResourceType[typeKey] ?? 0) + (Number(resource.totalCost) || 0);
-      }
-    }
-
+    const resourceRows = Array.isArray(parsedTaskData.resources) ? parsedTaskData.resources.length : 0;
+    const commercialSummary = calculateSmartScheduleCommercialSummary(parsedTaskData);
     const financials = parsedTaskData.financials ?? null;
     const csvProjectName = firstJobPreview?.name?.trim() ? firstJobPreview.name.trim() : null;
     // Client/address/postcode are ONLY reported when genuinely present in the file.
@@ -398,7 +391,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       phaseCount: phases.length,
       taskRowCount: validation.stats.taskRows,
       resourceRowCount: resourceRows,
-      totalsByResourceType,
+      totalsByResourceType: commercialSummary.totalsByResourceType,
+      commercialSummary,
       financials,
       csvIdentity: {
         projectName: csvProjectName,
@@ -597,7 +591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 totalsByResourceType: summary.totalsByResourceType,
                 csvIdentity: summary.csvIdentity,
                 filenameProjectHint: summary.filenameProjectHint,
-                note: "Operational CSV totals live here only; Word commercial values are untouched.",
+                note: "Smart Schedule estimated costs only; Word commercial values are untouched.",
               },
             })
             .returning();

@@ -48,6 +48,97 @@ export interface JobUploadParseResult {
   };
 }
 
+export interface SmartScheduleCommercialSummary {
+  labourTotal: number;
+  materialTotal: number;
+  plantTotal: number;
+  subcontractorTotal: number;
+  otherTotal: number;
+  totalEstimatedCost: number;
+  totalsByResourceType: Record<string, number>;
+  clientQuote: number | null;
+  grossProfit: number | null;
+  marginPercent: number | null;
+}
+
+type SmartScheduleCostBucket = "labour" | "material" | "plant" | "subcontractor" | "other";
+
+export function parseCurrencyAmount(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+
+  const normalized = value
+    .replace(/\(([^)]+)\)/, "-$1")
+    .replace(/gbp|£|,/gi, "")
+    .trim();
+  if (!normalized) return null;
+
+  const amount = Number.parseFloat(normalized);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+export function calculateSmartScheduleCommercialSummary(source: unknown, quotedAmount?: unknown): SmartScheduleCommercialSummary {
+  const parsedSource = parsePhaseTaskDataSource(source);
+  const directValues = isPlainRecord(parsedSource) ? parsedSource : {};
+  const financials = isPlainRecord(directValues.financials) ? directValues.financials : directValues;
+  const resources = Array.isArray(directValues.resources) ? directValues.resources : [];
+  const categoryTotals: Record<SmartScheduleCostBucket, number> = {
+    labour: 0,
+    material: 0,
+    plant: 0,
+    subcontractor: 0,
+    other: 0,
+  };
+  const totalsByResourceType: Record<string, number> = {};
+
+  for (const resource of resources) {
+    if (!isPlainRecord(resource)) continue;
+    const totalCost = numericValue(resource.totalCost);
+    if (!Number.isFinite(totalCost) || totalCost === 0) continue;
+
+    const resourceType = String(resource.resourceType ?? "other").trim();
+    const normalizedResourceType = resourceType.toLowerCase() || "other";
+    totalsByResourceType[normalizedResourceType] = roundCurrency((totalsByResourceType[normalizedResourceType] ?? 0) + totalCost);
+    categoryTotals[toSmartScheduleCostBucket(resourceType)] += totalCost;
+  }
+
+  if (resources.length === 0) {
+    categoryTotals.labour = financialNumber(financials, ["labourTotal", "totalLabour"]);
+    categoryTotals.material = financialNumber(financials, ["materialTotal", "totalMaterial"]);
+    categoryTotals.plant = financialNumber(financials, ["plantTotal", "totalPlant"]);
+    categoryTotals.subcontractor = financialNumber(financials, ["subcontractorTotal", "subcontractorsTotal", "totalSubcontractor", "totalSubcontractors"]);
+    categoryTotals.other = financialNumber(financials, ["otherTotal", "totalOther"]);
+  }
+
+  const labourTotal = roundCurrency(categoryTotals.labour);
+  const materialTotal = roundCurrency(categoryTotals.material);
+  const plantTotal = roundCurrency(categoryTotals.plant);
+  const subcontractorTotal = roundCurrency(categoryTotals.subcontractor);
+  const otherTotal = roundCurrency(categoryTotals.other);
+  const calculatedEstimatedCost = roundCurrency(labourTotal + materialTotal + plantTotal + subcontractorTotal + otherTotal);
+  const explicitEstimatedCost = resources.length === 0 ? financialNumber(financials, ["totalEstimatedCost", "estimatedCostTotal"]) : 0;
+  const legacyGrandTotal = resources.length === 0 ? financialNumber(financials, ["grandTotal"]) : 0;
+  const totalEstimatedCost = explicitEstimatedCost || calculatedEstimatedCost || legacyGrandTotal;
+  const clientQuote = parseCurrencyAmount(quotedAmount);
+  const grossProfit = clientQuote === null ? null : roundCurrency(clientQuote - totalEstimatedCost);
+  const marginPercent = clientQuote === null || clientQuote === 0 || grossProfit === null
+    ? null
+    : roundCurrency((grossProfit / clientQuote) * 100);
+
+  return {
+    labourTotal,
+    materialTotal,
+    plantTotal,
+    subcontractorTotal,
+    otherTotal,
+    totalEstimatedCost: roundCurrency(totalEstimatedCost),
+    totalsByResourceType,
+    clientQuote,
+    grossProfit,
+    marginPercent,
+  };
+}
+
 type CsvLine = {
   lineNumber: number;
   raw: string;
@@ -238,8 +329,6 @@ function parseEnhancedHbxl(
   const resources: any[] = [];
   const phaseTaskData: Record<string, any[]> = {};
   const weeklyBreakdown: Record<string, { labour: number; material: number; total: number }> = {};
-  let totalLabourCost = 0;
-  let totalMaterialCost = 0;
   let taskRows = 0;
 
   for (const line of lines.slice(headerIndex + 1)) {
@@ -270,9 +359,6 @@ function parseEnhancedHbxl(
     const supplier = supplierIndex >= 0 ? cell(line, supplierIndex) || "Not specified" : "Not specified";
 
     if (unitPrice > 0) {
-      if (resourceType.toLowerCase() === "labour") totalLabourCost += totalCost;
-      if (resourceType.toLowerCase() === "material") totalMaterialCost += totalCost;
-
       if (!weeklyBreakdown[orderDate]) weeklyBreakdown[orderDate] = { labour: 0, material: 0, total: 0 };
       if (resourceType.toLowerCase() === "labour") weeklyBreakdown[orderDate].labour += totalCost;
       if (resourceType.toLowerCase() === "material") weeklyBreakdown[orderDate].material += totalCost;
@@ -323,12 +409,20 @@ function parseEnhancedHbxl(
     errors.push({ line: headerLine.lineNumber, message: "No valid HBXL task rows were found after the task header." });
   }
 
+  const commercialSummary = calculateSmartScheduleCommercialSummary({ resources: resources.filter((resource) => resource.unitPrice) });
+
   const job = buildParsedJob(header, phases, JSON.stringify({
     phases: phaseTaskData,
     financials: {
-      totalLabour: totalLabourCost,
-      totalMaterial: totalMaterialCost,
-      grandTotal: totalLabourCost + totalMaterialCost,
+      totalLabour: commercialSummary.labourTotal,
+      totalMaterial: commercialSummary.materialTotal,
+      labourTotal: commercialSummary.labourTotal,
+      materialTotal: commercialSummary.materialTotal,
+      plantTotal: commercialSummary.plantTotal,
+      subcontractorTotal: commercialSummary.subcontractorTotal,
+      otherTotal: commercialSummary.otherTotal,
+      totalEstimatedCost: commercialSummary.totalEstimatedCost,
+      grandTotal: commercialSummary.labourTotal + commercialSummary.materialTotal,
       weeklyBreakdown,
     },
     resources: resources.filter((resource) => resource.unitPrice),
@@ -564,6 +658,49 @@ function splitPhases(value: string): string[] {
     .flatMap((part) => part.split(","))
     .map((part) => part.trim())
     .filter(Boolean);
+}
+
+function parsePhaseTaskDataSource(source: unknown): unknown {
+  if (typeof source !== "string") return source;
+  try {
+    return JSON.parse(source);
+  } catch {
+    return {};
+  }
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function numericValue(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const amount = parseCurrencyAmount(value);
+    return amount ?? Number.NaN;
+  }
+  return Number.NaN;
+}
+
+function financialNumber(source: Record<string, unknown>, keys: string[]): number {
+  for (const key of keys) {
+    const amount = numericValue(source[key]);
+    if (Number.isFinite(amount)) return roundCurrency(amount);
+  }
+  return 0;
+}
+
+function toSmartScheduleCostBucket(resourceType: string): SmartScheduleCostBucket {
+  const normalized = resourceType.toLowerCase().replace(/[\s_-]+/g, " ").trim();
+  if (/\blabou?r\b/.test(normalized)) return "labour";
+  if (/\bmaterials?\b/.test(normalized)) return "material";
+  if (/\bplant\b/.test(normalized)) return "plant";
+  if (/\bsub\s*contract(or|ors)?\b|\bsubcontract(or|ors)?\b/.test(normalized)) return "subcontractor";
+  return "other";
+}
+
+function roundCurrency(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 export function formatUploadDate(rawDate?: string | Date | null): string {

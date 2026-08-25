@@ -9,11 +9,13 @@ import { useWorkflowHelp, WORKFLOW_CONFIGS } from "@/hooks/use-workflow-help";
 import * as XLSX from "xlsx";
 import {
   acceptedJobUploadColumns,
+  calculateSmartScheduleCommercialSummary,
   parseJobUploadCsv,
   suggestJobNameFromSource,
   validateProjectMetadata,
   type JobUploadParseResult,
   type ProjectMetadata,
+  type SmartScheduleCommercialSummary,
   type UploadValidationIssue,
 } from "@shared/job-upload-import";
 import { describeCandidateFlags, formatWordJobCandidateLabel, type SmartScheduleMatchDecision } from "@shared/job-match";
@@ -131,6 +133,7 @@ interface SmartScheduleCandidate {
   clientName?: string | null;
   address?: string | null;
   postcode?: string | null;
+  quotedAmount?: string | null;
   label: string;
   hasCurrentSourceImport?: boolean;
   latestImportAt?: string | null;
@@ -149,6 +152,7 @@ interface SmartSchedulePreviewResponse {
   taskRowCount: number;
   resourceRowCount: number;
   totalsByResourceType: Record<string, number>;
+  commercialSummary: SmartScheduleCommercialSummary;
   csvIdentity: {
     projectName: string | null;
     address: string | null;
@@ -178,6 +182,21 @@ interface SmartSchedulePreviewResponse {
     tiedCandidateIds?: string[];
     reason: string;
   };
+}
+
+const moneyFormatter = new Intl.NumberFormat("en-GB", {
+  style: "currency",
+  currency: "GBP",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function formatMoney(value: number | null): string {
+  return value === null ? "Not available" : moneyFormatter.format(value);
+}
+
+function formatMargin(value: number | null): string {
+  return value === null ? "Not available" : `${value.toFixed(2)}%`;
 }
 
 interface SmartScheduleAttachResponse {
@@ -274,6 +293,21 @@ export default function UploadCsv() {
           ? "undecided"
           : "legacy";
   const selectedCandidate = csvCandidates.find((candidate) => candidate.jobId === selectedAttachJobId) ?? null;
+  const smartScheduleCommercialSummary = smartSchedulePreview
+    ? calculateSmartScheduleCommercialSummary(
+        smartSchedulePreview.commercialSummary,
+        selectedCandidate?.quotedAmount ?? null,
+      )
+    : null;
+  const smartScheduleCostRows = smartScheduleCommercialSummary
+    ? [
+        ["Labour", smartScheduleCommercialSummary.labourTotal],
+        ["Materials", smartScheduleCommercialSummary.materialTotal],
+        ["Plant", smartScheduleCommercialSummary.plantTotal],
+        ["Subcontractors", smartScheduleCommercialSummary.subcontractorTotal],
+        ["Other", smartScheduleCommercialSummary.otherTotal],
+      ] as const
+    : [];
 
   const canApproveUpload = !!selectedFile && (
     (fileType === "csv" && !!csvPreview?.validation.valid &&
@@ -1490,6 +1524,54 @@ export default function UploadCsv() {
                   {smartSchedulePreview.filenameProjectHint && (
                     <p className="mt-1 text-xs text-slate-500">Filename-derived hint: "{smartSchedulePreview.filenameProjectHint}" (hint only — confirm before attaching).</p>
                   )}
+                </div>
+              )}
+
+              {smartScheduleCommercialSummary && (
+                <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                    <div>
+                      <div className="text-emerald-900 font-semibold">Commercial Summary</div>
+                      <p className="text-xs text-emerald-700">
+                        Estimated costs come from the Smart Schedule. Client quote comes from the selected Word job.
+                      </p>
+                    </div>
+                    <Badge className="bg-white text-emerald-800 border border-emerald-300 text-xs">Estimate only</Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-md border border-emerald-200 bg-white p-3">
+                      <span className="block text-xs text-slate-500">Client quote</span>
+                      <strong className="text-lg text-slate-900">{formatMoney(smartScheduleCommercialSummary.clientQuote)}</strong>
+                      {!selectedCandidate && (
+                        <p className="mt-1 text-xs text-slate-500">Select a Word job to calculate profit.</p>
+                      )}
+                    </div>
+                    <div className="rounded-md border border-emerald-200 bg-white p-3">
+                      <span className="block text-xs text-slate-500">Total estimated cost</span>
+                      <strong className="text-lg text-slate-900">{formatMoney(smartScheduleCommercialSummary.totalEstimatedCost)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                    {smartScheduleCostRows.map(([label, amount]) => (
+                      <div key={label} className="rounded-md border border-emerald-100 bg-white px-3 py-2">
+                        <span className="block text-slate-500">{label}</span>
+                        <strong className="text-slate-900">{formatMoney(amount)}</strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-md border border-emerald-200 bg-white p-3">
+                      <span className="block text-xs text-slate-500">Gross profit</span>
+                      <strong className="text-lg text-slate-900">{formatMoney(smartScheduleCommercialSummary.grossProfit)}</strong>
+                    </div>
+                    <div className="rounded-md border border-emerald-200 bg-white p-3">
+                      <span className="block text-xs text-slate-500">Margin</span>
+                      <strong className="text-lg text-slate-900">{formatMargin(smartScheduleCommercialSummary.marginPercent)}</strong>
+                    </div>
+                  </div>
                 </div>
               )}
 
