@@ -1054,6 +1054,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/jobs/:jobId/location-task-resources", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      await ensureJobLocationTables((query, params) => db.execute(sql.raw(query)));
+      const rows = await db
+        .select({
+          id: jobLocationTaskResources.id,
+          locationTaskId: jobLocationTaskResources.locationTaskId,
+          usageDescription: jobLocationTaskResources.usageDescription,
+          productDescription: jobLocationTaskResources.productDescription,
+          quantity: jobLocationTaskResources.quantity,
+          unit: jobLocationTaskResources.unit,
+          sourceValueRaw: jobLocationTaskResources.sourceValueRaw,
+          sourceValueKind: jobLocationTaskResources.sourceValueKind,
+          sourceOrder: jobLocationTaskResources.sourceOrder,
+          sourceReference: jobLocationTaskResources.sourceReference,
+        })
+        .from(jobLocationTaskResources)
+        .innerJoin(jobLocationTasks, eq(jobLocationTaskResources.locationTaskId, jobLocationTasks.id))
+        .where(eq(jobLocationTasks.jobId, jobId))
+        .orderBy(jobLocationTaskResources.sourceOrder);
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching job location task resources:", error);
+      res.json([]);
+    }
+  });
+
   app.get(
     "/api/assignment-desk/assignable-people",
     requireAdmin as unknown as import("express").RequestHandler,

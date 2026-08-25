@@ -25,6 +25,19 @@ export interface ProcurementLocationTask {
   sourceReference?: string | null;
 }
 
+export interface ProcurementStructuredResource {
+  id?: string;
+  locationTaskId: string;
+  usageDescription: string;
+  productDescription: string;
+  quantity: string | null;
+  unit: string | null;
+  sourceValueRaw: string | null;
+  sourceValueKind: "quantity" | "currency_unclassified" | "blank";
+  sourceOrder: number;
+  sourceReference?: string | null;
+}
+
 export interface RoomPackageProcurementChecklist {
   locationId: string;
   locationName: string;
@@ -35,6 +48,7 @@ export interface RoomPackageProcurementChecklist {
   endDate: string;
   assignmentIds: string[];
   resources: string[];
+  structuredResources: ProcurementStructuredResource[];
 }
 
 interface ChecklistInput {
@@ -42,6 +56,7 @@ interface ChecklistInput {
   assignments: ProcurementAssignment[];
   locations: ProcurementLocation[];
   tasks: ProcurementLocationTask[];
+  structuredResources?: ProcurementStructuredResource[];
   filter: ProcurementTimeFilter;
   today?: Date | string;
 }
@@ -51,12 +66,23 @@ export function buildRoomPackageProcurementChecklist({
   assignments,
   locations,
   tasks,
+  structuredResources,
   filter,
   today = new Date(),
 }: ChecklistInput): RoomPackageProcurementChecklist[] {
   const range = filter === "all-job" ? null : procurementDateRange(filter, today);
   const locationsById = new Map(locations.filter((location) => location.jobId === jobId).map((location) => [location.id, location]));
   const tasksById = new Map(tasks.filter((task) => task.jobId === jobId).map((task) => [task.id, task]));
+
+  const structuredByTask = new Map<string, ProcurementStructuredResource[]>();
+  if (structuredResources) {
+    for (const resource of structuredResources) {
+      const list = structuredByTask.get(resource.locationTaskId) ?? [];
+      list.push(resource);
+      structuredByTask.set(resource.locationTaskId, list);
+    }
+  }
+
   const checklists = new Map<string, RoomPackageProcurementChecklist>();
 
   for (const assignment of assignments) {
@@ -85,6 +111,7 @@ export function buildRoomPackageProcurementChecklist({
       endDate: assignment.endDate,
       assignmentIds: [assignment.id],
       resources: extractWordResourceDescriptions(task.taskDescription),
+      structuredResources: (structuredByTask.get(task.id) ?? []).sort((a, b) => a.sourceOrder - b.sourceOrder),
     });
   }
 

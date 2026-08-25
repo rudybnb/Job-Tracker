@@ -9,6 +9,7 @@ import {
   type ProcurementAssignment,
   type ProcurementLocation,
   type ProcurementLocationTask,
+  type ProcurementStructuredResource,
   type ProcurementTimeFilter,
   type RoomPackageProcurementChecklist,
 } from "@shared/weekly-procurement";
@@ -103,6 +104,21 @@ const PROCUREMENT_TIME_FILTERS: Array<{ key: ProcurementTimeFilter; label: strin
   { key: "all-job", label: "ALL JOB" },
 ];
 
+function ResourceQuantity({ resource }: { resource: ProcurementStructuredResource }) {
+  if (resource.sourceValueKind === "quantity") {
+    return <span className="font-mono text-xs text-green-400">{resource.quantity} {resource.unit}</span>;
+  }
+  if (resource.sourceValueKind === "currency_unclassified") {
+    return (
+      <span className="text-xs text-slate-500">
+        Source allowance: <span className="font-mono">{resource.sourceValueRaw}</span>
+        <span className="ml-1 italic">Unconfirmed</span>
+      </span>
+    );
+  }
+  return <span className="text-xs italic text-slate-500">To confirm</span>;
+}
+
 function RoomPackageChecklist({ items }: { items: RoomPackageProcurementChecklist[] }) {
   return (
     <section className="rounded-lg border border-yellow-500/60 bg-yellow-950/20 p-3">
@@ -123,28 +139,31 @@ function RoomPackageChecklist({ items }: { items: RoomPackageProcurementChecklis
                 </div>
                 <div className="text-xs text-slate-400">Assigned: {item.startDate} to {item.endDate}</div>
               </div>
-              {item.resources.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-400">No Word resource references retained for this package.</p>
-              ) : (
+              {item.structuredResources.length > 0 ? (
                 <ul className="mt-3 space-y-2">
-                  {item.resources.map((resource, index) => (
-                    <li key={`${item.locationTaskId}-${resource}-${index}`} className="flex items-start gap-2 text-sm">
-                      <span className="mt-0.5 h-4 w-4 shrink-0 rounded border border-slate-500" aria-hidden="true" />
-                      <div>
-                        <div className="text-slate-100">{resource}</div>
-                        <div className="text-xs text-slate-500">Quantity: To confirm</div>
+                  {item.structuredResources.map((resource) => (
+                    <li key={resource.id ?? `${item.locationTaskId}-${resource.sourceOrder}`} className="flex flex-col gap-0.5 rounded bg-slate-800/50 px-2 py-1.5">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                        <span className="text-sm font-medium text-white">{resource.usageDescription}</span>
+                        <ResourceQuantity resource={resource} />
                       </div>
+                      <div className="text-xs text-slate-400">{resource.productDescription}</div>
                     </li>
                   ))}
                 </ul>
+              ) : item.resources.length > 0 ? (
+                <ul className="mt-3 space-y-2">
+                  {item.resources.map((resource, index) => (
+                    <li key={`${item.locationTaskId}-${resource}-${index}`} className="flex items-start gap-2 text-sm">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-yellow-500" />
+                      <span className="text-slate-300">{resource}</span>
+                      <span className="ml-auto shrink-0 text-xs italic text-slate-500">Quantity: To confirm</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-sm text-slate-400">No Word resource references retained for this package.</p>
               )}
-              <div className="mt-3 border-t border-slate-700 pt-3">
-                <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Package Budget</div>
-                <div className="text-sm font-semibold text-white">Not allocated from source</div>
-                <p className="mt-1 text-xs text-slate-500">
-                  HBXL/Smart Schedule cost exists at project level but cannot yet be reliably allocated to this room/package.
-                </p>
-              </div>
             </article>
           ))}
         </div>
@@ -260,6 +279,17 @@ export default function AdminBudgetTracking() {
       if (!expandedProcurementJobId) return [];
       const response = await fetch(`/api/jobs/${expandedProcurementJobId}/location-tasks`);
       if (!response.ok) throw new Error("Failed to load job location tasks");
+      return response.json();
+    },
+    enabled: Boolean(expandedProcurementJobId),
+  });
+
+  const { data: procurementStructuredResources = [] } = useQuery<ProcurementStructuredResource[]>({
+    queryKey: ["/api/jobs", expandedProcurementJobId, "procurement-structured-resources"],
+    queryFn: async () => {
+      if (!expandedProcurementJobId) return [];
+      const response = await fetch(`/api/jobs/${expandedProcurementJobId}/location-task-resources`);
+      if (!response.ok) return [];
       return response.json();
     },
     enabled: Boolean(expandedProcurementJobId),
@@ -508,6 +538,7 @@ export default function AdminBudgetTracking() {
                           assignments: procurementAssignments,
                           locations: procurementLocations,
                           tasks: procurementTasks,
+                          structuredResources: procurementStructuredResources,
                           filter: activeProcurementTimeFilter,
                         })
                       : [];
