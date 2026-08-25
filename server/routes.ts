@@ -28,7 +28,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, jobLocationTaskResources, contractors, jobAssignments, jobAssignmentStatusEvents, projectSourceImports, workers } from "@shared/schema";
+import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, jobLocationTaskResources, jobMaterialCostResources, contractors, jobAssignments, jobAssignmentStatusEvents, projectSourceImports, workers } from "@shared/schema";
 import { deriveCanonicalUsername, WorkerService } from "./worker-service.ts";
 import { buildAssignablePeople, type AssignmentIdentity } from "./assignment-people.ts";
 import { getAssignmentsOwnedByWorker, isStructuredWorkerAssignment, resolveStructuredAssignmentWorkerId } from "./worker-task-ownership.ts";
@@ -50,6 +50,7 @@ import {
   type WordJobCandidate,
 } from "@shared/job-match";
 import { parseHbxlWordQuote } from "../shared/hbxl-word-parser";
+import { parseMaterialsUsedCsv, classifyAllRows } from "../shared/procurement-pricing.js";
 import { ensureJobLocationTables } from "./job-location-tables-core.ts";
 import { buildAttendanceTimeline, getLondonDateString } from "./attendance-timeline.ts";
 
@@ -1079,6 +1080,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching job location task resources:", error);
       res.json([]);
+    }
+  });
+
+  app.get("/api/jobs/:jobId/material-costs", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const rows = await db
+        .select()
+        .from(jobMaterialCostResources)
+        .where(eq(jobMaterialCostResources.jobId, jobId))
+        .orderBy(jobMaterialCostResources.sourceRowOrder);
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching material costs:", error);
+      res.json([]);
+    }
+  });
+
+  app.post("/api/jobs/:jobId/material-costs/preview", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const multer = (await import("multer")).default;
+      const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+      
+      upload.single("file")(req, res, async (err) => {
+        if (err) {
+          res.status(400).json({ error: "File upload failed" });
+          return;
+        }
+        const file = req.file;
+        if (!file) {
+          res.status(400).json({ error: "No file provided" });
+          return;
+        }
+        
+        const csvContent = file.buffer.toString("latin1");
+        const rows = parseMaterialsUsedCsv(csvContent);
+        const classified = classifyAllRows(rows);
+        
+        const physicalTotal = classified
+          .filter(r => r.kind === "genuine")
+          .reduce((s, r) => s + r.totalCostIncludingWastage, 0);
+        const allowanceTotal = classified
+          .filter(r => r.kind === "allowance")
+          .reduce((s, r) => s + r.totalCostIncludingWastage, 0);
+        const grandTotal = rows.reduce((s, r) => s + r.totalCostIncludingWastage, 0);
+        
+        res.json({
+          jobId,
+          filename: file.originalname,
+          rowCount: rows.length,
+          physicalProductTotal: Math.round(physicalTotal * 100) / 100,
+          allowanceTotal: Math.round(allowanceTotal * 100) / 100,
+          grandTotal: Math.round(grandTotal * 100) / 100,
+          rows: classified.map(r => ({
+            buildPhase: r.buildPhase,
+            description: r.description,
+            unitRate: r.unitRate,
+            unit: r.unit,
+            qtyExcludingWastage: r.qtyExcludingWastage,
+            wastageQty: r.wastageQty,
+            orderQtyIncludingWastage: r.orderQtyIncludingWastage,
+            costExcludingWastage: r.costExcludingWastage,
+            wastageCost: r.wastageCost,
+            totalCostIncludingWastage: r.totalCostIncludingWastage,
+            kind: r.kind,
+          })),
+        });
+      });
+    } catch (error) {
+      console.error("Error previewing materials CSV:", error);
+      res.status(500).json({ error: "Failed to preview CSV" });
+    }
+  });
+
+  app.post("/api/jobs/:jobId/material-costs/import", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const multer = (await import("multer")).default;
+      const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+      
+      upload.single("file")(req, res, async (err) => {
+        if (err) {
+          res.status(400).json({ error: "File upload failed" });
+          return;
+        }
+        const file = req.file;
+        if (!file) {
+          res.status(400).json({ error: "No file provided" });
+          return;
+        }
+        
+        const csvContent = file.buffer.toString("latin1");
+        const rows = parseMaterialsUsedCsv(csvContent);
+        const classified = classifyAllRows(rows);
+        
+        // Check for duplicate: same job + same filename + same row count
+        const existing = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(jobMaterialCostResources)
+          .where(eq(jobMaterialCostResources.jobId, jobId));
+        
+        if (existing[0].count > 0) {
+          // Delete existing rows for re-import
+          await db
+            .delete(jobMaterialCostResources)
+            .where(eq(jobMaterialCostResources.jobId, jobId));
+        }
+        
+        // Insert all rows
+        const insertValues = classified.map((r, idx) => ({
+          jobId,
+          buildPhase: r.buildPhase,
+          description: r.description,
+          unitRate: String(r.unitRate),
+          unit: r.unit,
+          qtyExcludingWastage: String(r.qtyExcludingWastage),
+          wastageQty: String(r.wastageQty),
+          orderQtyIncludingWastage: String(r.orderQtyIncludingWastage),
+          costExcludingWastage: String(r.costExcludingWastage),
+          wastageCost: String(r.wastageCost),
+          totalCostIncludingWastage: String(r.totalCostIncludingWastage),
+          sourceRowOrder: idx + 1,
+          materialRowKind: r.kind === "allowance" ? "BROAD_ALLOWANCE" : "PHYSICAL_PRODUCT",
+        }));
+        
+        // Batch insert
+        const batchSize = 25;
+        for (let i = 0; i < insertValues.length; i += batchSize) {
+          await db.insert(jobMaterialCostResources).values(insertValues.slice(i, i + batchSize));
+        }
+        
+        const physicalTotal = classified
+          .filter(r => r.kind === "genuine")
+          .reduce((s, r) => s + r.totalCostIncludingWastage, 0);
+        const allowanceTotal = classified
+          .filter(r => r.kind === "allowance")
+          .reduce((s, r) => s + r.totalCostIncludingWastage, 0);
+        const grandTotal = rows.reduce((s, r) => s + r.totalCostIncludingWastage, 0);
+        
+        res.json({
+          imported: true,
+          jobId,
+          filename: file.originalname,
+          rowCount: rows.length,
+          physicalProductTotal: Math.round(physicalTotal * 100) / 100,
+          allowanceTotal: Math.round(allowanceTotal * 100) / 100,
+          grandTotal: Math.round(grandTotal * 100) / 100,
+        });
+      });
+    } catch (error) {
+      console.error("Error importing materials CSV:", error);
+      res.status(500).json({ error: "Failed to import CSV" });
     }
   });
 

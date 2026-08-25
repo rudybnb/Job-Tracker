@@ -1782,7 +1782,32 @@ export const insertJobLocationTaskResourceSchema = createInsertSchema(jobLocatio
   id: true,
 });
 
+// HBXL Materials Used CSV — project-level priced material resources per job
+export const jobMaterialCostResources = pgTable("job_material_cost_resources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  sourceImportId: uuid("source_import_id").references(() => projectSourceImports.id, { onDelete: "set null" }),
+  buildPhase: text("build_phase").notNull(),
+  description: text("description").notNull(),
+  unitRate: text("unit_rate").notNull(),
+  unit: text("unit").notNull(),
+  qtyExcludingWastage: text("qty_excluding_wastage").notNull(),
+  wastageQty: text("wastage_qty").notNull(),
+  orderQtyIncludingWastage: text("order_qty_including_wastage").notNull(),
+  costExcludingWastage: text("cost_excluding_wastage").notNull(),
+  wastageCost: text("wastage_cost").notNull(),
+  totalCostIncludingWastage: text("total_cost_including_wastage").notNull(),
+  sourceRowOrder: integer("source_row_order").notNull(),
+  materialRowKind: text("material_row_kind").notNull().default("PHYSICAL_PRODUCT"),
+}, (table) => [
+  uniqueIndex("job_material_cost_resources_job_order_unique").on(table.jobId, table.sourceRowOrder),
+  check("job_material_cost_resources_kind_check", sql`${table.materialRowKind} IN ('PHYSICAL_PRODUCT', 'BROAD_ALLOWANCE')`),
+  check("job_material_cost_resources_row_order_check", sql`${table.sourceRowOrder} > 0`),
+]);
 
+export const insertJobMaterialCostResourceSchema = createInsertSchema(jobMaterialCostResources).omit({
+  id: true,
+});
 
 // Contractor Reports table for simple issue reporting
 export const contractorReports = pgTable("contractor_reports", {
@@ -2783,6 +2808,8 @@ export type InsertJobLocationTask = z.infer<typeof insertJobLocationTaskSchema>;
 export type JobLocationTask = typeof jobLocationTasks.$inferSelect;
 export type InsertJobLocationTaskResource = z.infer<typeof insertJobLocationTaskResourceSchema>;
 export type JobLocationTaskResource = typeof jobLocationTaskResources.$inferSelect;
+export type InsertJobMaterialCostResource = z.infer<typeof insertJobMaterialCostResourceSchema>;
+export type JobMaterialCostResource = typeof jobMaterialCostResources.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;

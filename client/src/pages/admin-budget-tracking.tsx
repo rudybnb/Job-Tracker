@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,13 @@ import {
   type ProcurementTimeFilter,
   type RoomPackageProcurementChecklist,
 } from "@shared/weekly-procurement";
+import {
+  classifyAllRows,
+  matchWordProductsToCsv,
+  allocateRoomBudgets,
+  buildWeeklyPricedBudget,
+  type MaterialsUsedRow,
+} from "@shared/procurement-pricing";
 import "./hallmark-sweep.css";
 
 interface Client {
@@ -104,6 +111,85 @@ const PROCUREMENT_TIME_FILTERS: Array<{ key: ProcurementTimeFilter; label: strin
   { key: "all-job", label: "ALL JOB" },
 ];
 
+function MaterialUpload({ jobId, onImported }: { jobId: string; onImported: () => void }) {
+  const [preview, setPreview] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(`/api/jobs/${jobId}/material-costs/preview`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Preview failed");
+      const data = await response.json();
+      setPreview(data);
+    } catch (err) {
+      setError("Failed to preview CSV");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!preview) return;
+    setUploading(true);
+    try {
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const fd = new FormData();
+      if (input?.files?.[0]) {
+        fd.append("file", input.files[0]);
+      }
+      const response = await fetch(`/api/jobs/${jobId}/material-costs/import`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!response.ok) throw new Error("Import failed");
+      setPreview(null);
+      onImported();
+    } catch (err) {
+      setError("Failed to import CSV");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-md border border-slate-700 bg-slate-900 p-3">
+      <h5 className="text-xs font-bold uppercase tracking-wide text-yellow-500 mb-2">Import HBXL Materials Used CSV</h5>
+      <input type="file" accept=".csv" onChange={handleFile} className="text-sm text-slate-400 mb-2" />
+      {uploading && <p className="text-xs text-slate-400">Processing...</p>}
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      {preview && (
+        <div className="mt-2 rounded border border-slate-600 bg-slate-800 p-2">
+          <div className="text-xs text-slate-300 mb-1 font-medium">{preview.filename}</div>
+          <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+            <div><span className="text-slate-400">Rows:</span> <span className="text-white font-mono">{preview.rowCount}</span></div>
+            <div><span className="text-slate-400">Physical:</span> <span className="text-green-400 font-mono">£{preview.physicalProductTotal.toLocaleString()}</span></div>
+            <div><span className="text-slate-400">Allowances:</span> <span className="text-yellow-400 font-mono">£{preview.allowanceTotal.toLocaleString()}</span></div>
+          </div>
+          <div className="text-xs text-white font-bold mb-2">Grand Total: <span className="font-mono">£{preview.grandTotal.toLocaleString()}</span></div>
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={uploading}
+            className="rounded border border-green-500 bg-green-500/20 px-3 py-1 text-xs font-bold text-green-400 hover:bg-green-500/30 disabled:opacity-50"
+          >
+            {uploading ? "Importing..." : "Confirm Import"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ResourceQuantity({ resource }: { resource: ProcurementStructuredResource }) {
   if (resource.sourceValueKind === "quantity") {
     return <span className="font-mono text-xs text-green-400">{resource.quantity} {resource.unit}</span>;
@@ -119,7 +205,41 @@ function ResourceQuantity({ resource }: { resource: ProcurementStructuredResourc
   return <span className="text-xs italic text-slate-500">To confirm</span>;
 }
 
-function RoomPackageChecklist({ items }: { items: RoomPackageProcurementChecklist[] }) {
+function RoomPackageChecklist({ 
+  items,
+  materialCostRows,
+  allStructuredResources,
+}: { 
+  items: RoomPackageProcurementChecklist[];
+  materialCostRows?: any[];
+  allStructuredResources?: ProcurementStructuredResource[];
+}) {
+  const pricedBudget = useMemo(() => {
+    if (!materialCostRows?.length || !allStructuredResources?.length || !items.length) return null;
+    
+    const csvRows: MaterialsUsedRow[] = materialCostRows.map((r: any) => ({
+      buildPhase: r.buildPhase,
+      description: r.description,
+      unitRate: parseFloat(r.unitRate) || 0,
+      unit: r.unit,
+      qtyExcludingWastage: parseFloat(r.qtyExcludingWastage) || 0,
+      wastageQty: parseFloat(r.wastageQty) || 0,
+      orderQtyIncludingWastage: parseFloat(r.orderQtyIncludingWastage) || 0,
+      costExcludingWastage: parseFloat(r.costExcludingWastage) || 0,
+      wastageCost: parseFloat(r.wastageCost) || 0,
+      totalCostIncludingWastage: parseFloat(r.totalCostIncludingWastage) || 0,
+    }));
+    
+    const classified = classifyAllRows(csvRows);
+    const scheduledTaskIds = new Set(items.map(i => i.locationTaskId));
+    const productMatches = matchWordProductsToCsv(
+      Array.from(new Set(allStructuredResources.filter(r => r.sourceValueKind === "quantity").map(r => r.productDescription))),
+      csvRows
+    );
+    const allocations = allocateRoomBudgets(allStructuredResources, productMatches, scheduledTaskIds);
+    return buildWeeklyPricedBudget(allocations, productMatches, classified);
+  }, [materialCostRows, allStructuredResources, items]);
+
   return (
     <section className="rounded-lg border border-yellow-500/60 bg-yellow-950/20 p-3">
       <div className="mb-3">
@@ -163,6 +283,41 @@ function RoomPackageChecklist({ items }: { items: RoomPackageProcurementChecklis
                 </ul>
               ) : (
                 <p className="mt-3 text-sm text-slate-400">No Word resource references retained for this package.</p>
+              )}
+              {pricedBudget ? (() => {
+                const itemAllocations = pricedBudget.pricedItems.filter(a => a.locationTaskId === item.locationTaskId);
+                if (itemAllocations.length === 0) {
+                  return (
+                    <div className="mt-3 border-t border-slate-700 pt-3">
+                      <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Package Budget</div>
+                      <div className="text-sm font-semibold text-white">Not allocated from source</div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        HBXL/Smart Schedule cost exists at project level but cannot yet be reliably allocated to this room/package.
+                      </p>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="mt-2 rounded border border-green-500/30 bg-green-950/20 p-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-green-500 mb-1">HBXL Priced Materials</div>
+                    <div className="space-y-1">
+                      {itemAllocations.map(a => (
+                        <div key={`${a.locationTaskId}-${a.wordProductDescription}`} className="flex items-center justify-between text-xs">
+                          <span className="text-slate-300 truncate">{a.wordProductDescription}</span>
+                          <span className="ml-2 shrink-0 font-mono text-green-400">{a.allocatedOrderQty} {a.unit} — £{a.allocatedBudget.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })() : (
+                <div className="mt-3 border-t border-slate-700 pt-3">
+                  <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Package Budget</div>
+                  <div className="text-sm font-semibold text-white">Not allocated from source</div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    HBXL/Smart Schedule cost exists at project level but cannot yet be reliably allocated to this room/package.
+                  </p>
+                </div>
               )}
             </article>
           ))}
@@ -240,6 +395,7 @@ function LogoutButton() {
 }
 
 export default function AdminBudgetTracking() {
+  const queryClient = useQueryClient();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [expandedProcurementJobId, setExpandedProcurementJobId] = useState<string | null>(null);
   const [activeProcurementTab, setActiveProcurementTab] = useState<ProcurementSectionKey>("materials");
@@ -289,6 +445,17 @@ export default function AdminBudgetTracking() {
     queryFn: async () => {
       if (!expandedProcurementJobId) return [];
       const response = await fetch(`/api/jobs/${expandedProcurementJobId}/location-task-resources`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: Boolean(expandedProcurementJobId),
+  });
+
+  const { data: materialCostRows = [] } = useQuery<any[]>({
+    queryKey: ["/api/jobs", expandedProcurementJobId, "material-costs"],
+    queryFn: async () => {
+      if (!expandedProcurementJobId) return [];
+      const response = await fetch(`/api/jobs/${expandedProcurementJobId}/material-costs`);
       if (!response.ok) return [];
       return response.json();
     },
@@ -756,8 +923,18 @@ export default function AdminBudgetTracking() {
                                   ) : checklistFailed ? (
                                     <div className="rounded-lg border border-red-500 bg-red-950/30 p-3 text-sm text-red-100">Unable to load the room/package procurement checklist.</div>
                                   ) : (
-                                    <RoomPackageChecklist items={roomPackageChecklist} />
+                                    <RoomPackageChecklist 
+                                      items={roomPackageChecklist} 
+                                      materialCostRows={materialCostRows}
+                                      allStructuredResources={procurementStructuredResources}
+                                    />
                                   )
+                                )}
+                                {activeProcurementTab === "materials" && (
+                                  <MaterialUpload 
+                                    jobId={job.id} 
+                                    onImported={() => queryClient.invalidateQueries({ queryKey: ["/api/jobs", expandedProcurementJobId, "material-costs"] })} 
+                                  />
                                 )}
                                 <ProcurementSection section={procurementPlan[activeProcurementTab]} />
                               </div>
