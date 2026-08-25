@@ -1809,22 +1809,26 @@ export const insertJobMaterialCostResourceSchema = createInsertSchema(jobMateria
   id: true,
 });
 
-// Actual Supplier Purchases & Order Tracking per Material Resource Line Item
+// Actual Supplier Purchases & Order Tracking per Material Line Item
 export const jobMaterialCostActuals = pgTable("job_material_cost_actuals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
-  resourceId: varchar("resource_id").notNull().references(() => jobMaterialCostResources.id, { onDelete: "cascade" }),
+  budgetResourceId: varchar("budget_resource_id").references(() => jobMaterialCostResources.id, { onDelete: "set null" }),
+  materialDescription: text("material_description").notNull(),
   supplierName: text("supplier_name"),
-  supplierUnitPrice: text("supplier_unit_price"),
-  actualQuantity: text("actual_quantity"),
-  actualTotal: text("actual_total"),
+  supplierUnitPrice: text("supplier_unit_price").notNull(),
+  actualQuantity: text("actual_quantity").notNull(),
+  actualTotal: text("actual_total").notNull(),
+  purchaseDate: text("purchase_date"),
+  paymentStatus: text("payment_status").notNull().default("UNPAID"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  uniqueIndex("job_material_cost_actuals_job_resource_unique").on(table.jobId, table.resourceId),
   index("job_material_cost_actuals_job_idx").on(table.jobId),
-  index("job_material_cost_actuals_resource_idx").on(table.resourceId),
+  index("job_material_cost_actuals_job_material_idx").on(table.jobId, table.materialDescription),
+  index("job_material_cost_actuals_budget_resource_idx").on(table.budgetResourceId),
+  check("job_material_cost_actuals_payment_status_check", sql`${table.paymentStatus} IN ('UNPAID', 'PAID', 'PARTIALLY_PAID', 'CANCELLED')`),
 ]);
 
 export const insertJobMaterialCostActualSchema = createInsertSchema(jobMaterialCostActuals).omit({

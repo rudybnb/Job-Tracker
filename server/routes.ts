@@ -1092,7 +1092,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rows = await db
         .select()
         .from(jobMaterialCostActuals)
-        .where(eq(jobMaterialCostActuals.jobId, jobId));
+        .where(eq(jobMaterialCostActuals.jobId, jobId))
+        .orderBy(desc(jobMaterialCostActuals.createdAt));
       res.json(rows);
     } catch (error) {
       console.error("Error fetching material cost actuals:", error);
@@ -1100,51 +1101,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/jobs/:jobId/material-costs/:resourceId/actual", async (req, res) => {
+  app.post("/api/jobs/:jobId/material-costs/actuals", async (req, res) => {
     try {
-      const { jobId, resourceId } = req.params;
-      const { supplierName, supplierUnitPrice, actualQuantity, actualTotal, notes } = req.body;
+      const { jobId } = req.params;
+      const {
+        budgetResourceId,
+        materialDescription,
+        supplierName,
+        supplierUnitPrice,
+        actualQuantity,
+        actualTotal,
+        purchaseDate,
+        paymentStatus,
+        notes,
+      } = req.body;
 
-      const existing = await db
-        .select()
-        .from(jobMaterialCostActuals)
+      if (!materialDescription || supplierUnitPrice == null || actualQuantity == null) {
+        return res.status(400).json({ error: "materialDescription, supplierUnitPrice, and actualQuantity are required" });
+      }
+
+      const calculatedTotal = actualTotal != null
+        ? String(actualTotal)
+        : (parseFloat(supplierUnitPrice) * parseFloat(actualQuantity)).toFixed(2);
+
+      const [inserted] = await db
+        .insert(jobMaterialCostActuals)
+        .values({
+          jobId,
+          budgetResourceId: budgetResourceId ?? null,
+          materialDescription: materialDescription.trim(),
+          supplierName: supplierName ? supplierName.trim() : null,
+          supplierUnitPrice: String(supplierUnitPrice),
+          actualQuantity: String(actualQuantity),
+          actualTotal: calculatedTotal,
+          purchaseDate: purchaseDate ?? new Date().toISOString().split("T")[0],
+          paymentStatus: paymentStatus ?? "UNPAID",
+          notes: notes ?? null,
+        })
+        .returning();
+
+      res.json(inserted);
+    } catch (error) {
+      console.error("Error creating material cost actual purchase:", error);
+      res.status(500).json({ error: "Failed to create supplier purchase" });
+    }
+  });
+
+  app.delete("/api/jobs/:jobId/material-costs/actuals/:purchaseId", async (req, res) => {
+    try {
+      const { jobId, purchaseId } = req.params;
+      await db
+        .delete(jobMaterialCostActuals)
         .where(and(
           eq(jobMaterialCostActuals.jobId, jobId),
-          eq(jobMaterialCostActuals.resourceId, resourceId)
+          eq(jobMaterialCostActuals.id, purchaseId)
         ));
-
-      if (existing.length > 0) {
-        const [updated] = await db
-          .update(jobMaterialCostActuals)
-          .set({
-            supplierName: supplierName ?? null,
-            supplierUnitPrice: supplierUnitPrice != null ? String(supplierUnitPrice) : null,
-            actualQuantity: actualQuantity != null ? String(actualQuantity) : null,
-            actualTotal: actualTotal != null ? String(actualTotal) : null,
-            notes: notes ?? null,
-            updatedAt: new Date(),
-          })
-          .where(eq(jobMaterialCostActuals.id, existing[0].id))
-          .returning();
-        return res.json(updated);
-      } else {
-        const [inserted] = await db
-          .insert(jobMaterialCostActuals)
-          .values({
-            jobId,
-            resourceId,
-            supplierName: supplierName ?? null,
-            supplierUnitPrice: supplierUnitPrice != null ? String(supplierUnitPrice) : null,
-            actualQuantity: actualQuantity != null ? String(actualQuantity) : null,
-            actualTotal: actualTotal != null ? String(actualTotal) : null,
-            notes: notes ?? null,
-          })
-          .returning();
-        return res.json(inserted);
-      }
+      res.json({ deleted: true, purchaseId });
     } catch (error) {
-      console.error("Error saving material cost actual:", error);
-      res.status(500).json({ error: "Failed to save supplier actual" });
+      console.error("Error deleting material purchase:", error);
+      res.status(500).json({ error: "Failed to delete purchase" });
     }
   });
 

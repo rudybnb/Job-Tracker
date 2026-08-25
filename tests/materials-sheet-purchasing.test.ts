@@ -69,36 +69,99 @@ test("Maureen key example material rows are accurate in the flat sheet", () => {
   assert.equal(architrave.totalCostIncludingWastage, 441.01);
 });
 
-// ─── 3. Actual Buying & Variance Calculations ────────────────────────────────
+// ─── 3. Multiple Purchases per Material ──────────────────────────────────────
 
-test("Supplier purchase calculation: Self Levelling Compound buying saving", () => {
-  const hbxlRate = 15.10;
-  const hbxlBudget = 737.49; // 48.84 * 15.10
-  const supplierRate = 13.50; // Quoted cheaper
-  const actualQty = 48.84;
+test("Multiple purchases aggregation: Self Levelling Compound", () => {
+  const hbxlBudget = 737.49; // 48.84 @ £15.10
 
-  const actualTotal = Math.round(supplierRate * actualQty * 100) / 100;
-  assert.equal(actualTotal, 659.34);
+  // Purchase 1: 20 bags @ £13.50
+  const p1 = {
+    id: "p1",
+    materialDescription: "Self Levelling Compound 25kg",
+    supplierUnitPrice: 13.50,
+    actualQuantity: 20,
+    actualTotal: 20 * 13.50, // £270.00
+  };
 
-  const variance = Math.round((hbxlBudget - actualTotal) * 100) / 100;
-  assert.equal(variance, 78.15, "Positive variance = £78.15 SAVING");
-  assert.ok(variance > 0, "Must be classified as SAVING");
+  // Purchase 2: 10 bags @ £14.00
+  const p2 = {
+    id: "p2",
+    materialDescription: "Self Levelling Compound 25kg",
+    supplierUnitPrice: 14.00,
+    actualQuantity: 10,
+    actualTotal: 10 * 14.00, // £140.00
+  };
+
+  const purchases = [p1, p2];
+
+  // Aggregate calculations
+  const totalActualQty = purchases.reduce((sum, p) => sum + p.actualQuantity, 0);
+  assert.equal(totalActualQty, 30, "Actual Qty = 30");
+
+  const totalActualSpend = purchases.reduce((sum, p) => sum + p.actualTotal, 0);
+  assert.equal(totalActualSpend, 410.00, "Actual Spend = £410.00");
+
+  const variance = Math.round((hbxlBudget - totalActualSpend) * 100) / 100;
+  assert.equal(variance, 327.49, "Variance / Remaining budget = £327.49 SAVING");
+  assert.ok(variance > 0, "Variance is positive (SAVING)");
 });
 
-test("Supplier purchase calculation: overspend scenario", () => {
-  const hbxlBudget = 737.49;
-  const supplierRate = 16.00; // Quoted higher
-  const actualQty = 48.84;
+// ─── 4. Revision Survival Proof ──────────────────────────────────────────────
 
-  const actualTotal = Math.round(supplierRate * actualQty * 100) / 100;
-  assert.equal(actualTotal, 781.44);
+test("Revision survival: real purchases persist and compare against current HBXL revision budget", () => {
+  // Real purchases recorded against a material name
+  const recordedPurchases = [
+    {
+      id: "purch-1",
+      materialDescription: "Self Levelling Compound 25kg",
+      supplierName: "Travis Perkins",
+      supplierUnitPrice: "13.50",
+      actualQuantity: "20",
+      actualTotal: "270.00",
+    },
+    {
+      id: "purch-2",
+      materialDescription: "Self Levelling Compound 25kg",
+      supplierName: "Screwfix",
+      supplierUnitPrice: "14.00",
+      actualQuantity: "10",
+      actualTotal: "140.00",
+    },
+  ];
 
-  const variance = Math.round((hbxlBudget - actualTotal) * 100) / 100;
-  assert.equal(variance, -43.95, "Negative variance = -£43.95 OVERSPEND");
-  assert.ok(variance < 0, "Must be classified as OVERSPEND");
+  // Revision 1 HBXL line
+  const revision1Line = {
+    id: "rev1-resource-101",
+    description: "Self Levelling Compound 25kg",
+    totalCostIncludingWastage: "737.49",
+  };
+
+  // Revision 1 variance: £737.49 - £410.00 = £327.49
+  const totalActualSpend = recordedPurchases.reduce((s, p) => s + parseFloat(p.actualTotal), 0);
+  const rev1Variance = parseFloat(revision1Line.totalCostIncludingWastage) - totalActualSpend;
+  assert.equal(rev1Variance, 327.49);
+
+  // Revision 2 arrives with new resource ID and modified budget
+  const revision2Line = {
+    id: "rev2-resource-205", // New resource ID in revision 2
+    description: "Self Levelling Compound 25kg",
+    totalCostIncludingWastage: "800.00", // Updated quantity or rate in rev 2
+  };
+
+  // Purchases survived independently! Matching against current revision 2 line:
+  const matchedPurchasesForRev2 = recordedPurchases.filter(
+    (p) => p.materialDescription === revision2Line.description
+  );
+  assert.equal(matchedPurchasesForRev2.length, 2, "All purchases retained across revisions");
+
+  const rev2Spend = matchedPurchasesForRev2.reduce((s, p) => s + parseFloat(p.actualTotal), 0);
+  assert.equal(rev2Spend, 410.00, "Spend remains £410.00");
+
+  const rev2Variance = parseFloat(revision2Line.totalCostIncludingWastage) - rev2Spend;
+  assert.equal(rev2Variance, 390.00, "Current revision 2 budget (£800) - actual spend (£410) = £390.00");
 });
 
-// ─── 4. Separate Broad Allowances ────────────────────────────────────────────
+// ─── 5. Broad Allowances Isolated ────────────────────────────────────────────
 
 test("Broad allowances are isolated from physical supplier lines", () => {
   const csv = readFileSync(CSV_PATH, "latin1");

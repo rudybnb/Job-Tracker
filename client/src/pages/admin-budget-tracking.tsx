@@ -190,12 +190,19 @@ function MaterialUpload({ jobId, onImported }: { jobId: string; onImported: () =
   );
 }
 
-interface MaterialActualEntry {
-  supplierName?: string;
-  supplierUnitPrice?: string;
-  actualQuantity?: string;
-  actualTotal?: string;
-  notes?: string;
+interface ActualPurchaseRecord {
+  id: string;
+  jobId: string;
+  budgetResourceId: string | null;
+  materialDescription: string;
+  supplierName: string | null;
+  supplierUnitPrice: string;
+  actualQuantity: string;
+  actualTotal: string;
+  purchaseDate: string | null;
+  paymentStatus: string;
+  notes: string | null;
+  createdAt: string;
 }
 
 function MaterialsCostSheet({
@@ -206,20 +213,31 @@ function MaterialsCostSheet({
 }: {
   jobId: string;
   materialCostRows: any[];
-  materialCostActuals: any[];
+  materialCostActuals: ActualPurchaseRecord[];
   onActualsSaved: () => void;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPhase, setSelectedPhase] = useState<string>("ALL");
-  const [editingActuals, setEditingActuals] = useState<Record<string, MaterialActualEntry>>({});
-  const [savingResourceId, setSavingResourceId] = useState<string | null>(null);
-  const [savedSuccessId, setSavedSuccessId] = useState<string | null>(null);
+  const [addingPurchaseForMaterial, setAddingPurchaseForMaterial] = useState<any | null>(null);
+  const [expandedPurchasesForDesc, setExpandedPurchasesForDesc] = useState<string | null>(null);
 
-  // Map of actuals by resourceId
-  const actualsMap = useMemo(() => {
-    const map: Record<string, any> = {};
+  // Form state for adding purchase
+  const [formSupplier, setFormSupplier] = useState("");
+  const [formPrice, setFormPrice] = useState("");
+  const [formQty, setFormQty] = useState("");
+  const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
+  const [formStatus, setFormStatus] = useState("UNPAID");
+  const [formNotes, setFormNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Group actual purchases by materialDescription (and optionally fallback by budgetResourceId)
+  const purchasesByMaterial = useMemo(() => {
+    const map = new Map<string, ActualPurchaseRecord[]>();
     for (const act of materialCostActuals) {
-      map[act.resourceId] = act;
+      const key = act.materialDescription.trim();
+      const list = map.get(key) ?? [];
+      list.push(act);
+      map.set(key, list);
     }
     return map;
   }, [materialCostActuals]);
@@ -255,57 +273,64 @@ function MaterialsCostSheet({
     });
   }, [physicalRows, selectedPhase, searchTerm]);
 
-  // Helper to get active entry for a row
-  const getEntry = (resourceId: string): MaterialActualEntry => {
-    return editingActuals[resourceId] ?? actualsMap[resourceId] ?? {};
+  // Handle open Add Purchase modal/form
+  const handleOpenAddPurchase = (row: any) => {
+    setAddingPurchaseForMaterial(row);
+    setFormSupplier("");
+    setFormPrice(row.unitRate ?? "");
+    setFormQty(row.orderQtyIncludingWastage ?? "");
+    setFormDate(new Date().toISOString().split("T")[0]);
+    setFormStatus("UNPAID");
+    setFormNotes("");
   };
 
-  // Handle change of inputs
-  const handleFieldChange = (resourceId: string, field: keyof MaterialActualEntry, value: string, defaultQty?: string) => {
-    setEditingActuals((prev) => {
-      const current = { ...getEntry(resourceId), [field]: value };
-      
-      const price = parseFloat(field === "supplierUnitPrice" ? value : (current.supplierUnitPrice ?? "0")) || 0;
-      const qtyStr = field === "actualQuantity" ? value : (current.actualQuantity ?? defaultQty ?? "0");
-      const qty = parseFloat(qtyStr) || 0;
-      
-      if (price > 0 && qty > 0) {
-        current.actualTotal = (price * qty).toFixed(2);
-      } else if (price === 0 || qty === 0) {
-        current.actualTotal = "";
-      }
-
-      return {
-        ...prev,
-        [resourceId]: current,
-      };
-    });
-  };
-
-  const handleSaveRow = async (resource: any) => {
-    const entry = getEntry(resource.id);
-    setSavingResourceId(resource.id);
+  const handleSavePurchase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addingPurchaseForMaterial || !formPrice || !formQty) return;
+    setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/jobs/${jobId}/material-costs/${resource.id}/actual`, {
-        method: "PUT",
+      const unitPriceNum = parseFloat(formPrice) || 0;
+      const qtyNum = parseFloat(formQty) || 0;
+      const calculatedTotal = (unitPriceNum * qtyNum).toFixed(2);
+
+      const res = await fetch(`/api/jobs/${jobId}/material-costs/actuals`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          supplierName: entry.supplierName ?? null,
-          supplierUnitPrice: entry.supplierUnitPrice ?? null,
-          actualQuantity: entry.actualQuantity ?? (entry.supplierUnitPrice ? resource.orderQtyIncludingWastage : null),
-          actualTotal: entry.actualTotal ?? null,
-          notes: entry.notes ?? null,
+          budgetResourceId: addingPurchaseForMaterial.id,
+          materialDescription: addingPurchaseForMaterial.description,
+          supplierName: formSupplier ? formSupplier.trim() : null,
+          supplierUnitPrice: formPrice,
+          actualQuantity: formQty,
+          actualTotal: calculatedTotal,
+          purchaseDate: formDate,
+          paymentStatus: formStatus,
+          notes: formNotes ? formNotes.trim() : null,
         }),
       });
+
       if (res.ok) {
-        setSavedSuccessId(resource.id);
-        setTimeout(() => setSavedSuccessId(null), 2500);
+        setAddingPurchaseForMaterial(null);
         onActualsSaved();
       }
     } catch (err) {
-      console.error("Save actual failed:", err);
+      console.error("Save purchase failed:", err);
     } finally {
-      setSavingResourceId(null);
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeletePurchase = async (purchaseId: string) => {
+    if (!confirm("Are you sure you want to remove this purchase record?")) return;
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/material-costs/actuals/${purchaseId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        onActualsSaved();
+      }
+    } catch (err) {
+      console.error("Delete purchase failed:", err);
     }
   };
 
@@ -315,23 +340,21 @@ function MaterialsCostSheet({
     [physicalRows]
   );
 
+  // Total Actual Spend across all purchases for this job
   const actualMaterialSpend = useMemo(() => {
-    return physicalRows.reduce((sum, r) => {
-      const entry = getEntry(r.id);
-      return sum + (entry.actualTotal ? moneyValue(entry.actualTotal) : 0);
-    }, 0);
-  }, [physicalRows, editingActuals, actualsMap]);
+    return materialCostActuals.reduce((sum, act) => sum + moneyValue(act.actualTotal), 0);
+  }, [materialCostActuals]);
 
-  // Variance: sum of (HBXL budget - Actual Total) for items that have actual supplier pricing entered
+  // Variance: sum of (HBXL budget - Aggregate Actual Total) for items that have actual purchases
   const totalVariance = useMemo(() => {
     return physicalRows.reduce((sum, r) => {
-      const entry = getEntry(r.id);
-      if (!entry.actualTotal || moneyValue(entry.actualTotal) === 0) return sum;
+      const purchases = purchasesByMaterial.get(r.description.trim()) ?? [];
+      if (purchases.length === 0) return sum;
       const hbxlCost = moneyValue(r.totalCostIncludingWastage);
-      const actCost = moneyValue(entry.actualTotal);
+      const actCost = purchases.reduce((s, p) => s + moneyValue(p.actualTotal), 0);
       return sum + (hbxlCost - actCost);
     }, 0);
-  }, [physicalRows, editingActuals, actualsMap]);
+  }, [physicalRows, purchasesByMaterial]);
 
   const remainingBudget = hbxlPhysicalBudget - actualMaterialSpend;
   const allowanceBudget = useMemo(
@@ -340,12 +363,12 @@ function MaterialsCostSheet({
   );
   const totalHbxlReport = hbxlPhysicalBudget + allowanceBudget;
 
-  const countPricedItems = useMemo(() => {
+  const countPurchasedLines = useMemo(() => {
     return physicalRows.filter((r) => {
-      const entry = getEntry(r.id);
-      return entry.actualTotal && moneyValue(entry.actualTotal) > 0;
+      const list = purchasesByMaterial.get(r.description.trim()) ?? [];
+      return list.length > 0;
     }).length;
-  }, [physicalRows, editingActuals, actualsMap]);
+  }, [physicalRows, purchasesByMaterial]);
 
   return (
     <div className="space-y-4">
@@ -362,7 +385,7 @@ function MaterialsCostSheet({
         <div className="rounded-lg border border-blue-500/50 bg-slate-900 p-3 shadow">
           <div className="text-[11px] font-bold uppercase tracking-wider text-blue-400">Actual Material Spend</div>
           <div className="mt-1 text-2xl font-black text-blue-300 font-mono">{formatMoney(actualMaterialSpend)}</div>
-          <div className="mt-1 text-xs text-slate-400">{countPricedItems} of {physicalRows.length} items priced</div>
+          <div className="mt-1 text-xs text-slate-400">{materialCostActuals.length} purchases on {countPurchasedLines} lines</div>
         </div>
 
         {/* Saving / Overspend */}
@@ -378,7 +401,7 @@ function MaterialsCostSheet({
           <div className={`mt-1 text-2xl font-black font-mono ${totalVariance >= 0 ? "text-green-400" : "text-red-400"}`}>
             {totalVariance >= 0 ? `+${formatMoney(totalVariance)}` : `-${formatMoney(Math.abs(totalVariance))}`}
           </div>
-          <div className="mt-1 text-xs text-slate-400">Net variance on priced lines</div>
+          <div className="mt-1 text-xs text-slate-400">Net variance vs HBXL budget</div>
         </div>
 
         {/* Remaining Material Budget */}
@@ -435,99 +458,87 @@ function MaterialsCostSheet({
             <tr className="border-b border-slate-700 bg-slate-800/90 text-slate-300 font-semibold uppercase tracking-wider">
               <th className="py-2.5 px-2 w-10 text-center">#</th>
               <th className="py-2.5 px-3 min-w-[220px]">Material Description</th>
-              <th className="py-2.5 px-2 w-28">Order Qty</th>
+              <th className="py-2.5 px-2 w-24">Order Qty</th>
               <th className="py-2.5 px-2 w-20 text-right">HBXL Rate</th>
               <th className="py-2.5 px-2 w-24 text-right">HBXL Budget</th>
-              <th className="py-2.5 px-2 w-36">Supplier</th>
-              <th className="py-2.5 px-2 w-24">Supplier Price</th>
-              <th className="py-2.5 px-2 w-24">Actual Qty</th>
-              <th className="py-2.5 px-2 w-24 text-right">Actual Total</th>
+              <th className="py-2.5 px-2 w-32">Supplier / Source</th>
+              <th className="py-2.5 px-2 w-20 text-right">Actual Qty</th>
+              <th className="py-2.5 px-2 w-24 text-right">Actual Spend</th>
               <th className="py-2.5 px-2 w-28 text-right">Variance</th>
-              <th className="py-2.5 px-2 w-16 text-center">Action</th>
+              <th className="py-2.5 px-2 w-28 text-center">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
             {filteredPhysicalRows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-8 text-center text-slate-400">
+                <td colSpan={10} className="py-8 text-center text-slate-400">
                   No physical materials match your filter criteria.
                 </td>
               </tr>
             ) : (
               filteredPhysicalRows.map((row) => {
-                const entry = getEntry(row.id);
+                const purchases = purchasesByMaterial.get(row.description.trim()) ?? [];
                 const hbxlBudget = moneyValue(row.totalCostIncludingWastage);
-                const actualTotalVal = entry.actualTotal ? moneyValue(entry.actualTotal) : null;
-                const variance = actualTotalVal !== null ? hbxlBudget - actualTotalVal : null;
+                const actualQty = purchases.reduce((s, p) => s + parseFloat(p.actualQuantity || "0"), 0);
+                const actualSpend = purchases.reduce((s, p) => s + parseFloat(p.actualTotal || "0"), 0);
+                const hasPurchases = purchases.length > 0;
+                const variance = hasPurchases ? hbxlBudget - actualSpend : null;
                 const isSaving = variance !== null && variance >= 0;
-                const isSavingSuccess = savedSuccessId === row.id;
-                const isRowSaving = savingResourceId === row.id;
+                const isExpanded = expandedPurchasesForDesc === row.description;
 
                 return (
                   <tr key={row.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-2 px-2 text-center text-slate-500 font-mono text-[11px]">{row.sourceRowOrder}</td>
-                    <td className="py-2 px-3">
+                    <td className="py-2.5 px-2 text-center text-slate-500 font-mono text-[11px]">{row.sourceRowOrder}</td>
+                    <td className="py-2.5 px-3">
                       <div className="font-semibold text-white leading-tight">{row.description}</div>
                       <div className="text-[10px] text-slate-400 font-medium mt-0.5">{row.buildPhase}</div>
                     </td>
-                    <td className="py-2 px-2 font-mono text-slate-300">
+                    <td className="py-2.5 px-2 font-mono text-slate-300">
                       {row.orderQtyIncludingWastage} <span className="text-slate-500 text-[10px]">{row.unit}</span>
                     </td>
-                    <td className="py-2 px-2 text-right font-mono text-slate-300">£{parseFloat(row.unitRate).toFixed(2)}</td>
-                    <td className="py-2 px-2 text-right font-mono font-bold text-yellow-400">£{hbxlBudget.toFixed(2)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-slate-300">£{parseFloat(row.unitRate).toFixed(2)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono font-bold text-yellow-400">£{hbxlBudget.toFixed(2)}</td>
                     
-                    {/* Supplier Name input */}
-                    <td className="py-2 px-2">
-                      <input
-                        type="text"
-                        placeholder="Supplier..."
-                        value={entry.supplierName ?? ""}
-                        onChange={(e) => handleFieldChange(row.id, "supplierName", e.target.value)}
-                        onBlur={() => handleSaveRow(row)}
-                        className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
-                      />
+                    {/* Supplier / Summary */}
+                    <td className="py-2.5 px-2">
+                      {purchases.length === 1 ? (
+                        <div className="truncate text-slate-200">
+                          <span className="font-medium">{purchases[0].supplierName || "Supplier"}</span>
+                          <span className="text-slate-400 text-[10px] block">£{parseFloat(purchases[0].supplierUnitPrice).toFixed(2)} / {row.unit}</span>
+                        </div>
+                      ) : purchases.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedPurchasesForDesc(isExpanded ? null : row.description)}
+                          className="rounded bg-blue-950/60 border border-blue-600/40 px-2 py-0.5 text-[10px] font-bold text-blue-300 hover:bg-blue-900/60"
+                        >
+                          {purchases.length} purchases ▾
+                        </button>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
+                      )}
                     </td>
 
-                    {/* Supplier Unit Price input */}
-                    <td className="py-2 px-2">
-                      <div className="relative">
-                        <span className="absolute left-1.5 top-1 text-slate-500 text-xs">£</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={entry.supplierUnitPrice ?? ""}
-                          onChange={(e) => handleFieldChange(row.id, "supplierUnitPrice", e.target.value, row.orderQtyIncludingWastage)}
-                          onBlur={() => handleSaveRow(row)}
-                          className="w-full rounded border border-slate-700 bg-slate-950 pl-4 pr-1 py-1 font-mono text-xs text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
-                        />
-                      </div>
-                    </td>
-
-                    {/* Actual Quantity input */}
-                    <td className="py-2 px-2">
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder={row.orderQtyIncludingWastage}
-                        value={entry.actualQuantity ?? ""}
-                        onChange={(e) => handleFieldChange(row.id, "actualQuantity", e.target.value, row.orderQtyIncludingWastage)}
-                        onBlur={() => handleSaveRow(row)}
-                        className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-xs text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
-                      />
-                    </td>
-
-                    {/* Actual Total */}
-                    <td className="py-2 px-2 text-right font-mono font-semibold">
-                      {actualTotalVal !== null ? (
-                        <span className="text-blue-300">£{actualTotalVal.toFixed(2)}</span>
+                    {/* Actual Order Quantity */}
+                    <td className="py-2.5 px-2 text-right font-mono text-slate-200">
+                      {hasPurchases ? (
+                        <span>{actualQty.toFixed(2)} <span className="text-slate-500 text-[10px]">{row.unit}</span></span>
                       ) : (
                         <span className="text-slate-600">—</span>
                       )}
                     </td>
 
-                    {/* Variance */}
-                    <td className="py-2 px-2 text-right font-mono font-bold">
+                    {/* Actual Total Spend */}
+                    <td className="py-2.5 px-2 text-right font-mono font-semibold">
+                      {hasPurchases ? (
+                        <span className="text-blue-300">£{actualSpend.toFixed(2)}</span>
+                      ) : (
+                        <span className="text-slate-600">—</span>
+                      )}
+                    </td>
+
+                    {/* Variance vs HBXL Budget */}
+                    <td className="py-2.5 px-2 text-right font-mono font-bold">
                       {variance !== null ? (
                         <span className={isSaving ? "text-green-400" : "text-red-400"}>
                           {isSaving ? `+£${variance.toFixed(2)}` : `-£${Math.abs(variance).toFixed(2)}`}
@@ -537,21 +548,27 @@ function MaterialsCostSheet({
                       )}
                     </td>
 
-                    {/* Save Action */}
-                    <td className="py-2 px-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleSaveRow(row)}
-                        disabled={isRowSaving}
-                        title="Save Supplier Actuals"
-                        className={`rounded px-2 py-1 text-[10px] font-bold uppercase transition-all ${
-                          isSavingSuccess
-                            ? "bg-green-600 text-white"
-                            : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700"
-                        }`}
-                      >
-                        {isRowSaving ? "..." : isSavingSuccess ? "✓" : "Save"}
-                      </button>
+                    {/* Action Button */}
+                    <td className="py-2.5 px-2 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAddPurchase(row)}
+                          className="rounded border border-yellow-500/50 bg-yellow-500/10 px-2 py-1 text-[11px] font-bold text-yellow-400 hover:bg-yellow-500/20 transition-all"
+                        >
+                          + Purchase
+                        </button>
+                        {purchases.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedPurchasesForDesc(isExpanded ? null : row.description)}
+                            className="rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-[11px] text-slate-300 hover:bg-slate-700"
+                            title="View Purchases"
+                          >
+                            {isExpanded ? "▲" : "▼"}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -560,6 +577,176 @@ function MaterialsCostSheet({
           </tbody>
         </table>
       </div>
+
+      {/* Expanded Purchase Detail Drawer */}
+      {expandedPurchasesForDesc && (() => {
+        const list = purchasesByMaterial.get(expandedPurchasesForDesc.trim()) ?? [];
+        return (
+          <div className="rounded-lg border border-blue-500/40 bg-slate-900 p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div>
+                <h4 className="text-sm font-bold text-blue-400 uppercase tracking-wide">Purchase History: {expandedPurchasesForDesc}</h4>
+                <p className="text-xs text-slate-400">{list.length} separate supplier purchase records</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpandedPurchasesForDesc(null)}
+                className="text-xs text-slate-400 hover:text-white px-2 py-1"
+              >
+                ✕ Close
+              </button>
+            </div>
+            <div className="space-y-2">
+              {list.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded border border-slate-800 bg-slate-950 p-2.5 text-xs">
+                  <div className="space-y-0.5">
+                    <div className="font-semibold text-white">{p.supplierName || "Supplier Unspecified"}</div>
+                    <div className="text-slate-400 text-[11px]">
+                      Date: {p.purchaseDate || "N/A"} · Status: <span className={p.paymentStatus === "PAID" ? "text-green-400" : "text-amber-400"}>{p.paymentStatus}</span>
+                      {p.notes ? ` · Note: ${p.notes}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right font-mono">
+                      <span className="text-slate-400">{p.actualQuantity} @ £{parseFloat(p.supplierUnitPrice).toFixed(2)} = </span>
+                      <span className="font-bold text-blue-300 text-sm">£{parseFloat(p.actualTotal).toFixed(2)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePurchase(p.id)}
+                      className="rounded bg-red-950/40 border border-red-800/40 px-2 py-1 text-[10px] font-bold text-red-400 hover:bg-red-900/60"
+                      title="Delete purchase"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Add Purchase Modal / Inline Form */}
+      {addingPurchaseForMaterial && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white">Record Material Purchase</h3>
+                <p className="text-xs text-yellow-500 font-medium mt-0.5">{addingPurchaseForMaterial.description}</p>
+                <p className="text-[11px] text-slate-400">HBXL Budget: £{parseFloat(addingPurchaseForMaterial.totalCostIncludingWastage).toFixed(2)} ({addingPurchaseForMaterial.orderQtyIncludingWastage} {addingPurchaseForMaterial.unit} @ £{parseFloat(addingPurchaseForMaterial.unitRate).toFixed(2)})</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddingPurchaseForMaterial(null)}
+                className="text-slate-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePurchase} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-300 mb-1 font-semibold">Supplier Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Travis Perkins, Screwfix, Dulux"
+                  value={formSupplier}
+                  onChange={(e) => setFormSupplier(e.target.value)}
+                  className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Supplier Unit Price (£)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    placeholder="0.00"
+                    value={formPrice}
+                    onChange={(e) => setFormPrice(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Quantity ({addingPurchaseForMaterial.unit})</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    placeholder={addingPurchaseForMaterial.orderQtyIncludingWastage}
+                    value={formQty}
+                    onChange={(e) => setFormQty(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded bg-slate-950/80 border border-slate-800 p-2.5 flex items-center justify-between">
+                <span className="text-slate-400 font-semibold">Calculated Total:</span>
+                <span className="text-base font-black font-mono text-blue-300">
+                  {formPrice && formQty ? formatMoney(parseFloat(formPrice) * parseFloat(formQty)) : "£0.00"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Purchase Date</label>
+                  <input
+                    type="date"
+                    value={formDate}
+                    onChange={(e) => setFormDate(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-white focus:border-yellow-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Payment Status</label>
+                  <select
+                    value={formStatus}
+                    onChange={(e) => setFormStatus(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-white focus:border-yellow-500 focus:outline-none"
+                  >
+                    <option value="UNPAID">Unpaid</option>
+                    <option value="PAID">Paid</option>
+                    <option value="PARTIALLY_PAID">Partially Paid</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 mb-1 font-semibold">Notes (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Order reference, invoice #, delivery notes..."
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setAddingPurchaseForMaterial(null)}
+                  className="rounded border border-slate-700 bg-slate-800 px-4 py-2 text-slate-300 hover:bg-slate-700 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded bg-yellow-500 px-4 py-2 text-slate-950 font-bold hover:bg-yellow-400 transition-colors disabled:opacity-50"
+                >
+                  {isSubmitting ? "Saving..." : "Confirm Purchase"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Broad Allowances Section */}
       {allowanceRows.length > 0 && (
@@ -866,7 +1053,7 @@ export default function AdminBudgetTracking() {
     enabled: Boolean(expandedProcurementJobId),
   });
 
-  const { data: materialCostActuals = [], refetch: refetchActuals } = useQuery<any[]>({
+  const { data: materialCostActuals = [], refetch: refetchActuals } = useQuery<ActualPurchaseRecord[]>({
     queryKey: ["/api/jobs", expandedProcurementJobId, "material-costs-actuals"],
     queryFn: async () => {
       if (!expandedProcurementJobId) return [];
@@ -1084,7 +1271,6 @@ export default function AdminBudgetTracking() {
                     const actualLabour = moneyValue(job.actual_labour_cost);
                     const actualMaterial = moneyValue(job.actual_material_cost);
                     const actualPlant = moneyValue(job.actual_plant_cost);
-                    const budgetVariance = quotedValue - actualSpent;
                     const procurementPlan = buildProcurementCostPlan(job.phase_task_data);
                     const procurementOpen = expandedProcurementJobId === job.id;
                     const roomPackageChecklist = buildRoomPackageProcurementChecklist({
