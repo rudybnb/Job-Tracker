@@ -15,6 +15,7 @@ import {
 } from "@shared/weekly-procurement";
 import {
   classifyAllRows,
+  normalizeProductDescription,
   matchWordProductsToCsv,
   allocateRoomBudgets,
   buildWeeklyPricedBudget,
@@ -194,6 +195,7 @@ interface ActualPurchaseRecord {
   id: string;
   jobId: string;
   budgetResourceId: string | null;
+  materialKey: string;
   materialDescription: string;
   supplierName: string | null;
   supplierUnitPrice: string;
@@ -230,11 +232,11 @@ function MaterialsCostSheet({
   const [formNotes, setFormNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Group actual purchases by materialDescription (and optionally fallback by budgetResourceId)
+  // Group actual purchases by stable materialKey (and description fallback)
   const purchasesByMaterial = useMemo(() => {
     const map = new Map<string, ActualPurchaseRecord[]>();
     for (const act of materialCostActuals) {
-      const key = act.materialDescription.trim();
+      const key = act.materialKey || normalizeProductDescription(act.materialDescription);
       const list = map.get(key) ?? [];
       list.push(act);
       map.set(key, list);
@@ -298,6 +300,7 @@ function MaterialsCostSheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           budgetResourceId: addingPurchaseForMaterial.id,
+          materialKey: normalizeProductDescription(addingPurchaseForMaterial.description),
           materialDescription: addingPurchaseForMaterial.description,
           supplierName: formSupplier ? formSupplier.trim() : null,
           supplierUnitPrice: formPrice,
@@ -340,18 +343,25 @@ function MaterialsCostSheet({
     [physicalRows]
   );
 
-  // Total Actual Spend across all purchases for this job
-  const actualMaterialSpend = useMemo(() => {
-    return materialCostActuals.reduce((sum, act) => sum + moneyValue(act.actualTotal), 0);
+  // Active (non-cancelled) purchases for financial calculations
+  const activePurchasesAll = useMemo(() => {
+    return materialCostActuals.filter((act) => act.paymentStatus !== "CANCELLED");
   }, [materialCostActuals]);
 
-  // Variance: sum of (HBXL budget - Aggregate Actual Total) for items that have actual purchases
+  // Total Actual Spend across all active purchases for this job
+  const actualMaterialSpend = useMemo(() => {
+    return activePurchasesAll.reduce((sum, act) => sum + moneyValue(act.actualTotal), 0);
+  }, [activePurchasesAll]);
+
+  // Variance: sum of (HBXL budget - Aggregate Active Spend) for items with active purchases
   const totalVariance = useMemo(() => {
     return physicalRows.reduce((sum, r) => {
-      const purchases = purchasesByMaterial.get(r.description.trim()) ?? [];
-      if (purchases.length === 0) return sum;
+      const normKey = normalizeProductDescription(r.description);
+      const allPurchases = purchasesByMaterial.get(normKey) ?? [];
+      const activePurchases = allPurchases.filter((p) => p.paymentStatus !== "CANCELLED");
+      if (activePurchases.length === 0) return sum;
       const hbxlCost = moneyValue(r.totalCostIncludingWastage);
-      const actCost = purchases.reduce((s, p) => s + moneyValue(p.actualTotal), 0);
+      const actCost = activePurchases.reduce((s, p) => s + moneyValue(p.actualTotal), 0);
       return sum + (hbxlCost - actCost);
     }, 0);
   }, [physicalRows, purchasesByMaterial]);
@@ -365,8 +375,9 @@ function MaterialsCostSheet({
 
   const countPurchasedLines = useMemo(() => {
     return physicalRows.filter((r) => {
-      const list = purchasesByMaterial.get(r.description.trim()) ?? [];
-      return list.length > 0;
+      const normKey = normalizeProductDescription(r.description);
+      const list = purchasesByMaterial.get(normKey) ?? [];
+      return list.some((p) => p.paymentStatus !== "CANCELLED");
     }).length;
   }, [physicalRows, purchasesByMaterial]);
 
@@ -477,12 +488,14 @@ function MaterialsCostSheet({
               </tr>
             ) : (
               filteredPhysicalRows.map((row) => {
-                const purchases = purchasesByMaterial.get(row.description.trim()) ?? [];
+                const normKey = normalizeProductDescription(row.description);
+                const allPurchases = purchasesByMaterial.get(normKey) ?? [];
+                const activePurchases = allPurchases.filter((p) => p.paymentStatus !== "CANCELLED");
                 const hbxlBudget = moneyValue(row.totalCostIncludingWastage);
-                const actualQty = purchases.reduce((s, p) => s + parseFloat(p.actualQuantity || "0"), 0);
-                const actualSpend = purchases.reduce((s, p) => s + parseFloat(p.actualTotal || "0"), 0);
-                const hasPurchases = purchases.length > 0;
-                const variance = hasPurchases ? hbxlBudget - actualSpend : null;
+                const actualQty = activePurchases.reduce((s, p) => s + parseFloat(p.actualQuantity || "0"), 0);
+                const actualSpend = activePurchases.reduce((s, p) => s + parseFloat(p.actualTotal || "0"), 0);
+                const hasActivePurchases = activePurchases.length > 0;
+                const variance = hasActivePurchases ? hbxlBudget - actualSpend : null;
                 const isSaving = variance !== null && variance >= 0;
                 const isExpanded = expandedPurchasesForDesc === row.description;
 
@@ -501,18 +514,22 @@ function MaterialsCostSheet({
                     
                     {/* Supplier / Summary */}
                     <td className="py-2.5 px-2">
-                      {purchases.length === 1 ? (
+                      {allPurchases.length === 1 ? (
                         <div className="truncate text-slate-200">
-                          <span className="font-medium">{purchases[0].supplierName || "Supplier"}</span>
-                          <span className="text-slate-400 text-[10px] block">£{parseFloat(purchases[0].supplierUnitPrice).toFixed(2)} / {row.unit}</span>
+                          <span className="font-medium">{allPurchases[0].supplierName || "Supplier"}</span>
+                          {allPurchases[0].paymentStatus === "CANCELLED" ? (
+                            <span className="text-red-400 text-[10px] block font-bold">CANCELLED</span>
+                          ) : (
+                            <span className="text-slate-400 text-[10px] block">£{parseFloat(allPurchases[0].supplierUnitPrice).toFixed(2)} / {row.unit}</span>
+                          )}
                         </div>
-                      ) : purchases.length > 1 ? (
+                      ) : allPurchases.length > 1 ? (
                         <button
                           type="button"
                           onClick={() => setExpandedPurchasesForDesc(isExpanded ? null : row.description)}
                           className="rounded bg-blue-950/60 border border-blue-600/40 px-2 py-0.5 text-[10px] font-bold text-blue-300 hover:bg-blue-900/60"
                         >
-                          {purchases.length} purchases ▾
+                          {allPurchases.length} purchases ▾
                         </button>
                       ) : (
                         <span className="text-slate-600 text-xs">—</span>
@@ -521,7 +538,7 @@ function MaterialsCostSheet({
 
                     {/* Actual Order Quantity */}
                     <td className="py-2.5 px-2 text-right font-mono text-slate-200">
-                      {hasPurchases ? (
+                      {hasActivePurchases ? (
                         <span>{actualQty.toFixed(2)} <span className="text-slate-500 text-[10px]">{row.unit}</span></span>
                       ) : (
                         <span className="text-slate-600">—</span>
@@ -530,7 +547,7 @@ function MaterialsCostSheet({
 
                     {/* Actual Total Spend */}
                     <td className="py-2.5 px-2 text-right font-mono font-semibold">
-                      {hasPurchases ? (
+                      {hasActivePurchases ? (
                         <span className="text-blue-300">£{actualSpend.toFixed(2)}</span>
                       ) : (
                         <span className="text-slate-600">—</span>
@@ -558,7 +575,7 @@ function MaterialsCostSheet({
                         >
                           + Purchase
                         </button>
-                        {purchases.length > 0 && (
+                        {allPurchases.length > 0 && (
                           <button
                             type="button"
                             onClick={() => setExpandedPurchasesForDesc(isExpanded ? null : row.description)}
@@ -580,7 +597,8 @@ function MaterialsCostSheet({
 
       {/* Expanded Purchase Detail Drawer */}
       {expandedPurchasesForDesc && (() => {
-        const list = purchasesByMaterial.get(expandedPurchasesForDesc.trim()) ?? [];
+        const normKey = normalizeProductDescription(expandedPurchasesForDesc);
+        const list = purchasesByMaterial.get(normKey) ?? [];
         return (
           <div className="rounded-lg border border-blue-500/40 bg-slate-900 p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -602,7 +620,7 @@ function MaterialsCostSheet({
                   <div className="space-y-0.5">
                     <div className="font-semibold text-white">{p.supplierName || "Supplier Unspecified"}</div>
                     <div className="text-slate-400 text-[11px]">
-                      Date: {p.purchaseDate || "N/A"} · Status: <span className={p.paymentStatus === "PAID" ? "text-green-400" : "text-amber-400"}>{p.paymentStatus}</span>
+                      Date: {p.purchaseDate || "N/A"} · Status: <span className={p.paymentStatus === "PAID" ? "text-green-400 font-bold" : p.paymentStatus === "CANCELLED" ? "text-red-400 font-bold" : "text-amber-400 font-bold"}>{p.paymentStatus}{p.paymentStatus === "CANCELLED" ? " (EXCLUDED FROM TOTALS)" : ""}</span>
                       {p.notes ? ` · Note: ${p.notes}` : ""}
                     </div>
                   </div>
@@ -712,6 +730,7 @@ function MaterialsCostSheet({
                     <option value="UNPAID">Unpaid</option>
                     <option value="PAID">Paid</option>
                     <option value="PARTIALLY_PAID">Partially Paid</option>
+                    <option value="CANCELLED">Cancelled (Excluded from spend)</option>
                   </select>
                 </div>
               </div>

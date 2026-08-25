@@ -6,12 +6,13 @@ BEGIN
         "id" varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         "job_id" varchar NOT NULL REFERENCES "jobs"("id") ON DELETE CASCADE,
         "budget_resource_id" varchar REFERENCES "job_material_cost_resources"("id") ON DELETE SET NULL,
+        "material_key" text NOT NULL,
         "material_description" text NOT NULL,
         "supplier_name" text,
-        "supplier_unit_price" text NOT NULL,
-        "actual_quantity" text NOT NULL,
-        "actual_total" text NOT NULL,
-        "purchase_date" text,
+        "supplier_unit_price" numeric(12,2) NOT NULL,
+        "actual_quantity" numeric(14,4) NOT NULL,
+        "actual_total" numeric(14,2) NOT NULL,
+        "purchase_date" date,
         "payment_status" text NOT NULL DEFAULT 'UNPAID',
         "notes" text,
         "created_at" timestamptz NOT NULL DEFAULT now(),
@@ -21,7 +22,7 @@ BEGIN
       )
     $ddl$;
     EXECUTE 'CREATE INDEX IF NOT EXISTS "job_material_cost_actuals_job_idx" ON "job_material_cost_actuals" ("job_id")';
-    EXECUTE 'CREATE INDEX IF NOT EXISTS "job_material_cost_actuals_job_material_idx" ON "job_material_cost_actuals" ("job_id", "material_description")';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS "job_material_cost_actuals_job_material_key_idx" ON "job_material_cost_actuals" ("job_id", "material_key")';
     EXECUTE 'CREATE INDEX IF NOT EXISTS "job_material_cost_actuals_budget_resource_idx" ON "job_material_cost_actuals" ("budget_resource_id")';
   END IF;
 END

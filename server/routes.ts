@@ -1106,6 +1106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { jobId } = req.params;
       const {
         budgetResourceId,
+        materialKey,
         materialDescription,
         supplierName,
         supplierUnitPrice,
@@ -1120,21 +1121,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "materialDescription, supplierUnitPrice, and actualQuantity are required" });
       }
 
-      const calculatedTotal = actualTotal != null
-        ? String(actualTotal)
-        : (parseFloat(supplierUnitPrice) * parseFloat(actualQuantity)).toFixed(2);
+      const rawKey = materialKey || normalizeProductDescription(materialDescription);
+      const computedKey = rawKey.trim();
+
+      const priceNum = parseFloat(supplierUnitPrice) || 0;
+      const qtyNum = parseFloat(actualQuantity) || 0;
+      const totalNum = actualTotal != null ? parseFloat(actualTotal) : Math.round(priceNum * qtyNum * 100) / 100;
 
       const [inserted] = await db
         .insert(jobMaterialCostActuals)
         .values({
           jobId,
           budgetResourceId: budgetResourceId ?? null,
+          materialKey: computedKey,
           materialDescription: materialDescription.trim(),
           supplierName: supplierName ? supplierName.trim() : null,
-          supplierUnitPrice: String(supplierUnitPrice),
-          actualQuantity: String(actualQuantity),
-          actualTotal: calculatedTotal,
-          purchaseDate: purchaseDate ?? new Date().toISOString().split("T")[0],
+          supplierUnitPrice: priceNum.toFixed(2),
+          actualQuantity: qtyNum.toFixed(4),
+          actualTotal: totalNum.toFixed(2),
+          purchaseDate: purchaseDate ? purchaseDate : new Date().toISOString().split("T")[0],
           paymentStatus: paymentStatus ?? "UNPAID",
           notes: notes ?? null,
         })
