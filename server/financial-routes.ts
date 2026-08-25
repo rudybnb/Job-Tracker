@@ -1,8 +1,126 @@
 import { Express, Request, Response } from "express";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { calculateBudgetTrackingCommercialSummary, formatMoneyField } from "@shared/budget-tracking";
 
 const PAYMENT_STATUSES = new Set(["PENDING", "SCHEDULED", "PAID", "FAILED", "CANCELLED", "REVERSED"]);
+
+interface BudgetTrackingActuals {
+  total: number;
+  labour: number;
+  material: number;
+  plant: number;
+}
+
+function emptyActuals(): BudgetTrackingActuals {
+  return { total: 0, labour: 0, material: 0, plant: 0 };
+}
+
+function actualAmount(value: unknown): number {
+  const amount = Number(value ?? 0);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function addActuals(
+  actualsByJobId: Map<string, BudgetTrackingActuals>,
+  jobId: unknown,
+  values: Partial<BudgetTrackingActuals>,
+) {
+  if (jobId === null || jobId === undefined) return;
+  const key = String(jobId);
+  const current = actualsByJobId.get(key) ?? emptyActuals();
+  actualsByJobId.set(key, {
+    total: current.total + actualAmount(values.total),
+    labour: current.labour + actualAmount(values.labour),
+    material: current.material + actualAmount(values.material),
+    plant: current.plant + actualAmount(values.plant),
+  });
+}
+
+async function existingFinancialTables(): Promise<Set<string>> {
+  const rows = await db.execute(sql`
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name IN ('labour_settlements', 'supplier_invoice', 'supplier_invoice_line', 'contractor_valuation', 'contractor_valuation_line')
+  `);
+  return new Set(rows.map((row) => String((row as Record<string, unknown>).table_name)));
+}
+
+async function loadBudgetTrackingActuals(): Promise<Map<string, BudgetTrackingActuals>> {
+  const tables = await existingFinancialTables();
+  const actualsByJobId = new Map<string, BudgetTrackingActuals>();
+
+  if (tables.has("labour_settlements")) {
+    const rows = await db.execute(sql`
+      SELECT job_id, COALESCE(SUM(gross_amount) FILTER (WHERE status = 'APPROVED'), 0)::numeric AS total
+      FROM labour_settlements
+      GROUP BY job_id
+    `);
+    for (const row of rows) {
+      const values = row as Record<string, unknown>;
+      addActuals(actualsByJobId, values.job_id, { total: actualAmount(values.total), labour: actualAmount(values.total) });
+    }
+  }
+
+  if (tables.has("supplier_invoice") && tables.has("supplier_invoice_line")) {
+    const rows = await db.execute(sql`
+      SELECT invoice.job_id, COALESCE(SUM(line.actual_line_value) FILTER (WHERE invoice.status = 'APPROVED'), 0)::numeric AS total
+      FROM supplier_invoice invoice
+      JOIN supplier_invoice_line line ON line.supplier_invoice_id = invoice.id
+      GROUP BY invoice.job_id
+    `);
+    for (const row of rows) {
+      const values = row as Record<string, unknown>;
+      addActuals(actualsByJobId, values.job_id, { total: actualAmount(values.total), material: actualAmount(values.total) });
+    }
+  }
+
+  if (tables.has("contractor_valuation") && tables.has("contractor_valuation_line")) {
+    const rows = await db.execute(sql`
+      SELECT valuation.job_id, COALESCE(SUM(line.current_value) FILTER (WHERE valuation.status = 'APPROVED'), 0)::numeric AS total
+      FROM contractor_valuation valuation
+      JOIN contractor_valuation_line line ON line.contractor_valuation_id = valuation.id
+      GROUP BY valuation.job_id
+    `);
+    for (const row of rows) {
+      const values = row as Record<string, unknown>;
+      addActuals(actualsByJobId, values.job_id, { total: actualAmount(values.total) });
+    }
+  }
+
+  return actualsByJobId;
+}
+
+function enrichBudgetTrackingJob(row: Record<string, unknown>) {
+  const commercial = calculateBudgetTrackingCommercialSummary(row);
+  const actualCostField = (value: unknown) => formatMoneyField(actualAmount(value)) ?? "0.00";
+
+  return {
+    ...row,
+    client_quote: formatMoneyField(commercial.clientQuote),
+    estimated_cost: formatMoneyField(commercial.estimatedCost),
+    estimated_labour_cost: formatMoneyField(commercial.estimatedLabourCost),
+    estimated_material_cost: formatMoneyField(commercial.estimatedMaterialCost),
+    estimated_plant_cost: formatMoneyField(commercial.estimatedPlantCost),
+    estimated_subcontractor_cost: formatMoneyField(commercial.estimatedSubcontractorCost),
+    estimated_other_cost: formatMoneyField(commercial.estimatedOtherCost),
+    actual_spent: formatMoneyField(commercial.actualSpent),
+    total_actual_cost: formatMoneyField(commercial.actualSpent),
+    forecast_gross_profit: formatMoneyField(commercial.forecastGrossProfit),
+    forecast_margin_percentage: formatMoneyField(commercial.forecastMarginPercent),
+    // Preserve the legacy/manual budget field shape without redefining it as quote or estimate.
+    total_budget: "0.00",
+    labour_budget: "0.00",
+    material_budget: "0.00",
+    plant_budget: "0.00",
+    actual_labour_cost: actualCostField(row.actual_labour_cost),
+    actual_material_cost: actualCostField(row.actual_material_cost),
+    actual_plant_cost: actualCostField(row.actual_plant_cost),
+    profit_loss: formatMoneyField(commercial.forecastGrossProfit) ?? "0.00",
+    profit_loss_percentage: formatMoneyField(commercial.forecastMarginPercent) ?? "0.00",
+  };
+}
 
 function legacyPaymentStatus(value: unknown): string {
   const normalized = String(value ?? "PAID").toUpperCase();
@@ -30,10 +148,38 @@ export function setupFinancialRoutes(app: Express) {
    */
   app.get("/api/financial/clients", async (req: Request, res: Response) => {
     try {
-      const clients = await db.execute(sql`
-        SELECT * FROM clients ORDER BY created_at DESC
-      `);
-      res.json(clients);
+      const [clients, jobRows, actualsByJobId] = await Promise.all([
+        db.execute(sql`
+          SELECT c.*
+          FROM clients c
+          ORDER BY c.created_at DESC
+        `),
+        db.execute(sql`
+          SELECT id, client_id, status
+          FROM jobs
+          WHERE client_id IS NOT NULL
+        `),
+        loadBudgetTrackingActuals(),
+      ]);
+
+      const jobsByClientId = new Map<string, Array<Record<string, unknown>>>();
+      for (const jobRow of jobRows) {
+        const job = jobRow as Record<string, unknown>;
+        const clientId = job.client_id === null || job.client_id === undefined ? null : String(job.client_id);
+        if (!clientId) continue;
+        jobsByClientId.set(clientId, [...(jobsByClientId.get(clientId) ?? []), job]);
+      }
+
+      res.json(clients.map((clientRow) => {
+        const client = clientRow as Record<string, unknown>;
+        const clientJobs = jobsByClientId.get(String(client.id)) ?? [];
+        const totalSpent = clientJobs.reduce((sum, job) => sum + (actualsByJobId.get(String(job.id))?.total ?? 0), 0);
+        return {
+          ...client,
+          active_jobs: clientJobs.filter((job) => String(job.status ?? "").toLowerCase() !== "completed").length,
+          total_spent: formatMoneyField(totalSpent),
+        };
+      }));
     } catch (error) {
       console.error("Error fetching clients:", error);
       res.status(500).json({ error: "Failed to fetch clients" });
@@ -155,13 +301,37 @@ export function setupFinancialRoutes(app: Express) {
    */
   app.get("/api/financial/jobs", async (req: Request, res: Response) => {
     try {
-      const jobs = await db.execute(sql`
-        SELECT j.*, c.name as client_name
+      const [rows, actualsByJobId] = await Promise.all([
+        db.execute(sql`
+        SELECT
+          j.id,
+          j.client_id,
+          j.title AS job_name,
+          j.description AS job_description,
+          j.location AS job_address,
+          j.status,
+          j.start_date,
+          j.due_date AS estimated_end_date,
+          j.quoted_amount,
+          j.phase_task_data,
+          c.name AS client_name
         FROM jobs j
         LEFT JOIN clients c ON j.client_id = c.id
-        ORDER BY j.created_at DESC
-      `);
-      res.json(jobs);
+        ORDER BY j.title, j.id
+        `),
+        loadBudgetTrackingActuals(),
+      ]);
+      res.json(rows.map((row) => {
+        const job = row as Record<string, unknown>;
+        const actuals = actualsByJobId.get(String(job.id)) ?? emptyActuals();
+        return enrichBudgetTrackingJob({
+          ...job,
+          actual_labour_cost: actuals.labour,
+          actual_material_cost: actuals.material,
+          actual_plant_cost: actuals.plant,
+          total_actual_cost: actuals.total,
+        });
+      }));
     } catch (error) {
       console.error("Error fetching jobs:", error);
       res.status(500).json({ error: "Failed to fetch jobs" });
