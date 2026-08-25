@@ -74,6 +74,16 @@ test("budget tracking procurement UI uses tabs and budget wording", () => {
   assert.match(source, /ALL JOB/);
   assert.match(source, /Room \/ Package Procurement Checklist/i);
   assert.match(source, /Quantity: To confirm/);
+  assert.match(source, /WHOLE JOB MATERIAL BUDGET/);
+  assert.match(source, /WHOLE JOB LABOUR BUDGET/);
+  assert.match(source, /WHOLE JOB PLANT BUDGET/);
+  assert.match(source, /WHOLE JOB SUBCONTRACTOR BUDGET/);
+  assert.match(source, /PLANNED WORK/);
+  assert.match(source, /Package Budget/i);
+  assert.match(source, /Not allocated from source/);
+  assert.match(source, /Room\/package resource lists come from the Word quote/);
+  assert.match(source, /Smart Schedule pricing is currently project-level and is not allocated to individual rooms/);
+  assert.match(source, /cannot yet be reliably allocated to this room\/package/);
   assert.match(source, /useState<ProcurementTimeFilter>\("next-7-days"\)/);
   assert.doesNotMatch(source, /Purchase Price/i);
 });

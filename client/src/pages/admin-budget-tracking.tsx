@@ -91,6 +91,12 @@ const PROCUREMENT_TAB_LABELS: Record<ProcurementSectionKey, string> = {
   plant: "PLANT / HIRE",
   subcontractors: "SUBCONTRACTORS",
 };
+const PROCUREMENT_BUDGET_LABELS: Record<ProcurementSectionKey, string> = {
+  materials: "WHOLE JOB MATERIAL BUDGET",
+  labour: "WHOLE JOB LABOUR BUDGET",
+  plant: "WHOLE JOB PLANT BUDGET",
+  subcontractors: "WHOLE JOB SUBCONTRACTOR BUDGET",
+};
 const PROCUREMENT_TIME_FILTERS: Array<{ key: ProcurementTimeFilter; label: string }> = [
   { key: "next-7-days", label: "NEXT 7 DAYS" },
   { key: "next-week", label: "NEXT WEEK" },
@@ -132,6 +138,13 @@ function RoomPackageChecklist({ items }: { items: RoomPackageProcurementChecklis
                   ))}
                 </ul>
               )}
+              <div className="mt-3 border-t border-slate-700 pt-3">
+                <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Package Budget</div>
+                <div className="text-sm font-semibold text-white">Not allocated from source</div>
+                <p className="mt-1 text-xs text-slate-500">
+                  HBXL/Smart Schedule cost exists at project level but cannot yet be reliably allocated to this room/package.
+                </p>
+              </div>
             </article>
           ))}
         </div>
@@ -684,6 +697,28 @@ export default function AdminBudgetTracking() {
                               </div>
 
                               <div role="tabpanel" className="space-y-4">
+                                <section className="rounded-lg border border-yellow-500 bg-slate-900 p-4">
+                                  <div className={`grid gap-4 ${activeProcurementTab === "materials" ? "md:grid-cols-2" : "grid-cols-1"}`}>
+                                    <div>
+                                      <div className="text-xs font-bold tracking-wide text-yellow-500">{PROCUREMENT_BUDGET_LABELS[activeProcurementTab]}</div>
+                                      <div className="mt-1 text-2xl font-bold text-white">{formatMoney(procurementPlan[activeProcurementTab].total)}</div>
+                                    </div>
+                                    {activeProcurementTab === "materials" && (
+                                      <div>
+                                        <div className="text-xs font-bold tracking-wide text-yellow-500">
+                                          {PROCUREMENT_TIME_FILTERS.find((filter) => filter.key === activeProcurementTimeFilter)?.label} PLANNED WORK
+                                        </div>
+                                        <div className="mt-1 text-2xl font-bold text-white">{roomPackageChecklist.length}</div>
+                                        <div className="text-xs text-slate-400">scheduled rooms/packages</div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {activeProcurementTab === "materials" && (
+                                    <p className="mt-4 border-t border-slate-700 pt-3 text-sm text-slate-300">
+                                      Room/package resource lists come from the Word quote. Smart Schedule pricing is currently project-level and is not allocated to individual rooms.
+                                    </p>
+                                  )}
+                                </section>
                                 {activeProcurementTab === "materials" && (
                                   checklistLoading ? (
                                     <div className="rounded-lg border border-slate-600 bg-slate-800 p-3 text-sm text-slate-400">Loading scheduled room/package resources...</div>
