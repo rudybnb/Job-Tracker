@@ -49,6 +49,7 @@ export default function Jobs() {
   const renderAssignmentGroup = (group: WorkerAssignment[]) => {
     const assignment = group[0];
     const structured = isStructuredAssignment(assignment);
+    const statusOrder = ["assigned", "in_progress", "awaiting_approval", "approved", "rework_required"];
     const counts = group.reduce<Record<string, number>>((result, row) => {
       result[row.status] = (result[row.status] || 0) + 1;
       return result;
@@ -75,9 +76,9 @@ export default function Jobs() {
             {structured ? (
               <div className="rounded-lg border-2 border-slate-500 bg-slate-950/60 p-3">
                 <strong className="block text-base text-white">{approved} of {group.length} approved</strong>
-                <div className="mt-2 flex flex-wrap gap-2 text-sm font-bold text-slate-200">
-                  {Object.entries(counts).map(([status, count]) => (
-                    <span key={status}>{count} {status.replaceAll("_", " ").toUpperCase()}</span>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {statusOrder.filter((status) => counts[status]).map((status) => (
+                    <AssignmentStatusBadge key={status} status={status} count={counts[status]} />
                   ))}
                 </div>
                 <div className="mt-3 space-y-3">

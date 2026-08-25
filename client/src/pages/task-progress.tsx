@@ -707,9 +707,9 @@ export default function TaskProgress() {
                     <p className="text-slate-300 text-sm mb-3">{task.description}</p>
 
                     {task.lifecycleStatus === "rework_required" && task.statusNote && (
-                      <div className="mb-4 rounded-lg border-2 border-red-400 bg-red-950 p-3 text-red-100" role="alert">
+                      <div className="mb-4 rounded-[var(--sp-radius-lg)] border border-[var(--sp-color-danger-rule)] bg-[var(--sp-color-danger-soft)] p-3 text-[var(--sp-color-danger)]" role="alert">
                         <strong className="block text-sm uppercase tracking-wide">Manager rework note</strong>
-                        <p className="mt-1 text-sm">{task.statusNote}</p>
+                        <p className="mt-1 text-sm text-[var(--sp-color-ink)]">{task.statusNote}</p>
                       </div>
                     )}
                     {task.saveState === "error" && (
@@ -729,7 +729,7 @@ export default function TaskProgress() {
                         )}
                         {task.lifecycleStatus === "in_progress" && (
                           <Button
-                            className="w-full bg-fuchsia-600 font-extrabold text-white hover:bg-fuchsia-500"
+                            className="w-full bg-[var(--sp-color-accent)] font-extrabold text-[var(--sp-color-accent-ink)] hover:bg-[var(--sp-color-focus)]"
                             disabled={task.saveState === "saving"}
                             onClick={() => transitionStructuredTask(task, "awaiting_approval")}
                           >
@@ -737,14 +737,15 @@ export default function TaskProgress() {
                           </Button>
                         )}
                         {task.lifecycleStatus === "awaiting_approval" && (
-                          <p className="rounded-lg border-2 border-fuchsia-400 bg-fuchsia-950 p-3 text-center font-bold text-fuchsia-100">
-                            AWAITING APPROVAL. This work remains visible until a manager signs it off.
-                          </p>
+                          <div className="rounded-[var(--sp-radius-lg)] border border-[var(--sp-color-accent-rule)] bg-[var(--sp-color-warn-soft)] p-3 text-center">
+                            <AssignmentStatusBadge status="awaiting_approval" />
+                            <p className="mt-2 font-bold text-[var(--sp-color-ink)]">AWAITING APPROVAL. This work remains visible until a manager signs it off.</p>
+                          </div>
                         )}
                         {task.lifecycleStatus === "approved" && (
-                          <p className="rounded-lg border-2 border-emerald-400 bg-emerald-950 p-3 text-center font-bold text-emerald-100">
-                            APPROVED ✓
-                          </p>
+                          <div className="rounded-[var(--sp-radius-lg)] border border-[var(--sp-color-success-rule)] bg-[var(--sp-color-success-soft)] p-3 text-center">
+                            <AssignmentStatusBadge status="approved" />
+                          </div>
                         )}
                       </div>
                     )}

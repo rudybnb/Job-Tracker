@@ -287,19 +287,20 @@ export default function JobAssignments() {
                     <h3 className="text-lg font-extrabold text-white">{group.workerName} — {group.jobName}</h3>
                     <p className="mt-1 font-semibold text-slate-300">{group.roomCount} rooms · {group.workItemCount} work items</p>
                   </div>
-                  <div className="flex flex-wrap gap-2 text-sm font-bold">
-                    <span className="rounded border border-amber-400 bg-amber-950 px-2 py-1 text-amber-100">{group.counts.in_progress || 0} In Progress</span>
-                    <span className="rounded border-2 border-fuchsia-300 bg-fuchsia-950 px-2 py-1 text-fuchsia-100">{group.counts.awaiting_approval || 0} Awaiting Approval</span>
-                    <span className="rounded border border-emerald-400 bg-emerald-950 px-2 py-1 text-emerald-100">{group.counts.approved || 0} Approved</span>
-                    <span className="rounded border border-red-400 bg-red-950 px-2 py-1 text-red-100">{group.counts.rework_required || 0} Rework Required</span>
+                  <div className="flex flex-wrap gap-2">
+                    <AssignmentStatusBadge status="assigned" count={group.counts.assigned || 0} />
+                    <AssignmentStatusBadge status="in_progress" count={group.counts.in_progress || 0} />
+                    <AssignmentStatusBadge status="awaiting_approval" count={group.counts.awaiting_approval || 0} />
+                    <AssignmentStatusBadge status="approved" count={group.counts.approved || 0} />
+                    <AssignmentStatusBadge status="rework_required" count={group.counts.rework_required || 0} />
                   </div>
                 </div>
 
                 {(group.counts.awaiting_approval || 0) > 0 && (
-                  <div className="mt-4 space-y-3 border-t-2 border-fuchsia-700 pt-4">
-                    <h4 className="font-extrabold uppercase tracking-wide text-fuchsia-200">Awaiting Approval</h4>
+                  <div className="mt-4 space-y-3 border-t-2 border-[var(--sp-color-accent-rule)] pt-4">
+                    <h4 className="font-extrabold uppercase tracking-wide text-[var(--sp-color-accent)]">Awaiting Approval</h4>
                     {group.assignments.filter((assignment) => assignment.status === "awaiting_approval").map((assignment) => (
-                      <div key={assignment.id} className="rounded-lg border-2 border-fuchsia-400 bg-slate-900 p-3">
+                      <div key={assignment.id} className="rounded-[var(--sp-radius-lg)] border border-[var(--sp-color-accent-rule)] bg-[var(--sp-color-panel)] p-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
                             <strong className="text-white">{assignment.locationName || assignment.workLocation}</strong>

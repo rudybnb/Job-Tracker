@@ -8,6 +8,7 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const taskPage = readFileSync(path.join(root, "client", "src", "pages", "task-progress.tsx"), "utf8");
 const jobsPage = readFileSync(path.join(root, "client", "src", "pages", "jobs.tsx"), "utf8");
 const adminPage = readFileSync(path.join(root, "client", "src", "pages", "job-assignments.tsx"), "utf8");
+const statusBadge = readFileSync(path.join(root, "client", "src", "components", "assignment-status-badge.tsx"), "utf8");
 const routes = readFileSync(path.join(root, "server", "routes.ts"), "utf8");
 const workerRoutes = readFileSync(path.join(root, "server", "worker-routes.ts"), "utf8");
 const workerService = readFileSync(path.join(root, "server", "worker-service.ts"), "utf8");
@@ -48,4 +49,22 @@ test("staff UI provides concise counts and authenticated approve or rework actio
   assert.match(workerRoutes, /router\.use\(requireAdmin/);
   assert.match(workerService, /if \(a\.jobId && a\.locationId && a\.locationTaskId\) return false/);
   assert.match(workerService, /if \(!isStructuredAssignment && \(matchPhone \|\| matchName\)\)/);
+});
+
+test("lifecycle status UI uses one Sculpt Projects badge palette without fuchsia theme", () => {
+  assert.match(statusBadge, /--sp-color-surface-muted/);
+  assert.match(statusBadge, /--sp-color-accent-soft/);
+  assert.match(statusBadge, /--sp-color-warn-soft/);
+  assert.match(statusBadge, /--sp-color-success-soft/);
+  assert.match(statusBadge, /--sp-color-danger-soft/);
+  assert.match(statusBadge, /CheckCircle2/);
+  assert.match(statusBadge, /Clock3/);
+  assert.match(statusBadge, /RotateCcw/);
+  assert.doesNotMatch(statusBadge, /fuchsia|sky-950|amber-950/);
+  assert.doesNotMatch(taskPage, /fuchsia/);
+  assert.doesNotMatch(adminPage, /fuchsia/);
+  assert.match(jobsPage, /AssignmentStatusBadge key=\{status\} status=\{status\} count=\{counts\[status\]\}/);
+  assert.match(adminPage, /AssignmentStatusBadge status="awaiting_approval" count=\{group\.counts\.awaiting_approval \|\| 0\}/);
+  assert.match(taskPage, /AssignmentStatusBadge status="awaiting_approval"/);
+  assert.match(taskPage, /AssignmentStatusBadge status="approved"/);
 });
