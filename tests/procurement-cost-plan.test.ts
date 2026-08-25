@@ -69,5 +69,11 @@ test("budget tracking procurement UI uses tabs and budget wording", () => {
   assert.match(source, /SUBCONTRACTORS/);
   assert.match(source, /Budget Rate/);
   assert.match(source, /Budget Total/);
+  assert.match(source, /NEXT 7 DAYS/);
+  assert.match(source, /NEXT WEEK/);
+  assert.match(source, /ALL JOB/);
+  assert.match(source, /Room \/ Package Procurement Checklist/i);
+  assert.match(source, /Quantity: To confirm/);
+  assert.match(source, /useState<ProcurementTimeFilter>\("next-7-days"\)/);
   assert.doesNotMatch(source, /Purchase Price/i);
 });

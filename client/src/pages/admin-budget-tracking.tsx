@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { buildProcurementCostPlan, type ProcurementSectionKey, type ProcurementCostPlanSection } from "@shared/procurement-cost-plan";
+import {
+  buildRoomPackageProcurementChecklist,
+  type ProcurementAssignment,
+  type ProcurementLocation,
+  type ProcurementLocationTask,
+  type ProcurementTimeFilter,
+  type RoomPackageProcurementChecklist,
+} from "@shared/weekly-procurement";
 import "./hallmark-sweep.css";
 
 interface Client {
@@ -83,6 +91,54 @@ const PROCUREMENT_TAB_LABELS: Record<ProcurementSectionKey, string> = {
   plant: "PLANT / HIRE",
   subcontractors: "SUBCONTRACTORS",
 };
+const PROCUREMENT_TIME_FILTERS: Array<{ key: ProcurementTimeFilter; label: string }> = [
+  { key: "next-7-days", label: "NEXT 7 DAYS" },
+  { key: "next-week", label: "NEXT WEEK" },
+  { key: "all-job", label: "ALL JOB" },
+];
+
+function RoomPackageChecklist({ items }: { items: RoomPackageProcurementChecklist[] }) {
+  return (
+    <section className="rounded-lg border border-yellow-500/60 bg-yellow-950/20 p-3">
+      <div className="mb-3">
+        <h4 className="text-sm font-bold uppercase tracking-wide text-yellow-500">Room / Package Procurement Checklist</h4>
+        <p className="mt-1 text-xs text-slate-400">Assignment dates determine visibility. Word references are unpriced and quantities must be confirmed.</p>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-slate-400">No structured room/work packages are scheduled in this period.</p>
+      ) : (
+        <div className="space-y-3">
+          {items.map((item) => (
+            <article key={item.locationTaskId} className="rounded-md border border-slate-700 bg-slate-900 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wide text-yellow-500">{item.locationName}</div>
+                  <div className="font-semibold text-white">{item.workPackage}</div>
+                </div>
+                <div className="text-xs text-slate-400">Assigned: {item.startDate} to {item.endDate}</div>
+              </div>
+              {item.resources.length === 0 ? (
+                <p className="mt-3 text-sm text-slate-400">No Word resource references retained for this package.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {item.resources.map((resource, index) => (
+                    <li key={`${item.locationTaskId}-${resource}-${index}`} className="flex items-start gap-2 text-sm">
+                      <span className="mt-0.5 h-4 w-4 shrink-0 rounded border border-slate-500" aria-hidden="true" />
+                      <div>
+                        <div className="text-slate-100">{resource}</div>
+                        <div className="text-xs text-slate-500">Quantity: To confirm</div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function ProcurementSection({ section }: { section: ProcurementCostPlanSection }) {
   return (
@@ -155,6 +211,7 @@ export default function AdminBudgetTracking() {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [expandedProcurementJobId, setExpandedProcurementJobId] = useState<string | null>(null);
   const [activeProcurementTab, setActiveProcurementTab] = useState<ProcurementSectionKey>("materials");
+  const [activeProcurementTimeFilter, setActiveProcurementTimeFilter] = useState<ProcurementTimeFilter>("next-7-days");
 
   // Fetch all clients
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
@@ -166,6 +223,33 @@ export default function AdminBudgetTracking() {
   const { data: allJobs = [] } = useQuery<Job[]>({
     queryKey: ["/api/financial/jobs"],
     refetchInterval: 30000,
+  });
+
+  const { data: procurementAssignments = [], isPending: assignmentsLoading, isError: assignmentsFailed } = useQuery<ProcurementAssignment[]>({
+    queryKey: ["/api/job-assignments"],
+    enabled: Boolean(expandedProcurementJobId),
+  });
+
+  const { data: procurementLocations = [], isPending: locationsLoading, isError: locationsFailed } = useQuery<ProcurementLocation[]>({
+    queryKey: ["/api/jobs", expandedProcurementJobId, "procurement-locations"],
+    queryFn: async () => {
+      if (!expandedProcurementJobId) return [];
+      const response = await fetch(`/api/jobs/${expandedProcurementJobId}/locations`);
+      if (!response.ok) throw new Error("Failed to load job locations");
+      return response.json();
+    },
+    enabled: Boolean(expandedProcurementJobId),
+  });
+
+  const { data: procurementTasks = [], isPending: tasksLoading, isError: tasksFailed } = useQuery<ProcurementLocationTask[]>({
+    queryKey: ["/api/jobs", expandedProcurementJobId, "procurement-location-tasks"],
+    queryFn: async () => {
+      if (!expandedProcurementJobId) return [];
+      const response = await fetch(`/api/jobs/${expandedProcurementJobId}/location-tasks`);
+      if (!response.ok) throw new Error("Failed to load job location tasks");
+      return response.json();
+    },
+    enabled: Boolean(expandedProcurementJobId),
   });
 
   const selectedClientJobs = allJobs.filter(job => job.client_id === selectedClientId);
@@ -405,6 +489,17 @@ export default function AdminBudgetTracking() {
                     const statusText = hasCommercialData ? "Commercial Data" : "No Manual Budget";
                     const procurementPlan = buildProcurementCostPlan(job.phase_task_data);
                     const procurementOpen = expandedProcurementJobId === job.id;
+                    const roomPackageChecklist = procurementOpen
+                      ? buildRoomPackageProcurementChecklist({
+                          jobId: job.id,
+                          assignments: procurementAssignments,
+                          locations: procurementLocations,
+                          tasks: procurementTasks,
+                          filter: activeProcurementTimeFilter,
+                        })
+                      : [];
+                    const checklistLoading = procurementOpen && (assignmentsLoading || locationsLoading || tasksLoading);
+                    const checklistFailed = procurementOpen && (assignmentsFailed || locationsFailed || tasksFailed);
 
                     return (
                       <Card key={job.id} className="bg-slate-700 border-slate-600 p-4">
@@ -509,7 +604,10 @@ export default function AdminBudgetTracking() {
                               className="flex-1 border-slate-600 hover:bg-slate-600"
                               onClick={() => {
                                 setExpandedProcurementJobId(procurementOpen ? null : job.id);
-                                if (!procurementOpen) setActiveProcurementTab("materials");
+                                if (!procurementOpen) {
+                                  setActiveProcurementTab("materials");
+                                  setActiveProcurementTimeFilter("next-7-days");
+                                }
                               }}
                             >
                               <i className="fas fa-eye mr-2"></i>
@@ -548,6 +646,23 @@ export default function AdminBudgetTracking() {
                                 </div>
                               )}
 
+                              <div className="flex flex-wrap gap-2" aria-label="Procurement time period">
+                                {PROCUREMENT_TIME_FILTERS.map((filter) => {
+                                  const selected = activeProcurementTimeFilter === filter.key;
+                                  return (
+                                    <button
+                                      key={filter.key}
+                                      type="button"
+                                      aria-pressed={selected}
+                                      onClick={() => setActiveProcurementTimeFilter(filter.key)}
+                                      className={`rounded-lg border px-3 py-2 text-xs font-bold tracking-wide transition-colors ${selected ? "border-yellow-500 bg-yellow-500 text-slate-950" : "border-slate-600 bg-slate-900 text-slate-200 hover:border-yellow-500"}`}
+                                    >
+                                      {filter.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
                               <div className="flex flex-wrap gap-2" role="tablist" aria-label="Procurement categories">
                                 {PROCUREMENT_TAB_ORDER.map((key) => {
                                   const section = procurementPlan[key];
@@ -568,7 +683,16 @@ export default function AdminBudgetTracking() {
                                 })}
                               </div>
 
-                              <div role="tabpanel">
+                              <div role="tabpanel" className="space-y-4">
+                                {activeProcurementTab === "materials" && (
+                                  checklistLoading ? (
+                                    <div className="rounded-lg border border-slate-600 bg-slate-800 p-3 text-sm text-slate-400">Loading scheduled room/package resources...</div>
+                                  ) : checklistFailed ? (
+                                    <div className="rounded-lg border border-red-500 bg-red-950/30 p-3 text-sm text-red-100">Unable to load the room/package procurement checklist.</div>
+                                  ) : (
+                                    <RoomPackageChecklist items={roomPackageChecklist} />
+                                  )
+                                )}
                                 <ProcurementSection section={procurementPlan[activeProcurementTab]} />
                               </div>
                             </div>
