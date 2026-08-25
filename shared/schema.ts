@@ -127,7 +127,7 @@ export const projectSourceImports = pgTable("project_source_import", {
     .where(sql`${table.isCurrentRevision} = true AND ${table.status} = 'IMPORTED'`),
   index("project_source_import_job_source_idx").on(table.jobId, table.sourceType, table.sourceStreamKey),
   index("project_source_import_status_idx").on(table.status, table.reviewStatus),
-  check("project_source_import_source_type_check", sql`${table.sourceType} IN ('DXF', 'PLANSEXPRESS_PXD', 'SMART_SCHEDULE_CSV', 'PDF', 'IFC', 'OTHER')`),
+  check("project_source_import_source_type_check", sql`${table.sourceType} IN ('DXF', 'PLANSEXPRESS_PXD', 'SMART_SCHEDULE_CSV', 'PDF', 'IFC', 'OTHER', 'HBXL_MATERIALS_USED')`),
   check("project_source_import_source_hash_check", sql`${table.sourceHash} ~ '^[0-9a-f]{64}$'`),
   check("project_source_import_revision_number_check", sql`${table.revisionNumber} > 0`),
   check("project_source_import_status_check", sql`${table.status} IN ('RECEIVED', 'PARSING', 'IMPORTED', 'PARTIAL', 'FAILED', 'SUPERSEDED')`),
@@ -1786,7 +1786,7 @@ export const insertJobLocationTaskResourceSchema = createInsertSchema(jobLocatio
 export const jobMaterialCostResources = pgTable("job_material_cost_resources", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
-  sourceImportId: uuid("source_import_id").references(() => projectSourceImports.id, { onDelete: "set null" }),
+  sourceImportId: uuid("source_import_id").notNull().references(() => projectSourceImports.id, { onDelete: "restrict" }),
   buildPhase: text("build_phase").notNull(),
   description: text("description").notNull(),
   unitRate: text("unit_rate").notNull(),

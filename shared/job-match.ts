@@ -41,6 +41,11 @@ export const SMART_SCHEDULE_SOURCE_TYPE = "SMART_SCHEDULE_CSV";
 export const SMART_SCHEDULE_STREAM_KEY = "SMART_SCHEDULE_CSV";
 export const SMART_SCHEDULE_PARSER_VERSION = "smart-schedule-csv-v1";
 
+/** Source type / stream key for HBXL "Materials Used" CSV exports. */
+export const HBXL_MATERIALS_USED_SOURCE_TYPE = "HBXL_MATERIALS_USED";
+export const HBXL_MATERIALS_USED_STREAM_KEY = "HBXL_MATERIALS_USED";
+export const HBXL_MATERIALS_USED_PARSER_VERSION = "hbxl-materials-used-csv-v1";
+
 export function normalizeProjectName(value: string | null | undefined): string {
   return (value ?? "")
     .toLowerCase()

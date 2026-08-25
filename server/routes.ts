@@ -1,4 +1,4 @@
-import type { Express, Request } from "express";
+﻿import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { DatabaseStorage } from "./database-storage";
@@ -42,6 +42,9 @@ import {
   SMART_SCHEDULE_PARSER_VERSION,
   SMART_SCHEDULE_SOURCE_TYPE,
   SMART_SCHEDULE_STREAM_KEY,
+  HBXL_MATERIALS_USED_PARSER_VERSION,
+  HBXL_MATERIALS_USED_SOURCE_TYPE,
+  HBXL_MATERIALS_USED_STREAM_KEY,
   buildSmartScheduleAttachPatch,
   decideSmartScheduleMatch,
   formatWordJobCandidateLabel,
@@ -1160,71 +1163,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { jobId } = req.params;
       const multer = (await import("multer")).default;
       const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
-      
+
       upload.single("file")(req, res, async (err) => {
-        if (err) {
-          res.status(400).json({ error: "File upload failed" });
-          return;
-        }
+        if (err) { res.status(400).json({ error: "File upload failed" }); return; }
         const file = req.file;
-        if (!file) {
-          res.status(400).json({ error: "No file provided" });
-          return;
-        }
-        
+        if (!file) { res.status(400).json({ error: "No file provided" }); return; }
+
         const csvContent = file.buffer.toString("latin1");
+
+        // SHA-256 of raw Latin-1 bytes — exactly matches project_source_import_hash_unique constraint.
+        const sourceHash = createHash("sha256").update(file.buffer).digest("hex");
+
         const rows = parseMaterialsUsedCsv(csvContent);
         const classified = classifyAllRows(rows);
-        
-        // Check for duplicate: same job + same filename + same row count
-        const existing = await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(jobMaterialCostResources)
-          .where(eq(jobMaterialCostResources.jobId, jobId));
-        
-        if (existing[0].count > 0) {
-          // Delete existing rows for re-import
-          await db
-            .delete(jobMaterialCostResources)
-            .where(eq(jobMaterialCostResources.jobId, jobId));
+
+        const importResult = await db.transaction(async (tx) => {
+          // Advisory lock per (job, stream) so concurrent imports are serialised.
+          await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${HBXL_MATERIALS_USED_STREAM_KEY + jobId}))`);
+
+          // Load all prior project_source_import records for this job + stream.
+          const priorImports = await tx
+            .select({
+              id: projectSourceImports.id,
+              sourceHash: projectSourceImports.sourceHash,
+              revisionNumber: projectSourceImports.revisionNumber,
+              status: projectSourceImports.status,
+            })
+            .from(projectSourceImports)
+            .where(
+              sql`${projectSourceImports.jobId} = ${jobId}
+                AND ${projectSourceImports.sourceStreamKey} = ${HBXL_MATERIALS_USED_STREAM_KEY}`,
+            )
+            .orderBy(projectSourceImports.revisionNumber);
+
+          const importAction = resolveSmartScheduleImportAction(priorImports, sourceHash);
+
+          // Same hash = duplicate. Return 409 — do NOT delete/reinsert evidence.
+          if (importAction.action === "DUPLICATE_NOOP") {
+            return { duplicate: true as const, revisionNumber: importAction.duplicateOfRevisionNumber };
+          }
+
+          // Supersede prior IMPORTED revisions for this job + stream.
+          for (const supersededId of importAction.supersedeImportIds) {
+            await tx
+              .update(projectSourceImports)
+              .set({ status: "SUPERSEDED", isCurrentRevision: false })
+              .where(eq(projectSourceImports.id, supersededId));
+          }
+
+          // Create the new project_source_import lineage record.
+          const [sourceImport] = await tx
+            .insert(projectSourceImports)
+            .values({
+              jobId,
+              sourceType: HBXL_MATERIALS_USED_SOURCE_TYPE,
+              sourceStreamKey: HBXL_MATERIALS_USED_STREAM_KEY,
+              originalFilename: file!.originalname,
+              sourceHash,
+              revisionNumber: importAction.revisionNumber,
+              supersedesImportId: importAction.supersedesImportId,
+              isCurrentRevision: true,
+              parserVersion: HBXL_MATERIALS_USED_PARSER_VERSION,
+              status: "IMPORTED",
+              reviewStatus: "NOT_APPLICABLE",
+              sourceMetadata: {
+                rowCount: rows.length,
+                physicalProductCount: classified.filter(r => r.kind === "genuine").length,
+                broadAllowanceCount: classified.filter(r => r.kind === "allowance").length,
+                grandTotal: Math.round(rows.reduce((s, r) => s + r.totalCostIncludingWastage, 0) * 100) / 100,
+              },
+            })
+            .returning();
+
+          // Delete the current revision's resource rows (prior revision rows are
+          // kept intact — they are linked to their own source_import_id and must
+          // not be deleted as they constitute the audit trail).
+          if (importAction.supersedeImportIds.length > 0) {
+            await tx
+              .delete(jobMaterialCostResources)
+              .where(
+                sql`${jobMaterialCostResources.jobId} = ${jobId}
+                  AND ${jobMaterialCostResources.sourceImportId} = ANY(${importAction.supersedeImportIds}::uuid[])`,
+              );
+          }
+
+          // Batch-insert all 70 rows, each stamped with this import's id.
+          const insertValues = classified.map((r, idx) => ({
+            jobId,
+            sourceImportId: sourceImport.id,
+            buildPhase: r.buildPhase,
+            description: r.description,
+            unitRate: String(r.unitRate),
+            unit: r.unit,
+            qtyExcludingWastage: String(r.qtyExcludingWastage),
+            wastageQty: String(r.wastageQty),
+            orderQtyIncludingWastage: String(r.orderQtyIncludingWastage),
+            costExcludingWastage: String(r.costExcludingWastage),
+            wastageCost: String(r.wastageCost),
+            totalCostIncludingWastage: String(r.totalCostIncludingWastage),
+            sourceRowOrder: idx + 1,
+            materialRowKind: r.kind === "allowance" ? "BROAD_ALLOWANCE" : "PHYSICAL_PRODUCT",
+          }));
+
+          const batchSize = 25;
+          for (let i = 0; i < insertValues.length; i += batchSize) {
+            await tx.insert(jobMaterialCostResources).values(insertValues.slice(i, i + batchSize));
+          }
+
+          return {
+            duplicate: false as const,
+            sourceImportId: sourceImport.id,
+            revisionNumber: sourceImport.revisionNumber,
+            supersedesImportId: sourceImport.supersedesImportId,
+            rowCount: rows.length,
+          };
+        });
+
+        if (importResult.duplicate) {
+          return res.status(409).json({
+            duplicate: true,
+            imported: false,
+            jobId,
+            message: `Duplicate blocked: this exact Materials Used CSV content is already imported (revision ${importResult.revisionNumber}).`,
+            existingRevisionNumber: importResult.revisionNumber,
+          });
         }
-        
-        // Insert all rows
-        const insertValues = classified.map((r, idx) => ({
-          jobId,
-          buildPhase: r.buildPhase,
-          description: r.description,
-          unitRate: String(r.unitRate),
-          unit: r.unit,
-          qtyExcludingWastage: String(r.qtyExcludingWastage),
-          wastageQty: String(r.wastageQty),
-          orderQtyIncludingWastage: String(r.orderQtyIncludingWastage),
-          costExcludingWastage: String(r.costExcludingWastage),
-          wastageCost: String(r.wastageCost),
-          totalCostIncludingWastage: String(r.totalCostIncludingWastage),
-          sourceRowOrder: idx + 1,
-          materialRowKind: r.kind === "allowance" ? "BROAD_ALLOWANCE" : "PHYSICAL_PRODUCT",
-        }));
-        
-        // Batch insert
-        const batchSize = 25;
-        for (let i = 0; i < insertValues.length; i += batchSize) {
-          await db.insert(jobMaterialCostResources).values(insertValues.slice(i, i + batchSize));
-        }
-        
-        const physicalTotal = classified
-          .filter(r => r.kind === "genuine")
-          .reduce((s, r) => s + r.totalCostIncludingWastage, 0);
-        const allowanceTotal = classified
-          .filter(r => r.kind === "allowance")
-          .reduce((s, r) => s + r.totalCostIncludingWastage, 0);
+
+        const classified2 = classifyAllRows(rows);
+        const physicalTotal = classified2.filter(r => r.kind === "genuine").reduce((s, r) => s + r.totalCostIncludingWastage, 0);
+        const allowanceTotal = classified2.filter(r => r.kind === "allowance").reduce((s, r) => s + r.totalCostIncludingWastage, 0);
         const grandTotal = rows.reduce((s, r) => s + r.totalCostIncludingWastage, 0);
-        
+
         res.json({
           imported: true,
           jobId,
           filename: file.originalname,
-          rowCount: rows.length,
+          sourceImportId: importResult.sourceImportId,
+          revisionNumber: importResult.revisionNumber,
+          rowCount: importResult.rowCount,
           physicalProductTotal: Math.round(physicalTotal * 100) / 100,
           allowanceTotal: Math.round(allowanceTotal * 100) / 100,
           grandTotal: Math.round(grandTotal * 100) / 100,
