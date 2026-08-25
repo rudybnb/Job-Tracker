@@ -47,6 +47,25 @@ BEGIN
           CHECK ("source_row_order" > 0)
       )
     $ddl$;
+
+    -- Ensure exact constraints and indexes if table was created in an earlier draft
+    EXECUTE $ddl$
+      ALTER TABLE "job_material_cost_resources"
+        ALTER COLUMN "source_import_id" SET NOT NULL
+    $ddl$;
+
+    EXECUTE $ddl$
+      ALTER TABLE "job_material_cost_resources"
+        DROP CONSTRAINT IF EXISTS "job_material_cost_resources_source_import_id_fkey"
+    $ddl$;
+
+    EXECUTE $ddl$
+      ALTER TABLE "job_material_cost_resources"
+        ADD CONSTRAINT "job_material_cost_resources_source_import_id_fkey"
+        FOREIGN KEY ("source_import_id") REFERENCES "project_source_import"("id") ON DELETE RESTRICT
+    $ddl$;
+
+    EXECUTE 'DROP INDEX IF EXISTS "job_material_cost_resources_job_order_unique"';
     EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS "job_material_cost_resources_import_order_unique" ON "job_material_cost_resources" ("source_import_id", "source_row_order")';
   END IF;
 END
