@@ -17,6 +17,12 @@ BEGIN
         "notes" text,
         "created_at" timestamptz NOT NULL DEFAULT now(),
         "updated_at" timestamptz NOT NULL DEFAULT now(),
+        CONSTRAINT "job_material_cost_actuals_unit_price_check"
+          CHECK ("supplier_unit_price" >= 0),
+        CONSTRAINT "job_material_cost_actuals_quantity_check"
+          CHECK ("actual_quantity" > 0),
+        CONSTRAINT "job_material_cost_actuals_total_check"
+          CHECK ("actual_total" >= 0),
         CONSTRAINT "job_material_cost_actuals_payment_status_check"
           CHECK ("payment_status" IN ('UNPAID', 'PAID', 'PARTIALLY_PAID', 'CANCELLED'))
       )

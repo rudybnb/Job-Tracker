@@ -1829,6 +1829,9 @@ export const jobMaterialCostActuals = pgTable("job_material_cost_actuals", {
   index("job_material_cost_actuals_job_idx").on(table.jobId),
   index("job_material_cost_actuals_job_material_key_idx").on(table.jobId, table.materialKey),
   index("job_material_cost_actuals_budget_resource_idx").on(table.budgetResourceId),
+  check("job_material_cost_actuals_unit_price_check", sql`${table.supplierUnitPrice} >= 0`),
+  check("job_material_cost_actuals_quantity_check", sql`${table.actualQuantity} > 0`),
+  check("job_material_cost_actuals_total_check", sql`${table.actualTotal} >= 0`),
   check("job_material_cost_actuals_payment_status_check", sql`${table.paymentStatus} IN ('UNPAID', 'PAID', 'PARTIALLY_PAID', 'CANCELLED')`),
 ]);
 

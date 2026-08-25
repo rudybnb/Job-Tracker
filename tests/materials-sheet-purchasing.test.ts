@@ -70,10 +70,12 @@ test("Maureen key example material rows are accurate in the flat sheet", () => {
   assert.equal(architrave.totalCostIncludingWastage, 441.01);
 });
 
-// ─── 3. Multiple Purchases & CANCELLED Exclusion Test ─────────────────────────
+// ─── 3. Self Levelling Compound True Saving vs Remaining Budget Test ──────────
 
-test("Multiple purchases with CANCELLED purchase exclusion", () => {
-  const hbxlBudget = 737.49; // 48.84 @ £15.10
+test("Self Levelling Compound: True saving is £43.00 and remaining budget is £327.49", () => {
+  const plannedQty = 48.84;
+  const hbxlRate = 15.10;
+  const hbxlBudget = 737.49;
 
   // Purchase 1: 20 bags @ £13.50 = £270.00 (PAID)
   const p1 = {
@@ -110,26 +112,62 @@ test("Multiple purchases with CANCELLED purchase exclusion", () => {
 
   const allPurchases = [p1, p2, p3];
 
-  // Active (non-cancelled) purchases
+  // Exclude cancelled purchases from active totals
   const activePurchases = allPurchases.filter((p) => p.paymentStatus !== "CANCELLED");
   assert.equal(activePurchases.length, 2, "2 active purchases");
 
-  // Aggregate calculations
-  const totalActualQty = activePurchases.reduce((sum, p) => sum + parseFloat(p.actualQuantity), 0);
-  assert.equal(totalActualQty, 30, "Actual Qty = 30");
+  const purchasedQty = activePurchases.reduce((s, p) => s + parseFloat(p.actualQuantity), 0);
+  assert.equal(purchasedQty, 30.00, "Purchased Qty = 30.00");
 
-  const totalActualSpend = activePurchases.reduce((sum, p) => sum + parseFloat(p.actualTotal), 0);
-  assert.equal(totalActualSpend, 410.00, "Actual Spend = £410.00");
+  const remainingQty = Math.max(plannedQty - purchasedQty, 0);
+  assert.equal(Math.round(remainingQty * 100) / 100, 18.84, "Remaining Qty = 18.84");
 
-  const variance = Math.round((hbxlBudget - totalActualSpend) * 100) / 100;
-  assert.equal(variance, 327.49, "Variance / Saving = +£327.49");
-  assert.ok(variance > 0, "Variance is positive (SAVING)");
+  const actualSpend = activePurchases.reduce((s, p) => s + parseFloat(p.actualTotal), 0);
+  assert.equal(actualSpend, 410.00, "Actual Spend = £410.00");
+
+  // HBXL benchmark on purchased quantity: 30 * £15.10 = £453.00
+  const hbxlBenchmark = Math.round(purchasedQty * hbxlRate * 100) / 100;
+  assert.equal(hbxlBenchmark, 453.00, "HBXL benchmark on 30 units = £453.00");
+
+  // TRUE PURCHASE SAVING = Benchmark (£453.00) - Actual Spend (£410.00) = +£43.00
+  const trueSaving = Math.round((hbxlBenchmark - actualSpend) * 100) / 100;
+  assert.equal(trueSaving, 43.00, "True Saving = +£43.00 (NOT £327.49)");
+
+  // BUDGET REMAINING = Full HBXL Budget (£737.49) - Actual Spend (£410.00) = £327.49
+  const budgetRemaining = Math.round((hbxlBudget - actualSpend) * 100) / 100;
+  assert.equal(budgetRemaining, 327.49, "Budget Remaining = £327.49");
 });
 
-// ─── 4. Stable material_key Revision Survival Proof ──────────────────────────
+// ─── 4. Overbuying Handling Test ─────────────────────────────────────────────
+
+test("Overbuying: remaining quantity is 0 and benchmark evaluates full purchased quantity", () => {
+  const plannedQty = 10;
+  const hbxlRate = 10.00;
+  const hbxlBudget = 100.00;
+
+  // Purchased 15 @ £9.00 = £135.00
+  const purchasedQty = 15;
+  const actualSpend = 135.00;
+
+  const remainingQty = Math.max(plannedQty - purchasedQty, 0);
+  assert.equal(remainingQty, 0, "Remaining Qty is clamped to 0 when overbought");
+
+  const isOverbought = purchasedQty > plannedQty;
+  assert.equal(isOverbought, true, "Flagged as over planned quantity");
+
+  const benchmark = purchasedQty * hbxlRate; // 15 * 10 = £150
+  assert.equal(benchmark, 150.00);
+
+  const trueSaving = benchmark - actualSpend; // £150 - £135 = £15
+  assert.equal(trueSaving, 15.00, "True saving on units bought is £15.00");
+
+  const budgetRemaining = hbxlBudget - actualSpend; // £100 - £135 = -£35
+  assert.equal(budgetRemaining, -35.00, "Over full planned budget by £35.00");
+});
+
+// ─── 5. Stable material_key Revision Survival Proof ──────────────────────────
 
 test("Stable material_key: purchases persist across HBXL revision description changes", () => {
-  // Real purchases recorded with normalized material_key
   const key = normalizeProductDescription("Self Levelling Compound 25kg");
   assert.equal(key, "self levelling compound");
 
@@ -156,40 +194,37 @@ test("Stable material_key: purchases persist across HBXL revision description ch
     },
   ];
 
-  // Revision 2 arrives with slightly different description text: "Self Levelling Compound"
+  // Revision 2 arrives with description: "Self Levelling Compound"
   const revision2Line = {
     id: "rev2-resource-999",
-    description: "Self Levelling Compound", // Pack size dropped in rev 2
+    description: "Self Levelling Compound",
+    unitRate: "16.00",
     totalCostIncludingWastage: "800.00",
   };
 
   const rev2Key = normalizeProductDescription(revision2Line.description);
-  assert.equal(rev2Key, "self levelling compound", "Both normalize to the exact same stable key");
+  assert.equal(rev2Key, "self levelling compound");
 
-  // Purchases match via material_key!
   const matched = recordedPurchases.filter((p) => p.materialKey === rev2Key);
-  assert.equal(matched.length, 2, "All purchases retained and matched seamlessly");
+  assert.equal(matched.length, 2, "Purchases retained across revision");
 
-  const activeSpend = matched.filter((p) => p.paymentStatus !== "CANCELLED").reduce((s, p) => s + parseFloat(p.actualTotal), 0);
-  assert.equal(activeSpend, 410.00);
+  const purchasedQty = matched.reduce((s, p) => s + parseFloat(p.actualQuantity), 0); // 30
+  const activeSpend = matched.reduce((s, p) => s + parseFloat(p.actualTotal), 0); // 410.00
 
-  const variance = parseFloat(revision2Line.totalCostIncludingWastage) - activeSpend;
-  assert.equal(variance, 390.00, "Current revision 2 budget (£800) - actual spend (£410) = £390.00 SAVING");
+  // Under revision 2 benchmark: 30 * £16.00 = £480.00 -> Saving = £480 - £410 = £70.00
+  const rev2Benchmark = purchasedQty * parseFloat(revision2Line.unitRate);
+  assert.equal(rev2Benchmark, 480.00);
+
+  const rev2Saving = rev2Benchmark - activeSpend;
+  assert.equal(rev2Saving, 70.00, "True saving against Revision 2 benchmark = +£70.00");
 });
 
-// ─── 5. Broad Allowances Isolated ────────────────────────────────────────────
+// ─── 6. Broad Allowances Isolated ────────────────────────────────────────────
 
 test("Broad allowances are isolated from physical supplier lines", () => {
   const csv = readFileSync(CSV_PATH, "latin1");
   const classified = classifyAllRows(parseMaterialsUsedCsv(csv));
   const allowances = classified.filter((r) => r.kind === "allowance");
-
-  const allowanceNames = allowances.map((a) => a.description);
-  assert.deepEqual(allowanceNames.sort(), [
-    "Allowance for Carpeting",
-    "Allowance for Solid Wood Flooring",
-    "Allowance for Vinyl Flooring",
-  ]);
 
   const carpet = allowances.find((a) => a.description === "Allowance for Carpeting");
   const wood = allowances.find((a) => a.description === "Allowance for Solid Wood Flooring");

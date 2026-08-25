@@ -1111,7 +1111,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         supplierName,
         supplierUnitPrice,
         actualQuantity,
-        actualTotal,
         purchaseDate,
         paymentStatus,
         notes,
@@ -1121,12 +1120,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "materialDescription, supplierUnitPrice, and actualQuantity are required" });
       }
 
+      const priceNum = parseFloat(supplierUnitPrice);
+      const qtyNum = parseFloat(actualQuantity);
+      if (isNaN(priceNum) || priceNum < 0 || isNaN(qtyNum) || qtyNum <= 0) {
+        return res.status(400).json({ error: "supplierUnitPrice must be >= 0 and actualQuantity must be > 0" });
+      }
+
       const rawKey = materialKey || normalizeProductDescription(materialDescription);
       const computedKey = rawKey.trim();
 
-      const priceNum = parseFloat(supplierUnitPrice) || 0;
-      const qtyNum = parseFloat(actualQuantity) || 0;
-      const totalNum = actualTotal != null ? parseFloat(actualTotal) : Math.round(priceNum * qtyNum * 100) / 100;
+      // Deterministic server-side total calculation: price * quantity rounded to 2 decimals
+      const serverCalculatedTotal = Math.round(priceNum * qtyNum * 100) / 100;
 
       const [inserted] = await db
         .insert(jobMaterialCostActuals)
@@ -1138,7 +1142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           supplierName: supplierName ? supplierName.trim() : null,
           supplierUnitPrice: priceNum.toFixed(2),
           actualQuantity: qtyNum.toFixed(4),
-          actualTotal: totalNum.toFixed(2),
+          actualTotal: serverCalculatedTotal.toFixed(2),
           purchaseDate: purchaseDate ? purchaseDate : new Date().toISOString().split("T")[0],
           paymentStatus: paymentStatus ?? "UNPAID",
           notes: notes ?? null,

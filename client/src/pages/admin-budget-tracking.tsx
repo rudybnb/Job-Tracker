@@ -232,7 +232,7 @@ function MaterialsCostSheet({
   const [formNotes, setFormNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Group actual purchases by stable materialKey (and description fallback)
+  // Group actual purchases by stable materialKey
   const purchasesByMaterial = useMemo(() => {
     const map = new Map<string, ActualPurchaseRecord[]>();
     for (const act of materialCostActuals) {
@@ -277,10 +277,16 @@ function MaterialsCostSheet({
 
   // Handle open Add Purchase modal/form
   const handleOpenAddPurchase = (row: any) => {
+    const normKey = normalizeProductDescription(row.description);
+    const existing = (purchasesByMaterial.get(normKey) ?? []).filter((p) => p.paymentStatus !== "CANCELLED");
+    const totalPurchased = existing.reduce((s, p) => s + parseFloat(p.actualQuantity || "0"), 0);
+    const planned = parseFloat(row.orderQtyIncludingWastage || "0");
+    const remaining = Math.max(planned - totalPurchased, 0);
+
     setAddingPurchaseForMaterial(row);
     setFormSupplier("");
-    setFormPrice(row.unitRate ?? "");
-    setFormQty(row.orderQtyIncludingWastage ?? "");
+    setFormPrice(row.unitRate ? parseFloat(row.unitRate).toFixed(2) : "");
+    setFormQty(remaining > 0 ? remaining.toFixed(2) : planned.toFixed(2));
     setFormDate(new Date().toISOString().split("T")[0]);
     setFormStatus("UNPAID");
     setFormNotes("");
@@ -291,10 +297,6 @@ function MaterialsCostSheet({
     if (!addingPurchaseForMaterial || !formPrice || !formQty) return;
     setIsSubmitting(true);
     try {
-      const unitPriceNum = parseFloat(formPrice) || 0;
-      const qtyNum = parseFloat(formQty) || 0;
-      const calculatedTotal = (unitPriceNum * qtyNum).toFixed(2);
-
       const res = await fetch(`/api/jobs/${jobId}/material-costs/actuals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -305,7 +307,6 @@ function MaterialsCostSheet({
           supplierName: formSupplier ? formSupplier.trim() : null,
           supplierUnitPrice: formPrice,
           actualQuantity: formQty,
-          actualTotal: calculatedTotal,
           purchaseDate: formDate,
           paymentStatus: formStatus,
           notes: formNotes ? formNotes.trim() : null,
@@ -348,25 +349,28 @@ function MaterialsCostSheet({
     return materialCostActuals.filter((act) => act.paymentStatus !== "CANCELLED");
   }, [materialCostActuals]);
 
-  // Total Actual Spend across all active purchases for this job
+  // Total Actual / Committed Spend across all active purchases
   const actualMaterialSpend = useMemo(() => {
     return activePurchasesAll.reduce((sum, act) => sum + moneyValue(act.actualTotal), 0);
   }, [activePurchasesAll]);
 
-  // Variance: sum of (HBXL budget - Aggregate Active Spend) for items with active purchases
-  const totalVariance = useMemo(() => {
+  // TRUE PURCHASE SAVING / OVERSPEND:
+  // sum(Purchased Qty * HBXL Rate) - sum(Actual Spend) across items that were purchased
+  const totalPurchaseSaving = useMemo(() => {
     return physicalRows.reduce((sum, r) => {
       const normKey = normalizeProductDescription(r.description);
       const allPurchases = purchasesByMaterial.get(normKey) ?? [];
       const activePurchases = allPurchases.filter((p) => p.paymentStatus !== "CANCELLED");
       if (activePurchases.length === 0) return sum;
-      const hbxlCost = moneyValue(r.totalCostIncludingWastage);
-      const actCost = activePurchases.reduce((s, p) => s + moneyValue(p.actualTotal), 0);
-      return sum + (hbxlCost - actCost);
+      const purchasedQty = activePurchases.reduce((s, p) => s + parseFloat(p.actualQuantity || "0"), 0);
+      const actualSpend = activePurchases.reduce((s, p) => s + parseFloat(p.actualTotal || "0"), 0);
+      const hbxlRate = parseFloat(r.unitRate || "0");
+      const hbxlBenchmark = purchasedQty * hbxlRate;
+      return sum + (hbxlBenchmark - actualSpend);
     }, 0);
   }, [physicalRows, purchasesByMaterial]);
 
-  const remainingBudget = hbxlPhysicalBudget - actualMaterialSpend;
+  const totalBudgetRemaining = hbxlPhysicalBudget - actualMaterialSpend;
   const allowanceBudget = useMemo(
     () => allowanceRows.reduce((sum, r) => sum + moneyValue(r.totalCostIncludingWastage), 0),
     [allowanceRows]
@@ -392,34 +396,34 @@ function MaterialsCostSheet({
           <div className="mt-1 text-xs text-slate-400">{physicalRows.length} physical material items</div>
         </div>
 
-        {/* Actual Material Spend */}
+        {/* Actual / Committed Material Spend */}
         <div className="rounded-lg border border-blue-500/50 bg-slate-900 p-3 shadow">
           <div className="text-[11px] font-bold uppercase tracking-wider text-blue-400">Actual Material Spend</div>
           <div className="mt-1 text-2xl font-black text-blue-300 font-mono">{formatMoney(actualMaterialSpend)}</div>
-          <div className="mt-1 text-xs text-slate-400">{materialCostActuals.length} purchases on {countPurchasedLines} lines</div>
+          <div className="mt-1 text-xs text-slate-400">{activePurchasesAll.length} orders on {countPurchasedLines} lines</div>
         </div>
 
-        {/* Saving / Overspend */}
-        <div className={`rounded-lg border p-3 shadow ${totalVariance >= 0 ? "border-green-500/50 bg-green-950/20" : "border-red-500/50 bg-red-950/20"}`}>
+        {/* True Saving / Overspend on Purchases Made */}
+        <div className={`rounded-lg border p-3 shadow ${totalPurchaseSaving >= 0 ? "border-green-500/50 bg-green-950/20" : "border-red-500/50 bg-red-950/20"}`}>
           <div className="flex items-center justify-between">
-            <span className={`text-[11px] font-bold uppercase tracking-wider ${totalVariance >= 0 ? "text-green-400" : "text-red-400"}`}>
-              {totalVariance >= 0 ? "Buying Saving" : "Buying Overspend"}
+            <span className={`text-[11px] font-bold uppercase tracking-wider ${totalPurchaseSaving >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {totalPurchaseSaving >= 0 ? "Purchase Saving" : "Purchase Overspend"}
             </span>
-            <Badge variant={totalVariance >= 0 ? "default" : "destructive"} className="text-[10px] px-1.5 py-0">
-              {totalVariance >= 0 ? "SAVING" : "OVERSPEND"}
+            <Badge variant={totalPurchaseSaving >= 0 ? "default" : "destructive"} className="text-[10px] px-1.5 py-0">
+              {totalPurchaseSaving >= 0 ? "SAVING" : "OVERSPEND"}
             </Badge>
           </div>
-          <div className={`mt-1 text-2xl font-black font-mono ${totalVariance >= 0 ? "text-green-400" : "text-red-400"}`}>
-            {totalVariance >= 0 ? `+${formatMoney(totalVariance)}` : `-${formatMoney(Math.abs(totalVariance))}`}
+          <div className={`mt-1 text-2xl font-black font-mono ${totalPurchaseSaving >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {totalPurchaseSaving >= 0 ? `+${formatMoney(totalPurchaseSaving)}` : `-${formatMoney(Math.abs(totalPurchaseSaving))}`}
           </div>
-          <div className="mt-1 text-xs text-slate-400">Net variance vs HBXL budget</div>
+          <div className="mt-1 text-xs text-slate-400">Vs HBXL benchmark on purchased qty</div>
         </div>
 
-        {/* Remaining Material Budget */}
+        {/* Remaining Budget */}
         <div className="rounded-lg border border-slate-700 bg-slate-900 p-3 shadow">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Remaining Budget</div>
-          <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(remainingBudget)}</div>
-          <div className="mt-1 text-xs text-slate-500">Uncommitted physical budget</div>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Budget Remaining</div>
+          <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(totalBudgetRemaining)}</div>
+          <div className="mt-1 text-xs text-slate-500">Unspent physical allocation</div>
         </div>
       </div>
 
@@ -468,14 +472,14 @@ function MaterialsCostSheet({
           <thead>
             <tr className="border-b border-slate-700 bg-slate-800/90 text-slate-300 font-semibold uppercase tracking-wider">
               <th className="py-2.5 px-2 w-10 text-center">#</th>
-              <th className="py-2.5 px-3 min-w-[220px]">Material Description</th>
-              <th className="py-2.5 px-2 w-24">Order Qty</th>
+              <th className="py-2.5 px-3 min-w-[200px]">Material Description</th>
+              <th className="py-2.5 px-2 w-20 text-right">Planned</th>
+              <th className="py-2.5 px-2 w-20 text-right">Purchased</th>
+              <th className="py-2.5 px-2 w-20 text-right">Remaining</th>
               <th className="py-2.5 px-2 w-20 text-right">HBXL Rate</th>
               <th className="py-2.5 px-2 w-24 text-right">HBXL Budget</th>
-              <th className="py-2.5 px-2 w-32">Supplier / Source</th>
-              <th className="py-2.5 px-2 w-20 text-right">Actual Qty</th>
               <th className="py-2.5 px-2 w-24 text-right">Actual Spend</th>
-              <th className="py-2.5 px-2 w-28 text-right">Variance</th>
+              <th className="py-2.5 px-3 w-36 text-right">Saving / Overspend</th>
               <th className="py-2.5 px-2 w-28 text-center">Action</th>
             </tr>
           </thead>
@@ -491,12 +495,25 @@ function MaterialsCostSheet({
                 const normKey = normalizeProductDescription(row.description);
                 const allPurchases = purchasesByMaterial.get(normKey) ?? [];
                 const activePurchases = allPurchases.filter((p) => p.paymentStatus !== "CANCELLED");
+
+                const plannedQty = parseFloat(row.orderQtyIncludingWastage || "0");
+                const hbxlRate = parseFloat(row.unitRate || "0");
                 const hbxlBudget = moneyValue(row.totalCostIncludingWastage);
-                const actualQty = activePurchases.reduce((s, p) => s + parseFloat(p.actualQuantity || "0"), 0);
+
+                const purchasedQty = activePurchases.reduce((s, p) => s + parseFloat(p.actualQuantity || "0"), 0);
                 const actualSpend = activePurchases.reduce((s, p) => s + parseFloat(p.actualTotal || "0"), 0);
                 const hasActivePurchases = activePurchases.length > 0;
-                const variance = hasActivePurchases ? hbxlBudget - actualSpend : null;
-                const isSaving = variance !== null && variance >= 0;
+
+                const remainingQty = Math.max(plannedQty - purchasedQty, 0);
+                const isOverbought = purchasedQty > plannedQty;
+
+                // TRUE PURCHASE SAVING = (Purchased Qty * HBXL Rate) - Actual Spend
+                const hbxlBenchmarkPurchased = purchasedQty * hbxlRate;
+                const truePurchaseSaving = hasActivePurchases ? (hbxlBenchmarkPurchased - actualSpend) : null;
+                const isSaving = truePurchaseSaving !== null && truePurchaseSaving >= 0;
+
+                // Budget remaining on full item allocation
+                const budgetRemaining = hbxlBudget - actualSpend;
                 const isExpanded = expandedPurchasesForDesc === row.description;
 
                 return (
@@ -506,60 +523,63 @@ function MaterialsCostSheet({
                       <div className="font-semibold text-white leading-tight">{row.description}</div>
                       <div className="text-[10px] text-slate-400 font-medium mt-0.5">{row.buildPhase}</div>
                     </td>
-                    <td className="py-2.5 px-2 font-mono text-slate-300">
-                      {row.orderQtyIncludingWastage} <span className="text-slate-500 text-[10px]">{row.unit}</span>
+
+                    {/* Planned Qty */}
+                    <td className="py-2.5 px-2 text-right font-mono text-slate-300">
+                      {plannedQty.toFixed(2)} <span className="text-slate-500 text-[10px]">{row.unit}</span>
                     </td>
-                    <td className="py-2.5 px-2 text-right font-mono text-slate-300">£{parseFloat(row.unitRate).toFixed(2)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono font-bold text-yellow-400">£{hbxlBudget.toFixed(2)}</td>
-                    
-                    {/* Supplier / Summary */}
-                    <td className="py-2.5 px-2">
-                      {allPurchases.length === 1 ? (
-                        <div className="truncate text-slate-200">
-                          <span className="font-medium">{allPurchases[0].supplierName || "Supplier"}</span>
-                          {allPurchases[0].paymentStatus === "CANCELLED" ? (
-                            <span className="text-red-400 text-[10px] block font-bold">CANCELLED</span>
-                          ) : (
-                            <span className="text-slate-400 text-[10px] block">£{parseFloat(allPurchases[0].supplierUnitPrice).toFixed(2)} / {row.unit}</span>
+
+                    {/* Purchased Qty */}
+                    <td className="py-2.5 px-2 text-right font-mono">
+                      {hasActivePurchases ? (
+                        <div>
+                          <span className="text-blue-300 font-semibold">{purchasedQty.toFixed(2)}</span>
+                          <span className="text-slate-500 text-[10px] ml-0.5">{row.unit}</span>
+                          {isOverbought && (
+                            <span className="block text-[9px] text-amber-400 font-bold uppercase">Over planned</span>
                           )}
                         </div>
-                      ) : allPurchases.length > 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => setExpandedPurchasesForDesc(isExpanded ? null : row.description)}
-                          className="rounded bg-blue-950/60 border border-blue-600/40 px-2 py-0.5 text-[10px] font-bold text-blue-300 hover:bg-blue-900/60"
-                        >
-                          {allPurchases.length} purchases ▾
-                        </button>
-                      ) : (
-                        <span className="text-slate-600 text-xs">—</span>
-                      )}
-                    </td>
-
-                    {/* Actual Order Quantity */}
-                    <td className="py-2.5 px-2 text-right font-mono text-slate-200">
-                      {hasActivePurchases ? (
-                        <span>{actualQty.toFixed(2)} <span className="text-slate-500 text-[10px]">{row.unit}</span></span>
                       ) : (
                         <span className="text-slate-600">—</span>
                       )}
                     </td>
 
-                    {/* Actual Total Spend */}
+                    {/* Remaining Qty */}
+                    <td className="py-2.5 px-2 text-right font-mono text-slate-300">
+                      {remainingQty.toFixed(2)} <span className="text-slate-500 text-[10px]">{row.unit}</span>
+                    </td>
+
+                    {/* HBXL Rate */}
+                    <td className="py-2.5 px-2 text-right font-mono text-slate-300">£{hbxlRate.toFixed(2)}</td>
+
+                    {/* HBXL Budget */}
+                    <td className="py-2.5 px-2 text-right font-mono font-bold text-yellow-400">£{hbxlBudget.toFixed(2)}</td>
+
+                    {/* Actual Spend */}
                     <td className="py-2.5 px-2 text-right font-mono font-semibold">
                       {hasActivePurchases ? (
-                        <span className="text-blue-300">£{actualSpend.toFixed(2)}</span>
+                        <div>
+                          <span className="text-blue-300">£{actualSpend.toFixed(2)}</span>
+                          <span className="block text-[10px] text-slate-400">
+                            {activePurchases.length === 1 ? (activePurchases[0].supplierName || "1 order") : `${activePurchases.length} orders`}
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-slate-600">—</span>
                       )}
                     </td>
 
-                    {/* Variance vs HBXL Budget */}
-                    <td className="py-2.5 px-2 text-right font-mono font-bold">
-                      {variance !== null ? (
-                        <span className={isSaving ? "text-green-400" : "text-red-400"}>
-                          {isSaving ? `+£${variance.toFixed(2)}` : `-£${Math.abs(variance).toFixed(2)}`}
-                        </span>
+                    {/* True Saving / Overspend vs Benchmark */}
+                    <td className="py-2.5 px-3 text-right font-mono">
+                      {truePurchaseSaving !== null ? (
+                        <div>
+                          <span className={`font-bold text-xs ${isSaving ? "text-green-400" : "text-red-400"}`}>
+                            {isSaving ? `+£${truePurchaseSaving.toFixed(2)} SAVING` : `-£${Math.abs(truePurchaseSaving).toFixed(2)} OVERSPEND`}
+                          </span>
+                          <span className="block text-[10px] text-slate-400">
+                            Rem. Bud: £{budgetRemaining.toFixed(2)}
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-slate-600">—</span>
                       )}
@@ -604,7 +624,7 @@ function MaterialsCostSheet({
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <div>
                 <h4 className="text-sm font-bold text-blue-400 uppercase tracking-wide">Purchase History: {expandedPurchasesForDesc}</h4>
-                <p className="text-xs text-slate-400">{list.length} separate supplier purchase records</p>
+                <p className="text-xs text-slate-400">{list.length} recorded supplier orders</p>
               </div>
               <button
                 type="button"
@@ -682,6 +702,7 @@ function MaterialsCostSheet({
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     required
                     placeholder="0.00"
                     value={formPrice}
@@ -694,6 +715,7 @@ function MaterialsCostSheet({
                   <input
                     type="number"
                     step="0.01"
+                    min="0.0001"
                     required
                     placeholder={addingPurchaseForMaterial.orderQtyIncludingWastage}
                     value={formQty}
@@ -704,7 +726,7 @@ function MaterialsCostSheet({
               </div>
 
               <div className="rounded bg-slate-950/80 border border-slate-800 p-2.5 flex items-center justify-between">
-                <span className="text-slate-400 font-semibold">Calculated Total:</span>
+                <span className="text-slate-400 font-semibold">Calculated Total (Server Confirmed):</span>
                 <span className="text-base font-black font-mono text-blue-300">
                   {formPrice && formQty ? formatMoney(parseFloat(formPrice) * parseFloat(formQty)) : "£0.00"}
                 </span>
