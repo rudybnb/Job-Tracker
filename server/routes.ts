@@ -1199,7 +1199,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { jobId } = req.params;
         const {
           locationTaskId,
-          materialKey,
           materialDescription,
           confirmedQuantity,
           unit,
@@ -1215,10 +1214,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "confirmedQuantity must be a positive number greater than 0" });
         }
 
-        const rawKey = materialKey || normalizeProductDescription(materialDescription);
-        const computedKey = rawKey.trim().toLowerCase();
+        // Verify that the location task exists and belongs to the supplied jobId
+        const [task] = await db
+          .select({ id: jobLocationTasks.id, jobId: jobLocationTasks.jobId })
+          .from(jobLocationTasks)
+          .where(and(
+            eq(jobLocationTasks.id, locationTaskId),
+            eq(jobLocationTasks.jobId, jobId)
+          ));
+
+        if (!task) {
+          return res.status(404).json({ error: "Location task not found or does not belong to this job" });
+        }
+
+        // Server-derived deterministic material key (never trust client-supplied key)
+        const computedKey = normalizeProductDescription(materialDescription).trim().toLowerCase();
         const session = (req as any).session;
-        const confirmedBy = session?.username || session?.adminName || session?.user?.username || session?.userId || "admin";
+        const confirmedBy =
+          (session?.userId || session?.user?.id || session?.username || session?.user?.username || session?.adminName || session?.user?.email || "admin")
+            .toString()
+            .trim();
 
         const [upserted] = await db
           .insert(jobLocationTaskMaterialConfirmations)
@@ -1264,12 +1279,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const { jobId, confirmationId } = req.params;
+
+        // Verify confirmation exists and belongs to the supplied jobId
+        const [existing] = await db
+          .select({ id: jobLocationTaskMaterialConfirmations.id })
+          .from(jobLocationTaskMaterialConfirmations)
+          .where(and(
+            eq(jobLocationTaskMaterialConfirmations.id, confirmationId),
+            eq(jobLocationTaskMaterialConfirmations.jobId, jobId)
+          ));
+
+        if (!existing) {
+          return res.status(404).json({ error: "Material confirmation not found for this job" });
+        }
+
         await db
           .delete(jobLocationTaskMaterialConfirmations)
           .where(and(
             eq(jobLocationTaskMaterialConfirmations.jobId, jobId),
             eq(jobLocationTaskMaterialConfirmations.id, confirmationId)
           ));
+
         res.json({ deleted: true, confirmationId });
       } catch (error) {
         console.error("Error deleting material confirmation:", error);
