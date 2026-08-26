@@ -19,7 +19,10 @@ import {
   matchWordProductsToCsv,
   allocateRoomBudgets,
   buildWeeklyPricedBudget,
+  buildWeeklyBuyingList,
   type MaterialsUsedRow,
+  type WeeklyBuyingItem,
+  type WeeklyBuyingSummary,
 } from "@shared/procurement-pricing";
 import "./hallmark-sweep.css";
 
@@ -212,11 +215,23 @@ function MaterialsCostSheet({
   materialCostRows = [],
   materialCostActuals = [],
   onActualsSaved,
+  procurementAssignments = [],
+  procurementLocations = [],
+  procurementTasks = [],
+  procurementStructuredResources = [],
+  activeTimeFilter = "next-7-days",
+  onTimeFilterChange,
 }: {
   jobId: string;
   materialCostRows: any[];
   materialCostActuals: ActualPurchaseRecord[];
   onActualsSaved: () => void;
+  procurementAssignments?: ProcurementAssignment[];
+  procurementLocations?: ProcurementLocation[];
+  procurementTasks?: ProcurementLocationTask[];
+  procurementStructuredResources?: ProcurementStructuredResource[];
+  activeTimeFilter?: ProcurementTimeFilter;
+  onTimeFilterChange?: (filter: ProcurementTimeFilter) => void;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPhase, setSelectedPhase] = useState<string>("ALL");
@@ -254,7 +269,64 @@ function MaterialsCostSheet({
     [materialCostRows]
   );
 
-  // Available build phases for dropdown filter
+  // Convert raw materialCostRows into typed MaterialsUsedRow[] for matching & allocation
+  const csvRows: MaterialsUsedRow[] = useMemo(() => {
+    return materialCostRows.map((r: any) => ({
+      buildPhase: r.buildPhase,
+      description: r.description,
+      unitRate: parseFloat(r.unitRate) || 0,
+      unit: r.unit,
+      qtyExcludingWastage: parseFloat(r.qtyExcludingWastage) || 0,
+      wastageQty: parseFloat(r.wastageQty) || 0,
+      orderQtyIncludingWastage: parseFloat(r.orderQtyIncludingWastage) || 0,
+      costExcludingWastage: parseFloat(r.costExcludingWastage) || 0,
+      wastageCost: parseFloat(r.wastageCost) || 0,
+      totalCostIncludingWastage: parseFloat(r.totalCostIncludingWastage) || 0,
+    }));
+  }, [materialCostRows]);
+
+  // Product matches from Word descriptions
+  const productMatches = useMemo(() => {
+    if (!procurementStructuredResources.length || !csvRows.length) return [];
+    const wordDescs = Array.from(new Set(
+      procurementStructuredResources
+        .filter((r) => r.sourceValueKind === "quantity" && r.productDescription)
+        .map((r) => r.productDescription)
+    ));
+    return matchWordProductsToCsv(wordDescs, csvRows);
+  }, [procurementStructuredResources, csvRows]);
+
+  // Room package checklist for active period
+  const roomPackageChecklist = useMemo(() => {
+    return buildRoomPackageProcurementChecklist({
+      jobId,
+      assignments: procurementAssignments,
+      locations: procurementLocations,
+      tasks: procurementTasks,
+      structuredResources: procurementStructuredResources,
+      filter: activeTimeFilter,
+    });
+  }, [jobId, procurementAssignments, procurementLocations, procurementTasks, procurementStructuredResources, activeTimeFilter]);
+
+  // Proportional room allocations for scheduled tasks in active period
+  const allocations = useMemo(() => {
+    if (!roomPackageChecklist.length || !productMatches.length) return [];
+    const scheduledTaskIds = new Set(roomPackageChecklist.map((i) => i.locationTaskId));
+    return allocateRoomBudgets(procurementStructuredResources, productMatches, scheduledTaskIds);
+  }, [procurementStructuredResources, productMatches, roomPackageChecklist]);
+
+  // Weekly buying summary & items
+  const weeklyBuyingSummary: WeeklyBuyingSummary = useMemo(() => {
+    return buildWeeklyBuyingList(
+      allocations,
+      roomPackageChecklist,
+      productMatches,
+      csvRows,
+      materialCostActuals
+    );
+  }, [allocations, roomPackageChecklist, productMatches, csvRows, materialCostActuals]);
+
+  // Available build phases for dropdown filter (whole job)
   const buildPhases = useMemo(() => {
     const phases = new Set<string>();
     for (const r of physicalRows) {
@@ -263,7 +335,7 @@ function MaterialsCostSheet({
     return Array.from(phases);
   }, [physicalRows]);
 
-  // Filtered physical rows
+  // Filtered physical rows (whole job)
   const filteredPhysicalRows = useMemo(() => {
     return physicalRows.filter((r) => {
       const matchPhase = selectedPhase === "ALL" || r.buildPhase === selectedPhase;
@@ -275,7 +347,7 @@ function MaterialsCostSheet({
     });
   }, [physicalRows, selectedPhase, searchTerm]);
 
-  // Handle open Add Purchase modal/form
+  // Handle open Add Purchase modal/form from Whole-Job row
   const handleOpenAddPurchase = (row: any) => {
     const normKey = normalizeProductDescription(row.description);
     const existing = (purchasesByMaterial.get(normKey) ?? []).filter((p) => p.paymentStatus !== "CANCELLED");
@@ -292,6 +364,29 @@ function MaterialsCostSheet({
     setFormNotes("");
   };
 
+  // Handle open Add Purchase modal/form from Period Buying List item
+  const handleOpenAddPurchaseForWeeklyItem = (item: WeeklyBuyingItem) => {
+    const matchedPhysicalRow = physicalRows.find(
+      (r) => normalizeProductDescription(r.description) === item.materialKey
+    );
+    const rowObj = matchedPhysicalRow ?? {
+      id: null,
+      description: item.description,
+      unitRate: item.unitRate ? item.unitRate.toString() : "0",
+      unit: item.unit,
+      orderQtyIncludingWastage: item.qtyNeeded.toString(),
+      totalCostIncludingWastage: item.hbxlBudget.toString(),
+    };
+
+    setAddingPurchaseForMaterial(rowObj);
+    setFormSupplier("");
+    setFormPrice(item.unitRate ? item.unitRate.toFixed(2) : "");
+    setFormQty(item.stillToBuyQty > 0 ? item.stillToBuyQty.toFixed(2) : item.qtyNeeded.toFixed(2));
+    setFormDate(new Date().toISOString().split("T")[0]);
+    setFormStatus("UNPAID");
+    setFormNotes("");
+  };
+
   const handleSavePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addingPurchaseForMaterial || !formPrice || !formQty) return;
@@ -301,7 +396,7 @@ function MaterialsCostSheet({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          budgetResourceId: addingPurchaseForMaterial.id,
+          budgetResourceId: addingPurchaseForMaterial.id || null,
           materialKey: normalizeProductDescription(addingPurchaseForMaterial.description),
           materialDescription: addingPurchaseForMaterial.description,
           supplierName: formSupplier ? formSupplier.trim() : null,
@@ -338,24 +433,20 @@ function MaterialsCostSheet({
     }
   };
 
-  // Financial Totals Calculations
+  // Financial Totals Calculations (Whole Job)
   const hbxlPhysicalBudget = useMemo(
     () => physicalRows.reduce((sum, r) => sum + moneyValue(r.totalCostIncludingWastage), 0),
     [physicalRows]
   );
 
-  // Active (non-cancelled) purchases for financial calculations
   const activePurchasesAll = useMemo(() => {
     return materialCostActuals.filter((act) => act.paymentStatus !== "CANCELLED");
   }, [materialCostActuals]);
 
-  // Total Actual / Committed Spend across all active purchases
   const actualMaterialSpend = useMemo(() => {
     return activePurchasesAll.reduce((sum, act) => sum + moneyValue(act.actualTotal), 0);
   }, [activePurchasesAll]);
 
-  // TRUE PURCHASE SAVING / OVERSPEND:
-  // sum(Purchased Qty * HBXL Rate) - sum(Actual Spend) across items that were purchased
   const totalPurchaseSaving = useMemo(() => {
     return physicalRows.reduce((sum, r) => {
       const normKey = normalizeProductDescription(r.description);
@@ -386,236 +477,187 @@ function MaterialsCostSheet({
   }, [physicalRows, purchasesByMaterial]);
 
   return (
-    <div className="space-y-4">
-      {/* Top Money Summary Header */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* HBXL Physical Material Budget */}
-        <div className="rounded-lg border border-yellow-500/50 bg-slate-900 p-3 shadow">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-yellow-500">HBXL Physical Budget</div>
-          <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(hbxlPhysicalBudget)}</div>
-          <div className="mt-1 text-xs text-slate-400">{physicalRows.length} physical material items</div>
+    <div className="space-y-6">
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* TOP PERIOD SELECTOR                                                 */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 pb-3">
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-yellow-500">Materials Procurement</div>
+          <h3 className="text-base font-bold text-white">Weekly Buying Plan</h3>
         </div>
-
-        {/* Actual / Committed Material Spend */}
-        <div className="rounded-lg border border-blue-500/50 bg-slate-900 p-3 shadow">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-blue-400">Actual Material Spend</div>
-          <div className="mt-1 text-2xl font-black text-blue-300 font-mono">{formatMoney(actualMaterialSpend)}</div>
-          <div className="mt-1 text-xs text-slate-400">{activePurchasesAll.length} orders on {countPurchasedLines} lines</div>
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Procurement period selector">
+          {PROCUREMENT_TIME_FILTERS.map((filter) => {
+            const selected = activeTimeFilter === filter.key;
+            return (
+              <button
+                key={filter.key}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => onTimeFilterChange?.(filter.key)}
+                className={`rounded-lg border px-3.5 py-1.5 text-xs font-bold tracking-wide transition-all ${
+                  selected
+                    ? "border-yellow-500 bg-yellow-500 text-slate-950 shadow-md font-extrabold"
+                    : "border-slate-600 bg-slate-800 text-slate-200 hover:border-yellow-500/70"
+                }`}
+              >
+                {filter.label}
+              </button>
+            );
+          })}
         </div>
+      </div>
 
-        {/* True Saving / Overspend on Purchases Made */}
-        <div className={`rounded-lg border p-3 shadow ${totalPurchaseSaving >= 0 ? "border-green-500/50 bg-green-950/20" : "border-red-500/50 bg-red-950/20"}`}>
-          <div className="flex items-center justify-between">
-            <span className={`text-[11px] font-bold uppercase tracking-wider ${totalPurchaseSaving >= 0 ? "text-green-400" : "text-red-400"}`}>
-              {totalPurchaseSaving >= 0 ? "Purchase Saving" : "Purchase Overspend"}
-            </span>
-            <Badge variant={totalPurchaseSaving >= 0 ? "default" : "destructive"} className="text-[10px] px-1.5 py-0">
-              {totalPurchaseSaving >= 0 ? "SAVING" : "OVERSPEND"}
-            </Badge>
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* TOP SUMMARY — ONLY THREE LARGE VALUES FOR THE SELECTED PERIOD       */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Card 1: PLANNED MATERIAL SPEND */}
+        <div className="rounded-lg border border-yellow-500/50 bg-slate-900 p-4 shadow">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-yellow-500">Planned Material Spend</div>
+          <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(weeklyBuyingSummary.plannedSpend)}</div>
+          <div className="mt-1 text-xs text-slate-400">
+            {roomPackageChecklist.length} scheduled {roomPackageChecklist.length === 1 ? "package" : "packages"} ({weeklyBuyingSummary.totalMaterialsCount} {weeklyBuyingSummary.totalMaterialsCount === 1 ? "material" : "materials"})
           </div>
-          <div className={`mt-1 text-2xl font-black font-mono ${totalPurchaseSaving >= 0 ? "text-green-400" : "text-red-400"}`}>
-            {totalPurchaseSaving >= 0 ? `+${formatMoney(totalPurchaseSaving)}` : `-${formatMoney(Math.abs(totalPurchaseSaving))}`}
+        </div>
+
+        {/* Card 2: ACTUAL PURCHASED */}
+        <div className="rounded-lg border border-blue-500/50 bg-slate-900 p-4 shadow">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-blue-400">Actual Purchased</div>
+          <div className="mt-1 text-2xl font-black text-blue-300 font-mono">{formatMoney(weeklyBuyingSummary.actualPurchased)}</div>
+          <div className="mt-1 text-xs text-slate-400">
+            Attributable purchases for period materials
           </div>
-          <div className="mt-1 text-xs text-slate-400">Vs HBXL benchmark on purchased qty</div>
         </div>
 
-        {/* Remaining Budget */}
-        <div className="rounded-lg border border-slate-700 bg-slate-900 p-3 shadow">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Budget Remaining</div>
-          <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(totalBudgetRemaining)}</div>
-          <div className="mt-1 text-xs text-slate-500">Unspent physical allocation</div>
+        {/* Card 3: REMAINING TO BUY */}
+        <div className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Remaining to Buy</div>
+          <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(weeklyBuyingSummary.remainingToBuyBudget)}</div>
+          <div className="mt-1 text-xs text-slate-400">
+            {weeklyBuyingSummary.remainingMaterialsCount} of {weeklyBuyingSummary.totalMaterialsCount} {weeklyBuyingSummary.totalMaterialsCount === 1 ? "material" : "materials"} left to buy
+          </div>
         </div>
       </div>
 
-      {/* Secondary Allowance & Full Report Card */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-xs text-slate-300">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-yellow-400 uppercase tracking-wide">Allowance Budget:</span>
-          <span className="font-mono font-bold text-white text-sm">{formatMoney(allowanceBudget)}</span>
-          <span className="text-slate-400">(Carpeting, Wood & Vinyl Flooring)</span>
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* PRIMARY BUYING LIST: WHAT I NEED TO BUY                             */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <div className="rounded-lg border border-slate-700 bg-slate-900 shadow">
+        <div className="p-3 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <h4 className="text-sm font-bold uppercase tracking-wide text-white">What I Need to Buy</h4>
+            <p className="text-xs text-slate-400">
+              Materials required for work scheduled in {PROCUREMENT_TIME_FILTERS.find((f) => f.key === activeTimeFilter)?.label}
+            </p>
+          </div>
+          <div className="text-xs text-slate-400">
+            <span className="font-mono text-white font-bold">{weeklyBuyingSummary.items.length}</span> {weeklyBuyingSummary.items.length === 1 ? "material" : "materials"}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-300 uppercase tracking-wide">Total HBXL Report:</span>
-          <span className="font-mono font-bold text-yellow-400 text-sm">{formatMoney(totalHbxlReport)}</span>
-        </div>
-      </div>
 
-      {/* Search and Filters Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
-          <input
-            type="text"
-            placeholder="Search material description or phase..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-yellow-500 focus:outline-none flex-1 max-w-md"
-          />
-          <select
-            value={selectedPhase}
-            onChange={(e) => setSelectedPhase(e.target.value)}
-            className="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-200 focus:border-yellow-500 focus:outline-none"
-          >
-            <option value="ALL">All Build Phases ({physicalRows.length})</option>
-            {buildPhases.map((phase) => (
-              <option key={phase} value={phase}>{phase}</option>
-            ))}
-          </select>
-        </div>
-        <div className="text-xs text-slate-400">
-          Showing <span className="font-mono text-white">{filteredPhysicalRows.length}</span> of {physicalRows.length} physical rows
-        </div>
-      </div>
-
-      {/* Primary Material Sheet Table */}
-      <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900 shadow">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-slate-700 bg-slate-800/90 text-slate-300 font-semibold uppercase tracking-wider">
-              <th className="py-2.5 px-2 w-10 text-center">#</th>
-              <th className="py-2.5 px-3 min-w-[200px]">Material Description</th>
-              <th className="py-2.5 px-2 w-20 text-right">Planned</th>
-              <th className="py-2.5 px-2 w-20 text-right">Purchased</th>
-              <th className="py-2.5 px-2 w-20 text-right">Remaining</th>
-              <th className="py-2.5 px-2 w-20 text-right">HBXL Rate</th>
-              <th className="py-2.5 px-2 w-24 text-right">HBXL Budget</th>
-              <th className="py-2.5 px-2 w-24 text-right">Actual Spend</th>
-              <th className="py-2.5 px-3 w-36 text-right">Saving / Overspend</th>
-              <th className="py-2.5 px-2 w-28 text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/60">
-            {filteredPhysicalRows.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="py-8 text-center text-slate-400">
-                  No physical materials match your filter criteria.
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-slate-700 bg-slate-800/90 text-slate-300 font-semibold uppercase tracking-wider">
+                <th className="py-2.5 px-3 min-w-[220px]">Material</th>
+                <th className="py-2.5 px-2 w-28 text-right">Qty Needed</th>
+                <th className="py-2.5 px-2 w-28 text-right">HBXL Budget</th>
+                <th className="py-2.5 px-2 w-24 text-right">Bought</th>
+                <th className="py-2.5 px-2 w-28 text-right">Still to Buy</th>
+                <th className="py-2.5 px-3 w-32 text-center">Action</th>
               </tr>
-            ) : (
-              filteredPhysicalRows.map((row) => {
-                const normKey = normalizeProductDescription(row.description);
-                const allPurchases = purchasesByMaterial.get(normKey) ?? [];
-                const activePurchases = allPurchases.filter((p) => p.paymentStatus !== "CANCELLED");
-
-                const plannedQty = parseFloat(row.orderQtyIncludingWastage || "0");
-                const hbxlRate = parseFloat(row.unitRate || "0");
-                const hbxlBudget = moneyValue(row.totalCostIncludingWastage);
-
-                const purchasedQty = activePurchases.reduce((s, p) => s + parseFloat(p.actualQuantity || "0"), 0);
-                const actualSpend = activePurchases.reduce((s, p) => s + parseFloat(p.actualTotal || "0"), 0);
-                const hasActivePurchases = activePurchases.length > 0;
-
-                const remainingQty = Math.max(plannedQty - purchasedQty, 0);
-                const isOverbought = purchasedQty > plannedQty;
-
-                // TRUE PURCHASE SAVING = (Purchased Qty * HBXL Rate) - Actual Spend
-                const hbxlBenchmarkPurchased = purchasedQty * hbxlRate;
-                const truePurchaseSaving = hasActivePurchases ? (hbxlBenchmarkPurchased - actualSpend) : null;
-                const isSaving = truePurchaseSaving !== null && truePurchaseSaving >= 0;
-
-                // Budget remaining on full item allocation
-                const budgetRemaining = hbxlBudget - actualSpend;
-                const isExpanded = expandedPurchasesForDesc === row.description;
-
-                return (
-                  <tr key={row.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-2.5 px-2 text-center text-slate-500 font-mono text-[11px]">{row.sourceRowOrder}</td>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {weeklyBuyingSummary.items.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                    No materials required for work packages scheduled in this period.
+                  </td>
+                </tr>
+              ) : (
+                weeklyBuyingSummary.items.map((item) => (
+                  <tr key={item.materialKey} className="hover:bg-slate-800/40 transition-colors">
+                    {/* Material */}
                     <td className="py-2.5 px-3">
-                      <div className="font-semibold text-white leading-tight">{row.description}</div>
-                      <div className="text-[10px] text-slate-400 font-medium mt-0.5">{row.buildPhase}</div>
-                    </td>
-
-                    {/* Planned Qty */}
-                    <td className="py-2.5 px-2 text-right font-mono text-slate-300">
-                      {plannedQty.toFixed(2)} <span className="text-slate-500 text-[10px]">{row.unit}</span>
-                    </td>
-
-                    {/* Purchased Qty */}
-                    <td className="py-2.5 px-2 text-right font-mono">
-                      {hasActivePurchases ? (
-                        <div>
-                          <span className="text-blue-300 font-semibold">{purchasedQty.toFixed(2)}</span>
-                          <span className="text-slate-500 text-[10px] ml-0.5">{row.unit}</span>
-                          {isOverbought && (
-                            <span className="block text-[9px] text-amber-400 font-bold uppercase">Over planned</span>
-                          )}
+                      <div className="font-semibold text-white leading-tight">{item.description}</div>
+                      {item.neededForRooms.length > 0 && (
+                        <div className="text-[10px] text-slate-400 font-normal mt-0.5">
+                          Needed for: {item.neededForRooms.join(" · ")}
                         </div>
-                      ) : (
-                        <span className="text-slate-600">—</span>
                       )}
                     </td>
 
-                    {/* Remaining Qty */}
-                    <td className="py-2.5 px-2 text-right font-mono text-slate-300">
-                      {remainingQty.toFixed(2)} <span className="text-slate-500 text-[10px]">{row.unit}</span>
+                    {/* Qty Needed */}
+                    <td className="py-2.5 px-2 text-right font-mono text-slate-200">
+                      {item.qtyNeeded.toFixed(2)} <span className="text-slate-500 text-[10px]">{item.unit}</span>
                     </td>
-
-                    {/* HBXL Rate */}
-                    <td className="py-2.5 px-2 text-right font-mono text-slate-300">£{hbxlRate.toFixed(2)}</td>
 
                     {/* HBXL Budget */}
-                    <td className="py-2.5 px-2 text-right font-mono font-bold text-yellow-400">£{hbxlBudget.toFixed(2)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono font-bold text-yellow-400">
+                      {item.isPriced ? formatMoney(item.hbxlBudget) : <span className="text-slate-500 font-normal">To confirm</span>}
+                    </td>
 
-                    {/* Actual Spend */}
-                    <td className="py-2.5 px-2 text-right font-mono font-semibold">
-                      {hasActivePurchases ? (
+                    {/* Bought */}
+                    <td className="py-2.5 px-2 text-right font-mono">
+                      {item.qtyBought > 0 ? (
                         <div>
-                          <span className="text-blue-300">£{actualSpend.toFixed(2)}</span>
-                          <span className="block text-[10px] text-slate-400">
-                            {activePurchases.length === 1 ? (activePurchases[0].supplierName || "1 order") : `${activePurchases.length} orders`}
-                          </span>
+                          <span className="text-blue-300 font-semibold">{item.qtyBought.toFixed(2)}</span>
+                          <span className="text-slate-500 text-[10px] ml-0.5">{item.unit}</span>
                         </div>
                       ) : (
-                        <span className="text-slate-600">—</span>
+                        <span className="text-slate-600">0</span>
                       )}
                     </td>
 
-                    {/* True Saving / Overspend vs Benchmark */}
-                    <td className="py-2.5 px-3 text-right font-mono">
-                      {truePurchaseSaving !== null ? (
-                        <div>
-                          <span className={`font-bold text-xs ${isSaving ? "text-green-400" : "text-red-400"}`}>
-                            {isSaving ? `+£${truePurchaseSaving.toFixed(2)} SAVING` : `-£${Math.abs(truePurchaseSaving).toFixed(2)} OVERSPEND`}
-                          </span>
-                          <span className="block text-[10px] text-slate-400">
-                            Rem. Bud: £{budgetRemaining.toFixed(2)}
-                          </span>
-                        </div>
+                    {/* Still to Buy */}
+                    <td className="py-2.5 px-2 text-right font-mono">
+                      {item.isFullyBought ? (
+                        <span className="inline-flex items-center text-green-400 font-bold text-[11px]">
+                          ✓ Complete
+                        </span>
                       ) : (
-                        <span className="text-slate-600">—</span>
+                        <div>
+                          <span className="text-white font-semibold">{item.stillToBuyQty.toFixed(2)}</span>
+                          <span className="text-slate-500 text-[10px] ml-0.5">{item.unit}</span>
+                        </div>
                       )}
                     </td>
 
-                    {/* Action Button */}
-                    <td className="py-2.5 px-2 text-center">
+                    {/* Action */}
+                    <td className="py-2.5 px-3 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => handleOpenAddPurchase(row)}
-                          className="rounded border border-yellow-500/50 bg-yellow-500/10 px-2 py-1 text-[11px] font-bold text-yellow-400 hover:bg-yellow-500/20 transition-all"
+                          onClick={() => handleOpenAddPurchaseForWeeklyItem(item)}
+                          className="rounded border border-yellow-500/50 bg-yellow-500/10 px-2.5 py-1 text-[11px] font-bold text-yellow-400 hover:bg-yellow-500/20 transition-all"
                         >
                           + Purchase
                         </button>
-                        {allPurchases.length > 0 && (
+                        {item.qtyBought > 0 && (
                           <button
                             type="button"
-                            onClick={() => setExpandedPurchasesForDesc(isExpanded ? null : row.description)}
+                            onClick={() => setExpandedPurchasesForDesc(expandedPurchasesForDesc === item.description ? null : item.description)}
                             className="rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-[11px] text-slate-300 hover:bg-slate-700"
                             title="View Purchases"
                           >
-                            {isExpanded ? "▲" : "▼"}
+                            {expandedPurchasesForDesc === item.description ? "▲" : "▼"}
                           </button>
                         )}
                       </div>
                     </td>
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Expanded Purchase Detail Drawer */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* EXPANDED PURCHASE DETAIL DRAWER                                     */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
       {expandedPurchasesForDesc && (() => {
         const normKey = normalizeProductDescription(expandedPurchasesForDesc);
         const list = purchasesByMaterial.get(normKey) ?? [];
@@ -665,7 +707,9 @@ function MaterialsCostSheet({
         );
       })()}
 
-      {/* Add Purchase Modal / Inline Form */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* ADD PURCHASE MODAL                                                  */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
       {addingPurchaseForMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-2xl space-y-4">
@@ -673,7 +717,7 @@ function MaterialsCostSheet({
               <div>
                 <h3 className="text-base font-bold text-white">Record Material Purchase</h3>
                 <p className="text-xs text-yellow-500 font-medium mt-0.5">{addingPurchaseForMaterial.description}</p>
-                <p className="text-[11px] text-slate-400">HBXL Budget: £{parseFloat(addingPurchaseForMaterial.totalCostIncludingWastage).toFixed(2)} ({addingPurchaseForMaterial.orderQtyIncludingWastage} {addingPurchaseForMaterial.unit} @ £{parseFloat(addingPurchaseForMaterial.unitRate).toFixed(2)})</p>
+                <p className="text-[11px] text-slate-400">HBXL Budget: £{parseFloat(addingPurchaseForMaterial.totalCostIncludingWastage || "0").toFixed(2)} ({addingPurchaseForMaterial.orderQtyIncludingWastage} {addingPurchaseForMaterial.unit || "Each"} @ £{parseFloat(addingPurchaseForMaterial.unitRate || "0").toFixed(2)})</p>
               </div>
               <button
                 type="button"
@@ -711,7 +755,7 @@ function MaterialsCostSheet({
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 mb-1 font-semibold">Quantity ({addingPurchaseForMaterial.unit})</label>
+                  <label className="block text-slate-300 mb-1 font-semibold">Quantity ({addingPurchaseForMaterial.unit || "Each"})</label>
                   <input
                     type="number"
                     step="0.01"
@@ -726,7 +770,7 @@ function MaterialsCostSheet({
               </div>
 
               <div className="rounded bg-slate-950/80 border border-slate-800 p-2.5 flex items-center justify-between">
-                <span className="text-slate-400 font-semibold">Calculated Total (Server Confirmed):</span>
+                <span className="text-slate-400 font-semibold">Calculated Total:</span>
                 <span className="text-base font-black font-mono text-blue-300">
                   {formPrice && formQty ? formatMoney(parseFloat(formPrice) * parseFloat(formQty)) : "£0.00"}
                 </span>
@@ -789,35 +833,293 @@ function MaterialsCostSheet({
         </div>
       )}
 
-      {/* Broad Allowances Section */}
-      {allowanceRows.length > 0 && (
-        <section className="rounded-lg border border-yellow-500/40 bg-yellow-950/10 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <div>
-              <h4 className="text-sm font-bold uppercase tracking-wide text-yellow-500">HBXL Broad Allowances (Lump-Sum Provisional Items)</h4>
-              <p className="text-xs text-slate-400">Lump-sum finishings allowances from the client estimate; tracked separately from physical trade buying.</p>
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* COLLAPSED SECTION 1: FULL JOB MATERIAL BUDGET & MATERIAL LIST        */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <details className="rounded-lg border border-slate-700 bg-slate-900/90 p-4 text-slate-300">
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-yellow-500 select-none flex items-center justify-between">
+          <span>▼ Full Job Material Budget & Material List ({physicalRows.length} items)</span>
+          <span className="font-mono text-yellow-400 font-normal">{formatMoney(hbxlPhysicalBudget)}</span>
+        </summary>
+
+        <div className="mt-4 space-y-4 pt-3 border-t border-slate-800">
+          {/* Top Money Summary Header (Whole Job) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* HBXL Physical Material Budget */}
+            <div className="rounded-lg border border-yellow-500/50 bg-slate-900 p-3 shadow">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-yellow-500">HBXL Physical Budget</div>
+              <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(hbxlPhysicalBudget)}</div>
+              <div className="mt-1 text-xs text-slate-400">{physicalRows.length} physical material items</div>
             </div>
-            <div className="text-right">
-              <span className="text-xs text-slate-400">Total Allowance: </span>
-              <span className="text-sm font-bold text-yellow-400 font-mono">{formatMoney(allowanceBudget)}</span>
+
+            {/* Actual / Committed Material Spend */}
+            <div className="rounded-lg border border-blue-500/50 bg-slate-900 p-3 shadow">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-blue-400">Actual Material Spend</div>
+              <div className="mt-1 text-2xl font-black text-blue-300 font-mono">{formatMoney(actualMaterialSpend)}</div>
+              <div className="mt-1 text-xs text-slate-400">{activePurchasesAll.length} orders on {countPurchasedLines} lines</div>
+            </div>
+
+            {/* True Saving / Overspend on Purchases Made */}
+            <div className={`rounded-lg border p-3 shadow ${totalPurchaseSaving >= 0 ? "border-green-500/50 bg-green-950/20" : "border-red-500/50 bg-red-950/20"}`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-[11px] font-bold uppercase tracking-wider ${totalPurchaseSaving >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  {totalPurchaseSaving >= 0 ? "Purchase Saving" : "Purchase Overspend"}
+                </span>
+                <Badge variant={totalPurchaseSaving >= 0 ? "default" : "destructive"} className="text-[10px] px-1.5 py-0">
+                  {totalPurchaseSaving >= 0 ? "SAVING" : "OVERSPEND"}
+                </Badge>
+              </div>
+              <div className={`mt-1 text-2xl font-black font-mono ${totalPurchaseSaving >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {totalPurchaseSaving >= 0 ? `+${formatMoney(totalPurchaseSaving)}` : `-${formatMoney(Math.abs(totalPurchaseSaving))}`}
+              </div>
+              <div className="mt-1 text-xs text-slate-400">Vs HBXL benchmark on purchased qty</div>
+            </div>
+
+            {/* Remaining Budget */}
+            <div className="rounded-lg border border-slate-700 bg-slate-900 p-3 shadow">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Budget Remaining</div>
+              <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(totalBudgetRemaining)}</div>
+              <div className="mt-1 text-xs text-slate-500">Unspent physical allocation</div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-            {allowanceRows.map((a) => (
-              <div key={a.id} className="rounded-md border border-slate-700 bg-slate-900/80 p-3 flex flex-col justify-between">
+
+          {/* Secondary Allowance & Full Report Card */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-xs text-slate-300">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-yellow-400 uppercase tracking-wide">Allowance Budget:</span>
+              <span className="font-mono font-bold text-white text-sm">{formatMoney(allowanceBudget)}</span>
+              <span className="text-slate-400">(Carpeting, Wood & Vinyl Flooring)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-300 uppercase tracking-wide">Total HBXL Report:</span>
+              <span className="font-mono font-bold text-yellow-400 text-sm">{formatMoney(totalHbxlReport)}</span>
+            </div>
+          </div>
+
+          {/* Search and Filters Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+              <input
+                type="text"
+                placeholder="Search material description or phase..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-yellow-500 focus:outline-none flex-1 max-w-md"
+              />
+              <select
+                value={selectedPhase}
+                onChange={(e) => setSelectedPhase(e.target.value)}
+                className="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-200 focus:border-yellow-500 focus:outline-none"
+              >
+                <option value="ALL">All Build Phases ({physicalRows.length})</option>
+                {buildPhases.map((phase) => (
+                  <option key={phase} value={phase}>{phase}</option>
+                ))}
+              </select>
+            </div>
+            <div className="text-xs text-slate-400">
+              Showing <span className="font-mono text-white">{filteredPhysicalRows.length}</span> of {physicalRows.length} physical rows
+            </div>
+          </div>
+
+          {/* Whole-Job Primary Material Sheet Table */}
+          <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900 shadow">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-700 bg-slate-800/90 text-slate-300 font-semibold uppercase tracking-wider">
+                  <th className="py-2.5 px-2 w-10 text-center">#</th>
+                  <th className="py-2.5 px-3 min-w-[200px]">Material Description</th>
+                  <th className="py-2.5 px-2 w-20 text-right">Planned</th>
+                  <th className="py-2.5 px-2 w-20 text-right">Purchased</th>
+                  <th className="py-2.5 px-2 w-20 text-right">Remaining</th>
+                  <th className="py-2.5 px-2 w-20 text-right">HBXL Rate</th>
+                  <th className="py-2.5 px-2 w-24 text-right">HBXL Budget</th>
+                  <th className="py-2.5 px-2 w-24 text-right">Actual Spend</th>
+                  <th className="py-2.5 px-3 w-36 text-right">Saving / Overspend</th>
+                  <th className="py-2.5 px-2 w-28 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {filteredPhysicalRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="py-8 text-center text-slate-400">
+                      No physical materials match your filter criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredPhysicalRows.map((row) => {
+                    const normKey = normalizeProductDescription(row.description);
+                    const allPurchases = purchasesByMaterial.get(normKey) ?? [];
+                    const activePurchases = allPurchases.filter((p) => p.paymentStatus !== "CANCELLED");
+
+                    const plannedQty = parseFloat(row.orderQtyIncludingWastage || "0");
+                    const hbxlRate = parseFloat(row.unitRate || "0");
+                    const hbxlBudget = moneyValue(row.totalCostIncludingWastage);
+
+                    const purchasedQty = activePurchases.reduce((s, p) => s + parseFloat(p.actualQuantity || "0"), 0);
+                    const actualSpend = activePurchases.reduce((s, p) => s + parseFloat(p.actualTotal || "0"), 0);
+                    const hasActivePurchases = activePurchases.length > 0;
+
+                    const remainingQty = Math.max(plannedQty - purchasedQty, 0);
+                    const isOverbought = purchasedQty > plannedQty;
+
+                    const hbxlBenchmarkPurchased = purchasedQty * hbxlRate;
+                    const truePurchaseSaving = hasActivePurchases ? (hbxlBenchmarkPurchased - actualSpend) : null;
+                    const isSaving = truePurchaseSaving !== null && truePurchaseSaving >= 0;
+                    const budgetRemaining = hbxlBudget - actualSpend;
+                    const isExpanded = expandedPurchasesForDesc === row.description;
+
+                    return (
+                      <tr key={row.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-2 text-center text-slate-500 font-mono text-[11px]">{row.sourceRowOrder}</td>
+                        <td className="py-2.5 px-3">
+                          <div className="font-semibold text-white leading-tight">{row.description}</div>
+                          <div className="text-[10px] text-slate-400 font-medium mt-0.5">{row.buildPhase}</div>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-slate-300">
+                          {plannedQty.toFixed(2)} <span className="text-slate-500 text-[10px]">{row.unit}</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono">
+                          {hasActivePurchases ? (
+                            <div>
+                              <span className="text-blue-300 font-semibold">{purchasedQty.toFixed(2)}</span>
+                              <span className="text-slate-500 text-[10px] ml-0.5">{row.unit}</span>
+                              {isOverbought && (
+                                <span className="block text-[9px] text-amber-400 font-bold uppercase">Over planned</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-600">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-slate-300">
+                          {remainingQty.toFixed(2)} <span className="text-slate-500 text-[10px]">{row.unit}</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-slate-300">£{hbxlRate.toFixed(2)}</td>
+                        <td className="py-2.5 px-2 text-right font-mono font-bold text-yellow-400">£{hbxlBudget.toFixed(2)}</td>
+                        <td className="py-2.5 px-2 text-right font-mono font-semibold">
+                          {hasActivePurchases ? (
+                            <div>
+                              <span className="text-blue-300">£{actualSpend.toFixed(2)}</span>
+                              <span className="block text-[10px] text-slate-400">
+                                {activePurchases.length === 1 ? (activePurchases[0].supplierName || "1 order") : `${activePurchases.length} orders`}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-600">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono">
+                          {truePurchaseSaving !== null ? (
+                            <div>
+                              <span className={`font-bold text-xs ${isSaving ? "text-green-400" : "text-red-400"}`}>
+                                {isSaving ? `+£${truePurchaseSaving.toFixed(2)} SAVING` : `-£${Math.abs(truePurchaseSaving).toFixed(2)} OVERSPEND`}
+                              </span>
+                              <span className="block text-[10px] text-slate-400">
+                                Rem. Bud: £{budgetRemaining.toFixed(2)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-600">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAddPurchase(row)}
+                              className="rounded border border-yellow-500/50 bg-yellow-500/10 px-2 py-1 text-[11px] font-bold text-yellow-400 hover:bg-yellow-500/20 transition-all"
+                            >
+                              + Purchase
+                            </button>
+                            {allPurchases.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedPurchasesForDesc(isExpanded ? null : row.description)}
+                                className="rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-[11px] text-slate-300 hover:bg-slate-700"
+                                title="View Purchases"
+                              >
+                                {isExpanded ? "▲" : "▼"}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Broad Allowances Section */}
+          {allowanceRows.length > 0 && (
+            <section className="rounded-lg border border-yellow-500/40 bg-yellow-950/10 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div>
-                  <div className="text-xs font-semibold text-white">{a.description}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">{a.buildPhase}</div>
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-yellow-500">HBXL Broad Allowances (Lump-Sum Provisional Items)</h4>
+                  <p className="text-xs text-slate-400">Lump-sum finishings allowances from the client estimate; tracked separately from physical trade buying.</p>
                 </div>
-                <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400">Provisional Budget:</span>
-                  <span className="text-xs font-bold text-yellow-400 font-mono">£{parseFloat(a.totalCostIncludingWastage).toFixed(2)}</span>
+                <div className="text-right">
+                  <span className="text-xs text-slate-400">Total Allowance: </span>
+                  <span className="text-sm font-bold text-yellow-400 font-mono">{formatMoney(allowanceBudget)}</span>
                 </div>
               </div>
-            ))}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                {allowanceRows.map((a) => (
+                  <div key={a.id} className="rounded-md border border-slate-700 bg-slate-900/80 p-3 flex flex-col justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-white">{a.description}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">{a.buildPhase}</div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-400">Provisional Budget:</span>
+                      <span className="text-xs font-bold text-yellow-400 font-mono">£{parseFloat(a.totalCostIncludingWastage).toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </details>
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* COLLAPSED SECTION 2: WEEKLY / ROOM MATERIAL PLANNING                 */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <details className="rounded-lg border border-slate-700 bg-slate-900/90 p-4 text-slate-300">
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-yellow-500 select-none">
+          ▼ Weekly / Room Material Planning ({roomPackageChecklist.length} packages scheduled in {PROCUREMENT_TIME_FILTERS.find((f) => f.key === activeTimeFilter)?.label})
+        </summary>
+        <div className="mt-4 pt-3 border-t border-slate-800 space-y-2">
+          <div className="text-xs text-slate-400">
+            <span className="text-yellow-500 font-bold uppercase tracking-wide">PLANNED WORK:</span> {roomPackageChecklist.length} packages scheduled.
           </div>
-        </section>
-      )}
+          <p className="text-xs text-slate-400">
+            Room/package resource lists come from the Word quote. Smart Schedule pricing is currently project-level and is not allocated to individual rooms.
+          </p>
+          <RoomPackageChecklist
+            items={roomPackageChecklist}
+            materialCostRows={materialCostRows}
+            allStructuredResources={procurementStructuredResources}
+          />
+        </div>
+      </details>
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* COLLAPSED SECTION 3: MATERIALS USED CSV IMPORT & REVISIONS           */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <details className="rounded-lg border border-slate-700 bg-slate-900/90 p-4 text-slate-300">
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-yellow-500 select-none">
+          ▼ Materials Used CSV Import & Revisions
+        </summary>
+        <div className="mt-4 pt-3 border-t border-slate-800">
+          <MaterialUpload
+            jobId={jobId}
+            onImported={onActualsSaved}
+          />
+        </div>
+      </details>
     </div>
   );
 }
@@ -1475,71 +1777,18 @@ export default function AdminBudgetTracking() {
                                   <div className="space-y-4">
                                     {materialCostRows.length > 0 ? (
                                       <>
-                                        {/* PRIMARY VIEW: Money-First Material Cost Sheet */}
                                         <MaterialsCostSheet
                                           jobId={job.id}
                                           materialCostRows={materialCostRows}
                                           materialCostActuals={materialCostActuals}
                                           onActualsSaved={refetchActuals}
+                                          procurementAssignments={procurementAssignments}
+                                          procurementLocations={procurementLocations}
+                                          procurementTasks={procurementTasks}
+                                          procurementStructuredResources={procurementStructuredResources}
+                                          activeTimeFilter={activeProcurementTimeFilter}
+                                          onTimeFilterChange={setActiveProcurementTimeFilter}
                                         />
-
-                                        {/* SECONDARY VIEW: Collapsible Weekly/Room Material Planning */}
-                                        <details className="rounded-lg border border-slate-700 bg-slate-900/90 p-3 text-slate-300">
-                                          <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-yellow-500 select-none">
-                                            ▼ Weekly / Room Material Planning (Optional Reference)
-                                          </summary>
-                                          <div className="mt-3 space-y-3 pt-3 border-t border-slate-800">
-                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                              <div className="flex flex-wrap gap-2" aria-label="Procurement time period">
-                                                {PROCUREMENT_TIME_FILTERS.map((filter) => {
-                                                  const selected = activeProcurementTimeFilter === filter.key;
-                                                  return (
-                                                    <button
-                                                      key={filter.key}
-                                                      type="button"
-                                                      aria-pressed={selected}
-                                                      onClick={() => setActiveProcurementTimeFilter(filter.key)}
-                                                      className={`rounded-lg border px-3 py-1.5 text-xs font-bold tracking-wide transition-colors ${selected ? "border-yellow-500 bg-yellow-500 text-slate-950" : "border-slate-600 bg-slate-800 text-slate-200 hover:border-yellow-500"}`}
-                                                    >
-                                                      {filter.label}
-                                                    </button>
-                                                  );
-                                                })}
-                                              </div>
-                                              <div className="text-right">
-                                                <span className="text-xs text-yellow-500 font-bold uppercase tracking-wide">
-                                                  {PROCUREMENT_TIME_FILTERS.find((filter) => filter.key === activeProcurementTimeFilter)?.label} PLANNED WORK:
-                                                </span>
-                                                <span className="ml-2 font-mono font-bold text-white text-sm">{roomPackageChecklist.length}</span>
-                                                <span className="ml-1 text-xs text-slate-400">packages</span>
-                                              </div>
-                                            </div>
-                                            <p className="text-xs text-slate-400 border-t border-slate-800 pt-2">
-                                              Room/package resource lists come from the Word quote. Smart Schedule pricing is currently project-level and is not allocated to individual rooms.
-                                            </p>
-                                            <RoomPackageChecklist 
-                                              items={roomPackageChecklist} 
-                                              materialCostRows={materialCostRows}
-                                              allStructuredResources={procurementStructuredResources}
-                                            />
-                                          </div>
-                                        </details>
-
-                                        {/* Utility: Materials CSV Re-import */}
-                                        <details className="rounded-lg border border-slate-700 bg-slate-900/90 p-3 text-slate-300">
-                                          <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-yellow-500 select-none">
-                                            ▼ Materials Used CSV Import & Revisions
-                                          </summary>
-                                          <div className="mt-3 pt-3 border-t border-slate-800">
-                                            <MaterialUpload 
-                                              jobId={job.id} 
-                                              onImported={() => {
-                                                queryClient.invalidateQueries({ queryKey: ["/api/jobs", expandedProcurementJobId, "material-costs"] });
-                                                refetchActuals();
-                                              }} 
-                                            />
-                                          </div>
-                                        </details>
                                       </>
                                     ) : (
                                       <div className="space-y-4">

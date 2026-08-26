@@ -345,3 +345,207 @@ export function buildWeeklyPricedBudget(
     provisionalBudgetTotal: Math.round(provisionalBudgetTotal * 100) / 100,
   };
 }
+
+// ─── Weekly Buying Screen Read Model ────────────────────────────────────────
+
+export interface ActualPurchaseInput {
+  id: string;
+  jobId: string;
+  materialKey?: string | null;
+  materialDescription: string;
+  supplierName?: string | null;
+  supplierUnitPrice: string | number;
+  actualQuantity: string | number;
+  actualTotal: string | number;
+  purchaseDate?: string | null;
+  paymentStatus: string;
+  notes?: string | null;
+}
+
+export interface WeeklyBuyingItem {
+  materialKey: string;
+  description: string;
+  unit: string;
+  unitRate: number;
+  qtyNeeded: number;
+  hbxlBudget: number;
+  isPriced: boolean;
+  neededForRooms: string[];
+  csvRow: MaterialsUsedRow | null;
+  qtyBought: number;
+  actualPurchasedSpend: number;
+  stillToBuyQty: number;
+  stillToBuyBudget: number;
+  isFullyBought: boolean;
+}
+
+export interface WeeklyBuyingSummary {
+  plannedSpend: number;
+  actualPurchased: number;
+  remainingToBuyBudget: number;
+  totalMaterialsCount: number;
+  remainingMaterialsCount: number;
+  items: WeeklyBuyingItem[];
+}
+
+export function buildWeeklyBuyingList(
+  allocations: RoomAllocatedProduct[],
+  roomPackageChecklist: Array<{ locationTaskId: string; locationName: string; workPackage: string; structuredResources?: ProcurementStructuredResource[] }>,
+  productMatches: ProductMatch[],
+  csvRows: MaterialsUsedRow[],
+  actualPurchases: ActualPurchaseInput[] = [],
+): WeeklyBuyingSummary {
+  // Map purchases by normalized material key across the job
+  const purchasesByMaterial = new Map<string, ActualPurchaseInput[]>();
+  for (const act of actualPurchases) {
+    if (act.paymentStatus === "CANCELLED") continue;
+    const key = act.materialKey || normalizeProductDescription(act.materialDescription);
+    const list = purchasesByMaterial.get(key) ?? [];
+    list.push(act);
+    purchasesByMaterial.set(key, list);
+  }
+
+  // Quick lookup for room info by locationTaskId
+  const taskToRoomInfo = new Map<string, string>();
+  for (const item of roomPackageChecklist) {
+    taskToRoomInfo.set(item.locationTaskId, `${item.locationName} — ${item.workPackage}`);
+  }
+
+  // Quick lookup for product match by word product description (lowercase)
+  const matchByWordDesc = new Map<string, ProductMatch>();
+  for (const m of productMatches) {
+    matchByWordDesc.set(m.wordProductDescription.toLowerCase().trim(), m);
+  }
+
+  // Group allocations by normalized material
+  const materialMap = new Map<string, {
+    materialKey: string;
+    description: string;
+    unit: string;
+    unitRate: number;
+    qtyNeeded: number;
+    hbxlBudget: number;
+    isPriced: boolean;
+    neededForRooms: Set<string>;
+    csvRow: MaterialsUsedRow | null;
+  }>();
+
+  for (const alloc of allocations) {
+    const match = matchByWordDesc.get(alloc.wordProductDescription.toLowerCase().trim());
+    const desc = match?.csvRow?.description || alloc.wordProductDescription;
+    const key = normalizeProductDescription(desc);
+
+    const existing = materialMap.get(key) || {
+      materialKey: key,
+      description: desc,
+      unit: alloc.unit || alloc.wordRoomUnit || "Each",
+      unitRate: alloc.unitRate,
+      qtyNeeded: 0,
+      hbxlBudget: 0,
+      isPriced: true,
+      neededForRooms: new Set<string>(),
+      csvRow: match?.csvRow || null,
+    };
+
+    existing.qtyNeeded += alloc.allocatedOrderQty;
+    existing.hbxlBudget += alloc.allocatedBudget;
+
+    const roomStr = taskToRoomInfo.get(alloc.locationTaskId) || alloc.locationTaskId;
+    existing.neededForRooms.add(roomStr);
+
+    materialMap.set(key, existing);
+  }
+
+  // Include any unpriced structured resources in scheduled rooms
+  for (const chk of roomPackageChecklist) {
+    for (const res of chk.structuredResources ?? []) {
+      if (res.sourceValueKind !== "quantity" || !res.quantity) continue;
+      const match = matchByWordDesc.get((res.productDescription || "").toLowerCase().trim());
+      // If not matched or ambiguous, it was not allocated
+      if (!match || match.kind === "no_match" || match.kind === "ambiguous" || !match.csvRow) {
+        const desc = res.productDescription || res.usageDescription;
+        const key = normalizeProductDescription(desc);
+        if (!materialMap.has(key)) {
+          const qty = parseFloat(res.quantity) || 0;
+          const roomStr = `${chk.locationName} — ${chk.workPackage}`;
+          materialMap.set(key, {
+            materialKey: key,
+            description: desc,
+            unit: res.unit || "Each",
+            unitRate: 0,
+            qtyNeeded: qty,
+            hbxlBudget: 0,
+            isPriced: false,
+            neededForRooms: new Set<string>([roomStr]),
+            csvRow: null,
+          });
+        }
+      }
+    }
+  }
+
+  // Build item rows and compute purchases
+  const items: WeeklyBuyingItem[] = [];
+
+  for (const [key, mat] of materialMap) {
+    const purchases = purchasesByMaterial.get(key) ?? [];
+    const qtyBought = purchases.reduce((sum, p) => sum + (parseFloat(String(p.actualQuantity)) || 0), 0);
+    const actualPurchasedSpend = purchases.reduce((sum, p) => sum + (parseFloat(String(p.actualTotal)) || 0), 0);
+
+    const qtyNeeded = Math.round(mat.qtyNeeded * 100) / 100;
+    const hbxlBudget = Math.round(mat.hbxlBudget * 100) / 100;
+    const roundedQtyBought = Math.round(qtyBought * 100) / 100;
+    const roundedActualSpend = Math.round(actualPurchasedSpend * 100) / 100;
+
+    // STILL_TO_BUY_QTY = max(period_required_qty - attributable_non_cancelled_purchased_qty, 0)
+    const stillToBuyQty = Math.max(0, Math.round((qtyNeeded - roundedQtyBought) * 100) / 100);
+
+    // REMAINING_TO_BUY formula: STILL_TO_BUY_QTY * HBXL_UNIT_RATE (proportional HBXL allocated budget)
+    const stillToBuyBudget = mat.isPriced && qtyNeeded > 0
+      ? (roundedQtyBought === 0
+          ? hbxlBudget
+          : Math.round(hbxlBudget * (stillToBuyQty / qtyNeeded) * 100) / 100)
+      : 0;
+
+    const isFullyBought = stillToBuyQty <= 0;
+
+    items.push({
+      materialKey: key,
+      description: mat.description,
+      unit: mat.unit,
+      unitRate: mat.unitRate,
+      qtyNeeded,
+      hbxlBudget,
+      isPriced: mat.isPriced,
+      neededForRooms: Array.from(mat.neededForRooms),
+      csvRow: mat.csvRow,
+      qtyBought: roundedQtyBought,
+      actualPurchasedSpend: roundedActualSpend,
+      stillToBuyQty,
+      stillToBuyBudget,
+      isFullyBought,
+    });
+  }
+
+  // Sort items: unbought first (highest budget first), then completed items
+  items.sort((a, b) => {
+    if (a.isFullyBought !== b.isFullyBought) {
+      return a.isFullyBought ? 1 : -1;
+    }
+    return b.hbxlBudget - a.hbxlBudget;
+  });
+
+  const plannedSpend = Math.round(items.reduce((sum, i) => sum + i.hbxlBudget, 0) * 100) / 100;
+  const actualPurchased = Math.round(items.reduce((sum, i) => sum + i.actualPurchasedSpend, 0) * 100) / 100;
+  const remainingToBuyBudget = Math.round(items.reduce((sum, i) => sum + i.stillToBuyBudget, 0) * 100) / 100;
+  const remainingMaterialsCount = items.filter(i => !i.isFullyBought).length;
+
+  return {
+    plannedSpend,
+    actualPurchased,
+    remainingToBuyBudget,
+    totalMaterialsCount: items.length,
+    remainingMaterialsCount,
+    items,
+  };
+}
