@@ -161,11 +161,65 @@ test("Maureen NEXT 7 DAYS: 3 scheduled packages, £436.92 planned spend, 7 mater
   assert.equal(levelling.stillToBuyBudget, 56.73);
   assert.ok(levelling.neededForRooms.some((r) => r.includes("Solid Wood Flooring")));
 
+  const architrave = weeklySummary.items.find((i) => i.description.includes("Torus Architrave"));
+  assert.ok(architrave, "Torus Architrave present");
+  assert.equal(architrave.qtyNeeded, 11.46, "Architrave qtyNeeded is 11.46");
+  assert.equal(architrave.hbxlBudget, 46.42, "Architrave hbxlBudget is 46.42");
+  assert.equal(architrave.qtyBought, 0, "Architrave qtyBought is 0");
+  assert.equal(architrave.stillToBuyQty, 11.46, "Architrave stillToBuyQty is 11.46 (NOT 46.42!)");
+  assert.equal(architrave.stillToBuyBudget, 46.42, "Architrave stillToBuyBudget is 46.42");
+  assert.equal(architrave.unit, "m", "Architrave unit is m");
+
+  const fireDoor = weeklySummary.items.find((i) => i.description.includes("Internal Fire Door"));
+  assert.ok(fireDoor, "Internal Fire Door present");
+  assert.equal(fireDoor.qtyNeeded, 1.00);
+  assert.equal(fireDoor.hbxlBudget, 126.00);
+  assert.equal(fireDoor.qtyBought, 0);
+  assert.equal(fireDoor.stillToBuyQty, 1.00);
+  assert.equal(fireDoor.stillToBuyBudget, 126.00);
+
+  const doorCasing = weeklySummary.items.find((i) => i.description.includes("Door Casing"));
+  assert.ok(doorCasing, "Door Casing present");
+  assert.equal(doorCasing.qtyNeeded, 6.14);
+  assert.equal(doorCasing.hbxlBudget, 52.18);
+  assert.equal(doorCasing.qtyBought, 0);
+  assert.equal(doorCasing.stillToBuyQty, 6.14);
+  assert.equal(doorCasing.stillToBuyBudget, 52.18);
+
+  const doorHandle = weeklySummary.items.find((i) => i.description.includes("Door Handle"));
+  assert.ok(doorHandle, "Door Handle present");
+  assert.equal(doorHandle.qtyNeeded, 2.00);
+  assert.equal(doorHandle.hbxlBudget, 25.60);
+  assert.equal(doorHandle.qtyBought, 0);
+  assert.equal(doorHandle.stillToBuyQty, 2.00);
+  assert.equal(doorHandle.stillToBuyBudget, 25.60);
+
+  const softwood = weeklySummary.items.find((i) => i.description.includes("Sawn Softwood"));
+  assert.ok(softwood, "Sawn Softwood present");
+  assert.equal(softwood.qtyNeeded, 6.54);
+  assert.equal(softwood.hbxlBudget, 17.66);
+  assert.equal(softwood.qtyBought, 0);
+  assert.equal(softwood.stillToBuyQty, 6.54);
+  assert.equal(softwood.stillToBuyBudget, 17.66);
+
+  const sealant = weeklySummary.items.find((i) => i.description.includes("Sealant"));
+  assert.ok(sealant, "Sealant present");
+  assert.equal(sealant.isPriced, false);
+  assert.equal(sealant.qtyNeeded, 3);
+  assert.equal(sealant.stillToBuyQty, 3);
+
+  const thresholdBar = weeklySummary.items.find((i) => i.description.includes("Threshold Door Bar"));
+  assert.ok(thresholdBar, "Threshold Door Bar present");
+  assert.equal(thresholdBar.isPriced, false);
+  assert.equal(thresholdBar.qtyNeeded, 1);
+  assert.equal(thresholdBar.stillToBuyQty, 1);
+
   const doorCloser = weeklySummary.items.find((i) => i.description.includes("Door Closer"));
   assert.ok(doorCloser, "Door Closer present");
   assert.equal(doorCloser.isPriced, false);
   assert.equal(doorCloser.hbxlBudget, 0);
   assert.equal(doorCloser.qtyNeeded, 1);
+  assert.equal(doorCloser.stillToBuyQty, 1);
 });
 
 test("Maureen NEXT WEEK: 2 scheduled packages, £169.06 planned spend, 3 materials to buy", () => {
