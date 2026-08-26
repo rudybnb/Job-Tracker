@@ -119,11 +119,13 @@ function MaterialUpload({ jobId, onImported }: { jobId: string; onImported: () =
   const [preview, setPreview] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicateInfo, setDuplicateInfo] = useState<string | null>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setError(null);
+    setDuplicateInfo(null);
     setUploading(true);
     try {
       const formData = new FormData();
@@ -144,6 +146,8 @@ function MaterialUpload({ jobId, onImported }: { jobId: string; onImported: () =
 
   const handleImport = async () => {
     if (!preview) return;
+    setError(null);
+    setDuplicateInfo(null);
     setUploading(true);
     try {
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -155,11 +159,24 @@ function MaterialUpload({ jobId, onImported }: { jobId: string; onImported: () =
         method: "POST",
         body: fd,
       });
-      if (!response.ok) throw new Error("Import failed");
+
+      if (response.status === 409) {
+        setDuplicateInfo(
+          "This exact Materials Used CSV is already attached to this job. No changes were made."
+        );
+        setPreview(null);
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || errorData?.message || "Failed to import CSV");
+      }
+
       setPreview(null);
       onImported();
-    } catch (err) {
-      setError("Failed to import CSV");
+    } catch (err: any) {
+      setError(err?.message || "Failed to import CSV");
     } finally {
       setUploading(false);
     }
@@ -170,7 +187,17 @@ function MaterialUpload({ jobId, onImported }: { jobId: string; onImported: () =
       <h5 className="text-xs font-bold uppercase tracking-wide text-yellow-500 mb-2">Import / Re-import HBXL Materials Used CSV</h5>
       <input type="file" accept=".csv" onChange={handleFile} className="text-sm text-slate-400 mb-2" />
       {uploading && <p className="text-xs text-slate-400">Processing...</p>}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {duplicateInfo && (
+        <div className="mt-2 rounded-lg border border-blue-500/40 bg-blue-950/30 p-3 text-slate-200">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wide text-blue-400">ALREADY IMPORTED</span>
+          </div>
+          <p className="mt-1 text-xs text-slate-300">
+            {duplicateInfo}
+          </p>
+        </div>
+      )}
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
       {preview && (
         <div className="mt-2 rounded border border-slate-600 bg-slate-800 p-2">
           <div className="text-xs text-slate-300 mb-1 font-medium">{preview.filename}</div>

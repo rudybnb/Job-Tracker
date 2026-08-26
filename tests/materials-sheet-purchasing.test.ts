@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
@@ -233,4 +233,19 @@ test("Broad allowances are isolated from physical supplier lines", () => {
   assert.equal(carpet?.totalCostIncludingWastage, 2170.69);
   assert.equal(wood?.totalCostIncludingWastage, 2586.67);
   assert.equal(vinyl?.totalCostIncludingWastage, 774.43);
+});
+
+// ─── 7. Duplicate CSV Import UI Handling ─────────────────────────────────────
+
+test("Materials Used CSV upload component shows informational ALREADY IMPORTED on 409 duplicate", () => {
+  const uiSource = readFileSync("client/src/pages/admin-budget-tracking.tsx", "utf8");
+
+  // Verify 409 handling
+  assert.match(uiSource, /response\.status === 409/);
+  assert.match(uiSource, /ALREADY IMPORTED/);
+  assert.match(uiSource, /This exact Materials Used CSV is already attached to this job/);
+  assert.match(uiSource, /No changes were made/);
+
+  // Verify non-error styling (blue info container instead of red error)
+  assert.match(uiSource, /border-blue-500\/40 bg-blue-950\/30/);
 });
