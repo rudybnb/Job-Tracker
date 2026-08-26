@@ -167,6 +167,25 @@ export function classifyAllRows(rows: MaterialsUsedRow[]): ClassifiedMaterialRow
   return rows.map((row) => ({ ...row, kind: classifyMaterialRow(row) }));
 }
 
+/**
+ * Helper to identify broad allowances or monetary sundries that must NOT
+ * be treated as physical weekly trade buying requirements.
+ */
+export function isAllowanceOrSundryProduct(description: string): boolean {
+  const desc = description.toLowerCase().trim();
+  if (desc.startsWith("allowance for")) return true;
+  if (desc.startsWith("provisional")) return true;
+  if (
+    desc.includes("sundry materials") ||
+    desc === "sundry materials (£)" ||
+    desc.includes("sundry cost allowance") ||
+    desc.includes("sundries allowance")
+  ) {
+    return true;
+  }
+  return false;
+}
+
 // ─── Product Normalization ──────────────────────────────────────────────────
 
 /** Strip dimensions, sizes, pack sizes — keep core product name for matching. */
@@ -471,6 +490,15 @@ export function buildWeeklyBuyingList(
     const desc = match?.csvRow?.description || alloc.wordProductDescription;
     const key = normalizeProductDescription(desc);
 
+    // Exclude broad allowances or sundry monetary items from physical buying list
+    if (
+      isAllowanceOrSundryProduct(alloc.wordProductDescription) ||
+      isAllowanceOrSundryProduct(desc) ||
+      (match?.csvRow && classifyMaterialRow(match.csvRow) !== "genuine")
+    ) {
+      continue;
+    }
+
     autoQuantifiedTaskProducts.add(`${alloc.locationTaskId}::${key}`);
 
     const existing = materialMap.get(key) || {
@@ -503,11 +531,30 @@ export function buildWeeklyBuyingList(
   for (const chk of roomPackageChecklist) {
     const roomStr = `${chk.locationName} — ${chk.workPackage}`;
     for (const res of chk.structuredResources ?? []) {
+      // Exclude unclassified currency allowances (e.g. Solid Wood Flooring broad allowance token)
+      if (res.sourceValueKind === "currency_unclassified") {
+        continue;
+      }
+
       const prodDesc = res.productDescription || res.usageDescription;
       if (!prodDesc) continue;
+
+      // Exclude monetary sundry allowances (e.g. Sundry Materials (£))
+      if (isAllowanceOrSundryProduct(prodDesc)) {
+        continue;
+      }
+
       const match = matchByWordDesc.get(prodDesc.toLowerCase().trim());
       const desc = match?.csvRow?.description || prodDesc;
       const key = normalizeProductDescription(desc);
+
+      // Exclude if matched CSV row is an allowance or sundry
+      if (
+        isAllowanceOrSundryProduct(desc) ||
+        (match?.csvRow && (classifyMaterialRow(match.csvRow) !== "genuine" || isAllowanceOrSundryProduct(match.csvRow.description)))
+      ) {
+        continue;
+      }
 
       // If already handled by auto-quantified allocations for this task, skip
       if (autoQuantifiedTaskProducts.has(`${chk.locationTaskId}::${key}`)) {

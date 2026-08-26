@@ -137,11 +137,23 @@ test("Maureen NEXT 7 DAYS: 3 scheduled packages, £436.92 planned spend, 7 mater
   assert.equal(weeklySummary.plannedSpend, 436.92, "Planned spend is £436.92");
   assert.equal(weeklySummary.actualPurchased, 0, "No purchases made yet");
   assert.equal(weeklySummary.remainingToBuyBudget, 436.92, "Remaining to buy is £436.92");
-  assert.equal(weeklySummary.totalMaterialsCount, 22, "22 total materials (7 auto-quantified + 10 needing confirmation + 5 unpriced)");
+  assert.equal(weeklySummary.totalMaterialsCount, 20, "20 total physical materials (7 auto-quantified + 9 needing confirmation + 4 unpriced)");
   assert.equal(weeklySummary.pricedMaterialsCount, 7, "7 auto-quantified priced materials");
-  assert.equal(weeklySummary.needsConfirmationCount, 10, "10 priced materials needing confirmation");
-  assert.equal(weeklySummary.unpricedMaterialsCount, 5, "5 unpriced materials");
-  assert.equal(weeklySummary.remainingMaterialsCount, 22, "All 22 remain to buy");
+  assert.equal(weeklySummary.needsConfirmationCount, 9, "9 priced physical materials needing confirmation");
+  assert.equal(weeklySummary.unpricedMaterialsCount, 4, "4 genuinely unpriced/ambiguous materials");
+  assert.equal(weeklySummary.remainingMaterialsCount, 20, "All 20 remain to buy");
+
+  // Verify Solid Wood Flooring allowance token and Sundry Materials (£) are excluded from physical weekly buying
+  assert.equal(
+    weeklySummary.items.some((i) => i.description.toLowerCase() === "solid wood flooring"),
+    false,
+    "Solid Wood Flooring allowance token must NOT appear in physical Weekly Buying"
+  );
+  assert.equal(
+    weeklySummary.items.some((i) => i.description.toLowerCase().includes("sundry materials")),
+    false,
+    "Sundry Materials (£) must NOT appear in physical Weekly Buying"
+  );
 
   // Check key rows
   const magnolia = weeklySummary.items.find((i) => i.description.includes("Magnolia"));
@@ -223,7 +235,7 @@ test("Maureen NEXT 7 DAYS: 3 scheduled packages, £436.92 planned spend, 7 mater
   assert.equal(doorCloser.stillToBuyQty, 1);
 });
 
-test("Maureen NEXT WEEK: 2 scheduled packages, £169.06 planned spend, 10 materials in scope", () => {
+test("Maureen NEXT WEEK: 2 scheduled packages, £169.06 planned spend, 8 physical materials in scope", () => {
   const bed3Loc = locations.find((l) => l.name.includes("Bedroom 3"))!;
   const bed3Tasks = tasks.filter((t) => t.locationId === bed3Loc.id);
 
@@ -271,9 +283,11 @@ test("Maureen NEXT WEEK: 2 scheduled packages, £169.06 planned spend, 10 materi
   const weeklySummary = buildWeeklyBuyingList(allocations, checklist, productMatches, csvRows, []);
 
   assert.equal(weeklySummary.plannedSpend, 169.06, "Planned spend is £169.06 (Magnolia £112.33 + Compound £56.73)");
-  assert.equal(weeklySummary.totalMaterialsCount, 10, "10 total materials (2 auto-quantified + 6 needing confirmation + 2 unpriced)");
+  assert.equal(weeklySummary.totalMaterialsCount, 8, "8 total materials (2 auto-quantified + 5 needing confirmation + 1 unpriced)");
   assert.equal(weeklySummary.pricedMaterialsCount, 2, "2 priced materials");
-  assert.equal(weeklySummary.remainingMaterialsCount, 10);
+  assert.equal(weeklySummary.needsConfirmationCount, 5, "5 priced materials needing confirmation");
+  assert.equal(weeklySummary.unpricedMaterialsCount, 1, "1 unpriced material (Threshold Door Bar)");
+  assert.equal(weeklySummary.remainingMaterialsCount, 8);
 });
 
 // ─── 2. Remaining to Buy Formula Clarification ────────────────────────────────
@@ -849,7 +863,7 @@ test("Maureen NEXT 7 DAYS with Undercoat White confirmed (1 -> 2 Each) reflects 
   const unconfirmedSummary = buildWeeklyBuyingList(allocations, checklist, productMatches, csvRows, []);
   assert.equal(unconfirmedSummary.plannedSpend, 436.92);
   assert.equal(unconfirmedSummary.pricedMaterialsCount, 7);
-  assert.equal(unconfirmedSummary.needsConfirmationCount, 10);
+  assert.equal(unconfirmedSummary.needsConfirmationCount, 9);
 
   // Confirm Undercoat White: 1 Each @ £38.00
   const fireDoorTask = bed3Tasks.find((t) => t.workCategory === "Fire Door")!;
@@ -870,7 +884,7 @@ test("Maureen NEXT 7 DAYS with Undercoat White confirmed (1 -> 2 Each) reflects 
   assert.equal(confirmedSummary1.plannedSpend, 474.92); // 436.92 + 38.00 = 474.92
   assert.equal(confirmedSummary1.remainingToBuyBudget, 474.92);
   assert.equal(confirmedSummary1.pricedMaterialsCount, 8); // 7 + 1 confirmed
-  assert.equal(confirmedSummary1.needsConfirmationCount, 9); // 10 - 1 confirmed
+  assert.equal(confirmedSummary1.needsConfirmationCount, 8); // 9 - 1 confirmed
 
   // Update confirmation: 2 Each @ £38.00 = £76.00
   const conf2 = [
@@ -890,7 +904,7 @@ test("Maureen NEXT 7 DAYS with Undercoat White confirmed (1 -> 2 Each) reflects 
   assert.equal(confirmedSummary2.plannedSpend, 512.92); // 436.92 + 76.00 = 512.92
   assert.equal(confirmedSummary2.remainingToBuyBudget, 512.92);
   assert.equal(confirmedSummary2.pricedMaterialsCount, 8);
-  assert.equal(confirmedSummary2.needsConfirmationCount, 9);
+  assert.equal(confirmedSummary2.needsConfirmationCount, 8);
 });
 
 
