@@ -169,6 +169,13 @@
       "when": 1787673600003,
       "tag": "0023_job_material_cost_actuals",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1787673600004,
+      "tag": "0024_job_location_task_material_confirmations",
+      "breakpoints": true
     }
   ]
 }

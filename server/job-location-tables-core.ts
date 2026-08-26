@@ -60,6 +60,25 @@ export function jobLocationTableStatements(): ReadonlyArray<string> {
 );`,
     `CREATE UNIQUE INDEX IF NOT EXISTS job_location_task_resources_task_order_unique ON job_location_task_resources (location_task_id, source_order);`,
 
+    `CREATE TABLE IF NOT EXISTS job_location_task_material_confirmations (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id VARCHAR NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  location_task_id VARCHAR NOT NULL REFERENCES job_location_tasks(id) ON DELETE CASCADE,
+  material_key TEXT NOT NULL,
+  material_description TEXT NOT NULL,
+  confirmed_quantity NUMERIC(14,4) NOT NULL,
+  unit TEXT NOT NULL,
+  confirmed_by TEXT,
+  confirmed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT job_loc_task_mat_conf_qty_check CHECK (confirmed_quantity > 0)
+);`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS job_loc_task_mat_conf_task_mat_unique ON job_location_task_material_confirmations (location_task_id, material_key);`,
+    `CREATE INDEX IF NOT EXISTS job_loc_task_mat_conf_job_idx ON job_location_task_material_confirmations (job_id);`,
+    `CREATE INDEX IF NOT EXISTS job_loc_task_mat_conf_job_mat_idx ON job_location_task_material_confirmations (job_id, material_key);`,
+
     // Additive columns for job_assignments if not already present
     `ALTER TABLE job_assignments ADD COLUMN IF NOT EXISTS location_id TEXT;`,
     `ALTER TABLE job_assignments ADD COLUMN IF NOT EXISTS location_name TEXT;`,

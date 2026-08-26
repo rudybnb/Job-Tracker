@@ -241,7 +241,9 @@ function MaterialsCostSheet({
   jobId,
   materialCostRows = [],
   materialCostActuals = [],
+  materialConfirmations = [],
   onActualsSaved,
+  onConfirmationsSaved,
   procurementAssignments = [],
   procurementLocations = [],
   procurementTasks = [],
@@ -252,7 +254,9 @@ function MaterialsCostSheet({
   jobId: string;
   materialCostRows: any[];
   materialCostActuals: ActualPurchaseRecord[];
+  materialConfirmations?: any[];
   onActualsSaved: () => void;
+  onConfirmationsSaved?: () => void;
   procurementAssignments?: ProcurementAssignment[];
   procurementLocations?: ProcurementLocation[];
   procurementTasks?: ProcurementLocationTask[];
@@ -264,6 +268,14 @@ function MaterialsCostSheet({
   const [selectedPhase, setSelectedPhase] = useState<string>("ALL");
   const [addingPurchaseForMaterial, setAddingPurchaseForMaterial] = useState<any | null>(null);
   const [expandedPurchasesForDesc, setExpandedPurchasesForDesc] = useState<string | null>(null);
+
+  // Confirmation state
+  const [confirmingMaterial, setConfirmingMaterial] = useState<WeeklyBuyingItem | null>(null);
+  const [confirmQtyInput, setConfirmQtyInput] = useState("");
+  const [confirmUnitInput, setConfirmUnitInput] = useState("");
+  const [confirmNotesInput, setConfirmNotesInput] = useState("");
+  const [confirmLocationTaskId, setConfirmLocationTaskId] = useState("");
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Form state for adding purchase
   const [formSupplier, setFormSupplier] = useState("");
@@ -317,8 +329,8 @@ function MaterialsCostSheet({
     if (!procurementStructuredResources.length || !csvRows.length) return [];
     const wordDescs = Array.from(new Set(
       procurementStructuredResources
-        .filter((r) => r.sourceValueKind === "quantity" && r.productDescription)
         .map((r) => r.productDescription)
+        .filter(Boolean)
     ));
     return matchWordProductsToCsv(wordDescs, csvRows);
   }, [procurementStructuredResources, csvRows]);
@@ -342,16 +354,17 @@ function MaterialsCostSheet({
     return allocateRoomBudgets(procurementStructuredResources, productMatches, scheduledTaskIds);
   }, [procurementStructuredResources, productMatches, roomPackageChecklist]);
 
-  // Weekly buying summary & items
+  // Weekly buying summary & items with quantity confirmations
   const weeklyBuyingSummary: WeeklyBuyingSummary = useMemo(() => {
     return buildWeeklyBuyingList(
       allocations,
       roomPackageChecklist,
       productMatches,
       csvRows,
-      materialCostActuals
+      materialCostActuals,
+      materialConfirmations
     );
-  }, [allocations, roomPackageChecklist, productMatches, csvRows, materialCostActuals]);
+  }, [allocations, roomPackageChecklist, productMatches, csvRows, materialCostActuals, materialConfirmations]);
 
   // Available build phases for dropdown filter (whole job)
   const buildPhases = useMemo(() => {
@@ -460,6 +473,48 @@ function MaterialsCostSheet({
     }
   };
 
+  // Handle open Confirm Quantity modal
+  const handleOpenConfirmQuantity = (item: WeeklyBuyingItem) => {
+    setConfirmingMaterial(item);
+    setConfirmQtyInput(item.qtyNeeded > 0 ? item.qtyNeeded.toString() : "1");
+    setConfirmUnitInput(item.unit || "Each");
+    setConfirmNotesInput("");
+    setConfirmLocationTaskId(item.locationTaskIds[0] || "");
+  };
+
+  const handleSaveConfirmation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmingMaterial || !confirmQtyInput) return;
+    setIsConfirming(true);
+    try {
+      const targetTaskId = confirmLocationTaskId || confirmingMaterial.locationTaskIds[0];
+      const res = await fetch(`/api/jobs/${jobId}/material-costs/confirmations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locationTaskId: targetTaskId,
+          materialKey: confirmingMaterial.materialKey,
+          materialDescription: confirmingMaterial.description,
+          confirmedQuantity: confirmQtyInput,
+          unit: confirmUnitInput,
+          notes: confirmNotesInput ? confirmNotesInput.trim() : null,
+        }),
+      });
+
+      if (res.ok) {
+        setConfirmingMaterial(null);
+        if (onConfirmationsSaved) onConfirmationsSaved();
+      } else {
+        const err = await res.json().catch(() => null);
+        alert(err?.error || "Failed to save confirmation");
+      }
+    } catch (err) {
+      console.error("Save confirmation failed:", err);
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   // Financial Totals Calculations (Whole Job)
   const hbxlPhysicalBudget = useMemo(
     () => physicalRows.reduce((sum, r) => sum + moneyValue(r.totalCostIncludingWastage), 0),
@@ -539,23 +594,28 @@ function MaterialsCostSheet({
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* TOP SUMMARY — ONLY THREE LARGE VALUES FOR THE SELECTED PERIOD       */}
       {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* TOP SUMMARY — ONLY THREE LARGE VALUES FOR THE SELECTED PERIOD       */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
       {(() => {
         const hasUnpriced = weeklyBuyingSummary.unpricedMaterialsCount > 0;
+        const hasUnconfirmed = weeklyBuyingSummary.needsConfirmationCount > 0;
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* Card 1: PLANNED MATERIAL SPEND / PLANNED SPEND — PRICED ITEMS */}
             <div className="rounded-lg border border-yellow-500/50 bg-slate-900 p-4 shadow">
               <div className="text-[11px] font-bold uppercase tracking-wider text-yellow-500">
-                {hasUnpriced ? "Planned Spend — Priced Items" : "Planned Material Spend"}
+                {hasUnpriced || hasUnconfirmed ? "Planned Spend — Priced Items" : "Planned Material Spend"}
               </div>
               <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(weeklyBuyingSummary.plannedSpend)}</div>
               <div className="mt-1 text-xs text-slate-400">
-                {hasUnpriced
-                  ? `${weeklyBuyingSummary.unpricedMaterialsCount} ${weeklyBuyingSummary.unpricedMaterialsCount === 1 ? "item still needs" : "items still need"} pricing`
-                  : `${roomPackageChecklist.length} scheduled ${roomPackageChecklist.length === 1 ? "package" : "packages"} (${weeklyBuyingSummary.totalMaterialsCount} ${weeklyBuyingSummary.totalMaterialsCount === 1 ? "material" : "materials"})`}
+                {hasUnpriced || hasUnconfirmed ? (
+                  <span className="text-amber-400/90 font-medium">
+                    {[
+                      hasUnconfirmed ? `${weeklyBuyingSummary.needsConfirmationCount} need qty confirmation` : null,
+                      hasUnpriced ? `${weeklyBuyingSummary.unpricedMaterialsCount} need pricing` : null,
+                    ].filter(Boolean).join(" · ")}
+                  </span>
+                ) : (
+                  `${roomPackageChecklist.length} scheduled ${roomPackageChecklist.length === 1 ? "package" : "packages"} (${weeklyBuyingSummary.totalMaterialsCount} ${weeklyBuyingSummary.totalMaterialsCount === 1 ? "material" : "materials"})`
+                )}
               </div>
             </div>
 
@@ -571,12 +631,15 @@ function MaterialsCostSheet({
             {/* Card 3: REMAINING TO BUY / REMAINING TO BUY — PRICED ITEMS */}
             <div className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                {hasUnpriced ? "Remaining to Buy — Priced Items" : "Remaining to Buy"}
+                {hasUnpriced || hasUnconfirmed ? "Remaining to Buy — Priced Items" : "Remaining to Buy"}
               </div>
               <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(weeklyBuyingSummary.remainingToBuyBudget)}</div>
               <div className="mt-1 text-xs text-slate-400">
-                {hasUnpriced
-                  ? `+ ${weeklyBuyingSummary.unpricedMaterialsCount} unpriced ${weeklyBuyingSummary.unpricedMaterialsCount === 1 ? "item" : "items"}`
+                {hasUnpriced || hasUnconfirmed
+                  ? [
+                      hasUnconfirmed ? `+ ${weeklyBuyingSummary.needsConfirmationCount} pending confirmation` : null,
+                      hasUnpriced ? `+ ${weeklyBuyingSummary.unpricedMaterialsCount} unpriced items` : null,
+                    ].filter(Boolean).join(" ")
                   : `${weeklyBuyingSummary.remainingMaterialsCount} of ${weeklyBuyingSummary.totalMaterialsCount} ${weeklyBuyingSummary.totalMaterialsCount === 1 ? "material" : "materials"} left to buy`}
               </div>
             </div>
@@ -605,7 +668,7 @@ function MaterialsCostSheet({
             <thead>
               <tr className="border-b border-slate-700 bg-slate-800/90 text-slate-300 font-semibold uppercase tracking-wider">
                 <th className="py-2.5 px-3 min-w-[220px]">Material</th>
-                <th className="py-2.5 px-2 w-28 text-right">Qty Needed</th>
+                <th className="py-2.5 px-2 w-32 text-right">Qty Needed</th>
                 <th className="py-2.5 px-2 w-28 text-right">HBXL Budget</th>
                 <th className="py-2.5 px-2 w-24 text-right">Bought</th>
                 <th className="py-2.5 px-2 w-28 text-right">Still to Buy</th>
@@ -633,16 +696,53 @@ function MaterialsCostSheet({
                     </td>
 
                     {/* Qty Needed */}
-                    <td className="py-2.5 px-2 text-right font-mono text-slate-200">
-                      {item.qtyNeeded.toFixed(2)} <span className="text-slate-500 text-[10px]">{item.unit}</span>
+                    <td className="py-2.5 px-2 text-right">
+                      {item.needsConfirmation ? (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenConfirmQuantity(item)}
+                            className="inline-flex items-center gap-1 rounded bg-amber-500/20 border border-amber-500/50 px-2 py-0.5 text-[11px] font-bold text-amber-400 hover:bg-amber-500/30 transition-all cursor-pointer"
+                            title="Click to confirm quantity needed for this period"
+                          >
+                            CONFIRM QTY
+                          </button>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            £{item.unitRate.toFixed(2)} / {item.unit}
+                          </div>
+                        </div>
+                      ) : item.quantityConfirmed ? (
+                        <div>
+                          <div className="flex items-center justify-end gap-1">
+                            <span className="font-mono text-slate-200 font-bold">{item.qtyNeeded.toFixed(2)}</span>
+                            <span className="text-slate-500 text-[10px]">{item.unit}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenConfirmQuantity(item)}
+                              className="text-[11px] text-yellow-400 hover:underline ml-1"
+                              title="Edit confirmed quantity"
+                            >
+                              ✎
+                            </button>
+                          </div>
+                          <span className="text-[9px] text-green-400 font-bold uppercase tracking-wider">Confirmed</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="font-mono text-slate-200">{item.qtyNeeded > 0 ? item.qtyNeeded.toFixed(2) : "—"}</span>
+                          <span className="text-slate-500 text-[10px] ml-0.5">{item.unit}</span>
+                        </div>
+                      )}
                     </td>
 
                     {/* HBXL Budget */}
                     <td className="py-2.5 px-2 text-right font-mono font-bold text-yellow-400">
-                      {item.isPriced ? (
+                      {item.needsConfirmation ? (
+                        <span className="text-slate-500 italic text-[11px] font-normal">Pending qty</span>
+                      ) : item.isPriced ? (
                         formatMoney(item.hbxlBudget)
                       ) : (
-                        <span className="text-amber-400 font-bold text-[10px] uppercase tracking-wider">
+                        <span className="text-amber-400 font-bold text-[10px] uppercase tracking-wider font-sans">
                           PRICE NEEDED
                         </span>
                       )}
@@ -662,7 +762,9 @@ function MaterialsCostSheet({
 
                     {/* Still to Buy */}
                     <td className="py-2.5 px-2 text-right font-mono">
-                      {item.isFullyBought ? (
+                      {item.needsConfirmation ? (
+                        <span className="text-slate-500 italic text-[11px]">—</span>
+                      ) : item.isFullyBought ? (
                         <span className="inline-flex items-center text-green-400 font-bold text-[11px]">
                           ✓ Complete
                         </span>
@@ -677,13 +779,23 @@ function MaterialsCostSheet({
                     {/* Action */}
                     <td className="py-2.5 px-3 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAddPurchaseForWeeklyItem(item)}
-                          className="rounded border border-yellow-500/50 bg-yellow-500/10 px-2.5 py-1 text-[11px] font-bold text-yellow-400 hover:bg-yellow-500/20 transition-all"
-                        >
-                          + Purchase
-                        </button>
+                        {item.needsConfirmation ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenConfirmQuantity(item)}
+                            className="rounded border border-amber-500/50 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-400 hover:bg-amber-500/20 transition-all"
+                          >
+                            Confirm Qty
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAddPurchaseForWeeklyItem(item)}
+                            className="rounded border border-yellow-500/50 bg-yellow-500/10 px-2.5 py-1 text-[11px] font-bold text-yellow-400 hover:bg-yellow-500/20 transition-all"
+                          >
+                            + Purchase
+                          </button>
+                        )}
                         {item.qtyBought > 0 && (
                           <button
                             type="button"
@@ -755,6 +867,113 @@ function MaterialsCostSheet({
           </div>
         );
       })()}
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* CONFIRM QUANTITY MODAL                                              */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {confirmingMaterial && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white">Confirm Weekly Material Quantity</h3>
+                <p className="text-xs text-yellow-500 font-medium mt-0.5">{confirmingMaterial.description}</p>
+                <p className="text-[11px] text-slate-400">HBXL Unit Rate: £{confirmingMaterial.unitRate.toFixed(2)} / {confirmingMaterial.unit}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmingMaterial(null)}
+                className="text-slate-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveConfirmation} className="space-y-3 text-xs">
+              {confirmingMaterial.locationTaskIds.length > 1 && (
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Scheduled Room / Package</label>
+                  <select
+                    value={confirmLocationTaskId}
+                    onChange={(e) => setConfirmLocationTaskId(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-yellow-500 focus:outline-none"
+                  >
+                    {confirmingMaterial.locationTaskIds.map((taskId, idx) => (
+                      <option key={taskId} value={taskId}>
+                        {confirmingMaterial.neededForRooms[idx] || taskId}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Quantity Needed</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.0001"
+                    required
+                    placeholder="1"
+                    value={confirmQtyInput}
+                    onChange={(e) => setConfirmQtyInput(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-white focus:border-yellow-500 focus:outline-none"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Unit</label>
+                  <input
+                    type="text"
+                    required
+                    value={confirmUnitInput}
+                    onChange={(e) => setConfirmUnitInput(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-yellow-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded bg-slate-950/80 border border-slate-800 p-2.5 flex items-center justify-between">
+                <span className="text-slate-400 font-semibold">Weekly Budget:</span>
+                <span className="text-base font-black font-mono text-yellow-400">
+                  {confirmQtyInput && !isNaN(parseFloat(confirmQtyInput))
+                    ? formatMoney(parseFloat(confirmQtyInput) * confirmingMaterial.unitRate)
+                    : "£0.00"}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 mb-1 font-semibold">Notes (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 1 tin covers 2 coats on door"
+                  value={confirmNotesInput}
+                  onChange={(e) => setConfirmNotesInput(e.target.value)}
+                  className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-white placeholder-slate-600 focus:border-yellow-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingMaterial(null)}
+                  className="rounded border border-slate-700 bg-slate-800 px-4 py-2 text-slate-300 hover:bg-slate-700 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isConfirming}
+                  className="rounded bg-yellow-500 px-4 py-2 text-slate-950 font-bold hover:bg-yellow-400 transition-colors disabled:opacity-50"
+                >
+                  {isConfirming ? "Saving..." : "Save Confirmation"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* ADD PURCHASE MODAL                                                  */}
@@ -1151,6 +1370,7 @@ function MaterialsCostSheet({
             items={roomPackageChecklist}
             materialCostRows={materialCostRows}
             allStructuredResources={procurementStructuredResources}
+            confirmations={materialConfirmations}
           />
         </div>
       </details>
@@ -1173,9 +1393,19 @@ function MaterialsCostSheet({
   );
 }
 
-function ResourceQuantity({ resource }: { resource: ProcurementStructuredResource }) {
+function ResourceQuantity({ 
+  resource,
+  locationTaskId,
+  productMatches = [],
+  confirmations = [],
+}: { 
+  resource: ProcurementStructuredResource;
+  locationTaskId?: string;
+  productMatches?: ProductMatch[];
+  confirmations?: any[];
+}) {
   if (resource.sourceValueKind === "quantity") {
-    return <span className="font-mono text-xs text-green-400">{resource.quantity} {resource.unit}</span>;
+    return <span className="font-mono text-xs text-green-400 font-semibold">{resource.quantity} {resource.unit}</span>;
   }
   if (resource.sourceValueKind === "currency_unclassified") {
     return (
@@ -1185,6 +1415,32 @@ function ResourceQuantity({ resource }: { resource: ProcurementStructuredResourc
       </span>
     );
   }
+
+  // Check if safe priced CSV match
+  const prodDesc = resource.productDescription || resource.usageDescription;
+  const match = prodDesc ? productMatches.find((m) => m.wordProductDescription.toLowerCase().trim() === prodDesc.toLowerCase().trim()) : null;
+  const isPriced = match && match.kind !== "no_match" && match.kind !== "ambiguous" && match.csvRow;
+
+  if (isPriced && match.csvRow) {
+    const key = normalizeProductDescription(match.csvRow.description);
+    const conf = confirmations.find((c: any) => c.locationTaskId === locationTaskId && c.materialKey === key);
+    if (conf) {
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-xs text-green-400 font-bold">
+          {conf.confirmedQuantity} {conf.unit} <span className="text-[10px] text-green-500 font-sans font-semibold">(Confirmed)</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="rounded bg-amber-500/20 border border-amber-500/50 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
+          CONFIRM QTY
+        </span>
+        <span className="font-mono text-xs text-slate-300">£{match.csvRow.unitRate.toFixed(2)} / {match.csvRow.unit}</span>
+      </span>
+    );
+  }
+
   return <span className="text-xs italic text-slate-500">To confirm</span>;
 }
 
@@ -1192,15 +1448,16 @@ function RoomPackageChecklist({
   items,
   materialCostRows,
   allStructuredResources,
+  confirmations = [],
 }: { 
   items: RoomPackageProcurementChecklist[];
   materialCostRows?: any[];
   allStructuredResources?: ProcurementStructuredResource[];
+  confirmations?: any[];
 }) {
-  const pricedBudget = useMemo(() => {
-    if (!materialCostRows?.length || !allStructuredResources?.length || !items.length) return null;
-    
-    const csvRows: MaterialsUsedRow[] = materialCostRows.map((r: any) => ({
+  const csvRows: MaterialsUsedRow[] = useMemo(() => {
+    if (!materialCostRows?.length) return [];
+    return materialCostRows.map((r: any) => ({
       buildPhase: r.buildPhase,
       description: r.description,
       unitRate: parseFloat(r.unitRate) || 0,
@@ -1212,16 +1469,25 @@ function RoomPackageChecklist({
       wastageCost: parseFloat(r.wastageCost) || 0,
       totalCostIncludingWastage: parseFloat(r.totalCostIncludingWastage) || 0,
     }));
-    
+  }, [materialCostRows]);
+
+  const productMatches = useMemo(() => {
+    if (!allStructuredResources?.length || !csvRows.length) return [];
+    const wordDescs = Array.from(new Set(
+      allStructuredResources
+        .map((r) => r.productDescription)
+        .filter(Boolean)
+    ));
+    return matchWordProductsToCsv(wordDescs, csvRows);
+  }, [allStructuredResources, csvRows]);
+
+  const pricedBudget = useMemo(() => {
+    if (!csvRows.length || !allStructuredResources?.length || !items.length) return null;
     const classified = classifyAllRows(csvRows);
     const scheduledTaskIds = new Set(items.map(i => i.locationTaskId));
-    const productMatches = matchWordProductsToCsv(
-      Array.from(new Set(allStructuredResources.filter(r => r.sourceValueKind === "quantity").map(r => r.productDescription))),
-      csvRows
-    );
     const allocations = allocateRoomBudgets(allStructuredResources, productMatches, scheduledTaskIds);
     return buildWeeklyPricedBudget(allocations, productMatches, classified);
-  }, [materialCostRows, allStructuredResources, items]);
+  }, [csvRows, allStructuredResources, productMatches, items]);
 
   return (
     <section className="rounded-lg border border-yellow-500/60 bg-yellow-950/20 p-3">
@@ -1248,7 +1514,12 @@ function RoomPackageChecklist({
                     <li key={resource.id ?? `${item.locationTaskId}-${resource.sourceOrder}`} className="flex flex-col gap-0.5 rounded bg-slate-800/50 px-2 py-1.5">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                         <span className="text-sm font-medium text-white">{resource.usageDescription}</span>
-                        <ResourceQuantity resource={resource} />
+                        <ResourceQuantity 
+                          resource={resource} 
+                          locationTaskId={item.locationTaskId}
+                          productMatches={productMatches}
+                          confirmations={confirmations}
+                        />
                       </div>
                       <div className="text-xs text-slate-400">{resource.productDescription}</div>
                     </li>
@@ -1450,6 +1721,17 @@ export default function AdminBudgetTracking() {
     queryFn: async () => {
       if (!expandedProcurementJobId) return [];
       const response = await fetch(`/api/jobs/${expandedProcurementJobId}/material-costs/actuals`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: Boolean(expandedProcurementJobId),
+  });
+
+  const { data: materialConfirmations = [], refetch: refetchConfirmations } = useQuery<any[]>({
+    queryKey: ["/api/jobs", expandedProcurementJobId, "material-costs-confirmations"],
+    queryFn: async () => {
+      if (!expandedProcurementJobId) return [];
+      const response = await fetch(`/api/jobs/${expandedProcurementJobId}/material-costs/confirmations`);
       if (!response.ok) return [];
       return response.json();
     },
@@ -1831,6 +2113,11 @@ export default function AdminBudgetTracking() {
                                           materialCostRows={materialCostRows}
                                           materialCostActuals={materialCostActuals}
                                           onActualsSaved={refetchActuals}
+                                          materialConfirmations={materialConfirmations}
+                                          onConfirmationsSaved={() => {
+                                            refetchConfirmations();
+                                            refetchActuals();
+                                          }}
                                           procurementAssignments={procurementAssignments}
                                           procurementLocations={procurementLocations}
                                           procurementTasks={procurementTasks}

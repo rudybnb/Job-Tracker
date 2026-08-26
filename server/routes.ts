@@ -1,4 +1,4 @@
-﻿import type { Express, Request } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { DatabaseStorage } from "./database-storage";
@@ -28,7 +28,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { db, client } from "./db";
 import { calculateAdminWeeklyPayroll, calculateWorkerPayroll } from "./payroll-calculator.ts";
-import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, jobLocationTaskResources, jobMaterialCostResources, jobMaterialCostActuals, contractors, jobAssignments, jobAssignmentStatusEvents, projectSourceImports, workers } from "@shared/schema";
+import { csvUploads, jobs as jobsTable, clients, workSessions, attendanceEvents, attendanceCorrections, jobLocations, jobLocationTasks, jobLocationTaskResources, jobMaterialCostResources, jobMaterialCostActuals, jobLocationTaskMaterialConfirmations, contractors, jobAssignments, jobAssignmentStatusEvents, projectSourceImports, workers } from "@shared/schema";
 import { deriveCanonicalUsername, WorkerService } from "./worker-service.ts";
 import { buildAssignablePeople, type AssignmentIdentity } from "./assignment-people.ts";
 import { getAssignmentsOwnedByWorker, isStructuredWorkerAssignment, resolveStructuredAssignmentWorkerId } from "./worker-task-ownership.ts";
@@ -1171,6 +1171,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to delete purchase" });
     }
   });
+
+  app.get(
+    "/api/jobs/:jobId/material-costs/confirmations",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (req, res) => {
+      try {
+        const { jobId } = req.params;
+        const rows = await db
+          .select()
+          .from(jobLocationTaskMaterialConfirmations)
+          .where(eq(jobLocationTaskMaterialConfirmations.jobId, jobId))
+          .orderBy(desc(jobLocationTaskMaterialConfirmations.confirmedAt));
+        res.json(rows);
+      } catch (error) {
+        console.error("Error fetching material confirmations:", error);
+        res.json([]);
+      }
+    }
+  );
+
+  app.post(
+    "/api/jobs/:jobId/material-costs/confirmations",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (req, res) => {
+      try {
+        const { jobId } = req.params;
+        const {
+          locationTaskId,
+          materialKey,
+          materialDescription,
+          confirmedQuantity,
+          unit,
+          notes,
+        } = req.body;
+
+        if (!locationTaskId || !materialDescription || confirmedQuantity == null) {
+          return res.status(400).json({ error: "locationTaskId, materialDescription, and confirmedQuantity are required" });
+        }
+
+        const qtyNum = parseFloat(confirmedQuantity);
+        if (isNaN(qtyNum) || qtyNum <= 0) {
+          return res.status(400).json({ error: "confirmedQuantity must be a positive number greater than 0" });
+        }
+
+        const rawKey = materialKey || normalizeProductDescription(materialDescription);
+        const computedKey = rawKey.trim().toLowerCase();
+        const session = (req as any).session;
+        const confirmedBy = session?.username || session?.adminName || session?.user?.username || session?.userId || "admin";
+
+        const [upserted] = await db
+          .insert(jobLocationTaskMaterialConfirmations)
+          .values({
+            jobId,
+            locationTaskId,
+            materialKey: computedKey,
+            materialDescription: materialDescription.trim(),
+            confirmedQuantity: qtyNum.toFixed(4),
+            unit: (unit || "Each").trim(),
+            confirmedBy,
+            confirmedAt: new Date(),
+            notes: notes ?? null,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [
+              jobLocationTaskMaterialConfirmations.locationTaskId,
+              jobLocationTaskMaterialConfirmations.materialKey,
+            ],
+            set: {
+              confirmedQuantity: qtyNum.toFixed(4),
+              unit: (unit || "Each").trim(),
+              confirmedBy,
+              confirmedAt: new Date(),
+              notes: notes ?? null,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
+
+        res.json(upserted);
+      } catch (error) {
+        console.error("Error upserting material confirmation:", error);
+        res.status(500).json({ error: "Failed to confirm material quantity" });
+      }
+    }
+  );
+
+  app.delete(
+    "/api/jobs/:jobId/material-costs/confirmations/:confirmationId",
+    requireAdmin as unknown as import("express").RequestHandler,
+    async (req, res) => {
+      try {
+        const { jobId, confirmationId } = req.params;
+        await db
+          .delete(jobLocationTaskMaterialConfirmations)
+          .where(and(
+            eq(jobLocationTaskMaterialConfirmations.jobId, jobId),
+            eq(jobLocationTaskMaterialConfirmations.id, confirmationId)
+          ));
+        res.json({ deleted: true, confirmationId });
+      } catch (error) {
+        console.error("Error deleting material confirmation:", error);
+        res.status(500).json({ error: "Failed to delete material confirmation" });
+      }
+    }
+  );
 
   app.get("/api/jobs/:jobId/material-costs", async (req, res) => {
     try {

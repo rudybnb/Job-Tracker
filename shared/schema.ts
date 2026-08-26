@@ -1844,6 +1844,36 @@ export const insertJobMaterialCostActualSchema = createInsertSchema(jobMaterialC
 export type JobMaterialCostActual = typeof jobMaterialCostActuals.$inferSelect;
 export type InsertJobMaterialCostActual = z.infer<typeof insertJobMaterialCostActualSchema>;
 
+// Operational Material Quantity Confirmations for scheduled rooms/packages
+export const jobLocationTaskMaterialConfirmations = pgTable("job_location_task_material_confirmations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  locationTaskId: varchar("location_task_id").notNull().references(() => jobLocationTasks.id, { onDelete: "cascade" }),
+  materialKey: text("material_key").notNull(),
+  materialDescription: text("material_description").notNull(),
+  confirmedQuantity: numeric("confirmed_quantity", { precision: 14, scale: 4 }).notNull(),
+  unit: text("unit").notNull(),
+  confirmedBy: text("confirmed_by"),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull().defaultNow(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("job_loc_task_mat_conf_task_mat_unique").on(table.locationTaskId, table.materialKey),
+  index("job_loc_task_mat_conf_job_idx").on(table.jobId),
+  index("job_loc_task_mat_conf_job_mat_idx").on(table.jobId, table.materialKey),
+  check("job_loc_task_mat_conf_qty_check", sql`${table.confirmedQuantity} > 0`),
+]);
+
+export const insertJobLocationTaskMaterialConfirmationSchema = createInsertSchema(jobLocationTaskMaterialConfirmations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type JobLocationTaskMaterialConfirmation = typeof jobLocationTaskMaterialConfirmations.$inferSelect;
+export type InsertJobLocationTaskMaterialConfirmation = z.infer<typeof insertJobLocationTaskMaterialConfirmationSchema>;
+
 // Contractor Reports table for simple issue reporting
 export const contractorReports = pgTable("contractor_reports", {
   id: text("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2845,6 +2875,8 @@ export type InsertJobLocationTaskResource = z.infer<typeof insertJobLocationTask
 export type JobLocationTaskResource = typeof jobLocationTaskResources.$inferSelect;
 export type InsertJobMaterialCostResource = z.infer<typeof insertJobMaterialCostResourceSchema>;
 export type JobMaterialCostResource = typeof jobMaterialCostResources.$inferSelect;
+export type InsertJobLocationTaskMaterialConfirmation = z.infer<typeof insertJobLocationTaskMaterialConfirmationSchema>;
+export type JobLocationTaskMaterialConfirmation = typeof jobLocationTaskMaterialConfirmations.$inferSelect;
 
 export interface JobWithContractor extends Job {
   contractor?: Contractor;

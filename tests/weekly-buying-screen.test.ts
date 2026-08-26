@@ -72,7 +72,7 @@ test.before(async () => {
           sourceOrder: order++,
         };
         resources.push(resource);
-        if (r.sourceValueKind === "quantity" && r.productDescription) {
+        if (r.productDescription) {
           products.add(r.productDescription);
         }
       }
@@ -137,10 +137,11 @@ test("Maureen NEXT 7 DAYS: 3 scheduled packages, £436.92 planned spend, 7 mater
   assert.equal(weeklySummary.plannedSpend, 436.92, "Planned spend is £436.92");
   assert.equal(weeklySummary.actualPurchased, 0, "No purchases made yet");
   assert.equal(weeklySummary.remainingToBuyBudget, 436.92, "Remaining to buy is £436.92");
-  assert.equal(weeklySummary.totalMaterialsCount, 10, "10 total materials");
-  assert.equal(weeklySummary.pricedMaterialsCount, 7, "7 priced materials");
-  assert.equal(weeklySummary.unpricedMaterialsCount, 3, "3 unpriced materials");
-  assert.equal(weeklySummary.remainingMaterialsCount, 10, "All 10 remain to buy");
+  assert.equal(weeklySummary.totalMaterialsCount, 22, "22 total materials (7 auto-quantified + 10 needing confirmation + 5 unpriced)");
+  assert.equal(weeklySummary.pricedMaterialsCount, 7, "7 auto-quantified priced materials");
+  assert.equal(weeklySummary.needsConfirmationCount, 10, "10 priced materials needing confirmation");
+  assert.equal(weeklySummary.unpricedMaterialsCount, 5, "5 unpriced materials");
+  assert.equal(weeklySummary.remainingMaterialsCount, 22, "All 22 remain to buy");
 
   // Check key rows
   const magnolia = weeklySummary.items.find((i) => i.description.includes("Magnolia"));
@@ -222,7 +223,7 @@ test("Maureen NEXT 7 DAYS: 3 scheduled packages, £436.92 planned spend, 7 mater
   assert.equal(doorCloser.stillToBuyQty, 1);
 });
 
-test("Maureen NEXT WEEK: 2 scheduled packages, £169.06 planned spend, 3 materials to buy", () => {
+test("Maureen NEXT WEEK: 2 scheduled packages, £169.06 planned spend, 10 materials in scope", () => {
   const bed3Loc = locations.find((l) => l.name.includes("Bedroom 3"))!;
   const bed3Tasks = tasks.filter((t) => t.locationId === bed3Loc.id);
 
@@ -270,10 +271,9 @@ test("Maureen NEXT WEEK: 2 scheduled packages, £169.06 planned spend, 3 materia
   const weeklySummary = buildWeeklyBuyingList(allocations, checklist, productMatches, csvRows, []);
 
   assert.equal(weeklySummary.plannedSpend, 169.06, "Planned spend is £169.06 (Magnolia £112.33 + Compound £56.73)");
-  assert.equal(weeklySummary.totalMaterialsCount, 3, "3 total materials (2 priced + 1 unpriced door bar)");
+  assert.equal(weeklySummary.totalMaterialsCount, 10, "10 total materials (2 auto-quantified + 6 needing confirmation + 2 unpriced)");
   assert.equal(weeklySummary.pricedMaterialsCount, 2, "2 priced materials");
-  assert.equal(weeklySummary.unpricedMaterialsCount, 1, "1 unpriced material (Threshold Door Bar)");
-  assert.equal(weeklySummary.remainingMaterialsCount, 3);
+  assert.equal(weeklySummary.remainingMaterialsCount, 10);
 });
 
 // ─── 2. Remaining to Buy Formula Clarification ────────────────────────────────
@@ -482,3 +482,415 @@ test("Multi-room aggregation sums quantities, budgets, and gathers room names", 
     "Bedroom 3 — Decoration",
   ]);
 });
+
+// ─── 5. Manual Quantity Confirmation Priority Tests ───────────────────────────
+
+test("Quantity confirmation priority: Priority 1 (Word auto-quantified), Priority 2 (Confirmed missing-qty), Priority 3 (Unconfirmed priced missing-qty -> CONFIRM QTY), Priority 4 (Unpriced/Ambiguous -> PRICE NEEDED)", () => {
+  const mockAllocations = [
+    {
+      locationId: "loc-1",
+      locationName: "Living Room",
+      locationTaskId: "task-1",
+      workPackage: "Fire Door",
+      wordProductDescription: "Fire Door 30 Min",
+      wordRoomQuantity: 1,
+      wordRoomUnit: "Each",
+      csvProjectTotalQty: 5,
+      csvProjectOrderQty: 5,
+      csvProjectBudgetTotal: 500,
+      roomShare: 0.2,
+      allocatedOrderQty: 1,
+      allocatedBudget: 100,
+      unitRate: 100,
+      unit: "Each",
+      matchKind: "exact" as const,
+    },
+  ];
+
+  const mockChecklist = [
+    {
+      locationTaskId: "task-1",
+      locationName: "Living Room",
+      workPackage: "Fire Door",
+      structuredResources: [
+        {
+          id: "r1",
+          locationTaskId: "task-1",
+          usageDescription: "Fire Door 30 Min",
+          productDescription: "Fire Door 30 Min",
+          quantity: "1.00",
+          unit: "Each",
+          sourceValueRaw: "1",
+          sourceValueKind: "quantity" as const,
+          sourceOrder: 1,
+        },
+        {
+          id: "r2",
+          locationTaskId: "task-1",
+          usageDescription: "Undercoat White 5L",
+          productDescription: "Undercoat White 5L",
+          quantity: null,
+          unit: null,
+          sourceValueRaw: null,
+          sourceValueKind: "blank" as const,
+          sourceOrder: 2,
+        },
+        {
+          id: "r3",
+          locationTaskId: "task-1",
+          usageDescription: "Satinwood Paint",
+          productDescription: "Satinwood Paint",
+          quantity: null,
+          unit: null,
+          sourceValueRaw: null,
+          sourceValueKind: "blank" as const,
+          sourceOrder: 3,
+        },
+        {
+          id: "r4",
+          locationTaskId: "task-1",
+          usageDescription: "Bespoke Antique Brass Hinges",
+          productDescription: "Bespoke Antique Brass Hinges",
+          quantity: null,
+          unit: null,
+          sourceValueRaw: null,
+          sourceValueKind: "blank" as const,
+          sourceOrder: 4,
+        },
+      ],
+    },
+  ];
+
+  const mockMatches: ProductMatch[] = [
+    {
+      wordProductDescription: "Fire Door 30 Min",
+      matchedCsvDescription: "Fire Door 30 Min",
+      kind: "exact",
+      csvRow: {
+        buildPhase: "Joinery",
+        description: "Fire Door 30 Min",
+        unitRate: 100,
+        unit: "Each",
+        qtyExcludingWastage: 5,
+        wastageQty: 0,
+        orderQtyIncludingWastage: 5,
+        costExcludingWastage: 500,
+        wastageCost: 0,
+        totalCostIncludingWastage: 500,
+      },
+      similarityScore: 1.0,
+      allocatedWordOccurrences: 1,
+      totalWordOccurrences: 1,
+    },
+    {
+      wordProductDescription: "Undercoat White 5L",
+      matchedCsvDescription: "Undercoat White 5 Litre",
+      kind: "exact",
+      csvRow: {
+        buildPhase: "Decoration",
+        description: "Undercoat White 5 Litre",
+        unitRate: 38.00,
+        unit: "Each",
+        qtyExcludingWastage: 2,
+        wastageQty: 0,
+        orderQtyIncludingWastage: 2,
+        costExcludingWastage: 76,
+        wastageCost: 0,
+        totalCostIncludingWastage: 76,
+      },
+      similarityScore: 0.95,
+      allocatedWordOccurrences: 0,
+      totalWordOccurrences: 0,
+    },
+    {
+      wordProductDescription: "Satinwood Paint",
+      matchedCsvDescription: "Satinwood Pure Brilliant White 2.5L",
+      kind: "exact",
+      csvRow: {
+        buildPhase: "Decoration",
+        description: "Satinwood Pure Brilliant White 2.5L",
+        unitRate: 25.00,
+        unit: "Each",
+        qtyExcludingWastage: 3,
+        wastageQty: 0,
+        orderQtyIncludingWastage: 3,
+        costExcludingWastage: 75,
+        wastageCost: 0,
+        totalCostIncludingWastage: 75,
+      },
+      similarityScore: 0.9,
+      allocatedWordOccurrences: 0,
+      totalWordOccurrences: 0,
+    },
+    {
+      wordProductDescription: "Bespoke Antique Brass Hinges",
+      matchedCsvDescription: null,
+      kind: "no_match",
+      csvRow: null,
+      similarityScore: 0,
+      allocatedWordOccurrences: 0,
+      totalWordOccurrences: 0,
+    },
+  ];
+
+  const mockConfirmations = [
+    {
+      id: "conf-1",
+      jobId: "job-1",
+      locationTaskId: "task-1",
+      materialKey: normalizeProductDescription("Undercoat White 5 Litre"),
+      materialDescription: "Undercoat White 5 Litre",
+      confirmedQuantity: "1.0000",
+      unit: "Each",
+      confirmedBy: "admin",
+      confirmedAt: new Date().toISOString(),
+    },
+  ];
+
+  const summary = buildWeeklyBuyingList(
+    mockAllocations,
+    mockChecklist,
+    mockMatches,
+    [],
+    [],
+    mockConfirmations
+  );
+
+  // Priority 1: Fire Door (Word auto-quantified) -> £100.00
+  const fireDoor = summary.items.find((i) => i.description.includes("Fire Door"))!;
+  assert.equal(fireDoor.qtyNeeded, 1.00);
+  assert.equal(fireDoor.hbxlBudget, 100.00);
+  assert.equal(fireDoor.isPriced, true);
+  assert.equal(fireDoor.needsConfirmation, false);
+  assert.equal(fireDoor.quantityConfirmed, false);
+
+  // Priority 2: Undercoat White 5L (Missing Word qty + Confirmed 1 Each @ £38.00)
+  const undercoat = summary.items.find((i) => i.description.includes("Undercoat White"))!;
+  assert.equal(undercoat.qtyNeeded, 1.00);
+  assert.equal(undercoat.hbxlBudget, 38.00);
+  assert.equal(undercoat.isPriced, true);
+  assert.equal(undercoat.needsConfirmation, false);
+  assert.equal(undercoat.quantityConfirmed, true);
+  assert.equal(undercoat.stillToBuyQty, 1.00);
+  assert.equal(undercoat.stillToBuyBudget, 38.00);
+
+  // Priority 3: Satinwood Paint (Missing Word qty + Safe priced match + No confirmation -> CONFIRM QTY)
+  const satinwood = summary.items.find((i) => i.description.includes("Satinwood"))!;
+  assert.equal(satinwood.isPriced, true);
+  assert.equal(satinwood.needsConfirmation, true);
+  assert.equal(satinwood.quantityConfirmed, false);
+  assert.equal(satinwood.hbxlBudget, 0); // Pending budget is £0 until confirmed
+  assert.equal(satinwood.unitRate, 25.00);
+
+  // Priority 4: Bespoke Antique Brass Hinges (No match -> PRICE NEEDED)
+  const hinges = summary.items.find((i) => i.description.includes("Brass Hinges"))!;
+  assert.equal(hinges.isPriced, false);
+  assert.equal(hinges.needsConfirmation, false);
+  assert.equal(hinges.hbxlBudget, 0);
+
+  // Summary planned spend includes Priority 1 (£100) + Priority 2 (£38) = £138
+  assert.equal(summary.plannedSpend, 138.00);
+  assert.equal(summary.remainingToBuyBudget, 138.00);
+  assert.equal(summary.needsConfirmationCount, 1);
+  assert.equal(summary.unpricedMaterialsCount, 1);
+});
+
+test("Updating confirmation from 1 to 2 Each updates budget from £38.00 to £76.00 and updates planned spend", () => {
+  const mockAllocations = [
+    {
+      locationId: "loc-1",
+      locationName: "Living Room",
+      locationTaskId: "task-1",
+      workPackage: "Decoration",
+      wordProductDescription: "Magnolia Paint",
+      wordRoomQuantity: 1,
+      wordRoomUnit: "Each",
+      csvProjectTotalQty: 5,
+      csvProjectOrderQty: 5,
+      csvProjectBudgetTotal: 190,
+      roomShare: 0.2,
+      allocatedOrderQty: 1,
+      allocatedBudget: 38,
+      unitRate: 38,
+      unit: "Each",
+      matchKind: "exact" as const,
+    },
+  ];
+
+  const mockChecklist = [
+    {
+      locationTaskId: "task-1",
+      locationName: "Living Room",
+      workPackage: "Decoration",
+      structuredResources: [
+        {
+          id: "r1",
+          locationTaskId: "task-1",
+          usageDescription: "Undercoat White",
+          productDescription: "Undercoat White",
+          quantity: null,
+          unit: null,
+          sourceValueRaw: null,
+          sourceValueKind: "blank" as const,
+          sourceOrder: 1,
+        },
+      ],
+    },
+  ];
+
+  const mockMatches: ProductMatch[] = [
+    {
+      wordProductDescription: "Undercoat White",
+      matchedCsvDescription: "Undercoat White 5 Litre",
+      kind: "exact",
+      csvRow: {
+        buildPhase: "Decoration",
+        description: "Undercoat White 5 Litre",
+        unitRate: 38.00,
+        unit: "Each",
+        qtyExcludingWastage: 5,
+        wastageQty: 0,
+        orderQtyIncludingWastage: 5,
+        costExcludingWastage: 190,
+        wastageCost: 0,
+        totalCostIncludingWastage: 190,
+      },
+      similarityScore: 1.0,
+      allocatedWordOccurrences: 0,
+      totalWordOccurrences: 0,
+    },
+  ];
+
+  // State 1: 1 Each confirmed -> £38.00 budget
+  const conf1 = [
+    {
+      id: "conf-1",
+      jobId: "job-1",
+      locationTaskId: "task-1",
+      materialKey: normalizeProductDescription("Undercoat White 5 Litre"),
+      materialDescription: "Undercoat White 5 Litre",
+      confirmedQuantity: "1.0000",
+      unit: "Each",
+    },
+  ];
+
+  const summary1 = buildWeeklyBuyingList(mockAllocations, mockChecklist, mockMatches, [], [], conf1);
+  const undercoat1 = summary1.items.find((i) => i.description.includes("Undercoat"))!;
+  assert.equal(undercoat1.qtyNeeded, 1.00);
+  assert.equal(undercoat1.hbxlBudget, 38.00);
+  assert.equal(summary1.plannedSpend, 76.00); // £38 allocated + £38 confirmed
+
+  // State 2: Edit confirmation to 2 Each -> £76.00 budget
+  const conf2 = [
+    {
+      id: "conf-1",
+      jobId: "job-1",
+      locationTaskId: "task-1",
+      materialKey: normalizeProductDescription("Undercoat White 5 Litre"),
+      materialDescription: "Undercoat White 5 Litre",
+      confirmedQuantity: "2.0000",
+      unit: "Each",
+    },
+  ];
+
+  const summary2 = buildWeeklyBuyingList(mockAllocations, mockChecklist, mockMatches, [], [], conf2);
+  const undercoat2 = summary2.items.find((i) => i.description.includes("Undercoat"))!;
+  assert.equal(undercoat2.qtyNeeded, 2.00);
+  assert.equal(undercoat2.hbxlBudget, 76.00);
+  assert.equal(summary2.plannedSpend, 114.00); // £38 allocated + £76 confirmed
+  assert.equal(summary2.remainingToBuyBudget, 114.00);
+});
+
+test("Maureen NEXT 7 DAYS with Undercoat White confirmed (1 -> 2 Each) reflects in summary metrics", () => {
+  const bed3Loc = locations.find((l) => l.name.includes("Bedroom 3"))!;
+  const bed3Tasks = tasks.filter((t) => t.locationId === bed3Loc.id);
+
+  const assignments: ProcurementAssignment[] = [
+    {
+      id: "a1",
+      jobId,
+      locationId: bed3Loc.id,
+      locationTaskId: bed3Tasks.find((t) => t.workCategory === "Fire Door")!.id,
+      startDate: "2026-10-06",
+      endDate: "2026-10-08",
+    },
+    {
+      id: "a2",
+      jobId,
+      locationId: bed3Loc.id,
+      locationTaskId: bed3Tasks.find((t) => t.workCategory === "Room Decoration")!.id,
+      startDate: "2026-10-12",
+      endDate: "2026-10-13",
+    },
+    {
+      id: "a3",
+      jobId,
+      locationId: bed3Loc.id,
+      locationTaskId: bed3Tasks.find((t) => t.workCategory === "Solid Wood Flooring")!.id,
+      startDate: "2026-10-12",
+      endDate: "2026-10-16",
+    },
+  ];
+
+  const checklist = buildRoomPackageProcurementChecklist({
+    jobId,
+    assignments,
+    locations,
+    tasks,
+    structuredResources: wordResources,
+    filter: "next-7-days",
+    today: "2026-10-06",
+  });
+
+  const scheduledTaskIds = new Set(checklist.map((i) => i.locationTaskId));
+  const allocations = allocateRoomBudgets(wordResources, productMatches, scheduledTaskIds);
+
+  // Unconfirmed initial state
+  const unconfirmedSummary = buildWeeklyBuyingList(allocations, checklist, productMatches, csvRows, []);
+  assert.equal(unconfirmedSummary.plannedSpend, 436.92);
+  assert.equal(unconfirmedSummary.pricedMaterialsCount, 7);
+  assert.equal(unconfirmedSummary.needsConfirmationCount, 10);
+
+  // Confirm Undercoat White: 1 Each @ £38.00
+  const fireDoorTask = bed3Tasks.find((t) => t.workCategory === "Fire Door")!;
+  const conf1 = [
+    {
+      id: "conf-1",
+      jobId,
+      locationTaskId: fireDoorTask.id,
+      materialKey: normalizeProductDescription("Undercoat White 5 Litre"),
+      materialDescription: "Undercoat White 5 Litre",
+      confirmedQuantity: "1.0000",
+      unit: "Each",
+      confirmedBy: "admin",
+    },
+  ];
+
+  const confirmedSummary1 = buildWeeklyBuyingList(allocations, checklist, productMatches, csvRows, [], conf1);
+  assert.equal(confirmedSummary1.plannedSpend, 474.92); // 436.92 + 38.00 = 474.92
+  assert.equal(confirmedSummary1.remainingToBuyBudget, 474.92);
+  assert.equal(confirmedSummary1.pricedMaterialsCount, 8); // 7 + 1 confirmed
+  assert.equal(confirmedSummary1.needsConfirmationCount, 9); // 10 - 1 confirmed
+
+  // Update confirmation: 2 Each @ £38.00 = £76.00
+  const conf2 = [
+    {
+      id: "conf-1",
+      jobId,
+      locationTaskId: fireDoorTask.id,
+      materialKey: normalizeProductDescription("Undercoat White 5 Litre"),
+      materialDescription: "Undercoat White 5 Litre",
+      confirmedQuantity: "2.0000",
+      unit: "Each",
+      confirmedBy: "admin",
+    },
+  ];
+
+  const confirmedSummary2 = buildWeeklyBuyingList(allocations, checklist, productMatches, csvRows, [], conf2);
+  assert.equal(confirmedSummary2.plannedSpend, 512.92); // 436.92 + 76.00 = 512.92
+  assert.equal(confirmedSummary2.remainingToBuyBudget, 512.92);
+  assert.equal(confirmedSummary2.pricedMaterialsCount, 8);
+  assert.equal(confirmedSummary2.needsConfirmationCount, 9);
+});
+
+

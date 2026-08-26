@@ -362,6 +362,19 @@ export interface ActualPurchaseInput {
   notes?: string | null;
 }
 
+export interface QuantityConfirmationInput {
+  id?: string;
+  jobId?: string;
+  locationTaskId: string;
+  materialKey: string;
+  materialDescription?: string;
+  confirmedQuantity: number | string;
+  unit?: string;
+  confirmedBy?: string | null;
+  confirmedAt?: string | null;
+  notes?: string | null;
+}
+
 export interface WeeklyBuyingItem {
   materialKey: string;
   description: string;
@@ -370,6 +383,9 @@ export interface WeeklyBuyingItem {
   qtyNeeded: number;
   hbxlBudget: number;
   isPriced: boolean;
+  needsConfirmation: boolean;
+  quantityConfirmed: boolean;
+  locationTaskIds: string[];
   neededForRooms: string[];
   csvRow: MaterialsUsedRow | null;
   qtyBought: number;
@@ -377,6 +393,7 @@ export interface WeeklyBuyingItem {
   stillToBuyQty: number;
   stillToBuyBudget: number;
   isFullyBought: boolean;
+  confirmation?: QuantityConfirmationInput | null;
 }
 
 export interface WeeklyBuyingSummary {
@@ -385,6 +402,7 @@ export interface WeeklyBuyingSummary {
   remainingToBuyBudget: number;
   totalMaterialsCount: number;
   pricedMaterialsCount: number;
+  needsConfirmationCount: number;
   unpricedMaterialsCount: number;
   remainingMaterialsCount: number;
   items: WeeklyBuyingItem[];
@@ -396,6 +414,7 @@ export function buildWeeklyBuyingList(
   productMatches: ProductMatch[],
   csvRows: MaterialsUsedRow[],
   actualPurchases: ActualPurchaseInput[] = [],
+  quantityConfirmations: QuantityConfirmationInput[] = [],
 ): WeeklyBuyingSummary {
   // Map purchases by normalized material key across the job
   const purchasesByMaterial = new Map<string, ActualPurchaseInput[]>();
@@ -405,6 +424,14 @@ export function buildWeeklyBuyingList(
     const list = purchasesByMaterial.get(key) ?? [];
     list.push(act);
     purchasesByMaterial.set(key, list);
+  }
+
+  // Quick lookup for confirmations by task and materialKey
+  const confirmationsMap = new Map<string, QuantityConfirmationInput>();
+  for (const conf of quantityConfirmations) {
+    const rawKey = conf.materialKey || normalizeProductDescription(conf.materialDescription || "");
+    const key = rawKey.trim().toLowerCase();
+    confirmationsMap.set(`${conf.locationTaskId}::${key}`, conf);
   }
 
   // Quick lookup for room info by locationTaskId
@@ -419,7 +446,10 @@ export function buildWeeklyBuyingList(
     matchByWordDesc.set(m.wordProductDescription.toLowerCase().trim(), m);
   }
 
-  // Group allocations by normalized material
+  // Track allocated task-product pairs so we know which structured resources were already auto-quantified
+  const autoQuantifiedTaskProducts = new Set<string>();
+
+  // Group allocations by normalized material (Priority 1: Auto-quantified from Word quote)
   const materialMap = new Map<string, {
     materialKey: string;
     description: string;
@@ -428,14 +458,20 @@ export function buildWeeklyBuyingList(
     qtyNeeded: number;
     hbxlBudget: number;
     isPriced: boolean;
+    needsConfirmation: boolean;
+    quantityConfirmed: boolean;
+    locationTaskIds: Set<string>;
     neededForRooms: Set<string>;
     csvRow: MaterialsUsedRow | null;
+    confirmation?: QuantityConfirmationInput | null;
   }>();
 
   for (const alloc of allocations) {
     const match = matchByWordDesc.get(alloc.wordProductDescription.toLowerCase().trim());
     const desc = match?.csvRow?.description || alloc.wordProductDescription;
     const key = normalizeProductDescription(desc);
+
+    autoQuantifiedTaskProducts.add(`${alloc.locationTaskId}::${key}`);
 
     const existing = materialMap.get(key) || {
       materialKey: key,
@@ -445,12 +481,17 @@ export function buildWeeklyBuyingList(
       qtyNeeded: 0,
       hbxlBudget: 0,
       isPriced: true,
+      needsConfirmation: false,
+      quantityConfirmed: false,
+      locationTaskIds: new Set<string>(),
       neededForRooms: new Set<string>(),
       csvRow: match?.csvRow || null,
+      confirmation: null,
     };
 
     existing.qtyNeeded += alloc.allocatedOrderQty;
     existing.hbxlBudget += alloc.allocatedBudget;
+    existing.locationTaskIds.add(alloc.locationTaskId);
 
     const roomStr = taskToRoomInfo.get(alloc.locationTaskId) || alloc.locationTaskId;
     existing.neededForRooms.add(roomStr);
@@ -458,30 +499,81 @@ export function buildWeeklyBuyingList(
     materialMap.set(key, existing);
   }
 
-  // Include any unpriced structured resources in scheduled rooms
+  // Iterate over all structured resources across scheduled rooms (Priority 2, 3, 4)
   for (const chk of roomPackageChecklist) {
+    const roomStr = `${chk.locationName} — ${chk.workPackage}`;
     for (const res of chk.structuredResources ?? []) {
-      if (res.sourceValueKind !== "quantity" || !res.quantity) continue;
-      const match = matchByWordDesc.get((res.productDescription || "").toLowerCase().trim());
-      // If not matched or ambiguous, it was not allocated
-      if (!match || match.kind === "no_match" || match.kind === "ambiguous" || !match.csvRow) {
-        const desc = res.productDescription || res.usageDescription;
-        const key = normalizeProductDescription(desc);
-        if (!materialMap.has(key)) {
-          const qty = parseFloat(res.quantity) || 0;
-          const roomStr = `${chk.locationName} — ${chk.workPackage}`;
-          materialMap.set(key, {
-            materialKey: key,
-            description: desc,
-            unit: res.unit || "Each",
-            unitRate: 0,
-            qtyNeeded: qty,
-            hbxlBudget: 0,
-            isPriced: false,
-            neededForRooms: new Set<string>([roomStr]),
-            csvRow: null,
-          });
+      const prodDesc = res.productDescription || res.usageDescription;
+      if (!prodDesc) continue;
+      const match = matchByWordDesc.get(prodDesc.toLowerCase().trim());
+      const desc = match?.csvRow?.description || prodDesc;
+      const key = normalizeProductDescription(desc);
+
+      // If already handled by auto-quantified allocations for this task, skip
+      if (autoQuantifiedTaskProducts.has(`${chk.locationTaskId}::${key}`)) {
+        continue;
+      }
+
+      const isPricedMatch = match && match.kind !== "no_match" && match.kind !== "ambiguous" && match.csvRow;
+      const conf = confirmationsMap.get(`${chk.locationTaskId}::${key}`);
+
+      if (isPricedMatch && match.csvRow) {
+        // Safe priced CSV match! Check if confirmed (Priority 2) or needs confirmation (Priority 3)
+        const existing = materialMap.get(key) || {
+          materialKey: key,
+          description: desc,
+          unit: match.csvRow.unit || res.unit || "Each",
+          unitRate: match.csvRow.unitRate,
+          qtyNeeded: 0,
+          hbxlBudget: 0,
+          isPriced: true,
+          needsConfirmation: true,
+          quantityConfirmed: false,
+          locationTaskIds: new Set<string>(),
+          neededForRooms: new Set<string>(),
+          csvRow: match.csvRow,
+          confirmation: null,
+        };
+
+        existing.locationTaskIds.add(chk.locationTaskId);
+        existing.neededForRooms.add(roomStr);
+
+        if (conf) {
+          const confQty = parseFloat(String(conf.confirmedQuantity));
+          if (!isNaN(confQty) && confQty > 0) {
+            existing.qtyNeeded += confQty;
+            existing.hbxlBudget += Math.round(confQty * match.csvRow.unitRate * 100) / 100;
+            existing.quantityConfirmed = true;
+            existing.needsConfirmation = false;
+            existing.confirmation = conf;
+          }
         }
+
+        materialMap.set(key, existing);
+      } else {
+        // Genuinely unpriced or ambiguous (Priority 4)
+        const existing = materialMap.get(key) || {
+          materialKey: key,
+          description: desc,
+          unit: res.unit || "Each",
+          unitRate: 0,
+          qtyNeeded: 0,
+          hbxlBudget: 0,
+          isPriced: false,
+          needsConfirmation: false,
+          quantityConfirmed: false,
+          locationTaskIds: new Set<string>(),
+          neededForRooms: new Set<string>(),
+          csvRow: null,
+          confirmation: null,
+        };
+
+        const qty = parseFloat(res.quantity || "0") || 0;
+        existing.qtyNeeded += qty;
+        existing.locationTaskIds.add(chk.locationTaskId);
+        existing.neededForRooms.add(roomStr);
+
+        materialMap.set(key, existing);
       }
     }
   }
@@ -509,7 +601,7 @@ export function buildWeeklyBuyingList(
           : Math.round(hbxlBudget * (stillToBuyQty / qtyNeeded) * 100) / 100)
       : 0;
 
-    const isFullyBought = stillToBuyQty <= 0;
+    const isFullyBought = !mat.needsConfirmation && stillToBuyQty <= 0 && qtyNeeded > 0;
 
     items.push({
       materialKey: key,
@@ -519,6 +611,9 @@ export function buildWeeklyBuyingList(
       qtyNeeded,
       hbxlBudget,
       isPriced: mat.isPriced,
+      needsConfirmation: mat.needsConfirmation,
+      quantityConfirmed: mat.quantityConfirmed,
+      locationTaskIds: Array.from(mat.locationTaskIds),
       neededForRooms: Array.from(mat.neededForRooms),
       csvRow: mat.csvRow,
       qtyBought: roundedQtyBought,
@@ -526,13 +621,24 @@ export function buildWeeklyBuyingList(
       stillToBuyQty,
       stillToBuyBudget,
       isFullyBought,
+      confirmation: mat.confirmation ?? null,
     });
   }
 
-  // Sort items: unbought first (highest budget first), then completed items
+  // Sort items:
+  // 1. Priced items with known/confirmed quantities (highest budget first)
+  // 2. Priced items needing confirmation
+  // 3. Unpriced items
+  // 4. Fully bought items
   items.sort((a, b) => {
     if (a.isFullyBought !== b.isFullyBought) {
       return a.isFullyBought ? 1 : -1;
+    }
+    if (a.needsConfirmation !== b.needsConfirmation) {
+      return a.needsConfirmation ? 1 : -1;
+    }
+    if (a.isPriced !== b.isPriced) {
+      return a.isPriced ? -1 : 1;
     }
     return b.hbxlBudget - a.hbxlBudget;
   });
@@ -541,7 +647,8 @@ export function buildWeeklyBuyingList(
   const actualPurchased = Math.round(items.reduce((sum, i) => sum + i.actualPurchasedSpend, 0) * 100) / 100;
   const remainingToBuyBudget = Math.round(items.reduce((sum, i) => sum + i.stillToBuyBudget, 0) * 100) / 100;
   const remainingMaterialsCount = items.filter(i => !i.isFullyBought).length;
-  const pricedMaterialsCount = items.filter(i => i.isPriced).length;
+  const pricedMaterialsCount = items.filter(i => i.isPriced && !i.needsConfirmation).length;
+  const needsConfirmationCount = items.filter(i => i.needsConfirmation).length;
   const unpricedMaterialsCount = items.filter(i => !i.isPriced).length;
 
   return {
@@ -550,6 +657,7 @@ export function buildWeeklyBuyingList(
     remainingToBuyBudget,
     totalMaterialsCount: items.length,
     pricedMaterialsCount,
+    needsConfirmationCount,
     unpricedMaterialsCount,
     remainingMaterialsCount,
     items,
