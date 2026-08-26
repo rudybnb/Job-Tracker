@@ -512,34 +512,50 @@ function MaterialsCostSheet({
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* TOP SUMMARY — ONLY THREE LARGE VALUES FOR THE SELECTED PERIOD       */}
       {/* ─────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Card 1: PLANNED MATERIAL SPEND */}
-        <div className="rounded-lg border border-yellow-500/50 bg-slate-900 p-4 shadow">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-yellow-500">Planned Material Spend</div>
-          <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(weeklyBuyingSummary.plannedSpend)}</div>
-          <div className="mt-1 text-xs text-slate-400">
-            {roomPackageChecklist.length} scheduled {roomPackageChecklist.length === 1 ? "package" : "packages"} ({weeklyBuyingSummary.totalMaterialsCount} {weeklyBuyingSummary.totalMaterialsCount === 1 ? "material" : "materials"})
-          </div>
-        </div>
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* TOP SUMMARY — ONLY THREE LARGE VALUES FOR THE SELECTED PERIOD       */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {(() => {
+        const hasUnpriced = weeklyBuyingSummary.unpricedMaterialsCount > 0;
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Card 1: PLANNED MATERIAL SPEND / PLANNED SPEND — PRICED ITEMS */}
+            <div className="rounded-lg border border-yellow-500/50 bg-slate-900 p-4 shadow">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-yellow-500">
+                {hasUnpriced ? "Planned Spend — Priced Items" : "Planned Material Spend"}
+              </div>
+              <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(weeklyBuyingSummary.plannedSpend)}</div>
+              <div className="mt-1 text-xs text-slate-400">
+                {hasUnpriced
+                  ? `${weeklyBuyingSummary.unpricedMaterialsCount} ${weeklyBuyingSummary.unpricedMaterialsCount === 1 ? "item still needs" : "items still need"} pricing`
+                  : `${roomPackageChecklist.length} scheduled ${roomPackageChecklist.length === 1 ? "package" : "packages"} (${weeklyBuyingSummary.totalMaterialsCount} ${weeklyBuyingSummary.totalMaterialsCount === 1 ? "material" : "materials"})`}
+              </div>
+            </div>
 
-        {/* Card 2: ACTUAL PURCHASED */}
-        <div className="rounded-lg border border-blue-500/50 bg-slate-900 p-4 shadow">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-blue-400">Actual Purchased</div>
-          <div className="mt-1 text-2xl font-black text-blue-300 font-mono">{formatMoney(weeklyBuyingSummary.actualPurchased)}</div>
-          <div className="mt-1 text-xs text-slate-400">
-            Attributable purchases for period materials
-          </div>
-        </div>
+            {/* Card 2: ACTUAL PURCHASED */}
+            <div className="rounded-lg border border-blue-500/50 bg-slate-900 p-4 shadow">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-blue-400">Actual Purchased</div>
+              <div className="mt-1 text-2xl font-black text-blue-300 font-mono">{formatMoney(weeklyBuyingSummary.actualPurchased)}</div>
+              <div className="mt-1 text-xs text-slate-400">
+                Attributable purchases for period materials
+              </div>
+            </div>
 
-        {/* Card 3: REMAINING TO BUY */}
-        <div className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Remaining to Buy</div>
-          <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(weeklyBuyingSummary.remainingToBuyBudget)}</div>
-          <div className="mt-1 text-xs text-slate-400">
-            {weeklyBuyingSummary.remainingMaterialsCount} of {weeklyBuyingSummary.totalMaterialsCount} {weeklyBuyingSummary.totalMaterialsCount === 1 ? "material" : "materials"} left to buy
+            {/* Card 3: REMAINING TO BUY / REMAINING TO BUY — PRICED ITEMS */}
+            <div className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                {hasUnpriced ? "Remaining to Buy — Priced Items" : "Remaining to Buy"}
+              </div>
+              <div className="mt-1 text-2xl font-black text-white font-mono">{formatMoney(weeklyBuyingSummary.remainingToBuyBudget)}</div>
+              <div className="mt-1 text-xs text-slate-400">
+                {hasUnpriced
+                  ? `+ ${weeklyBuyingSummary.unpricedMaterialsCount} unpriced ${weeklyBuyingSummary.unpricedMaterialsCount === 1 ? "item" : "items"}`
+                  : `${weeklyBuyingSummary.remainingMaterialsCount} of ${weeklyBuyingSummary.totalMaterialsCount} ${weeklyBuyingSummary.totalMaterialsCount === 1 ? "material" : "materials"} left to buy`}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* PRIMARY BUYING LIST: WHAT I NEED TO BUY                             */}
@@ -596,7 +612,13 @@ function MaterialsCostSheet({
 
                     {/* HBXL Budget */}
                     <td className="py-2.5 px-2 text-right font-mono font-bold text-yellow-400">
-                      {item.isPriced ? formatMoney(item.hbxlBudget) : <span className="text-slate-500 font-normal">To confirm</span>}
+                      {item.isPriced ? (
+                        formatMoney(item.hbxlBudget)
+                      ) : (
+                        <span className="text-amber-400 font-bold text-[10px] uppercase tracking-wider">
+                          PRICE NEEDED
+                        </span>
+                      )}
                     </td>
 
                     {/* Bought */}

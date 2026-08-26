@@ -137,8 +137,9 @@ test("Maureen NEXT 7 DAYS: 3 scheduled packages, £436.92 planned spend, 7 mater
   assert.equal(weeklySummary.plannedSpend, 436.92, "Planned spend is £436.92");
   assert.equal(weeklySummary.actualPurchased, 0, "No purchases made yet");
   assert.equal(weeklySummary.remainingToBuyBudget, 436.92, "Remaining to buy is £436.92");
-  assert.equal(weeklySummary.totalMaterialsCount, 10, "10 total materials (7 priced + 3 unpriced items)");
-  assert.equal(weeklySummary.items.filter((i) => i.isPriced).length, 7, "7 priced materials");
+  assert.equal(weeklySummary.totalMaterialsCount, 10, "10 total materials");
+  assert.equal(weeklySummary.pricedMaterialsCount, 7, "7 priced materials");
+  assert.equal(weeklySummary.unpricedMaterialsCount, 3, "3 unpriced materials");
   assert.equal(weeklySummary.remainingMaterialsCount, 10, "All 10 remain to buy");
 
   // Check key rows
@@ -146,6 +147,7 @@ test("Maureen NEXT 7 DAYS: 3 scheduled packages, £436.92 planned spend, 7 mater
   assert.ok(magnolia, "Magnolia paint present");
   assert.equal(magnolia.qtyNeeded, 2.96);
   assert.equal(magnolia.hbxlBudget, 112.33);
+  assert.equal(magnolia.isPriced, true);
   assert.equal(magnolia.stillToBuyQty, 2.96);
   assert.equal(magnolia.stillToBuyBudget, 112.33);
   assert.ok(magnolia.neededForRooms.some((r) => r.includes("Room Decoration")));
@@ -154,9 +156,16 @@ test("Maureen NEXT 7 DAYS: 3 scheduled packages, £436.92 planned spend, 7 mater
   assert.ok(levelling, "Self levelling compound present");
   assert.equal(levelling.qtyNeeded, 3.76);
   assert.equal(levelling.hbxlBudget, 56.73);
+  assert.equal(levelling.isPriced, true);
   assert.equal(levelling.stillToBuyQty, 3.76);
   assert.equal(levelling.stillToBuyBudget, 56.73);
   assert.ok(levelling.neededForRooms.some((r) => r.includes("Solid Wood Flooring")));
+
+  const doorCloser = weeklySummary.items.find((i) => i.description.includes("Door Closer"));
+  assert.ok(doorCloser, "Door Closer present");
+  assert.equal(doorCloser.isPriced, false);
+  assert.equal(doorCloser.hbxlBudget, 0);
+  assert.equal(doorCloser.qtyNeeded, 1);
 });
 
 test("Maureen NEXT WEEK: 2 scheduled packages, £169.06 planned spend, 3 materials to buy", () => {
@@ -208,7 +217,8 @@ test("Maureen NEXT WEEK: 2 scheduled packages, £169.06 planned spend, 3 materia
 
   assert.equal(weeklySummary.plannedSpend, 169.06, "Planned spend is £169.06 (Magnolia £112.33 + Compound £56.73)");
   assert.equal(weeklySummary.totalMaterialsCount, 3, "3 total materials (2 priced + 1 unpriced door bar)");
-  assert.equal(weeklySummary.items.filter((i) => i.isPriced).length, 2, "2 priced materials");
+  assert.equal(weeklySummary.pricedMaterialsCount, 2, "2 priced materials");
+  assert.equal(weeklySummary.unpricedMaterialsCount, 1, "1 unpriced material (Threshold Door Bar)");
   assert.equal(weeklySummary.remainingMaterialsCount, 3);
 });
 
@@ -271,10 +281,13 @@ test("Remaining to Buy Formula: STILL_TO_BUY_QTY * HBXL_UNIT_RATE preserves base
   assert.equal(summary.plannedSpend, 100.00, "Planned spend is £100");
   assert.equal(summary.actualPurchased, 40.00, "Actual purchased is £40");
   assert.equal(summary.remainingToBuyBudget, 50.00, "Remaining to buy is £50 (5 * £10), NOT £60!");
+  assert.equal(summary.unpricedMaterialsCount, 0, "Zero unpriced materials");
+  assert.equal(summary.pricedMaterialsCount, 1, "1 priced material");
 
   const item = summary.items[0];
   assert.equal(item.qtyNeeded, 10);
   assert.equal(item.hbxlBudget, 100);
+  assert.equal(item.isPriced, true);
   assert.equal(item.qtyBought, 5);
   assert.equal(item.stillToBuyQty, 5);
   assert.equal(item.stillToBuyBudget, 50);

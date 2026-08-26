@@ -384,6 +384,8 @@ export interface WeeklyBuyingSummary {
   actualPurchased: number;
   remainingToBuyBudget: number;
   totalMaterialsCount: number;
+  pricedMaterialsCount: number;
+  unpricedMaterialsCount: number;
   remainingMaterialsCount: number;
   items: WeeklyBuyingItem[];
 }
@@ -539,12 +541,16 @@ export function buildWeeklyBuyingList(
   const actualPurchased = Math.round(items.reduce((sum, i) => sum + i.actualPurchasedSpend, 0) * 100) / 100;
   const remainingToBuyBudget = Math.round(items.reduce((sum, i) => sum + i.stillToBuyBudget, 0) * 100) / 100;
   const remainingMaterialsCount = items.filter(i => !i.isFullyBought).length;
+  const pricedMaterialsCount = items.filter(i => i.isPriced).length;
+  const unpricedMaterialsCount = items.filter(i => !i.isPriced).length;
 
   return {
     plannedSpend,
     actualPurchased,
     remainingToBuyBudget,
     totalMaterialsCount: items.length,
+    pricedMaterialsCount,
+    unpricedMaterialsCount,
     remainingMaterialsCount,
     items,
   };
