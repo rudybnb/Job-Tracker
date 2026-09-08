@@ -162,7 +162,9 @@ class InMemoryReadExecutor implements IntegrationSqlExecutor {
       normalized.includes("left join clients") &&
       normalized.includes("order by j.title") &&
       normalized.includes("j.id") &&
-      !normalized.includes("where j.id = $1")
+      normalized.includes("j.status") &&
+      !normalized.includes("where j.id = $1") &&
+      !normalized.includes("any($1::text[])")
     ) {
       const keyword = normalized.includes("ilike") ? String(parameters[0]).replace(/%/g, "") : null;
       let rows = this.jobs;
@@ -192,8 +194,8 @@ class InMemoryReadExecutor implements IntegrationSqlExecutor {
       return { rows: job ? [{ id: job.id }] : [] };
     }
 
-    // Active jobs (dashboard)
-    if (normalized.includes("where j.status = any($1::text[])")) {
+    // Active jobs (dashboard) — note the enum column is cast to text
+    if (normalized.includes("where j.status::text = any($1::text[])")) {
       const statuses = parameters[0] as string[];
       return {
         rows: this.jobs

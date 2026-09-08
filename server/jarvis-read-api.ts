@@ -323,7 +323,7 @@ export class SqlJarvisReadRepository implements JarvisReadRepository {
       `SELECT j.id, j.title, c.name AS client_name, j.status
        FROM jobs j
        LEFT JOIN clients c ON j.client_id = c.id
-       WHERE j.status = ANY($1::text[])
+       WHERE j.status::text = ANY($1::text[])
        ORDER BY j.title, j.id`,
       [ACTIVE_JOB_STATUSES],
     );
