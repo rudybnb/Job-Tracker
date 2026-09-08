@@ -33,6 +33,13 @@ export interface VerifyMachineAuthenticationOptions {
   keyLookup: IntegrationKeyLookup;
   nonceLookup: IntegrationNonceLookup;
   now?: () => number;
+  /**
+   * Canonical query string (e.g. `a=1&b=2`, keys sorted) to bind into the
+   * HMAC signature. Only provided by GET endpoints that carry query-string
+   * parameters. When omitted the signature covers body content only, which
+   * keeps every existing POST integration byte-for-byte compatible.
+   */
+  query?: string;
 }
 
 function readSingleHeader(headers: MachineAuthHeaders, expectedName: string): string | undefined {
@@ -62,8 +69,11 @@ export function buildMachineAuthSigningInput(
   timestamp: string,
   nonce: string,
   contentSha256: string,
+  query?: string,
 ): string {
-  return ["v1", keyId, timestamp, nonce, contentSha256.toLowerCase()].join("\n");
+  const parts = ["v1", keyId, timestamp, nonce, contentSha256.toLowerCase()];
+  if (query !== undefined) parts.push(query);
+  return parts.join("\n");
 }
 
 export async function verifyMachineAuthentication(
@@ -115,6 +125,7 @@ export async function verifyMachineAuthentication(
     timestampHeader,
     nonce,
     contentSha256,
+    options.query,
   );
   const expectedSignature = createHmac("sha256", secret).update(signingInput).digest();
   if (!constantTimeDigestMatch(expectedSignature, signature)) {

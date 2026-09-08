@@ -31,6 +31,7 @@ import { createCommercialFinanceRouter } from "./commercial-finance-routes.ts";
 import { BankReconciliationRepository } from "./monzo-bank.ts";
 import { createBankRouter } from "./bank-routes.ts";
 import { createJarvisIdentityResolverRouter, SqlJarvisIdentityResolver } from "./jarvis-identity-resolver.ts";
+import { createJarvisReadApiRouter, SqlJarvisReadRepository } from "./jarvis-read-api.ts";
 import { createWorkerRouter } from "./worker-routes.ts";
 
 const app = express();
@@ -52,6 +53,20 @@ const jarvisIdentityNonces = new Set<string>();
 app.use(createJarvisIdentityResolverRouter({
   enabled: !!jarvisMachineKeyId && !!jarvisMachineSecret,
   resolver: new SqlJarvisIdentityResolver(new PostgresIntegrationSqlExecutor(client)),
+  keyLookup: (candidate) => candidate === jarvisMachineKeyId ? jarvisMachineSecret : undefined,
+  nonceLookup: (candidateKeyId, nonce) => jarvisIdentityNonces.has(`${candidateKeyId}:${nonce}`),
+  nonceStore: (candidateKeyId, nonce) => {
+    jarvisIdentityNonces.add(`${candidateKeyId}:${nonce}`);
+  },
+}));
+
+// Read-only Jarvis business API (Phase 1). Reuses the same machine-auth HMAC
+// headers. Mounted before express.json() so the raw body (empty for GET) is
+// available for content-hash verification. Strictly read-only: it never writes,
+// updates, deletes, or mutates any operational Job Tracker data.
+app.use(createJarvisReadApiRouter({
+  enabled: !!jarvisMachineKeyId && !!jarvisMachineSecret,
+  repository: new SqlJarvisReadRepository(new PostgresIntegrationSqlExecutor(client)),
   keyLookup: (candidate) => candidate === jarvisMachineKeyId ? jarvisMachineSecret : undefined,
   nonceLookup: (candidateKeyId, nonce) => jarvisIdentityNonces.has(`${candidateKeyId}:${nonce}`),
   nonceStore: (candidateKeyId, nonce) => {
