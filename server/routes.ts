@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { DatabaseStorage } from "./database-storage";
 import { authenticateStaffUser } from "./password-security.ts";
 import { requireAdmin } from "./integration-review-route.ts";
+import { createJobStatusRouter, rejectJobStatusEdit } from "./job-status-route.ts";
 
 // Session interface for type safety
 interface SessionRequest extends Request {
@@ -196,6 +197,7 @@ export function evaluateClientMatch(
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.use(createJobStatusRouter(storage));
   // Stats endpoint
   app.get("/api/stats", async (req, res) => {
     try {
@@ -261,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/jobs/:id", async (req, res) => {
+  app.put("/api/jobs/:id", rejectJobStatusEdit, async (req, res) => {
     try {
       const job = await storage.updateJob(req.params.id, req.body);
       if (!job) {

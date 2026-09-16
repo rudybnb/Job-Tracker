@@ -199,6 +199,17 @@ export class DatabaseStorage implements IStorage {
     return job;
   }
 
+  async transitionJobStatus(id: string, from: Job["status"], to: Job["status"]): Promise<Job | undefined> {
+    if (!((from === "pending" && to === "assigned") || (from === "assigned" && to === "completed"))) {
+      return undefined;
+    }
+    const [job] = await db.update(jobs)
+      .set({ status: to })
+      .where(and(eq(jobs.id, id), eq(jobs.status, from)))
+      .returning();
+    return job;
+  }
+
   async deleteJob(id: string): Promise<boolean> {
     const result = await db.delete(jobs).where(eq(jobs.id, id));
     console.log("🗑️ Deleted job:", id, "Affected rows:", result.rowCount);
@@ -249,7 +260,6 @@ export class DatabaseStorage implements IStorage {
     
     const updatedJob = await this.updateJob(assignment.jobId, {
       contractorId: assignment.contractorId,
-      status: "assigned",
       dueDate: assignment.dueDate,
       notes: assignment.notes
     });

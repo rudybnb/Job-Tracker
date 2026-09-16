@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMutation } from "@tanstack/react-query";
 import { AssignmentStatusBadge } from "@/components/assignment-status-badge";
 import { queryClient } from "@/lib/queryClient";
+import JobStatusOverview from "@/components/job-status-overview";
 import "./job-assignments.css";
 
 interface StructuredProgressGroup {
@@ -270,6 +271,8 @@ export default function JobAssignments() {
             Create Assignment
           </Button>
         </section>
+
+        <JobStatusOverview />
 
         <section className="ja-panel" aria-labelledby="structured-progress-title">
           <div className="ja-panel__head">

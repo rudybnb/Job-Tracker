@@ -32,6 +32,7 @@ export interface IStorage {
   getJob(id: string): Promise<JobWithContractor | undefined>;
   createJob(job: InsertJob): Promise<Job>;
   updateJob(id: string, job: Partial<Job>): Promise<Job | undefined>;
+  transitionJobStatus(id: string, from: Job["status"], to: Job["status"]): Promise<Job | undefined>;
   createJobsFromCsv(jobs: InsertJob[], uploadId: string): Promise<Job[]>;
   
   // CSV Uploads
