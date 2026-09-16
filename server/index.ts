@@ -32,6 +32,7 @@ import { BankReconciliationRepository } from "./monzo-bank.ts";
 import { createBankRouter } from "./bank-routes.ts";
 import { createJarvisIdentityResolverRouter, SqlJarvisIdentityResolver } from "./jarvis-identity-resolver.ts";
 import { createJarvisReadApiRouter, SqlJarvisReadRepository } from "./jarvis-read-api.ts";
+import { createJarvisReadApiDispatcher } from "./jarvis-read-api-scope.ts";
 import { createWorkerRouter } from "./worker-routes.ts";
 
 const app = express();
@@ -64,7 +65,11 @@ app.use(createJarvisIdentityResolverRouter({
 // headers. Mounted before express.json() so the raw body (empty for GET) is
 // available for content-hash verification. Strictly read-only: it never writes,
 // updates, deletes, or mutates any operational Job Tracker data.
-app.use(createJarvisReadApiRouter({
+//
+// The router applies express.raw() to every request it receives. It is
+// dispatched path-scoped so unrelated JSON requests skip the raw parser and
+// reach express.json() with their ordinary parsed object body.
+const jarvisReadApiRouter = createJarvisReadApiRouter({
   enabled: !!jarvisMachineKeyId && !!jarvisMachineSecret,
   repository: new SqlJarvisReadRepository(new PostgresIntegrationSqlExecutor(client)),
   keyLookup: (candidate) => candidate === jarvisMachineKeyId ? jarvisMachineSecret : undefined,
@@ -72,7 +77,8 @@ app.use(createJarvisReadApiRouter({
   nonceStore: (candidateKeyId, nonce) => {
     jarvisIdentityNonces.add(`${candidateKeyId}:${nonce}`);
   },
-}));
+});
+app.use(createJarvisReadApiDispatcher(jarvisReadApiRouter));
 
 const contractorMessageService = new SqlContractorMessageService({
   repository: new SqlIntegrationContractorMessageRepository({
